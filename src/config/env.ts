@@ -27,9 +27,9 @@ const envSchema = z.object({
 const _env = envSchema.safeParse(process.env);
 
 if (!_env.success) {
-  console.error("❌ Error de validación en las variables de entorno:");
+  console.error("Environment variables validation error:");
   console.error(JSON.stringify(_env.error.format(), null, 2));
-  throw new Error("Configuración de entorno no válida");
+  throw new Error("Invalid environment configuration");
 }
 
 export const env = _env.data;

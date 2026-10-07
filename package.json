@@ -10,7 +10,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed/index.ts",
     "db:studio": "drizzle-kit studio",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "run-case": "tsx scripts/run-case.ts"
   },
   "repository": {
     "type": "git",

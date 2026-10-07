@@ -15,7 +15,7 @@ import {
 } from "../schema";
 
 export async function runSeed() {
-  console.log("🌱 Insertando datos de prueba del agente y del negocio...");
+  console.log("Seeding test data for business and agent...");
 
   // --- DATOS DEL NEGOCIO ---
 
@@ -225,15 +225,13 @@ export async function runSeed() {
     })
     .onConflictDoNothing();
 
-  console.log(
-    "✅ Datos de prueba insertados con éxito en las tablas de negocio y del agente.",
-  );
+  console.log("Test data inserted successfully into business and agent tables.");
 }
 
 if (require.main === module) {
   runSeed()
     .catch((err) => {
-      console.error("❌ Error ejecutando seed:", err);
+      console.error("Error executing seed:", err);
       process.exit(1);
     })
     .finally(async () => {

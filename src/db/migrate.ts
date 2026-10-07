@@ -2,15 +2,15 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { db, pool } from "./client";
 
 export async function runMigrations() {
-  console.log("⏳ Aplicando migraciones...");
+  console.log("Applying database migrations...");
   await migrate(db, { migrationsFolder: "./src/db/migrations" });
-  console.log("✅ Migraciones aplicadas con éxito.");
+  console.log("Database migrations applied successfully.");
 }
 
 if (require.main === module) {
   runMigrations()
     .catch((err) => {
-      console.error("❌ Error ejecutando migraciones:", err);
+      console.error("Error executing migrations:", err);
       process.exit(1);
     })
     .finally(async () => {
