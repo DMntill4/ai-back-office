@@ -34,12 +34,14 @@ Actualmente el proyecto cuenta con su esqueleto base (Paso 1). Las tecnologías 
 - `npm run db:migrate`: Aplica las migraciones en la base de datos PostgreSQL.
 - `npm run db:seed`: Inserta datos iniciales de prueba en las tablas del agente.
 - `npm run db:studio`: Abre la interfaz visual de Drizzle Studio en el navegador.
+- `npm run smoke`: Ejecuta la prueba de humo contra el gateway de Grok.
 
 ### Ejecución dentro de Docker (dependencias aisladas)
 - `docker compose up --build -d`: Construye e inicia los contenedores.
 - `docker compose exec app npm test`: Corre los tests dentro del contenedor aislado.
 - `docker compose exec app npm run db:migrate`: Aplica migraciones desde el contenedor.
 - `docker compose exec app npm run db:seed`: Carga datos de prueba desde el contenedor.
+- `docker compose exec app npm run smoke`: Ejecuta la prueba de humo de Grok desde Docker.
 - `docker compose exec app npm install <paquete>`: Instala nuevos paquetes directamente en el entorno aislado del contenedor.
 
 ## Configuración inicial
