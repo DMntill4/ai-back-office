@@ -4,10 +4,20 @@ import { createPurchaseOrder } from "../services/inventoryService";
 // Esquema Zod para crear orden de compra
 export const crearOrdenCompraSchema = z.object({
   case_id: z.string().describe("ID del caso atendido por el agente"),
-  producto_id: z.string().describe("ID del producto a comprar (ej. 'prod_st200')"),
-  proveedor_id: z.string().describe("ID del proveedor elegido (ej. 'prov_acme')"),
-  cantidad: z.number().int().positive().describe("Cantidad de unidades a pedir"),
-  idempotency_key: z.string().describe("Clave única para evitar duplicados en la creación de la orden"),
+  producto_id: z
+    .string()
+    .describe("ID del producto a comprar (ej. 'prod_st200')"),
+  proveedor_id: z
+    .string()
+    .describe("ID del proveedor elegido (ej. 'prov_acme')"),
+  cantidad: z
+    .number()
+    .int()
+    .positive()
+    .describe("Cantidad de unidades a pedir"),
+  idempotency_key: z
+    .string()
+    .describe("Clave única para evitar duplicados en la creación de la orden"),
 });
 
 export type CrearOrdenCompraInput = z.infer<typeof crearOrdenCompraSchema>;

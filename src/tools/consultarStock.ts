@@ -3,7 +3,9 @@ import { getStockByProduct } from "../services/inventoryService";
 
 // Esquema Zod para los argumentos de la herramienta
 export const consultarStockSchema = z.object({
-  producto_id: z.string().describe("ID del producto a consultar stock (ej. 'prod_st200')"),
+  producto_id: z
+    .string()
+    .describe("ID del producto a consultar stock (ej. 'prod_st200')"),
 });
 
 export type ConsultarStockInput = z.infer<typeof consultarStockSchema>;

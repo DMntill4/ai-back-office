@@ -3,7 +3,10 @@ import { getOpenPurchaseOrders } from "../services/inventoryService";
 
 // Esquema Zod para ver ordenes abiertas
 export const verOrdenesAbiertasSchema = z.object({
-  producto_id: z.string().optional().describe("ID opcional del producto para filtrar las órdenes abiertas"),
+  producto_id: z
+    .string()
+    .optional()
+    .describe("ID opcional del producto para filtrar las órdenes abiertas"),
 });
 
 export type VerOrdenesAbiertasInput = z.infer<typeof verOrdenesAbiertasSchema>;

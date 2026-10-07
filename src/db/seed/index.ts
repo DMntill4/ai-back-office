@@ -124,7 +124,8 @@ export async function runSeed() {
       {
         key: "approval_limit_amount",
         value: "10000.00",
-        description: "Monto máximo en MXN permitido para crear órdenes de compra sin pedir aprobación humana",
+        description:
+          "Monto máximo en MXN permitido para crear órdenes de compra sin pedir aprobación humana",
       },
     ])
     .onConflictDoNothing();
@@ -225,7 +226,7 @@ export async function runSeed() {
     .onConflictDoNothing();
 
   console.log(
-    "✅ Datos de prueba insertados con éxito en las tablas de negocio y del agente."
+    "✅ Datos de prueba insertados con éxito en las tablas de negocio y del agente.",
   );
 }
 

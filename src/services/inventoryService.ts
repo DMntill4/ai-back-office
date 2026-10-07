@@ -97,17 +97,32 @@ export async function getStockByProduct(productId: string) {
     const { db } = await import("../db/client");
     const { eq, and } = await import("drizzle-orm");
 
-    const product = await db.select().from(products).where(eq(products.id, productId)).limit(1);
+    const product = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
     if (product.length === 0) return null;
 
-    const items = await db.select().from(inventory).where(eq(inventory.productId, productId));
+    const items = await db
+      .select()
+      .from(inventory)
+      .where(eq(inventory.productId, productId));
     const totalStock = items.reduce((acc, item) => acc + item.stock, 0);
 
     const openOrders = await db
       .select()
       .from(purchaseOrders)
-      .where(and(eq(purchaseOrders.productId, productId), eq(purchaseOrders.status, "abierta")));
-    const stockInTransit = openOrders.reduce((acc, order) => acc + order.quantity, 0);
+      .where(
+        and(
+          eq(purchaseOrders.productId, productId),
+          eq(purchaseOrders.status, "abierta"),
+        ),
+      );
+    const stockInTransit = openOrders.reduce(
+      (acc, order) => acc + order.quantity,
+      0,
+    );
 
     return {
       productId: product[0].id,
@@ -146,7 +161,10 @@ export async function getOpenPurchaseOrders(productId?: string) {
     const { db } = await import("../db/client");
     const { eq } = await import("drizzle-orm");
 
-    const orders = await db.select().from(purchaseOrders).where(eq(purchaseOrders.status, "abierta"));
+    const orders = await db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.status, "abierta"));
     if (productId) {
       return orders.filter((o) => o.productId === productId);
     }
@@ -195,7 +213,12 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     const supplierProduct = await db
       .select()
       .from(supplierProducts)
-      .where(and(eq(supplierProducts.productId, input.productId), eq(supplierProducts.supplierId, input.supplierId)))
+      .where(
+        and(
+          eq(supplierProducts.productId, input.productId),
+          eq(supplierProducts.supplierId, input.supplierId),
+        ),
+      )
       .limit(1);
 
     if (supplierProduct.length === 0) {
@@ -244,7 +267,11 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
       caseId: input.caseId,
     });
 
-    const verifiedOrder = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, orderId)).limit(1);
+    const verifiedOrder = await db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.id, orderId))
+      .limit(1);
 
     return {
       success: true,
@@ -255,7 +282,9 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     };
   } catch {
     // Fallback en memoria cuando no hay DB conectada
-    const existing = mockPurchaseOrders.find((o) => o.idempotencyKey === input.idempotencyKey);
+    const existing = mockPurchaseOrders.find(
+      (o) => o.idempotencyKey === input.idempotencyKey,
+    );
     if (existing) {
       return {
         success: true,
@@ -265,7 +294,10 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
       };
     }
 
-    const sp = mockSupplierProducts.find((s) => s.productId === input.productId && s.supplierId === input.supplierId);
+    const sp = mockSupplierProducts.find(
+      (s) =>
+        s.productId === input.productId && s.supplierId === input.supplierId,
+    );
     const unitPrice = sp ? parseFloat(sp.unitPrice) : 450.0;
     const totalAmount = unitPrice * input.quantity;
 

@@ -5,7 +5,9 @@ import { executeCrearOrdenCompra } from "../src/tools/crearOrdenCompra";
 
 describe("Herramientas del Agente (Tools)", () => {
   it("consultar_stock debe manejar productos inexistentes de forma segura", async () => {
-    const result = await executeConsultarStock({ producto_id: "prod_inexistente" });
+    const result = await executeConsultarStock({
+      producto_id: "prod_inexistente",
+    });
     expect(result.isSuccess).toBe(false);
     expect(result.message).toContain("No se encontró el producto");
   });
