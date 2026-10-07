@@ -18,6 +18,24 @@ services:
       timeout: 5s
       retries: 5
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai_back_office_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_back_office}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: sh -c "tail -f /dev/null"
+
 volumes:
   pg_data:
     driver: local
