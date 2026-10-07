@@ -15,7 +15,10 @@ const envSchema = z.object({
     .string()
     .url({ message: 'DATABASE_URL debe ser una URL válida (ej. postgresql://user:pass@localhost:5432/dbname)' })
     .default('postgresql://postgres:postgres@localhost:5432/ai_back_office'),
+  RETO_KEY: z.string().optional(),
   XAI_API_KEY: z.string().optional(),
+  GROK_BASE_URL: z.string().url().default('https://api.reto.pltk.mx/v1'),
+  GROK_MODEL: z.string().default('grok-4.6'),
 });
 
 const _env = envSchema.safeParse(process.env);
