@@ -6,12 +6,131 @@ import {
   toolCalls,
   idempotencyKeys,
   approvals,
+  products,
+  warehouses,
+  inventory,
+  suppliers,
+  supplierProducts,
+  businessConfig,
 } from "../schema";
 
 export async function runSeed() {
-  console.log("🌱 Insertando datos de prueba del agente...");
+  console.log("🌱 Insertando datos de prueba del agente y del negocio...");
 
-  // 1. Caso de prueba
+  // --- DATOS DEL NEGOCIO ---
+
+  // 1. Productos
+  await db
+    .insert(products)
+    .values([
+      {
+        id: "prod_st200",
+        name: "Sensor Térmico ST-200",
+        description: "Sensor de temperatura industrial de alta precisión",
+        sku: "SKU-ST200",
+        minStock: 10,
+        origin: "simulado",
+      },
+      {
+        id: "prod_v500",
+        name: "Válvula Reguladora V-500",
+        description: "Válvula de presión hidráulica",
+        sku: "SKU-V500",
+        minStock: 5,
+        origin: "simulado",
+      },
+    ])
+    .onConflictDoNothing();
+
+  // 2. Almacenes
+  await db
+    .insert(warehouses)
+    .values([
+      {
+        id: "alm_central",
+        name: "Almacén Central",
+        location: "Bodega Principal - Sector A",
+      },
+    ])
+    .onConflictDoNothing();
+
+  // 3. Inventario
+  await db
+    .insert(inventory)
+    .values([
+      {
+        id: "inv_001",
+        productId: "prod_st200",
+        warehouseId: "alm_central",
+        stock: 2, // Faltante: mínimo es 10
+      },
+      {
+        id: "inv_002",
+        productId: "prod_v500",
+        warehouseId: "alm_central",
+        stock: 15, // Suficiente stock
+      },
+    ])
+    .onConflictDoNothing();
+
+  // 4. Proveedores
+  await db
+    .insert(suppliers)
+    .values([
+      {
+        id: "prov_acme",
+        name: "ACME Industrial Corp",
+        email: "ventas@acme.com",
+        phone: "+52 55 1234 5678",
+        origin: "simulado",
+      },
+      {
+        id: "prov_tech",
+        name: "TechParts SA de CV",
+        email: "contacto@techparts.com",
+        phone: "+52 81 8765 4321",
+        origin: "simulado",
+      },
+    ])
+    .onConflictDoNothing();
+
+  // 5. Oferta de Proveedor
+  await db
+    .insert(supplierProducts)
+    .values([
+      {
+        id: "sp_001",
+        supplierId: "prov_acme",
+        productId: "prod_st200",
+        unitPrice: "450.00",
+        minOrderQuantity: 5,
+        leadTimeDays: 2,
+      },
+      {
+        id: "sp_002",
+        supplierId: "prov_tech",
+        productId: "prod_st200",
+        unitPrice: "420.00",
+        minOrderQuantity: 10,
+        leadTimeDays: 4,
+      },
+    ])
+    .onConflictDoNothing();
+
+  // 6. Configuración de Negocio (Límite de Aprobación de Compras)
+  await db
+    .insert(businessConfig)
+    .values([
+      {
+        key: "approval_limit_amount",
+        value: "10000.00",
+        description: "Monto máximo en MXN permitido para crear órdenes de compra sin pedir aprobación humana",
+      },
+    ])
+    .onConflictDoNothing();
+
+  // --- DATOS DEL AGENTE ---
+
   const testCaseId = "case_test_001";
   await db
     .insert(cases)
@@ -35,7 +154,6 @@ export async function runSeed() {
     })
     .onConflictDoNothing();
 
-  // 2. Evento inicial del caso
   await db
     .insert(caseEvents)
     .values({
@@ -49,7 +167,6 @@ export async function runSeed() {
     })
     .onConflictDoNothing();
 
-  // 3. Registro de llamada simulada a Grok
   await db
     .insert(llmCalls)
     .values({
@@ -66,7 +183,6 @@ export async function runSeed() {
     })
     .onConflictDoNothing();
 
-  // 4. Registro de llamada a herramienta
   await db
     .insert(toolCalls)
     .values({
@@ -83,7 +199,6 @@ export async function runSeed() {
     })
     .onConflictDoNothing();
 
-  // 5. Clave de idempotencia
   await db
     .insert(idempotencyKeys)
     .values({
@@ -95,7 +210,6 @@ export async function runSeed() {
     })
     .onConflictDoNothing();
 
-  // 6. Solicitud de aprobación de ejemplo
   await db
     .insert(approvals)
     .values({
@@ -111,11 +225,10 @@ export async function runSeed() {
     .onConflictDoNothing();
 
   console.log(
-    "✅ Datos de prueba insertados con éxito en todas las tablas del agente.",
+    "✅ Datos de prueba insertados con éxito en las tablas de negocio y del agente."
   );
 }
 
-// Ejecutar directamente si se llama desde CLI
 if (require.main === module) {
   runSeed()
     .catch((err) => {
