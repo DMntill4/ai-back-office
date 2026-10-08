@@ -14,13 +14,13 @@
 
 ---
 
-# 🍌 AI Back Office Agent — Nano Banana
+# AI Back Office Agent — Nano Banana
 
 > **Agente autónomo de operaciones de back office (inventario, compras, auditoría y abastecimiento)** impulsado por **Grok (xAI)** con toma de decisiones ReAct, ejecución estricta de herramientas y verificación directa en base de datos.
 
 ---
 
-## 👥 Contribuidores
+## Contribuidores
 
 <table align="center">
   <tr>
@@ -43,7 +43,7 @@
 
 ---
 
-## ⚡ Estado del Proyecto (Semana 1: Agente End-to-End)
+## Estado del Proyecto (Semana 1: Agente End-to-End)
 
 El agente cuenta con su ciclo cognitivo y de ejecución completo:
 - [x] **Infraestructura aislada en Docker:** PostgreSQL 16 con esquemas Drizzle ORM y triggers inmutables.
@@ -55,7 +55,7 @@ El agente cuenta con su ciclo cognitivo y de ejecución completo:
 
 ---
 
-## 🛠️ Stack Tecnológico
+## Stack Tecnológico
 
 <div align="center">
 
@@ -72,7 +72,7 @@ El agente cuenta con su ciclo cognitivo y de ejecución completo:
 
 ---
 
-## 📋 Arquitectura y Flujo del Agente
+## Arquitectura y Flujo del Agente
 
 ```text
 Caso Entrante ──► PostgreSQL (Estado: "recibido")
@@ -94,33 +94,85 @@ Caso Entrante ──► PostgreSQL (Estado: "recibido")
 
 ---
 
-## 🗺️ Historias de Usuario y Épicas
+## Épicas e Historias de Usuario
 
-<p align="center">
-  <img src="./resources/img/userHistoriesAI-BACKOFFICE.png" alt="User Stories and Epics Roadmap" width="90%" />
-</p>
+> Puedes consultar el diagrama visual de arquitectura y épicas en el siguiente enlace: **[Ver Diagrama de Historias de Usuario](./resources/img/userHistoriesAI-BACKOFFICE.png)**.
 
-<details>
-<summary><b>📖 Ver desglose de Épicas de Desarrollo</b></summary>
+### Épica 1: Infraestructura Aislada, Base de Datos y Trazabilidad Inmutable
+* **HU-1.1: Entorno de Desarrollo Contenedorizado**
+  * **Como** desarrollador,
+  * **Quiero** levantar la base de datos PostgreSQL 16 y la aplicación Node.js mediante Docker Compose,
+  * **Para** garantizar que todos los desarrolladores trabajen en el mismo entorno aislado sin discrepancias de configuración local.
+* **HU-1.2: Esquema de Tablas del Agente y Migraciones**
+  * **Como** arquitecto de software,
+  * **Quiero** modelar mediante Drizzle ORM las tablas operativas del agente (`cases`, `llm_calls`, `tool_calls`, `idempotency_keys`, `approvals`),
+  * **Para** estructurar el almacenamiento de casos, llamadas al LLM y decisiones con tipos de datos financieros exactos (`decimal`).
+* **HU-1.3: Bitácora Inmutable de Eventos (Append-Only)**
+  * **Como** auditor de operaciones,
+  * **Quiero** que la tabla `case_events` impida modificaciones (`UPDATE`) y eliminaciones (`DELETE`) mediante triggers de base de datos,
+  * **Para** contar con un registro fidedigno e inalterable de cada pensamiento, herramienta y cambio de estado del agente.
+* **HU-1.4: Validación Segura de Entorno y Logs Estructurados**
+  * **Como** ingeniero DevOps,
+  * **Quiero** validar las variables de entorno al iniciar la app usando Zod y centralizar los logs con Pino,
+  * **Para** fallar de inmediato si falta configuración crítica y tener trazabilidad sin exponer credenciales en texto plano.
 
-- **Épica 1: Infraestructura Aislada & Base de Datos Inmutable**
-  - Contenedores Docker para Postgres 16 y Node.js.
-  - Tablas operativas del agente (`cases`, `case_events`, `llm_calls`, `tool_calls`, `idempotency_keys`, `approvals`).
-  - Triggers inmutables que impiden `UPDATE` y `DELETE` en la bitácora de eventos.
-- **Épica 2: Conexión Segura con Grok & Control de Costos**
-  - Cliente único `client.ts` con manejo de timeouts, retries y cálculo de costos en USD.
-  - Smoke test (`npm run smoke`) para inspección de gateway y modelos disponibles.
-- **Épica 3: Datos de Negocio & Herramientas Estrictas**
-  - Catálogo de productos, bodegas, inventario y cotizaciones de proveedores.
-  - Herramientas `consultar_stock`, `ver_ordenes_abiertas` y `crear_orden_compra`.
-- **Épica 4: Cerebro ReAct & Pruebas Automáticas a Costo $0**
-  - Bucle iterativo de agente con prompts operacionales y reglas de cierre.
-  - Suite de 20 tests automáticos ejecutados sin consumir saldo de la API.
-</details>
+### Épica 2: Integración Segura con Grok (xAI) y Gobernanza de Costos
+* **HU-2.1: Cliente Único de Gateway con Detección de Capacidades**
+  * **Como** desarrollador del agente,
+  * **Quiero** que todas las llamadas a Grok pasen exclusivamente por `src/llm/client.ts` usando el SDK compatible con OpenAI,
+  * **Para** tener un punto único de control para timeouts, reintentos exponenciales y auditoría de uso.
+* **HU-2.2: Prueba de Humo y Descubrimiento del Gateway**
+  * **Como** líder técnico,
+  * **Quiero** un comando automatizado (`npm run smoke`) que valide la llave de API, liste los modelos disponibles y pruebe el soporte de function calling y JSON estructurado,
+  * **Para** documentar las capacidades reales del modelo sin asumir comportamientos no verificados.
+* **HU-2.3: Medición de Tokens y Costos por Tarea**
+  * **Como** administrador financiero del proyecto,
+  * **Quiero** registrar en cada llamada al LLM los tokens de entrada, salida, tiempo de respuesta y costo monetario estimado en USD,
+  * **Para** evaluar el costo unitario por caso y garantizar la viabilidad para la semana de carga masiva.
+
+### Épica 3: Datos de Negocio y Herramientas con Reglas Estrictas
+* **HU-3.1: Catálogo e Inventario Simulado del Negocio**
+  * **Como** analista de compras,
+  * **Quiero** disponer de tablas relacionales de productos, almacenes, inventarios, proveedores y cotizaciones con datos semilla (`seed`),
+  * **Para** alimentar al agente con información contextual realista de stock crítico y reabastecimiento.
+* **HU-3.2: Herramienta de Consulta de Stock**
+  * **Como** agente autónomo,
+  * **Quiero** invocar `consultar_stock` enviando el ID del producto,
+  * **Para** conocer el inventario disponible, el stock en tránsito y determinar si está por debajo del umbral mínimo de seguridad.
+* **HU-3.3: Herramienta de Inspección de Órdenes en Tránsito**
+  * **Como** agente autónomo,
+  * **Quiero** invocar `ver_ordenes_abiertas`,
+  * **Para** comprobar si ya existe una orden en camino y evitar ordenar producto que ya viene en despacho.
+* **HU-3.4: Creación de Órdenes con Idempotencia y Tope Presupuestario**
+  * **Como** responsable de compras,
+  * **Quiero** que `crear_orden_compra` rechace duplicados mediante una clave de idempotencia y suspenda compras superiores a $10,000 MXN requiriendo aprobación humana,
+  * **Para** proteger a la empresa contra compras duplicadas o gastos no autorizados.
+* **HU-3.5: Verificación Post-Escritura Obligatoria**
+  * **Como** sistema de control de calidad,
+  * **Quiero** que el servicio verifique la persistencia efectiva de la orden en la base de datos inmediatamente después de escribirla,
+  * **Para** nunca dar por asumida una acción sin evidencia real en disco.
+
+### Épica 4: Cerebro Autónomo (Bucle ReAct), Dictamen y Pruebas a Costo Cero
+* **HU-4.1: Bucle Principal del Agente (ReAct Loop)**
+  * **Como** agente autónomo,
+  * **Quiero** recibir el caso, planificar con el prompt del sistema y ejecutar iterativamente herramientas hasta concluir,
+  * **Para** investigar, decidir y actuar con autonomía respetando límites de pasos y tokens.
+* **HU-4.2: Cierre Estricto: Resuelto vs Escalado**
+  * **Como** supervisor de operaciones,
+  * **Quiero** que un caso solo se marque como `resuelto` si todas las escrituras fueron verificadas con éxito, y se marque como `escalado` si hubo falta de datos, aprobaciones pendientes o errores,
+  * **Para** garantizar que ninguna operación quede en un estado dudoso o a medias.
+* **HU-4.3: Entorno de Pruebas con Modelo Falso (Costo $0)**
+  * **Como** desarrollador,
+  * **Quiero** ejecutar suites automáticas usando `FakeGrokClient`,
+  * **Para** probar los escenarios de negocio (compra normal, intento duplicado, producto inexistente) en CI/CD sin consumir tokens reales ni gastar saldo de la API.
+* **HU-4.4: Ejecución Demostrativa End-to-End en Vivo**
+  * **Como** juez del reto / usuario final,
+  * **Quiero** correr un script demostrativo (`npm run run-case`) que resuelva un faltante de inventario real usando el modelo Grok en vivo,
+  * **Para** constatar en tiempo real la autonomía del agente, el gasto de tokens y la persistencia del resultado en la base de datos.
 
 ---
 
-## 🚀 Comandos Rápidos
+## Comandos Rápidos
 
 ### 1. Demostración en Vivo End-to-End (API Real de Grok)
 ```bash
@@ -158,5 +210,5 @@ npm run db:studio
 ---
 
 <p align="center">
-  <sub>Desarrollado con dedicación para el Reto de Agentes Autónomos • 2026</sub>
+  <sub>Desarrollado para el Reto de Agentes Autónomos • 2026</sub>
 </p>
