@@ -20,25 +20,18 @@ body {
   margin: 0;
   padding: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  /* Fondo base casi negro con un levísimo tinte verde */
   background-color: #020604;
   color: var(--text-primary);
-  
-  /* Gradientes superpuestos para contrastes de verde oscuro y negro profundo */
   background-image: 
     radial-gradient(ellipse at 0% 0%, rgba(0, 255, 102, 0.12) 0%, transparent 45%),
     radial-gradient(ellipse at 100% 100%, rgba(0, 180, 80, 0.15) 0%, transparent 55%),
     radial-gradient(circle at 50% 50%, rgba(0, 20, 10, 0.8) 0%, #020604 100%);
-  
   background-attachment: fixed;
   min-height: 100vh;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-/* Base UI Components */
 .glass-panel {
   background: var(--bg-glass);
   border: 1px solid var(--border-glass);
@@ -49,7 +42,7 @@ body {
 }
 
 .hover-lift:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   border-color: var(--border-glass-hover);
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
@@ -70,67 +63,59 @@ body {
   background: rgba(255,255,255,0.05);
 }
 
-.mint-button.primary {
-  background: var(--mint-primary);
-  color: #000;
-  border: none;
-}
+.mint-button.primary { background: var(--mint-primary); color: #000; border: none; }
+.mint-button.primary:hover { background: var(--mint-primary-hover); box-shadow: 0 0 20px var(--mint-glow); }
+.mint-button.danger { color: var(--danger-color); border-color: rgba(239, 68, 68, 0.3); }
+.mint-button.danger:hover { background: rgba(239, 68, 68, 0.1); border-color: var(--danger-color); }
 
-.mint-button.primary:hover {
-  background: var(--mint-primary-hover);
-  box-shadow: 0 0 20px var(--mint-glow);
-}
-
-.mint-button.danger {
-  color: var(--danger-color);
-  border-color: rgba(239, 68, 68, 0.3);
-}
-.mint-button.danger:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: var(--danger-color);
-}
-
-/* Sidebar Icons */
 .sidebar-icon {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 12px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  margin-bottom: 1rem;
+  width: 48px; height: 48px; display: flex; justify-content: center; align-items: center;
+  border-radius: 12px; color: var(--text-secondary); cursor: pointer; margin-bottom: 1rem;
   transition: all 0.2s ease;
 }
+.sidebar-icon:hover { color: var(--text-primary); background: var(--bg-glass); }
+.sidebar-icon.active { color: var(--mint-primary); background: rgba(0, 255, 102, 0.1); }
 
-.sidebar-icon:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass);
-}
-
-.sidebar-icon.active {
-  color: var(--mint-primary);
-  background: rgba(0, 255, 102, 0.1);
-}
-
-/* Scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--border-glass);
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--border-glass-hover);
-}
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-glass); border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--border-glass-hover); }
 
 @keyframes pulse {
   0% { box-shadow: 0 0 0 0 rgba(0, 255, 102, 0.4); }
   70% { box-shadow: 0 0 0 6px rgba(0, 255, 102, 0); }
   100% { box-shadow: 0 0 0 0 rgba(0, 255, 102, 0); }
 }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spin-animation { animation: spin 1.5s linear infinite; }
+
+/* Tooltip Styles */
+.TooltipContent {
+  border-radius: 6px; padding: 6px 12px; font-size: 13px; font-weight: 500;
+  background-color: #111; color: #fff; border: 1px solid var(--border-glass);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5); animation-duration: 200ms;
+}
+.TooltipArrow { fill: #111; }
+
+/* Cmdk Styles */
+.cmdk-root {
+  background: #0a0a0a; border: 1px solid var(--border-glass);
+  border-radius: 12px; overflow: hidden; color: #fff;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8); width: 100%;
+}
+.cmdk-input {
+  width: 100%; padding: 16px; font-size: 15px; border: none;
+  background: transparent; color: #fff; border-bottom: 1px solid var(--border-glass);
+  outline: none;
+}
+.cmdk-list { padding: 8px; max-height: 300px; overflow-y: auto; }
+.cmdk-group {
+  padding: 8px; font-size: 12px; color: var(--text-secondary);
+  font-weight: 500; text-transform: uppercase; letter-spacing: 1px;
+}
+.cmdk-item {
+  padding: 10px 12px; border-radius: 6px; display: flex; align-items: center;
+  gap: 10px; cursor: pointer; color: var(--text-primary); font-size: 14px;
+}
+.cmdk-item[data-selected="true"] { background: var(--bg-glass); color: var(--mint-primary); }
+.cmdk-empty { padding: 20px; text-align: center; color: var(--text-secondary); font-size: 14px; }
