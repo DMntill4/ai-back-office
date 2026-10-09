@@ -123,7 +123,7 @@ const AgentConsole = () => {
   return (
     <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', flex: 1, minHeight: '500px' }}>
       <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.2rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-        <BrainCircuit size={20} color="var(--mint-primary)" /> Asistente MINT
+        <img src="/src/assets/icon.png" alt="MINT Logo" style={{ width: '22px', height: '22px', objectFit: 'contain', filter: 'drop-shadow(0 0 4px rgba(0,255,102,0.6))' }} /> Asistente MINT
       </h3>
       
       <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem', paddingRight: '1rem' }}>
@@ -131,7 +131,7 @@ const AgentConsole = () => {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', maxWidth: '85%', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row' }}>
               <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: msg.role === 'user' ? 'rgba(255,255,255,0.1)' : 'rgba(0,255,102,0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
-                {msg.role === 'user' ? <User size={16} color="#fff" /> : <BrainCircuit size={16} color="var(--mint-primary)" />}
+                {msg.role === 'user' ? <User size={16} color="#fff" /> : <img src="/src/assets/icon.png" alt="MINT" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />}
               </div>
               <div style={{ padding: '1rem 1.2rem', borderRadius: '16px', background: msg.role === 'user' ? 'rgba(255,255,255,0.05)' : 'rgba(0,255,102,0.05)', border: msg.role === 'user' ? '1px solid var(--border-glass)' : '1px solid rgba(0,255,102,0.2)', color: 'var(--text-primary)', fontSize: '0.95rem', lineHeight: '1.5', borderTopRightRadius: msg.role === 'user' ? '4px' : '16px', borderTopLeftRadius: msg.role === 'agent' ? '4px' : '16px' }}>
                 {msg.text}
@@ -142,7 +142,7 @@ const AgentConsole = () => {
         {isLoading && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', gap: '10px', alignItems: 'center', color: 'var(--text-secondary)' }}>
             <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,255,102,0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <BrainCircuit size={16} color="var(--mint-primary)" />
+              <img src="/src/assets/icon.png" alt="MINT" style={{ width: '18px', height: '18px', objectFit: 'contain', filter: 'drop-shadow(0 0 4px rgba(0,255,102,0.4))' }} />
             </div>
             <div style={{ padding: '1rem', borderRadius: '16px', background: 'rgba(0,255,102,0.05)', border: '1px solid rgba(0,255,102,0.1)', display: 'flex', gap: '8px', alignItems: 'center' }}>
                <Loader2 size={16} className="spin-animation" style={{ color: 'var(--mint-primary)' }} />
