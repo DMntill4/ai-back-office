@@ -75,34 +75,78 @@ const Header = ({ onOpenCmd }: { onOpenCmd: () => void }) => (
 );
 
 const AgentConsole = () => {
-  const [logs] = useState([
-    { id: 1, time: '09:51:22', text: 'Analizando BD Postgres (ORM)...', type: 'info' },
-    { id: 2, time: '09:51:24', text: 'Stock crítico detectado en MCU-X1 (180/31450)', type: 'warning' },
-    { id: 3, time: '09:51:25', text: 'Ejecutando tool: crear_orden_compra()', type: 'action' },
-    { id: 4, time: '09:51:26', text: 'Límite de presupuesto excedido. Requiere confirmación.', type: 'error' },
-    { id: 5, time: '09:51:27', text: 'Escalando decisión al humano (Human-in-the-loop)...', type: 'info' },
+  const [logs, setLogs] = useState<{id: number, time: string, text: string, type: string}[]>([
+    { id: 1, time: new Date().toLocaleTimeString(), text: 'Sistema listo. MINT a la espera. ¿En qué te ayudo?', type: 'info' }
   ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [caseId, setCaseId] = useState('');
+
+  const handleSend = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userText = input;
+    setInput('');
+    const newId = Date.now();
+    const time = new Date().toLocaleTimeString();
+    
+    setLogs(prev => [...prev, { id: newId, time, text: `> ${userText}`, type: 'user' }]);
+    setIsLoading(true);
+
+    try {
+      const res = await fetch('http://localhost:3001/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, caseId: caseId || undefined })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCaseId(data.caseId);
+        setLogs(prev => [...prev, { id: Date.now(), time: new Date().toLocaleTimeString(), text: data.response, type: 'action' }]);
+      } else {
+        setLogs(prev => [...prev, { id: Date.now(), time: new Date().toLocaleTimeString(), text: 'Error procesando solicitud.', type: 'error' }]);
+      }
+    } catch (err) {
+      setLogs(prev => [...prev, { id: Date.now(), time: new Date().toLocaleTimeString(), text: 'Error de red con el backend.', type: 'error' }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="glass-panel" style={{ padding: '1.5rem', marginTop: '2rem', display: 'flex', flexDirection: 'column', flex: 1, minHeight: '250px' }}>
+    <div className="glass-panel" style={{ padding: '1.5rem', marginTop: '2rem', display: 'flex', flexDirection: 'column', flex: 1, minHeight: '350px' }}>
       <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
-        <Terminal size={16} /> Interacción del Agente (ReAct Loop)
+        <Terminal size={16} /> Terminal Autónoma (MINT)
       </h3>
       
-      <div className="custom-scrollbar" style={{ flex: 1, background: '#020403', borderRadius: '8px', padding: '1rem', overflowY: 'auto', border: '1px solid rgba(0,255,102,0.1)', fontFamily: 'monospace', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {logs.map((log, i) => (
-          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.15 }} key={log.id} style={{ display: 'flex', gap: '10px' }}>
-            <span style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>[{log.time}]</span>
-            <span style={{ color: log.type === 'error' ? 'var(--danger-color)' : log.type === 'warning' ? 'var(--warning-color)' : log.type === 'action' ? 'var(--mint-primary)' : 'var(--text-primary)' }}>
+      <div className="custom-scrollbar" style={{ flex: 1, background: '#020403', borderRadius: '8px', padding: '1rem', overflowY: 'auto', border: '1px solid rgba(0,255,102,0.1)', fontFamily: 'monospace', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1rem' }}>
+        {logs.map((log) => (
+          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} key={log.id} style={{ display: 'flex', gap: '10px' }}>
+            <span style={{ color: 'var(--text-secondary)', opacity: 0.7, whiteSpace: 'nowrap' }}>[{log.time}]</span>
+            <span style={{ color: log.type === 'error' ? 'var(--danger-color)' : log.type === 'user' ? '#fff' : log.type === 'warning' ? 'var(--warning-color)' : log.type === 'action' ? 'var(--mint-primary)' : 'var(--text-primary)' }}>
               {log.text}
             </span>
           </motion.div>
         ))}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px', color: 'var(--text-secondary)' }}>
-          <Loader2 size={14} className="spin-animation" style={{ color: 'var(--mint-primary)' }} />
-          <span style={{ fontStyle: 'italic' }}>Esperando respuesta del humano...</span>
-        </motion.div>
+        {isLoading && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px', color: 'var(--text-secondary)' }}>
+            <Loader2 size={14} className="spin-animation" style={{ color: 'var(--mint-primary)' }} />
+            <span style={{ fontStyle: 'italic' }}>MINT está procesando...</span>
+          </motion.div>
+        )}
       </div>
+
+      <form onSubmit={handleSend} style={{ display: 'flex', gap: '10px' }}>
+        <input 
+          type="text" 
+          value={input} 
+          onChange={e => setInput(e.target.value)} 
+          placeholder="Escribe una instrucción al agente..." 
+          style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', borderRadius: '6px', padding: '10px', color: '#fff', outline: 'none' }} 
+        />
+        <button type="submit" className="mint-button primary" disabled={isLoading} style={{ padding: '0 20px', borderRadius: '6px', opacity: isLoading ? 0.5 : 1 }}>Enviar</button>
+      </form>
     </div>
   );
 };
