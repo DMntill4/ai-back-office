@@ -328,7 +328,8 @@ function App() {
                   </ResponsiveContainer>
                 </div>
               </div>
-              </>
+            </motion.div>
+            </>
             )}
 
             {currentView === 'chat' && (
