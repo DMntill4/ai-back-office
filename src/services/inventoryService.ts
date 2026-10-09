@@ -13,56 +13,70 @@ import {
   approvals,
 } from "../db/schema";
 
-// 1. Productos
+// 1. Productos (Inventario Industrial Real)
 const mockProducts = [
   {
     id: "prod_st200",
     name: "Sensor Térmico ST-200",
-    description: "Sensor de temperatura industrial de alta precisión",
+    description: "Sensor de temperatura industrial de alta precisión (-40C a 200C)",
     sku: "SKU-ST200",
-    minStock: 10,
+    minStock: 15,
     origin: "simulado" as const,
     createdAt: new Date(),
   },
   {
     id: "prod_v500",
     name: "Válvula Reguladora V-500",
-    description: "Válvula de presión hidráulica",
+    description: "Válvula de presión hidráulica de acero inoxidable",
     sku: "SKU-V500",
     minStock: 5,
     origin: "simulado" as const,
     createdAt: new Date(),
   },
+  {
+    id: "prod_mc32",
+    name: "Microcontrolador MCU-32",
+    description: "Placa base de automatización PLC",
+    sku: "SKU-MC32",
+    minStock: 20,
+    origin: "simulado" as const,
+    createdAt: new Date(),
+  }
 ];
 
-// 2. Inventario
+// 2. Inventario Actual
 const mockInventory = [
-  {
-    id: "inv_001",
-    productId: "prod_st200",
-    warehouseId: "alm_central",
-    stock: 2,
-    updatedAt: new Date(),
-  },
-  {
-    id: "inv_002",
-    productId: "prod_v500",
-    warehouseId: "alm_central",
-    stock: 15,
-    updatedAt: new Date(),
-  },
+  { id: "inv_001", productId: "prod_st200", warehouseId: "alm_central", stock: 2, updatedAt: new Date() },
+  { id: "inv_002", productId: "prod_v500", warehouseId: "alm_central", stock: 15, updatedAt: new Date() },
+  { id: "inv_003", productId: "prod_mc32", warehouseId: "alm_central", stock: 8, updatedAt: new Date() } // Bajo stock!
 ];
 
-// 3. Proveedores y sus precios
+// 3. Proveedores Reales y sus precios
 const mockSupplierProducts = [
   {
     id: "sp_001",
-    supplierId: "prov_acme",
+    supplierId: "prov_grainger",
     productId: "prod_st200",
     unitPrice: "450.00",
     minOrderQuantity: 5,
     leadTimeDays: 2,
   },
+  {
+    id: "sp_002",
+    supplierId: "prov_uline",
+    productId: "prod_v500",
+    unitPrice: "1250.00",
+    minOrderQuantity: 2,
+    leadTimeDays: 4,
+  },
+  {
+    id: "sp_003",
+    supplierId: "prov_mouser",
+    productId: "prod_mc32",
+    unitPrice: "85.50",
+    minOrderQuantity: 10,
+    leadTimeDays: 1,
+  }
 ];
 
 // 4. Órdenes de Compra en memoria
@@ -91,6 +105,51 @@ const mockApprovals: Array<{
   requestedAt: Date;
 }> = [];
 
+// Algoritmo de distancia de Levenshtein simple para Fuzzy Search
+function getLevenshteinDistance(a: string, b: string): number {
+  const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
+  for (let i = 0; i <= a.length; i += 1) matrix[0][i] = i;
+  for (let j = 0; j <= b.length; j += 1) matrix[j][0] = j;
+  for (let j = 1; j <= b.length; j += 1) {
+    for (let i = 1; i <= a.length; i += 1) {
+      const indicator = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i] + 1,
+        matrix[j - 1][i - 1] + indicator
+      );
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+export async function findSimilarProducts(query: string) {
+  try {
+    const { db } = await import("../db/client");
+    const allProducts = await db.select().from(products);
+    return filterSimilar(allProducts, query);
+  } catch {
+    // Fallback en memoria
+    return filterSimilar(mockProducts, query);
+  }
+}
+
+function filterSimilar(productList: any[], query: string) {
+  const q = query.toLowerCase();
+  return productList
+    .map((p) => {
+      const distId = getLevenshteinDistance(p.id.toLowerCase(), q);
+      const distName = getLevenshteinDistance(p.name.toLowerCase(), q);
+      const distSku = getLevenshteinDistance(p.sku.toLowerCase(), q);
+      const minDist = Math.min(distId, distName, distSku);
+      return { product: p, dist: minDist };
+    })
+    .filter((p) => p.dist < 5) // Umbral de tolerancia
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, 3)
+    .map(p => ({ id: p.product.id, name: p.product.name, sku: p.product.sku }));
+}
+
 // Métodos del servicio usando la base de datos real con fallback en memoria para tests sin Postgres
 export async function getStockByProduct(productId: string) {
   try {
@@ -102,7 +161,11 @@ export async function getStockByProduct(productId: string) {
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
-    if (product.length === 0) return null;
+
+    if (product.length === 0) {
+      const suggestions = await findSimilarProducts(productId);
+      return { isFuzzyMatch: true, suggestions };
+    }
 
     const items = await db
       .select()
@@ -135,7 +198,10 @@ export async function getStockByProduct(productId: string) {
   } catch {
     // Fallback en memoria si Postgres no está conectado
     const product = mockProducts.find((p) => p.id === productId);
-    if (!product) return null;
+    if (!product) {
+      const suggestions = await findSimilarProducts(productId);
+      return { isFuzzyMatch: true, suggestions };
+    }
 
     const totalStock = mockInventory
       .filter((i) => i.productId === productId)
@@ -232,53 +298,25 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     const unitPrice = parseFloat(supplierProduct[0].unitPrice);
     const totalAmount = unitPrice * input.quantity;
 
-    if (totalAmount > maxAllowedAmount) {
-      const approvalId = `appr_${Date.now()}`;
-      await db.insert(approvals).values({
-        id: approvalId,
-        caseId: input.caseId,
-        actionType: "crear_orden_compra",
-        amount: totalAmount.toFixed(2),
-        currency: "MXN",
-        reason: `El importe de $${totalAmount.toFixed(2)} MXN supera el límite permitido de $${maxAllowedAmount.toFixed(2)} MXN.`,
-        status: "pendiente",
-      });
-
-      return {
-        success: false,
-        requiresApproval: true,
-        approvalId,
-        totalAmount,
-        maxAllowedAmount,
-        message: `El monto total de $${totalAmount.toFixed(2)} MXN supera el límite de aprobación de $${maxAllowedAmount.toFixed(2)} MXN.`,
-      };
-    }
-
-    const orderId = `po_${Date.now()}`;
-    await db.insert(purchaseOrders).values({
-      id: orderId,
-      supplierId: input.supplierId,
-      productId: input.productId,
-      quantity: input.quantity,
-      unitPrice: unitPrice.toFixed(2),
-      totalAmount: totalAmount.toFixed(2),
-      status: "abierta",
-      idempotencyKey: input.idempotencyKey,
+    // ESTRICTO HUMAN-IN-THE-LOOP: El agente NUNCA compra directamente.
+    // Siempre genera un reporte/factura pendiente de aprobación.
+    const approvalId = `appr_${Date.now()}`;
+    await db.insert(approvals).values({
+      id: approvalId,
       caseId: input.caseId,
+      actionType: "crear_orden_compra",
+      amount: totalAmount.toFixed(2),
+      currency: "MXN",
+      reason: `Solicitud de compra generada por el agente para ${input.quantity} unidades de ${input.productId} al proveedor ${input.supplierId}. Total: $${totalAmount.toFixed(2)} MXN.`,
+      status: "pendiente",
     });
-
-    const verifiedOrder = await db
-      .select()
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.id, orderId))
-      .limit(1);
 
     return {
       success: true,
-      duplicate: false,
-      verified: verifiedOrder.length > 0,
-      message: "Orden de compra creada y verificada exitosamente.",
-      order: verifiedOrder[0],
+      requiresApproval: true,
+      approvalId,
+      totalAmount,
+      message: `El agente ha generado el reporte de compra por $${totalAmount.toFixed(2)} MXN. Pendiente de aprobación humana.`,
     };
   } catch {
     // Fallback en memoria cuando no hay DB conectada
@@ -301,49 +339,25 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     const unitPrice = sp ? parseFloat(sp.unitPrice) : 450.0;
     const totalAmount = unitPrice * input.quantity;
 
-    if (totalAmount > maxAllowedAmount) {
-      const approvalId = `appr_${Date.now()}`;
-      mockApprovals.push({
-        id: approvalId,
-        caseId: input.caseId,
-        actionType: "crear_orden_compra",
-        amount: totalAmount.toFixed(2),
-        currency: "MXN",
-        reason: `El importe de $${totalAmount.toFixed(2)} MXN supera el límite permitido de $${maxAllowedAmount.toFixed(2)} MXN.`,
-        status: "pendiente",
-        requestedAt: new Date(),
-      });
-
-      return {
-        success: false,
-        requiresApproval: true,
-        approvalId,
-        totalAmount,
-        maxAllowedAmount,
-        message: `El monto total de $${totalAmount.toFixed(2)} MXN supera el límite de aprobación de $${maxAllowedAmount.toFixed(2)} MXN.`,
-      };
-    }
-
-    const newOrder = {
-      id: `po_${Date.now()}`,
-      supplierId: input.supplierId,
-      productId: input.productId,
-      quantity: input.quantity,
-      unitPrice: unitPrice.toFixed(2),
-      totalAmount: totalAmount.toFixed(2),
-      status: "abierta" as const,
-      idempotencyKey: input.idempotencyKey,
+    // ESTRICTO HUMAN-IN-THE-LOOP (Mock)
+    const approvalId = `appr_${Date.now()}`;
+    mockApprovals.push({
+      id: approvalId,
       caseId: input.caseId,
-      createdAt: new Date(),
-    };
-    mockPurchaseOrders.push(newOrder);
+      actionType: "crear_orden_compra",
+      amount: totalAmount.toFixed(2),
+      currency: "MXN",
+      reason: `Solicitud de compra generada por el agente para ${input.quantity} unidades de ${input.productId} al proveedor ${input.supplierId}. Total: $${totalAmount.toFixed(2)} MXN.`,
+      status: "pendiente",
+      requestedAt: new Date(),
+    });
 
     return {
       success: true,
-      duplicate: false,
-      verified: true,
-      message: "Orden de compra creada y verificada exitosamente.",
-      order: newOrder,
+      requiresApproval: true,
+      approvalId,
+      totalAmount,
+      message: `El agente ha generado el reporte de compra por $${totalAmount.toFixed(2)} MXN. Pendiente de aprobación humana.`,
     };
   }
 }

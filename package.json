@@ -11,7 +11,9 @@
     "db:seed": "tsx src/db/seed/index.ts",
     "db:studio": "drizzle-kit studio",
     "smoke": "tsx scripts/smoke.ts",
-    "run-case": "tsx scripts/run-case.ts"
+    "run-case": "tsx scripts/run-case.ts",
+    "chat": "tsx scripts/chat.ts",
+    "server": "tsx src/server.ts"
   },
   "repository": {
     "type": "git",
@@ -41,8 +43,10 @@
     "vitest": "^5.0.3"
   },
   "dependencies": {
+    "@fastify/cors": "^11.3.1",
     "dotenv": "^18.0.6",
     "drizzle-orm": "^0.45.3",
+    "fastify": "^5.12.5",
     "openai": "^7.30.0",
     "pg": "^8.23.1",
     "pino": "^10.4.0",

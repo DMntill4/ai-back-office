@@ -12,6 +12,7 @@ export const products = pgTable("products", {
   id: text("id").primaryKey(), // ej: 'prod_st200'
   name: text("name").notNull(),
   description: text("description"),
+  category: text("category").default("general"),
   sku: varchar("sku", { length: 50 }).notNull().unique(),
   minStock: integer("min_stock").notNull().default(10),
   origin: text("origin", { enum: ["simulado", "real"] })
@@ -42,6 +43,8 @@ export const inventory = pgTable("inventory", {
     .references(() => warehouses.id, { onDelete: "cascade" })
     .notNull(),
   stock: integer("stock").notNull().default(0),
+  expirationDate: timestamp("expiration_date", { withTimezone: true }),
+  salesCount: integer("sales_count").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

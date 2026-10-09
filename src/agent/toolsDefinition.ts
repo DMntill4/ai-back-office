@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { executeConsultarStock } from "../tools/consultarStock";
 import { executeVerOrdenesAbiertas } from "../tools/verOrdenesAbiertas";
 import { executeCrearOrdenCompra } from "../tools/crearOrdenCompra";
+import { executeReporteGeneral } from "../tools/reportesGenerales";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -20,6 +21,24 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
         },
         required: ["producto_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generar_reporte_general",
+      description: "Genera reportes generales sobre el inventario, caducidades, renovaciones y ventas.",
+      parameters: {
+        type: "object",
+        properties: {
+          tipo_reporte: {
+            type: "string",
+            enum: ["mas_vendido", "sin_stock", "renovar", "caducidad"],
+            description: "El tipo de reporte solicitado. mas_vendido: el producto estrella; sin_stock: agotados; renovar: stock debajo del umbral; caducidad: próximos a expirar (food).",
+          },
+        },
+        required: ["tipo_reporte"],
       },
     },
   },
@@ -163,6 +182,12 @@ export async function dispatchToolCall(
     case "crear_orden_compra":
       return {
         result: await executeCrearOrdenCompra(parsedArgs),
+        isClosingAction: false,
+      };
+
+    case "generar_reporte_general":
+      return {
+        result: await executeReporteGeneral(parsedArgs),
         isClosingAction: false,
       };
 

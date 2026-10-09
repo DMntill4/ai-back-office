@@ -15,6 +15,20 @@
       "when": 1791375358942,
       "tag": "0001_protect_case_events",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791564076050,
+      "tag": "0002_outstanding_marvel_apes",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791565219502,
+      "tag": "0003_smooth_smasher",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { db, pool } from "../client";
+import { sql } from "drizzle-orm";
 import {
   cases,
   caseEvents,
@@ -27,6 +28,7 @@ export async function runSeed() {
         id: "prod_st200",
         name: "Sensor Térmico ST-200",
         description: "Sensor de temperatura industrial de alta precisión",
+        category: "industrial",
         sku: "SKU-ST200",
         minStock: 10,
         origin: "simulado",
@@ -35,12 +37,37 @@ export async function runSeed() {
         id: "prod_v500",
         name: "Válvula Reguladora V-500",
         description: "Válvula de presión hidráulica",
+        category: "industrial",
         sku: "SKU-V500",
         minStock: 5,
         origin: "simulado",
       },
+      {
+        id: "food_app01",
+        name: "Caja de Manzanas Orgánicas",
+        description: "Manzanas rojas cosecha nacional",
+        category: "food",
+        sku: "SKU-APP01",
+        minStock: 50,
+        origin: "simulado",
+      },
+      {
+        id: "food_mil04",
+        name: "Leche Entera 1L",
+        description: "Leche pasteurizada en envase tetrapack",
+        category: "food",
+        sku: "SKU-MIL04",
+        minStock: 200,
+        origin: "simulado",
+      },
     ])
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: warehouses.id,
+      set: {
+        name: sql`excluded.name`,
+        location: sql`excluded.location`,
+      },
+    });
 
   // 2. Almacenes
   await db
@@ -62,16 +89,41 @@ export async function runSeed() {
         id: "inv_001",
         productId: "prod_st200",
         warehouseId: "alm_central",
-        stock: 2, // Faltante: mínimo es 10
+        stock: 2, 
+        salesCount: 8,
       },
       {
         id: "inv_002",
         productId: "prod_v500",
         warehouseId: "alm_central",
-        stock: 15, // Suficiente stock
+        stock: 15,
+        salesCount: 1250,
+      },
+      {
+        id: "inv_003",
+        productId: "food_app01",
+        warehouseId: "alm_central",
+        stock: 45,
+        salesCount: 300,
+        expirationDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000), // En 6 días
+      },
+      {
+        id: "inv_004",
+        productId: "food_mil04",
+        warehouseId: "alm_central",
+        stock: 180,
+        salesCount: 500,
+        expirationDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // En 3 días
       },
     ])
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: inventory.id,
+      set: {
+        stock: sql`excluded.stock`,
+        salesCount: sql`excluded.sales_count`,
+        expirationDate: sql`excluded.expiration_date`,
+      },
+    });
 
   // 4. Proveedores
   await db
@@ -92,7 +144,15 @@ export async function runSeed() {
         origin: "simulado",
       },
     ])
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: suppliers.id,
+      set: {
+        name: sql`excluded.name`,
+        email: sql`excluded.email`,
+        phone: sql`excluded.phone`,
+        origin: sql`excluded.origin`,
+      },
+    });
 
   // 5. Oferta de Proveedor
   await db

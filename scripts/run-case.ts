@@ -7,20 +7,22 @@ import { eq } from "drizzle-orm";
 dotenv.config();
 
 /**
- * End-to-end execution of the agent using the real Grok LLM gateway.
- * Demonstrates real tool execution, real LLM decision-making, and case closing.
+ * Ejecución End-to-End del Agente MINT por consola (Producción simulada).
+ * Demuestra: Fuzzy Search, Guardrails, y Strict Human-In-The-Loop.
  */
 async function runLiveAgentDemo() {
   console.log("==================================================");
-  console.log("LIVE DEMO: END-TO-END AUTONOMOUS AGENT (GROK API)");
+  console.log("🔥 INICIANDO AGENTE MINT (API REAL GROK) 🔥");
   console.log("==================================================");
 
   const caseId = `case_live_${Date.now()}`;
-  const caseTitle = "Critical Stock Shortage: ST-200 Thermal Sensor";
-  const caseDesc =
-    "Warehouse system reports that prod_st200 has only 2 units available (safety threshold is 10). Needs automated restocking.";
+  const caseTitle = "Falta de stock: Válvula";
+  
+  // Enviamos un caso con error tipográfico a propósito para probar el Fuzzy Search y el superpoder logístico.
+  const caseDesc = "El sistema de almacén reporta que nos falta stock de la 'Valvula v900'. Por favor, comprueba si es necesario pedirla.";
 
-  console.log(`\n1. Creating incoming case in database: [${caseId}]`);
+  console.log(`\n1. 📥 Recibiendo caso entrante: [${caseId}]`);
+  console.log(`   📝 Descripción: "${caseDesc}"`);
 
   await db
     .insert(cases)
@@ -31,18 +33,16 @@ async function runLiveAgentDemo() {
       status: "recibido",
       priority: "alta",
       inputData: {
-        producto_id: "prod_st200",
-        stock_actual: 2,
-        umbral_minimo: 10,
+        producto_id: "Valvula v900", // Error tipográfico intencional para probar Fuzzy Search
         solicitado_por: "sistema_almacen_monitoreo",
       },
     })
     .onConflictDoNothing();
 
-  console.log("   Case registered with status 'recibido'.");
+  console.log("   ✅ Caso registrado en BD con estado 'recibido'.");
 
-  console.log("\n2. Launching Agent Loop with live Grok API client...");
-  console.log("   Model: grok-4.6 via gateway (https://api.reto.pltk.mx/v1)");
+  console.log("\n2. 🧠 Iniciando Bucle de Razonamiento del Agente...");
+  console.log("   📡 Conectando a modelo Grok vía API Real...");
 
   const startTime = Date.now();
 
@@ -54,24 +54,24 @@ async function runLiveAgentDemo() {
     const elapsed = Date.now() - startTime;
 
     console.log("\n==================================================");
-    console.log("EXECUTION COMPLETE");
+    console.log("✅ EJECUCIÓN DEL AGENTE TERMINADA");
     console.log("==================================================");
-    console.log(`- Final Status: ${report.status.toUpperCase()}`);
-    console.log(`- Total Steps: ${report.totalSteps}`);
-    console.log(`- Total Tokens Consumed: ${report.totalTokens}`);
-    console.log(`- Total Estimated Cost: $${report.totalCost} USD`);
-    console.log(`- Elapsed Time: ${elapsed}ms`);
-    console.log(`- Summary: ${report.summary}`);
+    console.log(`- 📊 Estado Final: ${report.status.toUpperCase()}`);
+    console.log(`- 🔄 Pasos de Pensamiento: ${report.totalSteps}`);
+    console.log(`- 🪙 Tokens Consumidos: ${report.totalTokens}`);
+    console.log(`- 💸 Costo Estimado de Grok: $${report.totalCost} USD`);
+    console.log(`- ⏱️ Tiempo Transcurrido: ${(elapsed/1000).toFixed(2)}s`);
+    console.log(`- 📄 Resumen del Agente: ${report.summary}`);
     if (report.reason) {
-      console.log(`- Reason: ${report.reason}`);
+      console.log(`- 🔍 Razón/Justificación: ${report.reason}`);
     }
 
     // Verify database record
     const [savedCase] = await db.select().from(cases).where(eq(cases.id, caseId));
-    console.log(`\nDatabase confirmation: Case ${savedCase.id} is now '${savedCase.status}'.`);
+    console.log(`\n💾 Confirmación en BD: El caso ${savedCase.id} ha quedado en estado '${savedCase.status}'.`);
     console.log("==================================================");
   } catch (err: any) {
-    console.error("Live agent execution error:", err.message);
+    console.error("❌ Error fatal en el agente:", err.message);
   } finally {
     await pool.end();
   }
@@ -79,7 +79,7 @@ async function runLiveAgentDemo() {
 
 if (require.main === module) {
   runLiveAgentDemo().catch((err) => {
-    console.error("Fatal error:", err);
+    console.error("❌ Error general:", err);
     process.exit(1);
   });
 }

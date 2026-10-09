@@ -3,7 +3,7 @@ import * as dotenv from "dotenv";
 import { calculateCallCost } from "./pricing";
 import { db } from "../db/client";
 import { llmCalls } from "../db/schema";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 
 dotenv.config();
 
@@ -39,10 +39,13 @@ export interface LLMCallResult {
 // Configuración de reintentos y límites
 const MAX_RETRIES = 3;
 const DEFAULT_TIMEOUT_MS = 30000;
-const MAX_CONCURRENT_CALLS = 2; // Control estricto de concurrencia para cuidar la cuota
+const MAX_CONCURRENT_CALLS = 20; // Subido para soportar pruebas de carga/resistencia
 
 let activeCalls = 0;
 const callQueue: (() => void)[] = [];
+
+// Caché en memoria para solicitudes idénticas (Ahorra latencia y tokens)
+const requestCache = new Map<string, LLMCallResult>();
 
 function acquireSlot(): Promise<void> {
   if (activeCalls < MAX_CONCURRENT_CALLS) {
@@ -94,9 +97,21 @@ class GrokClient {
    * Envía una solicitud de chat completion con control de tiempo, reintentos y registro de costos
    */
   async chatCompletion(options: LLMRequestOptions): Promise<LLMCallResult> {
+    // Generar llave de caché basada en los mensajes y herramientas
+    const cacheKey = createHash("md5")
+      .update(JSON.stringify({ m: options.messages, t: options.tools }))
+      .digest("hex");
+
+    if (requestCache.has(cacheKey)) {
+      const cachedResult = requestCache.get(cacheKey)!;
+      return { ...cachedResult, latencyMs: 0 }; // Devolver instantáneo
+    }
+
     await acquireSlot();
     try {
-      return await this.executeWithRetry(options);
+      const result = await this.executeWithRetry(options);
+      requestCache.set(cacheKey, result);
+      return result;
     } finally {
       releaseSlot();
     }

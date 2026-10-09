@@ -22,6 +22,19 @@ export async function executeConsultarStock(args: ConsultarStockInput) {
       };
     }
 
+    if ('isFuzzyMatch' in stockInfo) {
+      const { suggestions } = stockInfo as { isFuzzyMatch: true, suggestions: any[] };
+      let suggestionText = suggestions.length > 0 
+        ? suggestions.map(s => `- ${s.name} (ID: ${s.id}, SKU: ${s.sku})`).join("\n") 
+        : "No hay productos similares.";
+        
+      return {
+        isSuccess: false,
+        message: `No se encontró el producto con ID '${args.producto_id}'. ¿Quisiste decir alguno de estos?\n${suggestionText}`,
+        canRetry: true,
+      };
+    }
+
     return {
       isSuccess: true,
       message: "Consulta de stock exitosa.",
