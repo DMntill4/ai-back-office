@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Activity, Settings, Bell, Check, X, Share2, BrainCircuit, ChevronRight, Terminal, Loader2, Search, User, FileText, Database } from 'lucide-react';
+import { Home, Activity, Settings, Bell, Check, X, Share2, BrainCircuit, ChevronRight, Terminal, Loader2, Search, User, FileText, Database, MessageSquare, TrendingUp, Grid } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster, toast } from 'sonner';
@@ -31,11 +31,13 @@ const Sidebar = ({ currentView, setView }: { currentView: string, setView: (v: s
       <img src="/src/assets/icon.png" alt="Mint Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', filter: 'drop-shadow(0 0 10px rgba(0, 255, 102, 0.4))' }} />
     </motion.div>
     
-    <NavTooltip content="Inicio"><div onClick={() => setView('dashboard')} className={`sidebar-icon ${currentView === 'dashboard' ? 'active' : ''}`}><Home size={22} /></div></NavTooltip>
+    <NavTooltip content="Resumen General"><div onClick={() => setView('dashboard')} className={`sidebar-icon ${currentView === 'dashboard' ? 'active' : ''}`}><Home size={22} /></div></NavTooltip>
+    <NavTooltip content="Charla con el Agente"><div onClick={() => setView('chat')} className={`sidebar-icon ${currentView === 'chat' ? 'active' : ''}`}><MessageSquare size={22} /></div></NavTooltip>
+    <NavTooltip content="Rendimiento y Logística"><div onClick={() => setView('performance')} className={`sidebar-icon ${currentView === 'performance' ? 'active' : ''}`}><TrendingUp size={22} /></div></NavTooltip>
+    <NavTooltip content="Base de Datos (ORM)"><div onClick={() => setView('database')} className={`sidebar-icon ${currentView === 'database' ? 'active' : ''}`}><Database size={22} /></div></NavTooltip>
     <NavTooltip content="Actividad y Logs"><div onClick={() => setView('activity')} className={`sidebar-icon ${currentView === 'activity' ? 'active' : ''}`}><Activity size={22} /></div></NavTooltip>
-    <NavTooltip content="Base de Datos"><div onClick={() => setView('database')} className={`sidebar-icon ${currentView === 'database' ? 'active' : ''}`}><Database size={22} /></div></NavTooltip>
     <div style={{ flex: 1 }}></div>
-    <NavTooltip content="Ajustes"><div className="sidebar-icon"><Settings size={22} /></div></NavTooltip>
+    <NavTooltip content="Módulos y Ajustes"><div onClick={() => setView('modules')} className={`sidebar-icon ${currentView === 'modules' ? 'active' : ''}`}><Grid size={22} /></div></NavTooltip>
   </aside>
 );
 
@@ -326,9 +328,57 @@ function App() {
                   </ResponsiveContainer>
                 </div>
               </div>
-                <AgentConsole />
-              </motion.div>
               </>
+            )}
+
+            {currentView === 'chat' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+                  <AgentConsole />
+                </div>
+              </motion.div>
+            )}
+
+            {currentView === 'performance' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto' }}>
+                <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                  <h3 style={{ margin: '0', fontSize: '1.2rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TrendingUp size={20} color="var(--mint-primary)" /> Rendimiento y Estado Logístico
+                  </h3>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
+                    <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '8px' }}>Eficiencia de Predicción</div>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--mint-primary)' }}>94.2%</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '8px' }}>+2.4% este mes</div>
+                    </div>
+                    <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '8px' }}>Roturas de Stock Evitadas</div>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 700, color: '#fff' }}>12</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '8px' }}>En los últimos 30 días</div>
+                    </div>
+                    <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '8px' }}>Tiempo Medio de Abastecimiento</div>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--warning-color)' }}>4.5 Días</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '8px' }}>Proveedores internacionales</div>
+                    </div>
+                  </div>
+
+                  <div style={{ width: '100%', height: '300px', marginTop: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', padding: '1rem' }}>
+                    <h4 style={{ color: 'var(--text-secondary)', margin: '0 0 1rem 0' }}>Flujo de Inventario (Mes)</h4>
+                    <ResponsiveContainer width="100%" height="85%">
+                      <BarChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--text-secondary)', fontSize: 12}} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: 'var(--text-secondary)', fontSize: 12}} />
+                        <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{background: 'var(--bg-color)', border: '1px solid var(--border-glass)', borderRadius: '8px', color: '#fff'}} />
+                        <Bar dataKey="uv" radius={[4, 4, 0, 0]}>
+                          {data.map((entry, index) => <Cell key={`cell-${index}`} fill={'var(--mint-primary)'} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </motion.div>
             )}
 
             {currentView === 'database' && (
@@ -341,17 +391,25 @@ function App() {
                   
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginTop: '2rem' }}>
                     <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
-                      <div style={{ color: 'var(--mint-primary)', marginBottom: '8px', fontWeight: 500 }}>Tabla: inventory</div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>SKU, quantity, minimum, last_updated</div>
+                      <div style={{ color: 'var(--mint-primary)', marginBottom: '8px', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span>inventory</span> <span style={{fontSize: '0.75rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px'}}>231 rows</span></div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>SKU (PK), quantity, minimum, last_updated</div>
+                      <div style={{ marginTop: '15px', height: '4px', background: 'rgba(0,255,102,0.2)', borderRadius: '2px' }}><div style={{ width: '40%', height: '100%', background: 'var(--mint-primary)', borderRadius: '2px' }}></div></div>
                     </div>
                     <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
-                      <div style={{ color: 'var(--mint-primary)', marginBottom: '8px', fontWeight: 500 }}>Tabla: cases</div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>id, status, agent_assigned, priority</div>
+                      <div style={{ color: 'var(--mint-primary)', marginBottom: '8px', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span>cases</span> <span style={{fontSize: '0.75rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px'}}>15 rows</span></div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>id (PK), status, agent_assigned, priority</div>
+                      <div style={{ marginTop: '15px', height: '4px', background: 'rgba(0,255,102,0.2)', borderRadius: '2px' }}><div style={{ width: '10%', height: '100%', background: 'var(--mint-primary)', borderRadius: '2px' }}></div></div>
                     </div>
                     <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px' }}>
-                      <div style={{ color: 'var(--mint-primary)', marginBottom: '8px', fontWeight: 500 }}>Tabla: orders</div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>order_id, amount, human_approved, created_at</div>
+                      <div style={{ color: 'var(--mint-primary)', marginBottom: '8px', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span>orders</span> <span style={{fontSize: '0.75rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px'}}>48 rows</span></div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>order_id (PK), amount, human_approved, created_at</div>
+                      <div style={{ marginTop: '15px', height: '4px', background: 'rgba(0,255,102,0.2)', borderRadius: '2px' }}><div style={{ width: '60%', height: '100%', background: 'var(--mint-primary)', borderRadius: '2px' }}></div></div>
                     </div>
+                  </div>
+                  
+                  <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#020403', border: '1px solid rgba(0,255,102,0.1)', borderRadius: '12px', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                    <div style={{ color: 'var(--text-secondary)', marginBottom: '10px' }}>// Drizzle ORM Query Preview</div>
+                    <div style={{ color: '#fff' }}><span style={{ color: '#C678DD' }}>await</span> db.<span style={{ color: '#61AFEF' }}>select</span>().<span style={{ color: '#61AFEF' }}>from</span>(inventory).<span style={{ color: '#61AFEF' }}>where</span>(<span style={{ color: '#E5C07B' }}>lt</span>(inventory.quantity, inventory.minimum));</div>
                   </div>
                 </div>
               </motion.div>
@@ -359,13 +417,42 @@ function App() {
 
             {currentView === 'activity' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                 <div className="glass-panel" style={{ padding: '2rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.2rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Activity size={20} color="var(--mint-primary)" /> Actividad y Auditoría del Sistema
+                  </h3>
+                  <div className="custom-scrollbar" style={{ flex: 1, background: '#020403', borderRadius: '8px', padding: '1rem', border: '1px solid rgba(255,255,255,0.05)', fontFamily: 'monospace', fontSize: '0.85rem', overflowY: 'auto' }}>
+                    <div style={{ color: 'var(--text-secondary)', padding: '5px 0' }}>[10:05:22] CONEXIÓN: Pool DB (Postgres) establecida exitosamente.</div>
+                    <div style={{ color: 'var(--text-secondary)', padding: '5px 0' }}>[10:06:10] CRON: Ejecutando verificación de inventario (Job ID: 492).</div>
+                    <div style={{ color: 'var(--warning-color)', padding: '5px 0' }}>[10:06:15] AUDIT: 2 productos encontrados bajo el nivel crítico.</div>
+                    <div style={{ color: 'var(--mint-primary)', padding: '5px 0' }}>[10:06:16] MINT: Generando reportes y preparando propuestas de órdenes.</div>
+                    <div style={{ color: 'var(--text-secondary)', padding: '5px 0' }}>[10:12:05] LLM: Llamada al modelo completada (Tokens: 1450).</div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {currentView === 'modules' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                  <div className="glass-panel" style={{ padding: '2rem', flex: 1 }}>
                   <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.2rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Activity size={20} color="var(--mint-primary)" /> Actividad y Logs del Agente
+                    <Grid size={20} color="var(--mint-primary)" /> Módulos y Extensiones
                   </h3>
-                  <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                    <Terminal size={48} style={{ opacity: 0.3, marginBottom: '1rem', display: 'inline-block' }} />
-                    <p>Los logs detallados de la terminal de MINT (ReAct Loop) aparecerán aquí.</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                    <div style={{ padding: '1.5rem', background: 'rgba(0,255,102,0.05)', border: '1px solid rgba(0,255,102,0.2)', borderRadius: '12px', display: 'flex', gap: '15px' }}>
+                      <div style={{ background: 'var(--mint-primary)', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#000' }}><Database size={20} /></div>
+                      <div>
+                        <h4 style={{ margin: '0 0 5px 0', color: '#fff' }}>Drizzle ORM Connector</h4>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Módulo activo. Gestiona la conexión y queries tipadas a la BD.</p>
+                      </div>
+                    </div>
+                    <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px', display: 'flex', gap: '15px' }}>
+                      <div style={{ background: 'rgba(255,255,255,0.1)', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff' }}><Share2 size={20} /></div>
+                      <div>
+                        <h4 style={{ margin: '0 0 5px 0', color: '#fff' }}>Integración Nodemailer</h4>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Desactivado. Permite envío de alertas al administrador.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
