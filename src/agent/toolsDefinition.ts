@@ -1,0 +1,225 @@
+import OpenAI from "openai";
+import { executeConsultarStock } from "../tools/consultarStock";
+import { executeVerOrdenesAbiertas } from "../tools/verOrdenesAbiertas";
+import { executeCrearOrdenCompra } from "../tools/crearOrdenCompra";
+import { executeReporteGeneral } from "../tools/reportesGenerales";
+
+export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
+    type: "function",
+    function: {
+      name: "consultar_stock",
+      description:
+        "Consulta el inventario actual de un producto específico y su stock mínimo de seguridad.",
+      parameters: {
+        type: "object",
+        properties: {
+          producto_id: {
+            type: "string",
+            description:
+              "Identificador del producto (ej: 'prod_st200', 'prod_v500')",
+          },
+        },
+        required: ["producto_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generar_reporte_general",
+      description: "Genera reportes generales sobre el inventario, caducidades, renovaciones y ventas.",
+      parameters: {
+        type: "object",
+        properties: {
+          tipo_reporte: {
+            type: "string",
+            enum: ["mas_vendido", "sin_stock", "renovar", "caducidad"],
+            description: "El tipo de reporte solicitado. mas_vendido: el producto estrella; sin_stock: agotados; renovar: stock debajo del umbral; caducidad: próximos a expirar (food).",
+          },
+        },
+        required: ["tipo_reporte"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ver_ordenes_abiertas",
+      description:
+        "Consulta las órdenes de compra activas o en tránsito para verificar si ya viene producto en camino.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crear_orden_compra",
+      description:
+        "Crea una orden de compra para abastecer inventario. Requiere clave de idempotencia única. Si el total supera $10,000 MXN, se suspende para aprobación.",
+      parameters: {
+        type: "object",
+        properties: {
+          case_id: {
+            type: "string",
+            description: "ID del caso atendido",
+          },
+          producto_id: {
+            type: "string",
+            description: "ID del producto a comprar",
+          },
+          proveedor_id: {
+            type: "string",
+            description:
+              "ID del proveedor seleccionado (ej: 'prov_acme', 'prov_global')",
+          },
+          cantidad: {
+            type: "number",
+            description: "Cantidad de unidades a pedir",
+          },
+          idempotency_key: {
+            type: "string",
+            description:
+              "Clave única para asegurar idempotencia (ej: 'idem_case123_st200_10')",
+          },
+        },
+        required: [
+          "case_id",
+          "producto_id",
+          "proveedor_id",
+          "cantidad",
+          "idempotency_key",
+        ],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "resolver_caso",
+      description:
+        "Dictamina el caso como RESUELTO cuando las acciones requeridas fueron concluidas y verificadas exitosamente.",
+      parameters: {
+        type: "object",
+        properties: {
+          resumen_resolucion: {
+            type: "string",
+            description:
+              "Resumen conciso de cómo se resolvió el caso y la evidencia verificada",
+          },
+          justificacion: {
+            type: "string",
+            description: "Explicación técnica de la decisión tomada",
+          },
+        },
+        required: ["resumen_resolucion", "justificacion"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "escalar_caso",
+      description:
+        "Dictamina el caso como ESCALADO a un humano cuando supera límites de compra ($10,000 MXN), falta información o hay inconsistencias.",
+      parameters: {
+        type: "object",
+        properties: {
+          motivo_escalamiento: {
+            type: "string",
+            description:
+              "Razón principal por la que se escala a un supervisor humano",
+          },
+          expediente: {
+            type: "string",
+            description:
+              "Resumen de lo recopilado: stock actual, cotizaciones, compras requeridas e intentos realizados",
+          },
+        },
+        required: ["motivo_escalamiento", "expediente"],
+      },
+    },
+  },
+];
+
+export async function dispatchToolCall(
+  name: string,
+  rawArgs: string,
+): Promise<{
+  result: any;
+  isClosingAction: boolean;
+  closingType?: "resuelto" | "escalado";
+}> {
+  let parsedArgs: any = {};
+  try {
+    parsedArgs = JSON.parse(rawArgs);
+  } catch {
+    return {
+      result: {
+        isSuccess: false,
+        message: "Error al parsear argumentos JSON de la herramienta",
+      },
+      isClosingAction: false,
+    };
+  }
+
+  switch (name) {
+    case "consultar_stock":
+      return {
+        result: await executeConsultarStock(parsedArgs),
+        isClosingAction: false,
+      };
+
+    case "ver_ordenes_abiertas":
+      return {
+        result: await executeVerOrdenesAbiertas(parsedArgs),
+        isClosingAction: false,
+      };
+
+    case "crear_orden_compra":
+      return {
+        result: await executeCrearOrdenCompra(parsedArgs),
+        isClosingAction: false,
+      };
+
+    case "generar_reporte_general":
+      return {
+        result: await executeReporteGeneral(parsedArgs),
+        isClosingAction: false,
+      };
+
+    case "resolver_caso":
+      return {
+        result: {
+          isSuccess: true,
+          message: "Caso cerrado como resuelto",
+          details: parsedArgs,
+        },
+        isClosingAction: true,
+        closingType: "resuelto",
+      };
+
+    case "escalar_caso":
+      return {
+        result: {
+          isSuccess: true,
+          message: "Caso derivado a escalación humana",
+          details: parsedArgs,
+        },
+        isClosingAction: true,
+        closingType: "escalado",
+      };
+
+    default:
+      return {
+        result: {
+          isSuccess: false,
+          message: `Herramienta desconocida: ${name}`,
+        },
+        isClosingAction: false,
+      };
+  }
+}
