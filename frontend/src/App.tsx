@@ -77,77 +77,98 @@ const Header = ({ onOpenCmd }: { onOpenCmd: () => void }) => (
 );
 
 const AgentConsole = () => {
-  const [logs, setLogs] = useState<{id: number, time: string, text: string, type: string}[]>([
-    { id: 1, time: new Date().toLocaleTimeString(), text: 'Sistema listo. MINT a la espera. ¿En qué te ayudo?', type: 'info' }
+  const [messages, setMessages] = useState<{id: number, text: string, role: 'user'|'agent'}[]>([
+    { id: 1, text: 'Hola, soy MINT, tu agente de logística y negocios. ¿En qué puedo ayudarte hoy?', role: 'agent' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [caseId, setCaseId] = useState('');
 
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || isLoading) return;
+  const suggestions = [
+    "📦 Consultar productos sin stock",
+    "📈 Ver rendimiento logístico",
+    "📝 Historial de órdenes recientes",
+    "🔍 Auditar últimos movimientos"
+  ];
 
-    const userText = input;
+  const handleSend = async (text: string) => {
+    if (!text.trim() || isLoading) return;
+
     setInput('');
     const newId = Date.now();
-    const time = new Date().toLocaleTimeString();
     
-    setLogs(prev => [...prev, { id: newId, time, text: `> ${userText}`, type: 'user' }]);
+    setMessages(prev => [...prev, { id: newId, text, role: 'user' }]);
     setIsLoading(true);
 
     try {
       const res = await fetch('http://localhost:3001/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, caseId: caseId || undefined })
+        body: JSON.stringify({ message: text, caseId: caseId || undefined })
       });
       const data = await res.json();
       if (data.success) {
         setCaseId(data.caseId);
-        setLogs(prev => [...prev, { id: Date.now(), time: new Date().toLocaleTimeString(), text: data.response, type: 'action' }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: data.response, role: 'agent' }]);
       } else {
-        setLogs(prev => [...prev, { id: Date.now(), time: new Date().toLocaleTimeString(), text: 'Error procesando solicitud.', type: 'error' }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: 'Error procesando solicitud.', role: 'agent' }]);
       }
     } catch (err) {
-      setLogs(prev => [...prev, { id: Date.now(), time: new Date().toLocaleTimeString(), text: 'Error de red con el backend.', type: 'error' }]);
+      setMessages(prev => [...prev, { id: Date.now(), text: 'Error de red con el backend.', role: 'agent' }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="glass-panel" style={{ padding: '1.5rem', marginTop: '2rem', display: 'flex', flexDirection: 'column', flex: 1, minHeight: '350px' }}>
-      <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
-        <Terminal size={16} /> Terminal Autónoma (MINT)
+    <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', flex: 1, minHeight: '500px' }}>
+      <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.2rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+        <BrainCircuit size={20} color="var(--mint-primary)" /> Asistente MINT
       </h3>
       
-      <div className="custom-scrollbar" style={{ flex: 1, background: '#020403', borderRadius: '8px', padding: '1rem', overflowY: 'auto', border: '1px solid rgba(0,255,102,0.1)', fontFamily: 'monospace', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1rem' }}>
-        {logs.map((log) => (
-          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} key={log.id} style={{ display: 'flex', gap: '10px' }}>
-            <span style={{ color: 'var(--text-secondary)', opacity: 0.7, whiteSpace: 'nowrap' }}>[{log.time}]</span>
-            <span style={{ color: log.type === 'error' ? 'var(--danger-color)' : log.type === 'user' ? '#fff' : log.type === 'warning' ? 'var(--warning-color)' : log.type === 'action' ? 'var(--mint-primary)' : 'var(--text-primary)' }}>
-              {log.text}
-            </span>
+      <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem', paddingRight: '1rem' }}>
+        {messages.map((msg) => (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', maxWidth: '85%', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: msg.role === 'user' ? 'rgba(255,255,255,0.1)' : 'rgba(0,255,102,0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
+                {msg.role === 'user' ? <User size={16} color="#fff" /> : <BrainCircuit size={16} color="var(--mint-primary)" />}
+              </div>
+              <div style={{ padding: '1rem 1.2rem', borderRadius: '16px', background: msg.role === 'user' ? 'rgba(255,255,255,0.05)' : 'rgba(0,255,102,0.05)', border: msg.role === 'user' ? '1px solid var(--border-glass)' : '1px solid rgba(0,255,102,0.2)', color: 'var(--text-primary)', fontSize: '0.95rem', lineHeight: '1.5', borderTopRightRadius: msg.role === 'user' ? '4px' : '16px', borderTopLeftRadius: msg.role === 'agent' ? '4px' : '16px' }}>
+                {msg.text}
+              </div>
+            </div>
           </motion.div>
         ))}
         {isLoading && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px', color: 'var(--text-secondary)' }}>
-            <Loader2 size={14} className="spin-animation" style={{ color: 'var(--mint-primary)' }} />
-            <span style={{ fontStyle: 'italic' }}>MINT está procesando...</span>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', gap: '10px', alignItems: 'center', color: 'var(--text-secondary)' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,255,102,0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <BrainCircuit size={16} color="var(--mint-primary)" />
+            </div>
+            <div style={{ padding: '1rem', borderRadius: '16px', background: 'rgba(0,255,102,0.05)', border: '1px solid rgba(0,255,102,0.1)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+               <Loader2 size={16} className="spin-animation" style={{ color: 'var(--mint-primary)' }} />
+               <span style={{ fontSize: '0.9rem', color: 'var(--mint-primary)' }}>Analizando base de datos...</span>
+            </div>
           </motion.div>
         )}
       </div>
 
-      <form onSubmit={handleSend} style={{ display: 'flex', gap: '10px' }}>
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+        {suggestions.map((sug, i) => (
+          <button key={i} onClick={() => handleSend(sug)} className="hover-lift" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '20px', padding: '8px 16px', fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {sug}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={(e) => { e.preventDefault(); handleSend(input); }} style={{ display: 'flex', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '8px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
         <input 
           type="text" 
           value={input} 
           onChange={e => setInput(e.target.value)} 
-          placeholder="Escribe una instrucción al agente..." 
-          style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', borderRadius: '6px', padding: '10px', color: '#fff', outline: 'none' }} 
+          placeholder="Pregunta sobre stock, logs, rendimiento o pide que ejecute una tarea..." 
+          style={{ flex: 1, background: 'transparent', border: 'none', padding: '10px', color: '#fff', outline: 'none', fontSize: '0.95rem' }} 
         />
-        <button type="submit" className="mint-button primary" disabled={isLoading} style={{ padding: '0 20px', borderRadius: '6px', opacity: isLoading ? 0.5 : 1 }}>Enviar</button>
+        <button type="submit" className="mint-button primary" disabled={isLoading} style={{ padding: '0 24px', borderRadius: '8px', opacity: isLoading ? 0.5 : 1 }}>Enviar</button>
       </form>
     </div>
   );
