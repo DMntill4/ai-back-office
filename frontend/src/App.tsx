@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Activity, Settings, Bell, Check, X, Share2, BrainCircuit, ChevronRight, Terminal, Loader2, Search, User, FileText, Database, MessageSquare, TrendingUp, Grid } from 'lucide-react';
+import { Home, Activity, Settings, Bell, Check, X, Share2, BrainCircuit, ChevronRight, Terminal, Loader2, Search, User, FileText, Database, MessageSquare, TrendingUp, Grid, AlertTriangle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster, toast } from 'sonner';
@@ -407,6 +407,47 @@ function App() {
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '0.5rem' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '1.5rem' }}>
+                      <h4 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '8px', color: '#fff' }}><Activity size={18} color="var(--mint-primary)" /> Log de Operaciones (Agente MINT)</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {[
+                          { time: 'Hace 10 min', action: 'Reabastecimiento sugerido', detail: 'SKU: SENS-OPT (50 unidades)', status: 'success' },
+                          { time: 'Hace 45 min', action: 'Aprobación retenida', detail: 'Orden #4502 supera límite de $10,000 MXN', status: 'warning' },
+                          { time: 'Hace 2 horas', action: 'Análisis predictivo', detail: 'Ajuste de mínimo sugerido para PWR-500', status: 'info' }
+                        ].map((log, i) => (
+                          <div key={i} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', paddingBottom: '1rem', borderBottom: i !== 2 ? '1px solid var(--border-glass)' : 'none' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', marginTop: '6px', background: log.status === 'success' ? 'var(--mint-primary)' : log.status === 'warning' ? 'var(--warning-color)' : '#61AFEF', boxShadow: log.status === 'success' ? '0 0 6px rgba(0,255,102,0.5)' : 'none' }}></div>
+                            <div>
+                              <div style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 500 }}>{log.action}</div>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{log.detail}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px', opacity: 0.7 }}>{log.time}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '1.5rem' }}>
+                      <h4 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '8px', color: '#fff' }}><AlertTriangle size={18} color="var(--warning-color)" /> Alertas Críticas</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {[
+                          { title: 'Quiebre inminente de stock', desc: 'Microcontrolador X1 proyecta agotarse en 3 días.', priority: 'Alta' },
+                          { title: 'Retraso de proveedor', desc: 'Cables Dupont M-M demorados por aduana.', priority: 'Media' }
+                        ].map((alert, i) => (
+                          <div key={i} style={{ background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '1rem', borderRadius: '8px', transition: 'all 0.2s' }} className="hover-lift">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 500 }}>{alert.title}</div>
+                              <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: alert.priority === 'Alta' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)', color: alert.priority === 'Alta' ? 'var(--danger-color)' : 'var(--warning-color)', borderRadius: '4px' }}>{alert.priority}</span>
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px' }}>{alert.desc}</div>
+                            <button className="mint-button" style={{ marginTop: '12px', padding: '6px 12px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid var(--border-glass)', width: '100%' }}>Revisar caso con MINT</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
