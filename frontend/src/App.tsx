@@ -131,8 +131,8 @@ const AgentConsole = () => {
 
   return (
     <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', flex: 1, minHeight: '500px' }}>
-      <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.2rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-        <img src="/src/assets/icon.png" alt="MINT Logo" style={{ width: '22px', height: '22px', objectFit: 'contain', filter: 'drop-shadow(0 0 4px rgba(0,255,102,0.6))' }} /> Asistente MINT
+      <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.3rem', fontWeight: 600, fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.5px', color: '#fff' }}>
+        Asistente MINT
       </h3>
       
       <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem', paddingRight: '1rem' }}>
