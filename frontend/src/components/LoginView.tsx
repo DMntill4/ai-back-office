@@ -24,11 +24,18 @@ export const LoginView = ({ onLogin }: { onLogin: () => void }) => {
         
         {/* Brand Logo & Wordmark */}
         <div className="flex flex-col items-center mb-8 relative z-10">
-          <img 
-            src="/src/assets/bannerIcon.png" 
-            alt="Mint Logo" 
-            className="h-20 md:h-24 object-contain filter drop-shadow-[0_0_24px_rgba(47,191,74,0.4)]"
-          />
+          <div className="w-24 h-24 rounded-2xl flex items-center justify-center relative mb-2 group cursor-default">
+            <img 
+              src="/src/assets/icon.png" 
+              alt="Mint Logo" 
+              className="w-full h-full object-contain filter drop-shadow-[0_0_24px_rgba(47,191,74,0.5)]"
+            />
+          </div>
+          <h1 className="flex items-center m-0">
+            <span className="text-[3.5rem] font-outfit font-bold tracking-tight bg-gradient-to-b from-[#D7F9A0] to-[#2E9B3B] text-transparent bg-clip-text leading-none">
+              Mint
+            </span>
+          </h1>
         </div>
 
         {/* Ambient Glow immediately behind card */}
