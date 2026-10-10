@@ -1,31 +1,21 @@
 import OpenAI from "openai";
-import * as dotenv from "dotenv";
-import { calculateCallCost } from "./pricing";
+import { env, getLlmApiKey } from "../config/env";
 import { db } from "../db/client";
 import { llmCalls } from "../db/schema";
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-dotenv.config();
-
-export interface LLMRequestOptions {
-  caseId?: string; // ID del caso asociado para auditoría
-  model?: string;
+export interface LLMCallOptions {
+  caseId: string;
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[];
   tools?: OpenAI.Chat.Completions.ChatCompletionTool[];
   toolChoice?: OpenAI.Chat.Completions.ChatCompletionToolChoiceOption;
   temperature?: number;
-  maxTokens?: number;
-  responseFormat?: OpenAI.Chat.Completions.ChatCompletionCreateParams["response_format"];
-  timeoutMs?: number;
 }
 
 export interface LLMCallResult {
-  message: OpenAI.Chat.Completions.ChatCompletionMessage;
   content: string | null;
-  toolCalls:
-    OpenAI.Chat.Completions.ChatCompletionMessageToolCall[] | undefined;
-  model: string;
-  finishReason: string | null;
+  toolCalls?: OpenAI.Chat.Completions.ChatCompletionMessageToolCall[];
+  message: OpenAI.Chat.Completions.ChatCompletionMessage;
   usage: {
     promptTokens: number;
     completionTokens: number;
@@ -33,184 +23,91 @@ export interface LLMCallResult {
     totalTokens: number;
   };
   latencyMs: number;
-  cost: string; // Dinero en formato decimal exacto
+  cost: string;
+  model: string;
+  finishReason: string;
 }
 
-// Configuración de reintentos y límites
+const PRICE_PER_1M_PROMPT = 2.0;
+const PRICE_PER_1M_COMPLETION = 10.0;
 const MAX_RETRIES = 3;
-const DEFAULT_TIMEOUT_MS = 30000;
-const MAX_CONCURRENT_CALLS = 20; // Subido para soportar pruebas de carga/resistencia
 
-let activeCalls = 0;
-const callQueue: (() => void)[] = [];
-
-// Caché en memoria para solicitudes idénticas (Ahorra latencia y tokens)
-const requestCache = new Map<string, LLMCallResult>();
-
-function acquireSlot(): Promise<void> {
-  if (activeCalls < MAX_CONCURRENT_CALLS) {
-    activeCalls++;
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    callQueue.push(() => {
-      activeCalls++;
-      resolve();
-    });
-  });
-}
-
-function releaseSlot(): void {
-  activeCalls--;
-  if (callQueue.length > 0) {
-    const next = callQueue.shift();
-    if (next) next();
-  }
-}
-
-/**
- * Cliente único y centralizado para interactuar con Grok a través del Gateway
- */
-class GrokClient {
-  private openai: OpenAI;
+export class GrokClient {
+  private client: OpenAI;
   private defaultModel: string;
 
   constructor() {
-    const baseURL =
-      process.env.GROK_BASE_URL ||
-      process.env.RETO_BASE_URL ||
-      "https://api.reto.pltk.mx/v1";
-
-    const apiKey = process.env.RETO_KEY || process.env.XAI_API_KEY || "";
-
-    this.defaultModel = process.env.GROK_MODEL || "grok-4.6";
-
-    this.openai = new OpenAI({
-      baseURL,
+    const apiKey = getLlmApiKey() || "dummy_grok_key_for_test_environment";
+    this.client = new OpenAI({
       apiKey,
-      timeout: DEFAULT_TIMEOUT_MS,
-      maxRetries: 0, // Manejamos nuestros propios reintentos controlados
+      baseURL: env.GROK_BASE_URL,
     });
+    this.defaultModel = env.GROK_MODEL || "grok-4.6";
   }
 
-  /**
-   * Envía una solicitud de chat completion con control de tiempo, reintentos y registro de costos
-   */
-  async chatCompletion(options: LLMRequestOptions): Promise<LLMCallResult> {
-    // Generar llave de caché basada en los mensajes y herramientas
-    const cacheKey = createHash("md5")
-      .update(JSON.stringify({ m: options.messages, t: options.tools }))
-      .digest("hex");
+  async chatCompletion(options: LLMCallOptions): Promise<LLMCallResult> {
+    const startTime = Date.now();
 
-    if (requestCache.has(cacheKey)) {
-      const cachedResult = requestCache.get(cacheKey)!;
-      return { ...cachedResult, latencyMs: 0 }; // Devolver instantáneo
-    }
+    const response = await this.executeWithRetry(() =>
+      this.client.chat.completions.create({
+        model: this.defaultModel,
+        messages: options.messages,
+        tools: options.tools,
+        tool_choice: options.toolChoice,
+        temperature: options.temperature ?? 0.1,
+      }),
+    );
 
-    await acquireSlot();
-    try {
-      const result = await this.executeWithRetry(options);
-      requestCache.set(cacheKey, result);
-      return result;
-    } finally {
-      releaseSlot();
-    }
+    const latencyMs = Date.now() - startTime;
+    const choice = response.choices[0];
+    const usage = response.usage;
+
+    const promptTokens = usage?.prompt_tokens ?? 0;
+    const completionTokens = usage?.completion_tokens ?? 0;
+    const cachedTokens =
+      (usage as any)?.prompt_tokens_details?.cached_tokens ?? 0;
+    const totalTokens = usage?.total_tokens ?? 0;
+
+    const promptCost = (promptTokens / 1_000_000) * PRICE_PER_1M_PROMPT;
+    const completionCost =
+      (completionTokens / 1_000_000) * PRICE_PER_1M_COMPLETION;
+    const totalCostUsd = (promptCost + completionCost).toFixed(6);
+
+    const result: LLMCallResult = {
+      content: choice.message.content,
+      toolCalls: choice.message.tool_calls,
+      message: choice.message,
+      usage: {
+        promptTokens,
+        completionTokens,
+        cachedTokens,
+        totalTokens,
+      },
+      latencyMs,
+      cost: totalCostUsd,
+      model: response.model,
+      finishReason: choice.finish_reason ?? "stop",
+    };
+
+    this.logCallToDatabase(options.caseId, result).catch(() => {});
+
+    return result;
   }
 
-  /**
-   * Consulta los modelos disponibles en el gateway
-   */
-  async listModels(): Promise<OpenAI.Models.Model[]> {
-    try {
-      const response = await this.openai.models.list();
-      return response.data;
-    } catch (error) {
-      throw new Error(`Error consultando modelos disponibles: ${error}`, {
-        cause: error,
-      });
-    }
-  }
-
-  private async executeWithRetry(
-    options: LLMRequestOptions,
-  ): Promise<LLMCallResult> {
+  private async executeWithRetry<T>(fn: () => Promise<T>): Promise<T> {
     let attempt = 0;
-    const model = options.model || this.defaultModel;
-
     while (attempt <= MAX_RETRIES) {
-      const startTime = Date.now();
       try {
-        const timeout = options.timeoutMs || DEFAULT_TIMEOUT_MS;
-
-        // Llamada a la API de Grok
-        const response = await this.openai.chat.completions.create(
-          {
-            model,
-            messages: options.messages,
-            tools: options.tools,
-            tool_choice: options.toolChoice,
-            temperature: options.temperature ?? 0.1, // Temperatura baja por defecto para tareas de back office
-            max_tokens: options.maxTokens,
-            response_format: options.responseFormat,
-          },
-          { timeout },
-        );
-
-        const latencyMs = Date.now() - startTime;
-        const choice = response.choices[0];
-
-        // Extracción de tokens y tokens en caché (si el gateway los reporta)
-        const usage = response.usage || {
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          total_tokens: 0,
-        };
-
-        // Soporte para tokens en caché según especificaciones OpenAI/xAI
-        const cachedTokens =
-          (usage as any).prompt_tokens_details?.cached_tokens || 0;
-
-        const cost = calculateCallCost(
-          model,
-          usage.prompt_tokens,
-          usage.completion_tokens,
-          cachedTokens,
-        );
-
-        const result: LLMCallResult = {
-          message: choice.message,
-          content: choice.message.content,
-          toolCalls: choice.message.tool_calls,
-          model: response.model || model,
-          finishReason: choice.finish_reason,
-          usage: {
-            promptTokens: usage.prompt_tokens,
-            completionTokens: usage.completion_tokens,
-            cachedTokens,
-            totalTokens: usage.total_tokens,
-          },
-          latencyMs,
-          cost,
-        };
-
-        // Registrar auditoría en la base de datos si hay un caso asignado
-        if (options.caseId) {
-          await this.logCallToDatabase(options.caseId, result);
-        }
-
-        return result;
-      } catch (error: any) {
         attempt++;
+        return await fn();
+      } catch (error: any) {
         const status = error?.status;
-
-        // Solo reintentamos ante Rate Limit (429) o errores internos del servidor (5xx)
         const isTransient = status === 429 || (status >= 500 && status < 600);
 
         if (!isTransient || attempt > MAX_RETRIES) {
           throw error;
         }
 
-        // Backoff exponencial con jitter: 1s, 2s, 4s (+ variación aleatoria)
         const baseDelay = Math.pow(2, attempt) * 1000;
         const jitter = Math.random() * 500;
         const delay = baseDelay + jitter;
@@ -242,15 +139,12 @@ class GrokClient {
         cost: result.cost,
         finishReason: result.finishReason,
       });
-    } catch (dbError) {
-      // Si la base de datos falla al auditar, no interrumpimos la respuesta pero emitimos advertencia
-      console.error(
-        "[GrokClient] Advertencia: No se pudo registrar la llamada en llm_calls:",
-        dbError,
-      );
+    } catch (dbError: any) {
+      if (dbError?.code === "ECONNREFUSED" || dbError?.cause?.code === "ECONNREFUSED") {
+        return;
+      }
     }
   }
 }
 
-// Instancia única exportada (Singleton)
 export const grokClient = new GrokClient();

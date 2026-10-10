@@ -19,6 +19,7 @@ const envSchema = z.object({
     })
     .default("postgresql://postgres:postgres@localhost:5432/ai_back_office"),
   RETO_KEY: z.string().optional(),
+  GROK_API_KEY: z.string().optional(),
   XAI_API_KEY: z.string().optional(),
   GROK_BASE_URL: z.string().url().default("https://api.reto.pltk.mx/v1"),
   GROK_MODEL: z.string().default("grok-4.6"),
@@ -33,3 +34,7 @@ if (!_env.success) {
 }
 
 export const env = _env.data;
+
+export function getLlmApiKey(): string {
+  return env.GROK_API_KEY || env.RETO_KEY || env.XAI_API_KEY || "";
+}
