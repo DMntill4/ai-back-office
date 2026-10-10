@@ -44,8 +44,10 @@ const Sidebar = ({ currentView, setView }: { currentView: string, setView: (v: s
 const Header = ({ onOpenCmd }: { onOpenCmd: () => void }) => (
   <header style={{ padding: '1.5rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-      <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.5px' }}>
-        <img src="/src/assets/bannerIcon.png" alt="Mint Banner" style={{ height: '24px', objectFit: 'contain' }} />
+      <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <img src="/src/assets/icon.png" alt="Mint Logo" style={{ height: '24px', objectFit: 'contain', filter: 'drop-shadow(0 0 4px rgba(0,255,102,0.4))' }} />
+        <span style={{ width: '1px', height: '20px', background: 'var(--border-glass)' }}></span>
+        <span style={{ fontSize: '1.4rem', fontWeight: 500, letterSpacing: '-0.2px', fontFamily: '"Outfit", "Inter", sans-serif', color: '#fff' }}>MInt</span>
       </h1>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
         <span>Plataforma</span> <ChevronRight size={14} /> <span style={{ color: 'var(--text-primary)' }}>Cola de Trabajo</span>
