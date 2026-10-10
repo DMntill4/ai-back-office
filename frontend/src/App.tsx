@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Activity, Settings, Bell, Check, X, Share2, BrainCircuit, ChevronRight, Terminal, Loader2, Search, User, FileText, Database, MessageSquare, TrendingUp, Grid, AlertTriangle, Package } from 'lucide-react';
+import { Home, Activity, Settings, Bell, Check, X, Share2, BrainCircuit, ChevronRight, Terminal, Loader2, Search, User, FileText, Database, MessageSquare, TrendingUp, Grid, AlertTriangle, Package, CheckSquare } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster, toast } from 'sonner';
@@ -32,6 +32,7 @@ const Sidebar = ({ currentView, setView }: { currentView: string, setView: (v: s
     </motion.div>
     
     <NavTooltip content="Resumen General"><div onClick={() => setView('dashboard')} className={`sidebar-icon ${currentView === 'dashboard' ? 'active' : ''}`}><Home size={22} /></div></NavTooltip>
+    <NavTooltip content="Aprobaciones Pendientes"><div onClick={() => setView('approvals')} className={`sidebar-icon ${currentView === 'approvals' ? 'active' : ''}`}><CheckSquare size={22} /></div></NavTooltip>
     <NavTooltip content="Charla con el Agente"><div onClick={() => setView('chat')} className={`sidebar-icon ${currentView === 'chat' ? 'active' : ''}`}><MessageSquare size={22} /></div></NavTooltip>
     <NavTooltip content="Rendimiento y Logística"><div onClick={() => setView('performance')} className={`sidebar-icon ${currentView === 'performance' ? 'active' : ''}`}><TrendingUp size={22} /></div></NavTooltip>
     <NavTooltip content="Base de Datos (ORM)"><div onClick={() => setView('database')} className={`sidebar-icon ${currentView === 'database' ? 'active' : ''}`}><Database size={22} /></div></NavTooltip>
@@ -250,81 +251,40 @@ function App() {
           <main style={{ flex: 1, padding: '1rem 2.5rem 2.5rem', display: 'flex', gap: '2.5rem', overflow: 'hidden' }}>
             
             {currentView === 'dashboard' && (
-              <>
-                <div style={{ flex: '2', maxWidth: '750px', overflowY: 'auto', paddingRight: '10px' }} className="custom-scrollbar">
-              <h2 style={{ fontSize: '1.4rem', marginBottom: '2rem', fontWeight: 400, color: 'var(--text-secondary)' }}>
-                <span style={{ color: 'var(--warning-color)', fontWeight: 600, fontSize: '1.8rem' }}>{decisions.length}</span> decisiones te necesitan
-              </h2>
-              
-              <AnimatePresence>
-                {decisions.map((decision, index) => (
-                  <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }} transition={{ type: 'spring', stiffness: 300, damping: 25, delay: index * 0.1 }} key={decision.id} className="glass-panel hover-lift" style={{ padding: '1.8rem', marginBottom: '1.5rem', border: selectedDecision?.id === decision.id ? '1px solid var(--mint-primary)' : '' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.2rem', color: 'var(--text-primary)', fontWeight: 500 }}>{decision.title}</h3>
-                      <button onClick={() => setSelectedDecision(decision)} className="mint-button" style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>Gestionar <ChevronRight size={14} /></button>
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: '4rem', marginBottom: '2rem' }}>
-                      <div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>{decision.subtitle1}</div>
-                        <div style={{ fontSize: '1.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>{decision.metric1}</div>
+              <div style={{ display: 'flex', gap: '2rem', flex: 1, width: '100%' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <div className="glass-panel" style={{ flex: 1, padding: '1.5rem' }}>
+                    <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
+                      <FileText size={16} /> Últimas Órdenes Creadas
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                        <span style={{ color: '#fff', fontSize: '0.9rem' }}>ORD-2026-001</span>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Hace 2h</span>
                       </div>
-                      <div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>{decision.subtitle2}</div>
-                        <div style={{ fontSize: '1.8rem', fontWeight: 600, color: 'var(--warning-color)' }}>{decision.metric2}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                        <span style={{ color: '#fff', fontSize: '0.9rem' }}>ORD-2026-002</span>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Hace 5h</span>
                       </div>
                     </div>
+                  </div>
 
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => handleApprove(decision.id)} className="mint-button primary" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}><Check size={18} /> Aprobar</motion.button>
-                      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="mint-button danger" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}><X size={18} /> Rechazar</motion.button>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              
-              {decisions.length === 0 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  <img src="/src/assets/icon.png" alt="Mint Logo" style={{ width: '64px', height: '64px', objectFit: 'contain', margin: '0 auto 1.5rem', opacity: 0.6, filter: 'grayscale(50%)' }} />
-                  <p>¡Todo al día! El agente no requiere tu intervención.</p>
-                </motion.div>
-              )}
-
-              {/* Nuevos Módulos de Estado de Logística */}
-              <div style={{ marginTop: '2rem', display: 'flex', gap: '1.5rem' }}>
-                <div className="glass-panel" style={{ flex: 1, padding: '1.5rem' }}>
-                  <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
-                    <FileText size={16} /> Últimas Órdenes Creadas
-                  </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                      <span style={{ color: '#fff', fontSize: '0.9rem' }}>ORD-2026-001</span>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Hace 2h</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                      <span style={{ color: '#fff', fontSize: '0.9rem' }}>ORD-2026-002</span>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Hace 5h</span>
+                  <div className="glass-panel" style={{ flex: 1, padding: '1.5rem' }}>
+                    <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
+                      <Activity size={16} /> Inventario Crítico
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px' }}>
+                        <span style={{ color: '#fff', fontSize: '0.9rem' }}>Microcontrolador MCU-32</span>
+                        <span style={{ color: 'var(--danger-color)', fontSize: '0.85rem', fontWeight: 600 }}>8 / 20</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '8px' }}>
+                        <span style={{ color: '#fff', fontSize: '0.9rem' }}>Engrane Transmisión</span>
+                        <span style={{ color: 'var(--warning-color)', fontSize: '0.85rem', fontWeight: 600 }}>0 / 50</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                <div className="glass-panel" style={{ flex: 1, padding: '1.5rem' }}>
-                  <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
-                    <Activity size={16} /> Inventario Crítico
-                  </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px' }}>
-                      <span style={{ color: '#fff', fontSize: '0.9rem' }}>Microcontrolador MCU-32</span>
-                      <span style={{ color: 'var(--danger-color)', fontSize: '0.85rem', fontWeight: 600 }}>8 / 20</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '8px' }}>
-                      <span style={{ color: '#fff', fontSize: '0.9rem' }}>Engrane Transmisión</span>
-                      <span style={{ color: 'var(--warning-color)', fontSize: '0.85rem', fontWeight: 600 }}>0 / 50</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             <motion.div animate={{ opacity: selectedDecision ? 0.4 : 1, scale: selectedDecision ? 0.98 : 1 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }} style={{ flex: '1.2', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
@@ -380,7 +340,49 @@ function App() {
                 </div>
               </div>
             </motion.div>
-            </>
+              </div>
+            )}
+
+            {currentView === 'approvals' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: '800px', margin: '0 auto', width: '100%', overflowY: 'auto', paddingRight: '10px' }} className="custom-scrollbar">
+                <h2 style={{ fontSize: '1.4rem', marginBottom: '2rem', fontWeight: 400, color: 'var(--text-secondary)' }}>
+                  <span style={{ color: 'var(--warning-color)', fontWeight: 600, fontSize: '1.8rem' }}>{decisions.length}</span> aprobaciones pendientes
+                </h2>
+                
+                <AnimatePresence>
+                  {decisions.map((decision, index) => (
+                    <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }} transition={{ type: 'spring', stiffness: 300, damping: 25, delay: index * 0.1 }} key={decision.id} className="glass-panel hover-lift" style={{ padding: '1.8rem', marginBottom: '1.5rem', border: selectedDecision?.id === decision.id ? '1px solid var(--mint-primary)' : '' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.2rem', color: 'var(--text-primary)', fontWeight: 500 }}>{decision.title}</h3>
+                        <button onClick={() => setSelectedDecision(decision)} className="mint-button" style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>Gestionar <ChevronRight size={14} /></button>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '4rem', marginBottom: '2rem' }}>
+                        <div>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>{decision.subtitle1}</div>
+                          <div style={{ fontSize: '1.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>{decision.metric1}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>{decision.subtitle2}</div>
+                          <div style={{ fontSize: '1.8rem', fontWeight: 600, color: 'var(--warning-color)' }}>{decision.metric2}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '1rem' }}>
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => handleApprove(decision.id)} className="mint-button primary" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}><Check size={18} /> Aprobar</motion.button>
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="mint-button danger" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}><X size={18} /> Rechazar</motion.button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                
+                {decisions.length === 0 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <img src="/src/assets/icon.png" alt="Mint Logo" style={{ width: '64px', height: '64px', objectFit: 'contain', margin: '0 auto 1.5rem', opacity: 0.6, filter: 'grayscale(50%)' }} />
+                    <p>¡Todo al día! El agente no requiere tu intervención.</p>
+                  </motion.div>
+                )}
+              </motion.div>
             )}
 
             {currentView === 'chat' && (
