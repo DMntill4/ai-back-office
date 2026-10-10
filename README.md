@@ -7,16 +7,16 @@
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Node.js-LTS-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/Docker-Containers-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Supabase-Cloud_DB-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
   <img src="https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black" alt="Drizzle ORM" />
   <img src="https://img.shields.io/badge/Vitest-Passing_100%25-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
 </p>
 
 ---
 
-# AI Back Office Agent
+# AI Back Office Agent (MINT)
 
-> **Agente autónomo para operaciones de back office (inventario, compras, auditoría y abastecimiento)** impulsado por **Grok (xAI)** con razonamiento ReAct, ejecución estricta de herramientas y verificación directa en base de datos.
+> **Agente autonomo para operaciones de back office (coordinacion logistica, compras, auditoria y abastecimiento)** impulsado por **Grok (xAI)** con razonamiento ReAct, motor de superpoderes por dominio, ejecucion estricta de herramientas y persistencia verificada en base de datos.
 
 ---
 
@@ -33,8 +33,8 @@
     </td>
     <td align="center">
       <a href="https://github.com/andresguerra321">
-        <img src="https://github.com/andresguerra321.png" width="90px;" alt="Andrés Guerra" style="border-radius: 50%;" /><br />
-        <sub><b>Andrés Guerra</b></sub>
+        <img src="https://github.com/andresguerra321.png" width="90px;" alt="Andres Guerra" style="border-radius: 50%;" /><br />
+        <sub><b>Andres Guerra</b></sub>
       </a><br />
       <code>@andresguerra321</code>
     </td>
@@ -43,102 +43,105 @@
 
 ---
 
-## Estado del Proyecto (Semana 1: Agente End-to-End)
+## Estado del Proyecto
 
-- [x] **Infraestructura aislada en Docker:** PostgreSQL 16 con esquemas Drizzle ORM y triggers inmutables.
-- [x] **Configuración y Logs:** Validación estricta con **Zod** y telemetría estructurada con **Pino**.
-- [x] **Cliente Grok:** Conexión segura en `src/llm/client.ts`, detección de capacidades y contención de costos.
-- [x] **Herramientas de negocio:** `consultar_stock`, `ver_ordenes_abiertas`, `crear_orden_compra` con **idempotencia**, límite de aprobación ($10,000 MXN) y verificación post-escritura.
-- [x] **Cerebro ReAct (`loop.ts`):** Ciclo autónomo de investigación, ejecución de herramientas y dictamen (`resuelto` vs `escalado`).
-- [x] **Pruebas a costo $0:** 20 tests unitarios y de escenarios ejecutados con `FakeGrokClient`.
+- [x] **Persistencia Cloud en Supabase:** PostgreSQL 16 24/7 con soporte automatico SSL, esquemas Drizzle ORM y triggers inmutables.
+- [x] **Configuracion y Logs:** Validacion estricta con **Zod** y telemetria estructurada con **Pino**.
+- [x] **Cliente Grok Unificado:** Conexion segura en `src/llm/client.ts`, soporte multillave (`RETO_KEY`, `GROK_API_KEY`) y control de costos en USD.
+- [x] **Arsenal de Herramientas de Negocio:**
+  - `consultar_stock`: Busqueda de inventario con Fuzzy Matching para SKUs mal escritos.
+  - `ver_ordenes_abiertas`: Deteccion de producto en camino y compras activas.
+  - `crear_orden_compra`: Creacion idempotente con limite de aprobacion humana ($10,000 MXN).
+  - `evaluar_proveedores`: Matriz comparativa de proveedores por costo, velocidad y balance.
+  - `analisis_financiero`: Valuacion de stock total, compromisos de compra y presupuesto a 30 dias.
+  - `simular_escenario`: Simulaciones What-If de demanda y retrasos de proveedores.
+  - `auditar_anomalias`: Deteccion automatica de descalces de inventario y sobrecostos.
+  - `generar_reporte_general`: Reportes de productos mas vendidos, sin stock, por renovar y por caducar.
+- [x] **Motor de Superpoderes y Skills en Markdown:** Inyeccion dinamica de contexto de dominio experto (`src/agent/skills/`) segun la naturaleza de la consulta.
+- [x] **Servidor Fastify y Motor Proactivo en Standby:** API REST (`/api/chat`) y bus de eventos para consumo del frontend.
+- [x] **Pruebas a Costo $0:** 20 pruebas automatizadas unitarias y de escenarios en Vitest (100% aprobadas).
 
 ---
 
-## Stack Tecnológico
+## Stack Tecnologico
 
 <div align="center">
 
-| Categoría | Tecnología | Insignia |
-|:---|:---|:---:|
-| **Inteligencia Artificial** | xAI Grok (`grok-4.6`) | ![Grok](https://img.shields.io/badge/xAI_Grok-4.6-FDB813?style=flat-square&logo=openai&logoColor=black) |
-| **Lenguaje y Entorno** | TypeScript 5.6 + Node.js (LTS) | ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=flat-square&logo=typescript&logoColor=white) ![Node.js](https://img.shields.io/badge/Node.js-24-339933?style=flat-square&logo=node.js&logoColor=white) |
-| **Base de Datos & ORM** | PostgreSQL 16 + Drizzle ORM | ![Postgres](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white) ![Drizzle](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?style=flat-square&logo=drizzle&logoColor=black) |
-| **Aislamiento & DevOps** | Docker + Docker Compose | ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white) |
-| **Validación & Logs** | Zod + Pino | ![Zod](https://img.shields.io/badge/Zod-3.x-3068B7?style=flat-square&logo=zod&logoColor=white) ![Pino](https://img.shields.io/badge/Pino-Structured_Logs-68A063?style=flat-square) |
-| **Testing & Calidad** | Vitest + ESLint + Prettier | ![Vitest](https://img.shields.io/badge/Vitest-5.0-6E9F18?style=flat-square&logo=vitest&logoColor=white) ![ESLint](https://img.shields.io/badge/ESLint-Code_Quality-4B32C3?style=flat-square&logo=eslint&logoColor=white) |
+| Categoria | Tecnologia |
+|:---|:---|
+| **Inteligencia Artificial** | xAI Grok (`grok-4.6`) |
+| **Lenguaje y Entorno** | TypeScript 5.6 + Node.js (LTS) |
+| **Base de Datos & ORM** | PostgreSQL 16 (Supabase Cloud / Docker) + Drizzle ORM |
+| **Servidor HTTP** | Fastify 5.x + Cors |
+| **Validacion & Logs** | Zod + Pino |
+| **Testing & Calidad** | Vitest + ESLint + Prettier |
 
 </div>
 
 ---
 
-## Arquitectura y Principios
+## Arquitectura y Principios de Seguridad
 
 ```text
-Caso Entrante ──► PostgreSQL (Estado: "recibido")
-                      │
-              Agent Loop (ReAct) ──► LLM Client ──► Grok (xAI)
-               │          ▲              │
-  Selección de │          │ Resultado    └─► Auditoría en llm_calls (costos & tokens)
-  Herramientas ▼          │
-              Herramientas ──► Servicios ──► PostgreSQL (Negocio)
-                      │
-               Verificación ──► case_events ──► Dictamen: "resuelto" | "escalado"
+Usuario / API ──► Superpowers Engine (skills/*.md)
+                        │
+                Agent Loop (ReAct) ──► LLM Client ──► Grok (xAI)
+                 │          ▲              │
+    Seleccion de │          │ Resultado    └─► Auditoria en llm_calls (costos en USD)
+    Herramientas ▼          │
+                Herramientas ──► Servicios ──► PostgreSQL / Supabase
+                        │
+                 Verificacion ──► case_events ──► Dictamen: "resuelto" | "escalado"
 ```
 
-1. **El modelo decide, el código gobierna:** Grok no toca la base de datos directamente; solicita herramientas y el código aplica permisos y límites.
-2. **Idempotencia:** Toda acción de escritura requiere una clave de idempotencia única para evitar transacciones duplicadas.
-3. **Verificación Post-Escritura:** Un caso solo se cierra como `resuelto` si la inserción en base de datos es comprobada en disco.
-4. **Límite de Aprobación:** Compras superiores a **$10,000 MXN** son suspendidas inmediatamente y escaladas a supervisión humana.
+1. **El modelo decide, el codigo gobierna:** Grok propone acciones; el codigo valida esquemas y limites de riesgo.
+2. **Idempotencia Obligatoria:** Toda transaccion de compra requiere clave idempotente para evitar compras duplicadas.
+3. **Verificacion Post-Escritura:** Un caso solo se concluye como resuelto si el registro fisico es verificado en base de datos.
+4. **Limite Presupuestario Human-in-the-Loop:** Compras mayores a $10,000 MXN generan una solicitud formal pendiente de aprobacion humana.
 
 ---
 
-## Épicas e Historias de Usuario
+## Comandos del Proyecto
 
-> Diagrama detallado: **[Ver Diagrama de Arquitectura y Épicas](./resources/img/userHistoriesAI-BACKOFFICE.png)**
-
-- **Épica 1: Infraestructura y Auditoría Inmutable:** Configuración de Postgres 16 en Docker, esquemas relacionales con Drizzle y protección contra modificaciones/eliminaciones en `case_events`.
-- **Épica 2: Conexión con Grok y Gobernanza de Costos:** Cliente único en `src/llm/client.ts`, prueba de humo (`npm run smoke`) y registro estricto de latencia, tokens y costo en USD.
-- **Épica 3: Datos de Negocio y Herramientas:** Servicios de catálogo, inventario y proveedores; herramientas tipadas (`consultar_stock`, `ver_ordenes_abiertas`, `crear_orden_compra`) con tope presupuestario y verificación en disco.
-- **Épica 4: Bucle ReAct y Pruebas a Costo Cero:** Cerebro autónomo que resuelve o escala casos según evidencia, probado con 20 tests unitarios/escenarios simulados sin consumir saldo de la API.
-
----
-
-## Comandos Rápidos
-
-### Demostración en Vivo End-to-End (Grok API Real)
+### Terminal Interactiva CLI (Chat con el Agente)
 ```bash
-npm run run-case
+npm run chat
 ```
 
-### Pruebas y Validación de Código
+### Servidor HTTP API (Fastify)
 ```bash
-# Validar tipos de TypeScript
-npm run typecheck
-
-# Correr suite de pruebas con LLM simulado (Costo $0 USD)
-npm test
-
-# Ejecutar prueba de humo del Gateway de Grok
-npm run smoke
+npm run server
 ```
 
-### Entorno Aislado Docker & Base de Datos
+### Base de Datos y Migraciones (Supabase Cloud o Local)
 ```bash
-# Construir y levantar contenedores
-docker compose up --build -d
-
-# Ejecutar migraciones
+# Aplicar migraciones relacionales
 npm run db:migrate
 
-# Poblar datos iniciales de prueba (seed)
+# Sembrar catalogo de 16 SKUs industriales y comerciales
 npm run db:seed
 
-# Interfaz visual de base de datos
+# Limpiar o reiniciar base de datos
+npm run db:reset
+
+# Drizzle Studio (interfaz visual)
 npm run db:studio
+```
+
+### Pruebas y Validacion (Costo $0 USD)
+```bash
+# Correr suite de 20 pruebas en Vitest
+npm test
+
+# Validacion de tipos TypeScript
+npm run typecheck
+
+# Prueba de humo de conexion con Grok
+npm run smoke
 ```
 
 ---
 
 <p align="center">
-  <sub>Desarrollado para el Reto de Agentes Autónomos • 2026</sub>
+  <sub>Desarrollado para el Reto de Agentes Autonomos - 2026</sub>
 </p>
