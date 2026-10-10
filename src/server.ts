@@ -40,6 +40,48 @@ server.post("/api/chat", async (request, reply) => {
   }
 });
 
+import { getPendingApprovals, resolveApproval, getSupplierPerformance } from "./services/inventoryService";
+
+server.get("/api/dashboard", async (request, reply) => {
+  const performance = await getSupplierPerformance();
+  return reply.send({
+    success: true,
+    data: {
+      performance,
+      dailyReport: {
+        totalOrders: 156,
+        automated: 142,
+        pendingReview: 14,
+        savings: 1840,
+        spend: 4.20
+      }
+    }
+  });
+});
+
+server.get("/api/approvals", async (request, reply) => {
+  const pending = await getPendingApprovals();
+  return reply.send({
+    success: true,
+    data: pending
+  });
+});
+
+server.post("/api/approvals/:id", async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const { action } = request.body as { action: "aprobado" | "rechazado" };
+  const result = await resolveApproval(id, action);
+  
+  if (!result.success) {
+    return reply.status(404).send(result);
+  }
+
+  // Si aprueban una orden de más de $10,000, podemos emitir una notificación
+  // Aquí podríamos emitir el evento a WebSocket o hacer algo
+  
+  return reply.send(result);
+});
+
 const start = async () => {
   try {
     await server.listen({ port: 3001, host: "0.0.0.0" });
