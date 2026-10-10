@@ -534,12 +534,28 @@ function App() {
                   <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.2rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Activity size={20} color="var(--mint-primary)" /> Actividad y Auditoría del Sistema
                   </h3>
-                  <div className="custom-scrollbar" style={{ flex: 1, background: '#020403', borderRadius: '8px', padding: '1rem', border: '1px solid rgba(255,255,255,0.05)', fontFamily: 'monospace', fontSize: '0.85rem', overflowY: 'auto' }}>
-                    <div style={{ color: 'var(--text-secondary)', padding: '5px 0' }}>[10:05:22] CONEXIÓN: Pool DB (Postgres) establecida exitosamente.</div>
-                    <div style={{ color: 'var(--text-secondary)', padding: '5px 0' }}>[10:06:10] CRON: Ejecutando verificación de inventario (Job ID: 492).</div>
-                    <div style={{ color: 'var(--warning-color)', padding: '5px 0' }}>[10:06:15] AUDIT: 2 productos encontrados bajo el nivel crítico.</div>
-                    <div style={{ color: 'var(--mint-primary)', padding: '5px 0' }}>[10:06:16] MINT: Generando reportes y preparando propuestas de órdenes.</div>
-                    <div style={{ color: 'var(--text-secondary)', padding: '5px 0' }}>[10:12:05] LLM: Llamada al modelo completada (Tokens: 1450).</div>
+                  <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', paddingRight: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {[
+                      { id: 1, time: '10:05:22', type: 'system', title: 'Conexión de Base de Datos', desc: 'Pool DB (Postgres) establecida exitosamente.', icon: <Database size={16} />, color: '#61AFEF', bg: 'rgba(97, 175, 239, 0.1)' },
+                      { id: 2, time: '10:06:10', type: 'cron', title: 'Verificación de Inventario', desc: 'CRON Job ejecutado (ID: 492).', icon: <Settings size={16} />, color: '#C678DD', bg: 'rgba(198, 120, 221, 0.1)' },
+                      { id: 3, time: '10:06:15', type: 'audit', title: 'Auditoría Crítica', desc: '2 productos encontrados bajo el nivel crítico de stock.', icon: <AlertTriangle size={16} />, color: 'var(--warning-color)', bg: 'rgba(245, 158, 11, 0.1)' },
+                      { id: 4, time: '10:06:16', type: 'agent', title: 'Generación de Propuestas', desc: 'MINT está generando reportes y preparando propuestas de órdenes.', icon: <Activity size={16} />, color: 'var(--mint-primary)', bg: 'rgba(0, 255, 102, 0.1)' },
+                      { id: 5, time: '10:12:05', type: 'llm', title: 'Inferencia LLM Completada', desc: 'Llamada al modelo completada correctamente (Tokens: 1450).', icon: <BrainCircuit size={16} />, color: '#56B6C2', bg: 'rgba(86, 182, 194, 0.1)' }
+                    ].map((log) => (
+                        <div key={log.id} style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', whiteSpace: 'nowrap', marginTop: '16px', fontFamily: 'monospace' }}>{log.time}</div>
+                          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '1.2rem', display: 'flex', gap: '1rem', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' }} className="hover-lift">
+                            {(log.type === 'audit' || log.type === 'agent') && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: log.color }}></div>}
+                            <div style={{ background: log.bg, color: log.color, width: '36px', height: '36px', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
+                              {log.icon}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ color: '#fff', fontWeight: 500, fontSize: '0.95rem' }}>{log.title}</div>
+                              <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{log.desc}</div>
+                            </div>
+                          </div>
+                        </div>
+                    ))}
                   </div>
                 </div>
               </motion.div>
