@@ -326,7 +326,7 @@ function App() {
               </div>
             </div>
 
-            <motion.div animate={{ opacity: selectedDecision ? 0.4 : 1, scale: selectedDecision ? 0.98 : 1 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }} style={{ flex: '1.2', display: 'flex', flexDirection: 'column' }}>
+            <motion.div animate={{ opacity: selectedDecision ? 0.4 : 1, scale: selectedDecision ? 0.98 : 1 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }} style={{ flex: '1.2', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
               <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column' }}>
                 <h3 style={{ margin: '0 0 2rem 0', fontSize: '1.1rem', fontWeight: 500, display: 'flex', justifyContent: 'space-between' }}>
@@ -353,6 +353,27 @@ function App() {
                       <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{background: 'var(--bg-color)', border: '1px solid var(--border-glass)', borderRadius: '8px', color: '#fff'}} />
                       <Bar dataKey="uv" radius={[4, 4, 0, 0]}>
                         {data.map((entry, index) => <Cell key={`cell-${index}`} fill={index === data.length - 1 ? 'var(--mint-primary)' : 'rgba(0, 255, 102, 0.3)'} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.1rem', fontWeight: 500, display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Rendimiento de Envíos (Por Proveedor)</span>
+                  <TrendingUp size={18} color="var(--mint-primary)" />
+                </h3>
+                <div style={{ flex: 1, minHeight: '140px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[ { name: 'TechComp', uv: 95 }, { name: 'ElectroGlobal', uv: 82 }, { name: 'GlobalParts', uv: 98 }, { name: 'FastShip', uv: 60 } ]} layout="vertical" margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
+                      <XAxis type="number" hide />
+                      <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--text-secondary)', fontSize: 11}} width={80} />
+                      <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{background: 'var(--bg-color)', border: '1px solid var(--border-glass)', borderRadius: '8px', color: '#fff'}} formatter={(value) => [`${value}% a tiempo`, 'Rendimiento']} />
+                      <Bar dataKey="uv" radius={[0, 4, 4, 0]} barSize={16}>
+                        {[95, 82, 98, 60].map((val, index) => (
+                          <Cell key={`cell-${index}`} fill={val < 70 ? 'var(--danger-color)' : val < 90 ? 'var(--warning-color)' : 'var(--mint-primary)'} />
+                        ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
