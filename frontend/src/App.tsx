@@ -44,10 +44,17 @@ const Sidebar = ({ currentView, setView }: { currentView: string, setView: (v: s
 const Header = ({ onOpenCmd }: { onOpenCmd: () => void }) => (
   <header style={{ padding: '1.5rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-      <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <img src="/src/assets/icon.png" alt="Mint Logo" style={{ height: '24px', objectFit: 'contain', filter: 'drop-shadow(0 0 4px rgba(0,255,102,0.4))' }} />
-        <span style={{ width: '1px', height: '20px', background: 'var(--border-glass)' }}></span>
-        <span style={{ fontSize: '1.4rem', fontWeight: 500, letterSpacing: '-0.2px', fontFamily: '"Outfit", "Inter", sans-serif', color: '#fff' }}>MInt</span>
+      <h1 style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
+        <span style={{ 
+          fontSize: '2.2rem', 
+          fontWeight: 800, 
+          letterSpacing: '-1.5px', 
+          fontFamily: '"Outfit", sans-serif', 
+          background: 'linear-gradient(180deg, #D7F9A0 0%, #2E9B3B 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          lineHeight: 1
+        }}>Mint</span>
       </h1>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
         <span>Plataforma</span> <ChevronRight size={14} /> <span style={{ color: 'var(--text-primary)' }}>Cola de Trabajo</span>
