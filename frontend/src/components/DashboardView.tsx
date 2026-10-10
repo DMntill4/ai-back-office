@@ -1,20 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Activity, AlertTriangle, Box, TrendingUp, ChevronRight, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 
 export const DashboardView = () => {
   const [data, setData] = useState<any>(null);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/dashboard')
-      .then(r => r.json())
-      .then(res => {
-        if (res.success) {
-          setData(res.data);
+    // Simulamos la respuesta del backend
+    setTimeout(() => {
+      setData({
+        performance: [
+          { name: 'TechComp', uv: 95 }, 
+          { name: 'ElectroGlobal', uv: 82 }, 
+          { name: 'GlobalParts', uv: 98 }, 
+          { name: 'FastShip', uv: 60 }
+        ],
+        dailyReport: { 
+          totalOrders: 156, 
+          automated: 142, 
+          pendingReview: 14, 
+          savings: 1840, 
+          spend: 4.20 
         }
-      })
-      .catch(e => console.error(e));
+      });
+    }, 500);
   }, []);
 
   const performanceData = data?.performance || [
@@ -33,7 +44,7 @@ export const DashboardView = () => {
   };
 
   // Framer Motion Variants
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -41,7 +52,7 @@ export const DashboardView = () => {
     }
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };

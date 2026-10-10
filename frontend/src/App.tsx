@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Activity, Settings, Bell, Check, X, Share2, BrainCircuit, ChevronRight, Terminal, Loader2, Search, User, FileText, Database, MessageSquare, TrendingUp, Grid, AlertTriangle, Package, CheckSquare, CheckCircle2 } from 'lucide-react';
+import { Home, Activity, Settings, Bell, X, Share2, BrainCircuit, ChevronRight, Terminal, Loader2, Search, User, FileText, Database, MessageSquare, TrendingUp, Grid, AlertTriangle, Package, CheckSquare, CheckCircle2 } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster, toast } from 'sonner';
@@ -8,6 +8,7 @@ import { Command } from 'cmdk';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { DashboardView } from './components/DashboardView';
 import { StockView } from './components/StockView';
+import { LoginView } from './components/LoginView';
 import './index.css';
 
 const NavTooltip = ({ children, content }: { children: React.ReactNode, content: string }) => (
@@ -43,7 +44,7 @@ const Sidebar = ({ currentView, setView }: { currentView: string, setView: (v: s
   </aside>
 );
 
-const Header = ({ onOpenCmd }: { onOpenCmd: () => void }) => {
+const Header = ({ onOpenCmd, onLogout }: { onOpenCmd: () => void, onLogout: () => void }) => {
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
@@ -136,7 +137,7 @@ const Header = ({ onOpenCmd }: { onOpenCmd: () => void }) => {
                   <div className="hover-lift" style={{ padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', borderRadius: '6px', transform: 'none' }}>Permisos de agente</div>
                   <div className="hover-lift" style={{ padding: '8px 12px', fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', borderRadius: '6px', transform: 'none' }}>Soporte técnico</div>
                   <div style={{ height: '1px', background: 'var(--border-glass)', margin: '8px 0' }}></div>
-                  <div className="hover-lift" style={{ padding: '8px 12px', fontSize: '0.85rem', color: 'var(--danger-color)', cursor: 'pointer', borderRadius: '6px', transform: 'none' }}>Cerrar Sesión</div>
+                  <div onClick={onLogout} className="hover-lift" style={{ padding: '8px 12px', fontSize: '0.85rem', color: 'var(--danger-color)', cursor: 'pointer', borderRadius: '6px', transform: 'none' }}>Cerrar Sesión</div>
                 </div>
               </motion.div>
             )}
@@ -171,24 +172,11 @@ const AgentConsole = () => {
     setMessages(prev => [...prev, { id: newId, text, role: 'user' }]);
     setIsLoading(true);
 
-    try {
-      const res = await fetch('http://localhost:3001/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, caseId: caseId || undefined })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCaseId(data.caseId);
-        setMessages(prev => [...prev, { id: Date.now(), text: data.response, role: 'agent' }]);
-      } else {
-        setMessages(prev => [...prev, { id: Date.now(), text: 'Error procesando solicitud.', role: 'agent' }]);
-      }
-    } catch (err) {
-      setMessages(prev => [...prev, { id: Date.now(), text: 'Error de red con el backend.', role: 'agent' }]);
-    } finally {
+    // Mock del chat
+    setTimeout(() => {
+      setMessages(prev => [...prev, { id: Date.now(), text: 'Entendido. Estoy procesando tu solicitud para visualizar los datos solicitados. (Simulación UI)', role: 'agent' }]);
       setIsLoading(false);
-    }
+    }, 1500);
   };
 
   return (
@@ -251,11 +239,8 @@ const AgentConsole = () => {
 };
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard');
-  const [decisions, setDecisions] = useState([
-    { id: '1', title: 'Microcontrolador MCU-X1', subtitle1: 'Stock Actual', metric1: '180 uds', subtitle2: 'Orden Sugerida', metric2: '31,450 uds', cost: '$12,450.00' },
-    { id: '2', title: 'Reparación de Sensores Ópticos', subtitle1: 'Presupuesto', metric1: '$40 USD', subtitle2: 'Costo Imprevisto', metric2: '$1,480 USD', cost: '$1,480.00' }
-  ]);
   const [selectedDecision, setSelectedDecision] = useState<any>(null);
   const [cmdOpen, setCmdOpen] = useState(false);
 
@@ -272,9 +257,12 @@ function App() {
 
   const handleApprove = (id: string) => {
     toast.success('Decisión aprobada. El agente ejecutará la orden.');
-    setDecisions(prev => prev.filter(d => d.id !== id));
     setSelectedDecision(null);
   };
+
+  if (!isAuthenticated) {
+    return <LoginView onLogin={() => setIsAuthenticated(true)} />;
+  }
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -308,7 +296,7 @@ function App() {
       <Drawer.Root direction="right" open={!!selectedDecision} onOpenChange={(open) => !open && setSelectedDecision(null)}>
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          <Header onOpenCmd={() => setCmdOpen(true)} />
+          <Header onOpenCmd={() => setCmdOpen(true)} onLogout={() => setIsAuthenticated(false)} />
 
           <main style={{ flex: 1, padding: '1rem 2.5rem 2.5rem', display: 'flex', gap: '2.5rem', overflow: 'hidden' }}>
 

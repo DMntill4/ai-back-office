@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -146,3 +147,25 @@ body {
 }
 .cmdk-item[data-selected="true"] { background: var(--bg-glass); color: var(--mint-primary); }
 .cmdk-empty { padding: 20px; text-align: center; color: var(--text-secondary); font-size: 14px; }
+
+/* Login Specific Styles */
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+.font-outfit { font-family: 'Outfit', sans-serif; }
+.bg-mint-gradient { background: linear-gradient(135deg, #B8F5A0 0%, #2FBF4A 100%); }
+.text-mint-gradient { background: linear-gradient(135deg, #B8F5A0 0%, #2FBF4A 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.glass-card-login {
+  background: rgba(11, 21, 16, 0.72);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(47, 191, 74, 0.16);
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.65), 0 0 40px -10px rgba(47, 191, 74, 0.08);
+}
+.glow-orb {
+  position: absolute;
+  width: 580px;
+  height: 580px;
+  background: radial-gradient(circle, rgba(47, 191, 74, 0.16) 0%, rgba(184, 245, 160, 0.05) 45%, rgba(4, 10, 6, 0) 70%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}

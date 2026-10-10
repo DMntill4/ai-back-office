@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Truck, Activity, CheckCircle2, AlertTriangle, BatteryWarning, Zap, Settings2, Download, Filter, RefreshCw, MessageSquareText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Package, Truck, Activity, CheckCircle2, AlertTriangle, Zap, Settings2, Download, Filter, RefreshCw, MessageSquareText } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 
 interface StockViewProps {
   onChatRequest?: () => void;
@@ -11,34 +12,36 @@ export const StockView = ({ onChatRequest }: StockViewProps) => {
   const [approvals, setApprovals] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/approvals')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setApprovals(data.data);
+    // Mock inicial de aprobaciones
+    setTimeout(() => {
+      setApprovals([
+        {
+          id: 'appr_001',
+          actionType: 'crear_orden_compra',
+          reason: 'La orden para 20 sensores supera el límite de autorización de $10,000 MXN',
+          amount: '15450.00',
+          currency: 'MXN',
+          requestedAt: Date.now() - 3600000,
+        },
+        {
+          id: 'appr_002',
+          actionType: 'revision_inventario',
+          reason: 'Divergencia detectada entre stock físico y registro ERP en línea B',
+          amount: '0.00',
+          currency: 'MXN',
+          requestedAt: Date.now() - 7200000,
         }
-      })
-      .catch(err => console.error(err));
+      ]);
+    }, 500);
   }, []);
 
   const handleApprove = async (id: string, action: 'aprobado'|'rechazado') => {
-    try {
-      const res = await fetch(`http://localhost:3001/api/approvals/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setApprovals(prev => prev.filter(a => a.id !== id));
-        toast.success(`Orden ${action === 'aprobado' ? 'aprobada' : 'rechazada'} con éxito.`);
-      }
-    } catch (e) {
-      toast.error('Error al procesar la aprobación');
-    }
+    // Mock de aprobación
+    setApprovals(prev => prev.filter(a => a.id !== id));
+    toast.success(`Orden ${action === 'aprobado' ? 'aprobada' : 'rechazada'} con éxito.`);
   };
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -46,7 +49,7 @@ export const StockView = ({ onChatRequest }: StockViewProps) => {
     }
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
