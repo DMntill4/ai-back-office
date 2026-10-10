@@ -150,6 +150,7 @@ body {
 
 /* Login Specific Styles */
 .font-mono { font-family: 'JetBrains Mono', monospace; }
+.font-google-sans { font-family: 'Google Sans', 'Product Sans', sans-serif; }
 .font-outfit { font-family: 'Outfit', sans-serif; }
 .bg-mint-gradient { background: linear-gradient(135deg, #B8F5A0 0%, #2FBF4A 100%); }
 .text-mint-gradient { background: linear-gradient(135deg, #B8F5A0 0%, #2FBF4A 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
