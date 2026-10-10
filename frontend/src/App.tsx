@@ -431,9 +431,50 @@ function App() {
                     </div>
                   </div>
                   
-                  <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#020403', border: '1px solid rgba(0,255,102,0.1)', borderRadius: '12px', fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                    <div style={{ color: 'var(--text-secondary)', marginBottom: '10px' }}>// Drizzle ORM Query Preview</div>
-                    <div style={{ color: '#fff' }}><span style={{ color: '#C678DD' }}>await</span> db.<span style={{ color: '#61AFEF' }}>select</span>().<span style={{ color: '#61AFEF' }}>from</span>(inventory).<span style={{ color: '#61AFEF' }}>where</span>(<span style={{ color: '#E5C07B' }}>lt</span>(inventory.quantity, inventory.minimum));</div>
+                  <div style={{ marginTop: '2rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px', overflow: 'hidden' }}>
+                    <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#fff' }}><Search size={16} color="var(--mint-primary)" /> Vista Previa: <span style={{ color: 'var(--mint-primary)', fontWeight: 400 }}>inventory</span></h4>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="mint-button" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Filtrar</button>
+                        <button className="mint-button" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Exportar</button>
+                      </div>
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.03)' }}>
+                            <th style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.85rem' }}>SKU</th>
+                            <th style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.85rem' }}>Producto</th>
+                            <th style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.85rem' }}>Stock</th>
+                            <th style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.85rem' }}>Mínimo</th>
+                            <th style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.85rem' }}>Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="hover-lift" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s', cursor: 'pointer', transform: 'none', boxShadow: 'none' }}>
+                            <td style={{ padding: '12px 1.5rem', color: '#fff', fontSize: '0.9rem' }}>MCU-X1</td>
+                            <td style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Microcontrolador X1</td>
+                            <td style={{ padding: '12px 1.5rem', color: '#fff', fontSize: '0.9rem' }}>180</td>
+                            <td style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>200</td>
+                            <td style={{ padding: '12px 1.5rem' }}><span style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning-color)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem' }}>Bajo Stock</span></td>
+                          </tr>
+                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <td style={{ padding: '12px 1.5rem', color: '#fff', fontSize: '0.9rem' }}>SENS-OPT</td>
+                            <td style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Sensor Óptico V2</td>
+                            <td style={{ padding: '12px 1.5rem', color: '#fff', fontSize: '0.9rem' }}>45</td>
+                            <td style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>50</td>
+                            <td style={{ padding: '12px 1.5rem' }}><span style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning-color)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem' }}>Bajo Stock</span></td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: '12px 1.5rem', color: '#fff', fontSize: '0.9rem' }}>PWR-500</td>
+                            <td style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Fuente de Poder 500W</td>
+                            <td style={{ padding: '12px 1.5rem', color: '#fff', fontSize: '0.9rem' }}>320</td>
+                            <td style={{ padding: '12px 1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>100</td>
+                            <td style={{ padding: '12px 1.5rem' }}><span style={{ background: 'rgba(0, 255, 102, 0.1)', color: 'var(--mint-primary)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem' }}>Óptimo</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </motion.div>
