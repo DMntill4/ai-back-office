@@ -3,6 +3,10 @@ import { executeConsultarStock } from "../tools/consultarStock";
 import { executeVerOrdenesAbiertas } from "../tools/verOrdenesAbiertas";
 import { executeCrearOrdenCompra } from "../tools/crearOrdenCompra";
 import { executeReporteGeneral } from "../tools/reportesGenerales";
+import { executeEvaluarProveedores } from "../tools/evaluarProveedores";
+import { executeAnalisisFinanciero } from "../tools/analisisFinanciero";
+import { executeSimularEscenario } from "../tools/simularEscenario";
+import { executeAuditarAnomalias } from "../tools/auditarAnomalias";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -39,6 +43,86 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
         },
         required: ["tipo_reporte"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "evaluar_proveedores",
+      description: "Evalúa y compara proveedores para un producto específico según criterios de costo, velocidad de entrega o balanceado.",
+      parameters: {
+        type: "object",
+        properties: {
+          producto_id: {
+            type: "string",
+            description: "ID del producto a cotizar (ej. 'prod_st200')",
+          },
+          criterio: {
+            type: "string",
+            enum: ["costo", "velocidad", "balanceado"],
+            description: "Criterio de prioridad para elegir el mejor proveedor.",
+          },
+        },
+        required: ["producto_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "analisis_financiero",
+      description: "Genera un análisis financiero del inventario: valuación total de stock, compras abiertas comprometidas y presupuesto de reabastecimiento proyectado.",
+      parameters: {
+        type: "object",
+        properties: {
+          incluir_proyecciones: {
+            type: "boolean",
+            description: "Si es true, incluye proyecciones de gasto a 30 días.",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "simular_escenario",
+      description: "Simula escenarios logísticos 'What-If' ante incrementos hipotéticos de demanda o retrasos de entrega de proveedores.",
+      parameters: {
+        type: "object",
+        properties: {
+          producto_id: {
+            type: "string",
+            description: "ID del producto a simular (ej. 'prod_st200')",
+          },
+          incremento_demanda_porcentaje: {
+            type: "number",
+            description: "Porcentaje de aumento proyectado en la demanda (ej. 50 para +50%).",
+          },
+          retraso_proveedor_dias: {
+            type: "number",
+            description: "Días adicionales de retraso proyectado en la entrega del proveedor.",
+          },
+        },
+        required: ["producto_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "auditar_anomalias",
+      description: "Audita y detecta anomalías críticas en el sistema: descalces de inventario, stock cero y sobrecostos en proveedores.",
+      parameters: {
+        type: "object",
+        properties: {
+          tipo_auditoria: {
+            type: "string",
+            enum: ["descalces_inventario", "precios_proveedor", "todo"],
+            description: "Tipo de auditoría a ejecutar.",
+          },
+        },
       },
     },
   },
@@ -188,6 +272,30 @@ export async function dispatchToolCall(
     case "generar_reporte_general":
       return {
         result: await executeReporteGeneral(parsedArgs),
+        isClosingAction: false,
+      };
+
+    case "evaluar_proveedores":
+      return {
+        result: await executeEvaluarProveedores(parsedArgs),
+        isClosingAction: false,
+      };
+
+    case "analisis_financiero":
+      return {
+        result: await executeAnalisisFinanciero(parsedArgs),
+        isClosingAction: false,
+      };
+
+    case "simular_escenario":
+      return {
+        result: await executeSimularEscenario(parsedArgs),
+        isClosingAction: false,
+      };
+
+    case "auditar_anomalias":
+      return {
+        result: await executeAuditarAnomalias(parsedArgs),
         isClosingAction: false,
       };
 
