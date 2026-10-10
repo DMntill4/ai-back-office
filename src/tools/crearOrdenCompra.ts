@@ -41,16 +41,20 @@ export async function executeCrearOrdenCompra(args: CrearOrdenCompraInput) {
       };
     }
 
+    const resAny = result as any;
+
     return {
       isSuccess: true,
-      verified: result.verified ?? true,
-      duplicate: result.duplicate ?? false,
+      requiresApproval: result.requiresApproval ?? false,
+      verified: resAny.verified ?? true,
+      duplicate: resAny.duplicate ?? false,
       message: result.message,
-      data: result.order,
+      data: resAny.order ?? null,
     };
   } catch (error) {
     return {
       isSuccess: false,
+      requiresApproval: false,
       message: `Error al crear la orden de compra: ${(error as Error).message}`,
       canRetry: true,
     };

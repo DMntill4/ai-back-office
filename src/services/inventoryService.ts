@@ -300,6 +300,18 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
 
     // ESTRICTO HUMAN-IN-THE-LOOP: El agente NUNCA compra directamente.
     // Siempre genera un reporte/factura pendiente de aprobación.
+    if (input.caseId) {
+      await db
+        .insert(cases)
+        .values({
+          id: input.caseId,
+          title: `Caso de orden ${input.caseId}`,
+          description: "Generado automaticamente para orden de compra",
+          status: "en_proceso",
+        })
+        .onConflictDoNothing();
+    }
+
     const approvalId = `appr_${Date.now()}`;
     await db.insert(approvals).values({
       id: approvalId,
