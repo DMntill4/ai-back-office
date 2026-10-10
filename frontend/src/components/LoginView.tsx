@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
 export const LoginView = ({ onLogin }: { onLogin: () => void }) => {
   const handleSubmit = (e: React.FormEvent) => {
@@ -54,7 +55,12 @@ export const LoginView = ({ onLogin }: { onLogin: () => void }) => {
         </div>
 
         {/* Refined Glass Login Card */}
-        <div className="w-full max-w-[400px] bg-[#08100B]/70 backdrop-blur-2xl border border-[#2FBF4A]/[0.08] shadow-[0_16px_40px_-12px_rgba(0,0,0,0.8)] rounded-[24px] p-8 relative overflow-hidden transition-all duration-300">
+        <motion.div 
+          initial={{ opacity: 0, y: 16, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: "spring", bounce: 0, duration: 0.5 }}
+          className="w-full max-w-[400px] bg-white/[0.04] backdrop-blur-2xl border border-white/[0.06] shadow-[0_16px_40px_-12px_rgba(0,0,0,0.8)] rounded-[24px] p-8 relative overflow-hidden"
+        >
           
           <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#2FBF4A]/20 to-transparent"></div>
 
@@ -106,21 +112,24 @@ export const LoginView = ({ onLogin }: { onLogin: () => void }) => {
             </div>
 
             <div className="pt-4 flex justify-center">
-              <button 
+              <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: "spring", bounce: 0, duration: 0.4 }}
                 type="submit" 
-                className="bg-[#2FBF4A]/10 text-[#2FBF4A] border border-[#2FBF4A]/20 hover:bg-[#2FBF4A]/20 hover:border-[#2FBF4A]/40 font-medium text-[13px] py-2.5 px-8 rounded-full transition-all flex items-center justify-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(47,191,74,0.05)] hover:shadow-[0_0_20px_rgba(47,191,74,0.1)]"
+                className="bg-[#2FBF4A]/10 text-[#2FBF4A] border border-[#2FBF4A]/20 hover:bg-[#2FBF4A]/20 hover:border-[#2FBF4A]/40 font-medium text-[13px] py-2.5 px-8 rounded-full flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(47,191,74,0.05)] hover:shadow-[0_0_20px_rgba(47,191,74,0.1)]"
               >
                 <span>Acceder al Sistema</span>
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                 </svg>
-              </button>
+              </motion.button>
             </div>
           </form>
 
 
 
-        </div>
+        </motion.div>
 
         <div className="mt-6 flex items-center gap-2 font-mono text-xs text-[#9DB5A3] bg-[#08120B]/60 border border-[#2FBF4A]/10 px-3.5 py-1.5 rounded-full backdrop-blur-md">
           <span className="inline-block w-2 h-2 rounded-full bg-[#2FBF4A] shadow-[0_0_8px_#2FBF4A] animate-pulse"></span>
