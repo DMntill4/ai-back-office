@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Activity, Settings, Bell, Check, X, Share2, BrainCircuit, ChevronRight, Terminal, Loader2, Search, User, FileText, Database, MessageSquare, TrendingUp, Grid, AlertTriangle } from 'lucide-react';
+import { Home, Activity, Settings, Bell, Check, X, Share2, BrainCircuit, ChevronRight, Terminal, Loader2, Search, User, FileText, Database, MessageSquare, TrendingUp, Grid, AlertTriangle, Package } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster, toast } from 'sonner';
@@ -94,10 +94,10 @@ const AgentConsole = () => {
   const [caseId, setCaseId] = useState('');
 
   const suggestions = [
-    "📦 Consultar productos sin stock",
-    "📈 Ver rendimiento logístico",
-    "📝 Historial de órdenes recientes",
-    "🔍 Auditar últimos movimientos"
+    { text: "Consultar productos sin stock", icon: <Package size={14} /> },
+    { text: "Ver rendimiento logístico", icon: <TrendingUp size={14} /> },
+    { text: "Historial de órdenes recientes", icon: <FileText size={14} /> },
+    { text: "Auditar últimos movimientos", icon: <Search size={14} /> }
   ];
 
   const handleSend = async (text: string) => {
@@ -163,8 +163,8 @@ const AgentConsole = () => {
 
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         {suggestions.map((sug, i) => (
-          <button key={i} onClick={() => handleSend(sug)} className="hover-lift" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '20px', padding: '8px 16px', fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {sug}
+          <button key={i} onClick={() => handleSend(sug.text)} className="hover-lift" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '20px', padding: '8px 16px', fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', color: 'var(--mint-primary)', opacity: 0.8 }}>{sug.icon}</span> {sug.text}
           </button>
         ))}
       </div>
