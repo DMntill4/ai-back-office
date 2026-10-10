@@ -373,3 +373,42 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     };
   }
 }
+
+export async function getPendingApprovals() {
+  try {
+    const { db } = await import("../db/client");
+    const { eq } = await import("drizzle-orm");
+    const { approvals } = await import("../db/schema");
+    const pending = await db.select().from(approvals).where(eq(approvals.status, "pendiente"));
+    return pending;
+  } catch {
+    return mockApprovals.filter(a => a.status === "pendiente");
+  }
+}
+
+export async function resolveApproval(id: string, action: "aprobado" | "rechazado") {
+  try {
+    const { db } = await import("../db/client");
+    const { eq } = await import("drizzle-orm");
+    const { approvals } = await import("../db/schema");
+    await db.update(approvals).set({ status: action }).where(eq(approvals.id, id));
+    return { success: true };
+  } catch {
+    const approval = mockApprovals.find(a => a.id === id);
+    if (approval) {
+      approval.status = action;
+      return { success: true };
+    }
+    return { success: false, error: "Not found" };
+  }
+}
+
+export async function getSupplierPerformance() {
+  // Returns mock data for supplier performance
+  return [
+    { name: 'TechComp', uv: 95 },
+    { name: 'ElectroGlobal', uv: 82 },
+    { name: 'GlobalParts', uv: 98 },
+    { name: 'FastShip', uv: 60 }
+  ];
+}
