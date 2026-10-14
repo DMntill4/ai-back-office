@@ -44,7 +44,7 @@ async function runSmokeTest() {
   console.log("\n[1/4] Consultando modelos disponibles en /v1/models...");
   try {
     const models = await grokClient.listModels();
-    results.modelosDisponibles = models.map((m) => m.id);
+    results.modelosDisponibles = models.map((m: any) => m.id);
     console.log(
       `✅ Modelos encontrados (${results.modelosDisponibles.length}):`,
       results.modelosDisponibles.join(", "),

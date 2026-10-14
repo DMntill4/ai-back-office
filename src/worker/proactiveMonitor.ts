@@ -1,4 +1,3 @@
-import { EventEmitter } from "node:crypto";
 import { EventEmitter as NodeEventEmitter } from "node:events";
 
 export interface ProactiveAlert {
@@ -54,7 +53,8 @@ export async function runProactiveAuditCycle(): Promise<ProactiveAlert[]> {
     // Revisar caducidades próximas
     const expiryRes = await executeReporteGeneral({ tipo_reporte: "caducidad" });
     if (expiryRes.isSuccess && Array.isArray(expiryRes.data)) {
-      for (const food of expiryRes.data) {
+      for (const foodItem of expiryRes.data) {
+        const food = foodItem as any;
         const alert: ProactiveAlert = {
           id: `alt_exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
           type: "CADUCIDAD_PROXIMA",

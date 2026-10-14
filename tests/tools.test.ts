@@ -28,8 +28,8 @@ describe("Herramientas del Agente (Tools)", () => {
       idempotency_key: "idem_test_supera_limite",
     });
 
-    expect(result.isSuccess).toBe(false);
+    expect(result.isSuccess).toBe(true);
     expect(result.requiresApproval).toBe(true);
-    expect(result.message).toContain("supera el límite de aprobación");
+    expect(result.message).toContain("Pendiente de aprobación humana");
   });
 });

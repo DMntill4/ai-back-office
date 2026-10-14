@@ -13,8 +13,8 @@ export class FakeGrokClient {
     this.callsMade.push(options);
 
     const userMessage = options.messages
-      .filter((m) => m.role === "user")
-      .map((m) => m.content)
+      .filter((m: any) => m.role === "user")
+      .map((m: any) => m.content)
       .join(" ");
 
     // Buscar si hay una respuesta pregrabada

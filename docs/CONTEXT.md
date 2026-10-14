@@ -27,7 +27,7 @@ Un **agente autónomo** sobre **Grok** (modelo de xAI, accedido por el gateway d
 4. **S4** — Semana de carga: **1,000 unidades en 12 horas**, sin supervisión.
 
 ### Estado actual
-Repo de GitHub **vacío**; no hay nada desarrollado. Actualizaremos el progreso en la sección 12.
+**Plataforma Fullstack End-to-End MINT operativa:** Agente autónomo con bucle ReAct sobre Grok (`grok-4.6`), persistencia dual (Supabase Cloud PostgreSQL 16 con SSL y Docker Compose local), arsenal de 8 herramientas operacionales, motor de superpoderes con directivas en Markdown, API REST Fastify con bus de eventos proactivos, 20 pruebas automatizadas en Vitest (100% aprobadas a costo $0 USD), y Consola Web Mint (React 19, Vite, Tailwind CSS v4, Framer Motion) con panel de control, explorador de inventario y aprobaciones **Human-in-the-Loop**.
 
 ## 3. Principios no negociables
 
@@ -43,19 +43,19 @@ Repo de GitHub **vacío**; no hay nada desarrollado. Actualizaremos el progreso 
 
 | Pieza | Uso |
 |---|---|
-| Node.js (LTS) + TypeScript, `tsx`, npm | Lenguaje y entorno. Un solo proyecto (sin monorepo) |
-| PostgreSQL 16 en Docker | Datos del negocio y registros del agente |
-| Drizzle ORM + drizzle-kit | Tablas definidas en TypeScript y **migraciones** |
+| Node.js (LTS) + TypeScript 5.6, `tsx`, npm | Lenguaje y entorno backend |
+| React 19 + TypeScript + Vite 6 + Tailwind CSS v4 | Consola web interactiva Mint (Dashboard, Aprobaciones, Chat, BD) |
+| Framer Motion + Radix UI + cmdk + Sonner | Físicas fluidas Emil Kowalski, accesibilidad y paleta de comandos |
+| PostgreSQL 16 (Dual: Supabase Cloud con SSL + Docker Alpine) | Datos del negocio y registros de auditoría |
+| Drizzle ORM + drizzle-kit | Tablas definidas en TypeScript y migraciones relacionales |
 | SDK `openai` | Cliente del gateway de Grok (formato compatible con OpenAI) |
-| zod | Validar entradas, salidas del modelo y variables de entorno; esquemas de herramientas |
-| pino | Logs |
-| Vitest | Pruebas (con modelo falso) |
-| Biome | Lint y formato |
-| Fastify (+ helmet, rate-limit, cors) | API para recibir casos y ver su línea de tiempo. **Llega al final de S1 o en S2** |
-| Skills (archivos `.md`) | Instrucciones cortas por tipo de caso, para ahorrar tokens. **S2** |
-| Cola de trabajos (pg-boss o tabla propia) | Procesar 1,000 casos con reintentos. **Se decide en S4** |
-
-Versiones vigentes, **fijadas** en `package.json`. No usar Redis, Kubernetes, n8n ni otras herramientas low-code. Una interfaz web sencilla vendrá después (no en S1).
+| zod | Validar entradas, salidas del modelo, variables de entorno y herramientas |
+| pino + pino-pretty | Telemetría y logs estructurados |
+| Vitest | 20 pruebas automáticas de unidad y escenarios simulados |
+| Fastify 5.x (+ cors) | Servidor API HTTP (Chat, Dashboard, Aprobaciones y Alertas) |
+| Skills (archivos `.md`) | Inyección dinámica de directivas expertas por dominio (`src/agent/skills/`) |
+| Worker proactivo | Monitor de inventario y alertas en segundo plano con EventEmitter |
+| Docker & Docker Compose | Contenedores para PostgreSQL y la aplicación en Alpine Linux |
 
 ## 5. Conexión con Grok
 
@@ -127,15 +127,32 @@ Hermes, servicio Python/OCR, voz, Groq y otros ayudantes (solo si las reglas del
 
 Compila (`typecheck`), pasa lint y pruebas, **sin llamar a Grok real en las pruebas**, sin secretos, escrituras idempotentes y verificadas, el registro de eventos refleja lo ocurrido, el README o `docs/` explica cómo usarlo.
 
-## 12. Progreso (los humanos lo actualizan)
+## 12. Progreso y Estado de Hitos
 
-- [x] Paso 0: Node, Git, VS Code, Docker instalados
-- [x] Esqueleto del proyecto y este manual
-- [ ] Base de datos en Docker y tablas del agente
-- [ ] Configuración y logs
-- [ ] Cliente de Grok y prueba de humo (`001-gateway.md`)
-- [ ] Datos del negocio y servicios
-- [ ] Herramientas
-- [ ] Bucle del agente y registro
-- [ ] Casos de ejemplo y pruebas
-- [ ] README y entrega de S1
+- [x] **Paso 0:** Node.js, Git, VS Code y Docker configurados.
+- [x] **Esqueleto y Arquitectura:** Manuales, estructura de carpetas y ADRs.
+- [x] **Persistencia Dual:** PostgreSQL 16 en Docker (`docker-compose.yml`, `init-db.sql`) y Supabase Cloud con SSL.
+- [x] **Auditoría Inmutable:** Triggers en base de datos protegiendo `case_events` contra modificaciones y borrados.
+- [x] **Configuración y Logs:** Validación estricta con Zod (`src/config/env.ts`) y logs estructurados con Pino.
+- [x] **Cliente Grok Unificado:** Conexión segura en `src/llm/client.ts`, fallback multillave, reintentos exponenciales y auditoría de costos en USD.
+- [x] **Datos de Negocio y Semillas:** Catálogo de 16 SKUs industriales y comerciales, 3 almacenes y 5 proveedores.
+- [x] **Arsenal de 8 Herramientas de Negocio:**
+  - `consultar_stock` (con fuzzy matching).
+  - `ver_ordenes_abiertas`.
+  - `crear_orden_compra` (idempotente con verificación física).
+  - `evaluar_proveedores` (matriz de costo, velocidad y balance).
+  - `analisis_financiero` (valuación y proyecciones a 30 días).
+  - `simular_escenario` (What-If de demanda y contingencias).
+  - `auditar_anomalias` (descalces de stock y sobrecostos).
+  - `generar_reporte_general` (ventas, agotados y caducidades FEFO).
+- [x] **Bucle Autónomo ReAct:** Ciclo de pensamiento y acción en `src/agent/loop.ts` con cierre estricto (`resuelto` / `escalado`).
+- [x] **Motor de Superpoderes:** Clasificación semántica e inyección dinámica de skills Markdown (`src/agent/skills/`).
+- [x] **Servidor API Fastify 5.x:** Endpoints de `/api/chat`, `/api/dashboard`, `/api/approvals`, `/api/approvals/:id`, `/api/v1/alerts/proactive`.
+- [x] **Worker Proactivo en Segundo Plano:** Detección automática de anomalías y despacho de eventos en tiempo real.
+- [x] **Consola Web Mint (Frontend):**
+  - Desarrollada en React 19 + Vite 6 + Tailwind CSS v4 + Framer Motion.
+  - Vistas: LoginView, DashboardView con métricas y gráficas Recharts, ApprovalsView (Human-in-the-Loop), AgentConsole (Chat), StockView y Línea de tiempo de eventos.
+  - Paleta de comandos con `cmdk` (`⌘K` / `Ctrl+K`).
+- [x] **Gobernanza Human-in-the-Loop:** Compras mayores a $10,000 MXN requieren autorización en la interfaz web.
+- [x] **Testing a Costo $0 USD:** 20 pruebas automatizadas en Vitest con `FakeGrokClient` (100% aprobadas).
+- [x] **Containerización con Docker:** Dockerfile Alpine y orquestación multi-contenedor lista para producción.

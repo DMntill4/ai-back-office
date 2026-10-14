@@ -4,11 +4,14 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Grok_xAI-grok--4.6-FDB813?style=for-the-badge&logo=openai&logoColor=black" alt="Grok xAI" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Node.js-LTS-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
+  <img src="https://img.shields.io/badge/Fastify-5.x-000000?style=for-the-badge&logo=fastify&logoColor=white" alt="Fastify" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Supabase-Cloud_DB-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
-  <img src="https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black" alt="Drizzle ORM" />
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
   <img src="https://img.shields.io/badge/Vitest-Passing_100%25-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
 </p>
 
@@ -16,7 +19,7 @@
 
 # AI Back Office Agent (MINT)
 
-> **Agente autonomo para operaciones de back office (coordinacion logistica, compras, auditoria y abastecimiento)** impulsado por **Grok (xAI)** con razonamiento ReAct, motor de superpoderes por dominio, ejecucion estricta de herramientas y persistencia verificada en base de datos.
+> **Plataforma Integral de Agente Autónomo para Operaciones de Back Office** (coordinación logística, gestión de abastecimiento, auditoría de existencias y control financiero). Impulsado por **Grok (xAI)** con bucle de razonamiento ReAct, motor de superpoderes por dominio, arsenal de 8 herramientas operacionales, persistencia en Supabase/PostgreSQL y una moderna **consola web interactiva Mint** con gobernanza **Human-in-the-Loop**.
 
 ---
 
@@ -24,14 +27,14 @@
 
 <table align="center">
   <tr>
-    <td align="center">
+    <td align="center" width="220px">
       <a href="https://github.com/DMntill4">
         <img src="https://github.com/DMntill4.png" width="90px;" alt="Diego Mantilla" style="border-radius: 50%;" /><br />
         <sub><b>Diego Mantilla</b></sub>
       </a><br />
       <code>@DMntill4</code>
     </td>
-    <td align="center">
+    <td align="center" width="220px">
       <a href="https://github.com/andresguerra321">
         <img src="https://github.com/andresguerra321.png" width="90px;" alt="Andres Guerra" style="border-radius: 50%;" /><br />
         <sub><b>Andres Guerra</b></sub>
@@ -45,103 +48,206 @@
 
 ## Estado del Proyecto
 
-- [x] **Persistencia Cloud en Supabase:** PostgreSQL 16 24/7 con soporte automatico SSL, esquemas Drizzle ORM y triggers inmutables.
-- [x] **Configuracion y Logs:** Validacion estricta con **Zod** y telemetria estructurada con **Pino**.
-- [x] **Cliente Grok Unificado:** Conexion segura en `src/llm/client.ts`, soporte multillave (`RETO_KEY`, `GROK_API_KEY`) y control de costos en USD.
-- [x] **Arsenal de Herramientas de Negocio:**
-  - `consultar_stock`: Busqueda de inventario con Fuzzy Matching para SKUs mal escritos.
-  - `ver_ordenes_abiertas`: Deteccion de producto en camino y compras activas.
-  - `crear_orden_compra`: Creacion idempotente con limite de aprobacion humana ($10,000 MXN).
-  - `evaluar_proveedores`: Matriz comparativa de proveedores por costo, velocidad y balance.
-  - `analisis_financiero`: Valuacion de stock total, compromisos de compra y presupuesto a 30 dias.
-  - `simular_escenario`: Simulaciones What-If de demanda y retrasos de proveedores.
-  - `auditar_anomalias`: Deteccion automatica de descalces de inventario y sobrecostos.
-  - `generar_reporte_general`: Reportes de productos mas vendidos, sin stock, por renovar y por caducar.
-- [x] **Motor de Superpoderes y Skills en Markdown:** Inyeccion dinamica de contexto de dominio experto (`src/agent/skills/`) segun la naturaleza de la consulta.
-- [x] **Servidor Fastify y Motor Proactivo en Standby:** API REST (`/api/chat`) y bus de eventos para consumo del frontend.
-- [x] **Pruebas a Costo $0:** 20 pruebas automatizadas unitarias y de escenarios en Vitest (100% aprobadas).
+- [x] **Consola Web Interactiva (Mint Platform):**
+  - Aplicación completa desarrollada en **React 19 + Vite + Tailwind CSS v4 + Framer Motion**.
+  - Estética *Glassmorphism* premium, tipografía *Outfit*, logo oficial y físicas fluidas (Emil Kowalski).
+  - **LoginView:** Pantalla de autenticación con branding institucional y micro-interacciones.
+  - **DashboardView:** KPIs operativos (órdenes totales, tasa de automatización, revisiones pendientes, ahorros y gasto en USD), gráfica de rendimiento de proveedores (*Recharts*) y tarjetas de acción inmediata.
+  - **ApprovalsView (Human-in-the-Loop):** Bandeja dedicada para que supervisores autoricen o rechacen órdenes de compra mayores a $10,000 MXN en un clic.
+  - **AgentConsole (Chat):** Asistente conversacional con burbujas de sugerencias inteligentes, estado de ejecución en vivo (`en_proceso`, `resuelto`, `escalado`) y telemetría de tokens y costo en USD.
+  - **StockView / Database Explorer:** Visor interactivo y tabular de almacenes, productos, niveles de stock, alertas de rotación y proveedores.
+  - **Activity & Timeline:** Historial de eventos y auditoría del sistema presentado cronológicamente.
+  - **Command Palette (`⌘K` / `Ctrl+K`):** Navegación y búsqueda global instantánea con `cmdk`.
+- [x] **Persistencia Dual (Cloud Supabase + Docker Local):**
+  - PostgreSQL 16 en la nube 24/7 con soporte automático SSL en `src/db/client.ts`.
+  - Entorno de desarrollo local reproducible mediante `docker-compose.yml`, `Dockerfile` (Node 20 Alpine) y script `docker/init-db.sql`.
+  - Triggers nativos inmutables en `case_events` para auditoría corporativa a prueba de alteraciones.
+- [x] **Motor de Superpoderes y Skills en Markdown:**
+  - Clasificación de intenciones e inyección dinámica de directivas expertas (`src/agent/skills/`) según la consulta (financiera, crisis de stock, negociación, seguridad).
+- [x] **Arsenal de 8 Herramientas de Negocio Tipadas con Zod:**
+  - `consultar_stock`: Búsqueda de inventario con Fuzzy Matching para tolerar SKUs mal escritos.
+  - `ver_ordenes_abiertas`: Detección de órdenes en tránsito y compras activas.
+  - `crear_orden_compra`: Creación idempotente con límite de aprobación humana ($10,000 MXN).
+  - `evaluar_proveedores`: Matriz comparativa de proveedores por costo, velocidad o balance general.
+  - `analisis_financiero`: Valuación de inventario total, compromisos financieros y presupuesto a 30 días.
+  - `simular_escenario`: Simulaciones What-If de demanda y contingencias por retrasos de proveedores.
+  - `auditar_anomalias`: Detección automática de descalces de inventario y sobrecostos.
+  - `generar_reporte_general`: Reportes ejecutivos de productos más vendidos, agotados, por reabastecer y por caducar (FEFO).
+- [x] **API Backend Fastify y Motor Proactivo:**
+  - Servidor HTTP en `src/server.ts` con CORS, endpoints de chat (`/api/chat`), métricas del dashboard (`/api/dashboard`), gestión de aprobaciones (`/api/approvals`, `/api/approvals/:id`) y alertas proactivas (`/api/v1/alerts/proactive`, `/api/v1/alerts/trigger-audit`).
+  - Worker en segundo plano `src/worker/proactiveMonitor.ts` con bus de eventos en tiempo real.
+- [x] **Catálogo Extendido (Seed de 16 SKUs):**
+  - Catálogo de prueba con 16 SKUs industriales y comerciales distribuidos en 3 almacenes (Central, Refrigerado, Norte) con 5 proveedores y casos extremos (stock 0, caducidad próxima, etc.).
+- [x] **Pruebas y Validación a Costo $0 USD:**
+  - Suite de **20 pruebas automatizadas** en Vitest (100% pasando) mediante `FakeGrokClient` sin consumo de saldo de la API.
 
 ---
 
-## Stack Tecnologico
+## Stack Tecnológico
 
 <div align="center">
 
-| Categoria | Tecnologia |
+| Capa | Tecnologías |
 |:---|:---|
-| **Inteligencia Artificial** | xAI Grok (`grok-4.6`) |
-| **Lenguaje y Entorno** | TypeScript 5.6 + Node.js (LTS) |
-| **Base de Datos & ORM** | PostgreSQL 16 (Supabase Cloud / Docker) + Drizzle ORM |
-| **Servidor HTTP** | Fastify 5.x + Cors |
-| **Validacion & Logs** | Zod + Pino |
-| **Testing & Calidad** | Vitest + ESLint + Prettier |
+| **Frontend Web** | React 19, TypeScript, Vite 6, Tailwind CSS v4, Framer Motion, Radix UI, Lucide React, Recharts, cmdk, Sonner, Vaul |
+| **Inteligencia Artificial** | xAI Grok (`grok-4.6`) vía Gateway oficial de producción |
+| **Backend API** | Fastify 5.x, Node.js (LTS), TypeScript 5.6 |
+| **Base de Datos & ORM** | PostgreSQL 16 (Supabase Cloud + Docker) + Drizzle ORM 0.45 + Drizzle Kit |
+| **Validación & Telemetría** | Zod 4.x + Pino + Pino-Pretty |
+| **Contenedores e Infraestructura** | Docker, Docker Compose, Alpine Linux |
+| **Testing & Calidad** | Vitest 5.0, ESLint, Prettier, Oxlint |
 
 </div>
 
 ---
 
-## Arquitectura y Principios de Seguridad
+## Arquitectura del Sistema
 
 ```text
-Usuario / API ──► Superpowers Engine (skills/*.md)
-                        │
-                Agent Loop (ReAct) ──► LLM Client ──► Grok (xAI)
-                 │          ▲              │
-    Seleccion de │          │ Resultado    └─► Auditoria en llm_calls (costos en USD)
-    Herramientas ▼          │
-                Herramientas ──► Servicios ──► PostgreSQL / Supabase
-                        │
-                 Verificacion ──► case_events ──► Dictamen: "resuelto" | "escalado"
+       ┌────────────────────────────────────────────────────────┐
+       │             MINT PLATFORM (Frontend React 19)          │
+       │  Dashboard · Aprobaciones · Chat · Stock · Actividad   │
+       └───────────────────────────┬────────────────────────────┘
+                                   │ HTTP / JSON REST
+                                   ▼
+       ┌────────────────────────────────────────────────────────┐
+       │            API BACKEND (Fastify - Puerto 3001)         │
+       │  /api/chat · /api/dashboard · /api/approvals · /alerts │
+       └───────────────────────────┬────────────────────────────┘
+                                   │
+                                   ▼
+                      Motor de Superpoderes (skills/*.md)
+                                   │
+                           Agent Loop (ReAct) ──► LLM Client ──► Grok (xAI)
+                            │          ▲              │
+               Selección de │          │ Resultado    └─► llm_calls (Costo USD)
+               Herramientas ▼          │
+                           Herramientas ──► Servicios
+                                   │
+                                   ├──► Compras > $10k MXN ──► approvals (Pendiente Humano)
+                                   │
+                                   └──► Escrituras Verificadas ──► PostgreSQL / Supabase
+                                           │
+                                           └─► case_events (Inmutable) ──► "resuelto" | "escalado"
 ```
 
-1. **El modelo decide, el codigo gobierna:** Grok propone acciones; el codigo valida esquemas y limites de riesgo.
-2. **Idempotencia Obligatoria:** Toda transaccion de compra requiere clave idempotente para evitar compras duplicadas.
-3. **Verificacion Post-Escritura:** Un caso solo se concluye como resuelto si el registro fisico es verificado en base de datos.
-4. **Limite Presupuestario Human-in-the-Loop:** Compras mayores a $10,000 MXN generan una solicitud formal pendiente de aprobacion humana.
+### Principios Fundamentales de Gobernanza
+1. **El modelo decide, el código gobierna:** Grok propone cursos de acción; el código TypeScript valida tipos, esquemas de entrada y límites de riesgo.
+2. **Human-in-the-Loop Obligatorio:** Cualquier orden de compra superior a $10,000 MXN genera un ticket formal en la bandeja de aprobaciones para revisión y firma de un supervisor humano.
+3. **Idempotencia Estricta:** Cada transacción de escritura requiere una clave idempotente única para blindar el sistema contra duplicidades.
+4. **Verificación Física Post-Escritura:** Ningún caso se concluye como `resuelto` sin verificar la existencia física de la fila en base de datos.
+5. **Auditoría Append-Only:** La tabla `case_events` cuenta con un trigger en PostgreSQL que deniega sentencias `UPDATE` y `DELETE`.
 
 ---
 
-## Comandos del Proyecto
+## Estructura del Repositorio
 
-### Terminal Interactiva CLI (Chat con el Agente)
+```text
+ai-back-office/
+├── config/
+│   └── security/                     # Plantillas y configuraciones de entorno
+├── docker/
+│   └── init-db.sql                   # Roles de desarrollo y extensiones para Postgres
+├── docs/
+│   ├── CONTEXT.md                    # Bitácora, directivas y progreso del proyecto
+│   ├── HANDOFF_TEAM.md               # Guía técnica de transferencia para el equipo
+│   ├── REPORTE_TECNICO.md            # Memoria técnica de arquitectura y diseño
+│   └── decisions/                    # Registro de decisiones de arquitectura (ADRs)
+├── frontend/                         # Consola Web Mint (React 19 + Vite + Tailwind v4)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── DashboardView.tsx     # Métricas y gráficas operacionales
+│   │   │   ├── LoginView.tsx         # Pantalla de acceso y autenticación
+│   │   │   └── StockView.tsx         # Explorador de inventario y datos
+│   │   ├── App.tsx                   # Shell principal, navegación, chat y approvals
+│   │   └── index.css                 # Tokens de diseño y utilidades Glassmorphism
+│   └── package.json
+├── resources/                        # Diagramas, esquemas y capturas del sistema
+├── scripts/                          # Herramientas CLI y scripts de diagnóstico
+│   ├── chat.ts                       # Terminal interactiva de consola
+│   ├── clear-db.ts                   # Truncado seguro para reiniciar la BD
+│   └── smoke.ts                      # Prueba de humo de conectividad con Grok
+├── src/
+│   ├── agent/                        # Bucle ReAct, Superpoderes y prompts de skills
+│   ├── api/                          # Definición de rutas del servidor
+│   ├── config/                       # Validación Zod de variables de entorno
+│   ├── db/                           # Esquemas Drizzle, cliente Postgres y semillas
+│   ├── lib/                          # Utilidades transversales y telemetría
+│   ├── llm/                          # Cliente de Grok, cliente fake y tarificación
+│   ├── server.ts                     # Servidor Fastify 5.x principal
+│   ├── services/                     # Lógica de inventario, compras y aprobaciones
+│   ├── tools/                        # Arsenal de 8 herramientas ejecutables
+│   └── worker/                       # Motor proactivo de auditoría y eventos
+├── tests/                            # Suite completa de 20 pruebas en Vitest
+├── Dockerfile                        # Imagen de producción ligera (Node 20 Alpine)
+├── docker-compose.yml                # Orquestación de Postgres y servicio App
+└── package.json
+```
+
+---
+
+## Guía de Comandos
+
+### 1. Iniciar la Consola Web (Frontend)
+```bash
+# Desde la carpeta frontend
+cd frontend
+npm run dev
+
+# O desde la raíz del proyecto
+npm --prefix frontend run dev
+```
+La interfaz estará disponible en `http://localhost:5173`.
+
+### 2. Iniciar el Servidor API Backend (Fastify)
+```bash
+npm run server
+```
+El servidor escuchará en `http://localhost:3001` con endpoints listos para el frontend.
+
+### 3. Entorno de Desarrollo con Docker
+```bash
+# Levantar contenedor de base de datos PostgreSQL local y aplicación
+docker compose up -d
+
+# Detener contenedores
+docker compose down
+```
+
+### 4. Terminal Interactiva CLI (Chat directo con el Agente)
 ```bash
 npm run chat
 ```
 
-### Servidor HTTP API (Fastify)
+### 5. Base de Datos y Semillas (Supabase o Docker)
 ```bash
-npm run server
-```
-
-### Base de Datos y Migraciones (Supabase Cloud o Local)
-```bash
-# Aplicar migraciones relacionales
+# Ejecutar migraciones relacionales
 npm run db:migrate
 
-# Sembrar catalogo de 16 SKUs industriales y comerciales
+# Sembrar el catálogo extendido de 16 SKUs, bodegas y proveedores
 npm run db:seed
 
-# Limpiar o reiniciar base de datos
+# Limpiar las tablas operacionales de la base de datos
 npm run db:reset
 
-# Drizzle Studio (interfaz visual)
+# Abrir Drizzle Studio para inspección visual de la base de datos
 npm run db:studio
 ```
 
-### Pruebas y Validacion (Costo $0 USD)
+### 6. Suite de Pruebas y Control de Calidad (Costo $0 USD)
 ```bash
-# Correr suite de 20 pruebas en Vitest
+# Ejecutar las 20 pruebas automatizadas
 npm test
 
-# Validacion de tipos TypeScript
+# Verificación estricta de tipos TypeScript
 npm run typecheck
 
-# Prueba de humo de conexion con Grok
+# Prueba de humo de comunicación con el Gateway de Grok
 npm run smoke
 ```
 
 ---
 
 <p align="center">
-  <sub>Desarrollado para el Reto de Agentes Autonomos - 2026</sub>
+  <sub>Desarrollado para el Reto de Agentes Autónomos 2026</sub>
 </p>

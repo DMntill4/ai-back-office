@@ -1,99 +1,110 @@
 # Handoff Tecnico para el Equipo: AI Back Office (MINT)
 
-Documento de transferencia tecnica y arquitectura de las funcionalidades implementadas en la plataforma AI Back Office Agent (MINT).
+Documento de transferencia técnica y arquitectura de las funcionalidades implementadas en la plataforma AI Back Office Agent (MINT).
 
 ---
 
-## 1. Resumen de Cambios Principales
+## 1. Resumen de Capacidades Implementadas
 
-Durante esta iteracion se transformo el agente de un asistente conversacional basico a un sistema autonomo de coordinacion logistica, compras y control financiero, con persistencia cloud en Supabase y una arquitectura desacoplada lista para conexion con frontend.
+Durante las últimas iteraciones el proyecto evolucionó desde un prototipo conversacional a una **plataforma fullstack de agente autónomo** para operaciones de compras, inventarios, auditoría y control financiero.
 
-### Principales Logros:
-1. **Migracion a Base de Datos Cloud (Supabase):**
-   - Base de datos PostgreSQL alojada en la nube 24/7 con soporte automatico para conexiones SSL.
-   - Eliminacion de la dependencia obligatoria de Docker Desktop local.
-   - Tablas relacionales migradas y protegidas con triggers inmutables en `case_events`.
+### Principales Logros y Entregables:
 
-2. **Catalogo Logistico Extendido (Seed de 16 SKUs):**
-   - Insercion de 16 productos reales organizados en 3 almacenes (Central, Refrigerado y Norte).
-   - Casos de prueba reales: 5 productos con stock 0 (agotados), productos con carencia critica (stock menor al minimo de seguridad), perecederos proximos a caducar (en 2 y 3 dias) y productos de alta rotacion.
-   - Directorio de 5 proveedores reales con matrices de costos, tiempos de entrega y volumenes minimos de pedido.
+1. **Consola Web Interactiva (Mint Platform):**
+   - Aplicación web en **React 19 + Vite 6 + Tailwind CSS v4 + Framer Motion**.
+   - **Vistas implementadas:**
+     - **LoginView:** Pantalla de acceso corporativo con branding Mint, resplandor ambiental y físicas elásticas de Emil Kowalski.
+     - **DashboardView:** Tarjetas de KPIs operativos (órdenes totales, tasa de automatización, revisiones pendientes, ahorros en MXN/USD, gasto en IA), gráfica analítica de rendimiento de proveedores (*Recharts*) y accesos directos.
+     - **ApprovalsView (Human-in-the-Loop):** Bandeja dedicada para que supervisores autoricen o rechacen órdenes de compra mayores a $10,000 MXN con un solo clic.
+     - **AgentConsole (Chat):** Asistente conversacional con burbujas de sugerencias inteligentes, estado de ejecución en vivo (`en_proceso`, `resuelto`, `escalado`) y auditoría de tokens y costo en dólares.
+     - **StockView / Database Explorer:** Visor de inventario en tiempo real con Drizzle ORM, estados de existencias (saludable, por reabastecer, agotado) y almacenes.
+     - **Línea de Tiempo de Actividad:** Visualización cronológica de eventos de auditoría y logs del sistema.
+     - **Command Palette (`⌘K` / `Ctrl+K`):** Navegación y búsqueda global instantánea con `cmdk`.
 
-3. **Arquitectura de Superpoderes e Inyeccion Dinamica de Skills:**
-   - Creacion del motor `src/agent/superpowers.ts` que clasifica la intencion de la consulta e inyecta reglas de dominio experto al prompt del sistema.
-   - Modulos de directivas en archivos Markdown puros en `src/agent/skills/`.
+2. **Servidor API Backend en Fastify (Puerto 3001):**
+   - Endpoints REST con CORS habilitado:
+     - `POST /api/chat`: Recepción de casos y ejecución del bucle ReAct del agente.
+     - `GET /api/dashboard`: Consolidación de métricas de negocio y desempeño de proveedores.
+     - `GET /api/approvals`: Listado de solicitudes de compra pendientes de aprobación humana.
+     - `POST /api/approvals/:id`: Aprobación o rechazo de tickets por supervisores humanos.
+     - `GET /api/v1/alerts/proactive`: Consulta de alertas emitidas por el worker de auditoría.
+     - `POST /api/v1/alerts/trigger-audit`: Ejecución forzada del ciclo de auditoría proactiva.
+     - `GET /health`: Health-check del servicio.
 
-4. **Nuevas Herramientas Ejecutables de Negocio:**
-   - `simular_escenario`: Simulacion de escenarios logísticos ante incrementos porcentuales de demanda o retrasos de proveedores.
-   - `auditar_anomalias`: Deteccion de descalces de inventario y sobrecostos en proveedores.
-   - `evaluar_proveedores`: Matriz comparativa de proveedores por costo, velocidad o balance general.
-   - `analisis_financiero`: Valuacion total de stock, compromisos en compras abiertas y proyeccion presupuestaria a 30 dias.
-   - `generar_reporte_general`: Reportes agregados de productos mas vendidos, sin stock, por renovar y por caducar con soporte para SQL relacional y modo hibrido.
+3. **Entorno Dockerizado y Persistencia Dual:**
+   - **PostgreSQL 16 en Supabase Cloud:** Conexión permanente con soporte SSL automático para despliegues remotos.
+   - **Docker Compose Local:** Contenedores para base de datos PostgreSQL (`postgres:16-alpine`) y aplicación (`node:20-alpine`) orquestados en `docker-compose.yml` con inicialización en `docker/init-db.sql`.
+   - **Auditoría Inmutable:** Triggers de base de datos que bloquean sentencias `UPDATE` y `DELETE` en `case_events`.
 
-5. **Motor de Alertas Proactivas en Standby para Frontend:**
-   - Worker en segundo plano `src/worker/proactiveMonitor.ts` con bus de eventos (Node EventEmitter).
-   - Endpoints en Fastify (`GET /api/v1/alerts/proactive` y `POST /api/v1/alerts/trigger-audit`) listos para ser consumidos por el cliente web o dashboard sin acoplamiento a terceros.
+4. **Motor de Superpoderes e Inyección Dinámica de Skills:**
+   - Clasificador de intenciones (`src/agent/superpowers.ts`) que inyecta directivas en Markdown (`src/agent/skills/`) de forma contextual según el dominio del caso (financiero, crisis logística, negociación de compras o guardrails).
 
-6. **Organizacion y Limpieza del Repositorio:**
-   - Reubicacion de scripts dispersos hacia `scripts/clear-db.ts` y nuevo comando `npm run db:reset`.
-   - Modulo centralizado de seguridad en `config/security/.env.example`.
+5. **Arsenal de 8 Herramientas de Negocio Tipadas:**
+   - `consultar_stock`: Fuzzy matching para localización de productos con tolerancia a errores.
+   - `ver_ordenes_abiertas`: Detección de compras en tránsito y pedidos activos.
+   - `crear_orden_compra`: Creación idempotente con canalización a aprobación si excede $10,000 MXN.
+   - `evaluar_proveedores`: Matriz multicriterio de proveedores por costo, velocidad y balance.
+   - `analisis_financiero`: Valuación de inventario, compromisos de compra y presupuesto a 30 días.
+   - `simular_escenario`: Simulaciones What-If de demanda y contingencias de proveedores.
+   - `auditar_anomalias`: Detección de descalces de stock y sobrecostos.
+   - `generar_reporte_general`: Reportes agregados de ventas, agotados, renovaciones y caducidades (FEFO).
+
+6. **Suite de Pruebas a Costo $0 USD:**
+   - **20 de 20 pruebas automatizadas pasando en Vitest** mediante `FakeGrokClient`.
 
 ---
 
-## 2. Estructura de Archivos Nuevos y Modificados
+## 2. Estructura de Archivos del Proyecto
 
 ```text
 ai-back-office/
 ├── config/
-│   └── security/
-│       └── .env.example              # Plantilla centralizada de entorno
+│   └── security/                     # Plantillas y configuraciones de entorno
+├── docker/
+│   └── init-db.sql                   # Roles de desarrollo y extensiones para Postgres
 ├── docs/
+│   ├── CONTEXT.md                    # Bitácora, directivas y progreso del proyecto
 │   ├── HANDOFF_TEAM.md               # Este documento de transferencia
-│   ├── REPORTE_TECNICO.md            # Reporte tecnico de arquitectura actualizado
-│   └── ...
-├── scripts/
-│   ├── chat.ts                       # Terminal interactiva CLI con detector de Superpoderes
-│   └── clear-db.ts                   # Truncado seguro de tablas relacionales
+│   ├── REPORTE_TECNICO.md            # Memoria técnica de arquitectura y diseño
+│   └── decisions/                    # Decisiones de arquitectura (ADRs)
+├── frontend/                         # Consola Web Mint (React 19 + Vite + Tailwind v4)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── DashboardView.tsx     # Métricas y gráficas operacionales
+│   │   │   ├── LoginView.tsx         # Pantalla de acceso y autenticación
+│   │   │   └── StockView.tsx         # Explorador de inventario y datos
+│   │   ├── App.tsx                   # Shell principal, navegación, chat y approvals
+│   │   └── index.css                 # Tokens de diseño y utilidades Glassmorphism
+│   └── package.json
+├── resources/                        # Diagramas, esquemas y capturas del sistema
+├── scripts/                          # Herramientas CLI y scripts de diagnóstico
+│   ├── chat.ts                       # Terminal interactiva de consola
+│   ├── clear-db.ts                   # Truncado seguro para reiniciar la BD
+│   └── smoke.ts                      # Prueba de humo de conectividad con Grok
 ├── src/
-│   ├── agent/
-│   │   ├── prompts/
-│   │   │   └── base.md               # Prompt core del sistema con razonamiento multi-herramienta
-│   │   ├── skills/
-│   │   │   ├── executive_analytics.md
-│   │   │   ├── financial_maestro.md
-│   │   │   ├── procurement_negotiator.md
-│   │   │   ├── security_guardrails.md
-│   │   │   └── supply_chain_crisis.md
-│   │   ├── superpowers.ts            # Detector e inyector de contexto de Superpoderes
-│   │   └── toolsDefinition.ts        # Catalogo tipado y dispatcher de herramientas
-│   ├── config/
-│   │   └── env.ts                    # Validacion Zod de variables de entorno y fallback de API keys
-│   ├── db/
-│   │   ├── client.ts                 # Cliente PostgreSQL con deteccion automatica de SSL
-│   │   └── seed/
-│   │       └── index.ts              # Sembrado masivo de 16 SKUs, 5 proveedores y 3 almacenes
-│   ├── llm/
-│   │   └── client.ts                 # Cliente Grok con supresion de logs ruidosos y telemetria
-│   ├── server.ts                     # Servidor Fastify con endpoints de chat y alertas proactivas
-│   ├── tools/
-│   │   ├── analisisFinanciero.ts
-│   │   ├── auditarAnomalias.ts
-│   │   ├── crearOrdenCompra.ts
-│   │   ├── evaluarProveedores.ts
-│   │   ├── reportesGenerales.ts
-│   │   └── simularEscenario.ts
-│   └── worker/
-│       └── proactiveMonitor.ts       # Worker de monitoreo proactivo y bus de eventos
-└── tests/                            # Suite completa de 20 pruebas unitarias en Vitest
+│   ├── agent/                        # Bucle ReAct, Superpoderes y prompts de skills
+│   ├── api/                          # Definición de rutas del servidor
+│   ├── config/                       # Validación Zod de variables de entorno
+│   ├── db/                           # Esquemas Drizzle, cliente Postgres y semillas
+│   ├── lib/                          # Utilidades transversales y telemetría
+│   ├── llm/                          # Cliente de Grok, cliente fake y tarificación
+│   ├── server.ts                     # Servidor Fastify 5.x principal
+│   ├── services/                     # Lógica de inventario, compras y aprobaciones
+│   ├── tools/                        # Arsenal de 8 herramientas ejecutables
+│   └── worker/                       # Motor proactivo de auditoría y eventos
+├── tests/                            # Suite completa de 20 pruebas en Vitest
+├── Dockerfile                        # Imagen de producción ligera (Node 20 Alpine)
+├── docker-compose.yml                # Orquestación de Postgres y servicio App
+└── package.json
 ```
 
 ---
 
-## 3. Instrucciones de Ejecucion para el Equipo
+## 3. Instrucciones de Ejecución para el Equipo
 
 ### Requisitos Previos:
-- Node.js version 20 o superior.
-- Archivo `.env` configurado con las siguientes variables:
+- Node.js versión 20 o superior.
+- Archivo `.env` en la raíz configurado con las siguientes variables:
   ```env
   DATABASE_URL=postgresql://postgres.[ID_PROYECTO]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
   RETO_KEY=pk_...
@@ -103,35 +114,48 @@ ai-back-office/
   ```
 
 ### Comandos de Utilidad:
-1. **Ejecutar Pruebas Automatizadas:**
+
+1. **Iniciar la Consola Web (Frontend):**
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+   Abre tu navegador en `http://localhost:5173`.
+
+2. **Iniciar el Servidor Backend (Fastify):**
+   ```bash
+   npm run server
+   ```
+   Escuchará en `http://localhost:3001` con CORS habilitado.
+
+3. **Ejecutar con Docker (Desarrollo Local Aislado):**
+   ```bash
+   docker compose up -d
+   ```
+
+4. **Ejecutar Pruebas Automatizadas (20 pruebas en Vitest):**
    ```bash
    npm test
    ```
-   Verifica que los 20 tests se encuentren en estado exitoso.
 
-2. **Aplicar Migraciones en Base de Datos:**
+5. **Verificación de Tipos TypeScript:**
    ```bash
-   npm run db:migrate
+   npm run typecheck
    ```
 
-3. **Sembrar Catalogo Extendido en Supabase:**
+6. **Sembrar Catálogo Extendido de 16 SKUs:**
    ```bash
    npm run db:seed
    ```
 
-4. **Iniciar Terminal Interactiva CLI:**
+7. **Terminal Interactiva CLI:**
    ```bash
    npm run chat
    ```
 
-5. **Iniciar Servidor Fastify (API Backend):**
-   ```bash
-   npm run server
-   ```
-
 ---
 
-## 4. Estado de las Pruebas y Cobertura
+## 4. Estado de Pruebas y Cobertura
 - 8 archivos de prueba ejecutados con Vitest.
 - 20 de 20 pruebas aprobadas exitosamente (100% verde).
-- Cobertura completa de escenarios de negocio: reposicion idempotente, control de compras que exceden $10,000 MXN, escalamiento ante inconsistencias y blindaje de inmutabilidad en base de datos.
+- Cobertura completa de escenarios de negocio: reposición de existencias, control Human-in-the-Loop ante compras mayores a $10,000 MXN, prevención de compras duplicadas por idempotencia, auditoría inmutable de eventos y detección de intenciones con superpoderes.

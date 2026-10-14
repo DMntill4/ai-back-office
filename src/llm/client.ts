@@ -5,12 +5,17 @@ import { llmCalls } from "../db/schema";
 import { randomUUID } from "node:crypto";
 
 export interface LLMCallOptions {
-  caseId: string;
+  caseId?: string;
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[];
   tools?: OpenAI.Chat.Completions.ChatCompletionTool[];
   toolChoice?: OpenAI.Chat.Completions.ChatCompletionToolChoiceOption;
   temperature?: number;
+  maxTokens?: number;
+  responseFormat?: any;
+  model?: string;
 }
+
+export type LLMRequestOptions = LLMCallOptions;
 
 export interface LLMCallResult {
   content: string | null;
@@ -45,16 +50,23 @@ export class GrokClient {
     this.defaultModel = env.GROK_MODEL || "grok-4.6";
   }
 
+  async listModels(): Promise<any[]> {
+    const list = await this.client.models.list();
+    return list.data;
+  }
+
   async chatCompletion(options: LLMCallOptions): Promise<LLMCallResult> {
     const startTime = Date.now();
 
     const response = await this.executeWithRetry(() =>
       this.client.chat.completions.create({
-        model: this.defaultModel,
+        model: options.model || this.defaultModel,
         messages: options.messages,
         tools: options.tools,
         tool_choice: options.toolChoice,
         temperature: options.temperature ?? 0.1,
+        max_tokens: options.maxTokens,
+        response_format: options.responseFormat,
       }),
     );
 
@@ -89,7 +101,9 @@ export class GrokClient {
       finishReason: choice.finish_reason ?? "stop",
     };
 
-    this.logCallToDatabase(options.caseId, result).catch(() => {});
+    if (options.caseId) {
+      this.logCallToDatabase(options.caseId, result).catch(() => {});
+    }
 
     return result;
   }

@@ -154,7 +154,6 @@ const AgentConsole = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [caseId, setCaseId] = useState('');
 
   const suggestions = [
     { text: "Consultar productos sin stock", icon: <Package size={14} /> },
@@ -255,7 +254,7 @@ function App() {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  const handleApprove = (id: string) => {
+  const handleApprove = (_id?: string) => {
     toast.success('Decisión aprobada. El agente ejecutará la orden.');
     setSelectedDecision(null);
   };

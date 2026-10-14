@@ -39,14 +39,10 @@ export async function runSeed() {
       },
     ])
     .onConflictDoUpdate({
-      target: products.id,
+      target: warehouses.id,
       set: {
         name: sql`excluded.name`,
-        description: sql`excluded.description`,
-        category: sql`excluded.category`,
-        sku: sql`excluded.sku`,
-        minStock: sql`excluded.min_stock`,
-        origin: sql`excluded.origin`,
+        location: sql`excluded.location`,
       },
     });
 
