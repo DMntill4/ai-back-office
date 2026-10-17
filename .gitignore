@@ -4,4 +4,13 @@ dist/
 *.sqlite
 *.sqlite-journal
 graphify-out/
-secrets.txt 
+.graphify/
+*graphify*
+secrets.txt
+
+# Media & HyperFrames videos (strictly local, excluded from remote)
+videos/
+*.mp4
+*.webm
+*.mov
+renders/
