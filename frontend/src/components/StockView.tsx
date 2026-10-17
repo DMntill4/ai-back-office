@@ -1,294 +1,552 @@
-import { useState, useEffect } from 'react';
-import { Package, Truck, Activity, CheckCircle2, AlertTriangle, Zap, Settings2, Download, Filter, RefreshCw, MessageSquareText } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import {
+  Database,
+  Search,
+  ArrowRight,
+  Download,
+  RefreshCw,
+  CheckCircle2,
+  AlertTriangle,
+  Sparkles
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
-import type { Variants } from 'framer-motion';
+
+export type SchemaTableId = 'inventory' | 'cases' | 'orders';
+
+interface SchemaCardInfo {
+  id: SchemaTableId;
+  name: string;
+  rows: number;
+  columnsSummary: string;
+  capacityPercent: number;
+  capacityLabel: string;
+}
+
+const SCHEMAS: SchemaCardInfo[] = [
+  {
+    id: 'inventory',
+    name: 'inventory',
+    rows: 231,
+    columnsSummary: 'SKU (PK), quantity, minimum, last_updated',
+    capacityPercent: 78,
+    capacityLabel: '78% de umbral promedio',
+  },
+  {
+    id: 'cases',
+    name: 'cases',
+    rows: 15,
+    columnsSummary: 'id (PK), status, agent_assigned, priority',
+    capacityPercent: 91,
+    capacityLabel: '91% autonomía ReAct',
+  },
+  {
+    id: 'orders',
+    name: 'orders',
+    rows: 48,
+    columnsSummary: 'order_id (PK), amount, human_approved, created_at',
+    capacityPercent: 65,
+    capacityLabel: '65% límite presupuestal',
+  },
+];
+
+// Datos de Inventory
+interface InventoryRow {
+  sku: string;
+  name: string;
+  warehouse: string;
+  quantity: number;
+  minimum: number;
+  status: 'healthy' | 'reorder' | 'out_of_stock';
+  category: string;
+}
+
+const INVENTORY_DATA: InventoryRow[] = [
+  { sku: 'MCU-X1', name: 'Microcontrolador X1', warehouse: 'Almacén Norte', quantity: 180, minimum: 200, status: 'reorder', category: 'Controladores' },
+  { sku: 'SENS-OPT', name: 'Sensor Óptico V2', warehouse: 'Almacén Central • Bahía A', quantity: 45, minimum: 50, status: 'reorder', category: 'Sensores' },
+  { sku: 'PWR-500', name: 'Fuente de Poder 500W', warehouse: 'Almacén Central • Bahía C', quantity: 320, minimum: 100, status: 'healthy', category: 'Potencia' },
+  { sku: 'ST-200', name: 'Sensor Térmico ST-200', warehouse: 'Almacén Central • Bahía B', quantity: 2, minimum: 15, status: 'reorder', category: 'Sensores' },
+  { sku: 'VALV-P2', name: 'Válvula Neumática P2', warehouse: 'Almacén Occidente', quantity: 45, minimum: 30, status: 'healthy', category: 'Actuadores' },
+  { sku: 'REL-48V', name: 'Relé Estado Sólido 48V', warehouse: 'Almacén Central • Bahía A', quantity: 0, minimum: 10, status: 'out_of_stock', category: 'Potencia' },
+  { sku: 'FUS-10A', name: 'Fusible Cerámico 10A', warehouse: 'Almacén Central • Bahía C', quantity: 120, minimum: 50, status: 'healthy', category: 'Protección' },
+  { sku: 'TERM-PT100', name: 'Termopar PT100', warehouse: 'Almacén Sur', quantity: 8, minimum: 12, status: 'reorder', category: 'Sensores' },
+  { sku: 'CAB-CAT6A', name: 'Bobina Cable Cat6A', warehouse: 'Almacén Central • Bahía B', quantity: 14, minimum: 5, status: 'healthy', category: 'Cableado' },
+  { sku: 'PLC-S7-1200', name: 'Módulo PLC S7-1200', warehouse: 'Almacén Norte', quantity: 1, minimum: 4, status: 'reorder', category: 'Controladores' },
+];
+
+// Datos de Cases
+interface CaseRow {
+  id: string;
+  title: string;
+  agent: string;
+  priority: 'Crítica' | 'Alta' | 'Media' | 'Baja';
+  status: 'Revisión HITL' | 'Emitido' | 'Resuelto' | 'En Proceso';
+  sla: string;
+}
+
+const CASES_DATA: CaseRow[] = [
+  { id: 'CAS-2026-001', title: 'Reposición 50x Sensor ST-200', agent: 'Procurement Negotiator', priority: 'Crítica', status: 'Revisión HITL', sla: '12 min restantes' },
+  { id: 'CAS-2026-002', title: 'Negociación Grainger vs TechCorp', agent: 'Procurement Negotiator', priority: 'Alta', status: 'Emitido', sla: 'SLA Cumplido' },
+  { id: 'CAS-2026-003', title: 'Escaneo Preventivo 4 Almacenes', agent: 'Supply Chain Crisis', priority: 'Media', status: 'Resuelto', sla: 'Completado' },
+  { id: 'CAS-2026-004', title: 'Auditoría Sobrecostos Logísticos', agent: 'Financial Maestro', priority: 'Alta', status: 'En Proceso', sla: '45 min' },
+  { id: 'CAS-2026-005', title: 'Alerta Stock Crítico Microcontrolador X1', agent: 'Superpower Auto', priority: 'Crítica', status: 'Revisión HITL', sla: '28 min' },
+];
+
+// Datos de Orders
+interface OrderRow {
+  orderId: string;
+  sku: string;
+  productName: string;
+  provider: string;
+  amountMXN: string;
+  humanApproved: boolean;
+  status: 'Pendiente Firma' | 'Emitida' | 'En Tránsito' | 'Entregada';
+}
+
+const ORDERS_DATA: OrderRow[] = [
+  { orderId: 'OC-2026-089', sku: 'ST-200', productName: 'Sensor Térmico ST-200 (50u)', provider: 'Grainger Industrial', amountMXN: '$22,500.00 MXN', humanApproved: false, status: 'Pendiente Firma' },
+  { orderId: 'OC-2026-088', sku: 'FUS-10A', productName: 'Fusible Cerámico 10A (100u)', provider: 'ElectroGlobal', amountMXN: '$4,800.00 MXN', humanApproved: true, status: 'Emitida' },
+  { orderId: 'OC-2026-087', sku: 'MCU-X1', productName: 'Microcontrolador X1 (20u)', provider: 'TechCorp MX', amountMXN: '$9,200.00 MXN', humanApproved: true, status: 'En Tránsito' },
+  { orderId: 'OC-2026-086', sku: 'VALV-P2', productName: 'Válvula Neumática P2 (10u)', provider: 'FastShip Logistics', amountMXN: '$8,500.00 MXN', humanApproved: true, status: 'Entregada' },
+  { orderId: 'OC-2026-085', sku: 'PWR-500', productName: 'Fuente de Poder 500W (5u)', provider: 'Grainger Industrial', amountMXN: '$14,200.00 MXN', humanApproved: true, status: 'Entregada' },
+];
 
 interface StockViewProps {
+  onReplenish?: (sku: string) => void;
   onChatRequest?: () => void;
 }
 
-export const StockView = ({ onChatRequest }: StockViewProps) => {
-  const [approvals, setApprovals] = useState<any[]>([]);
+export const StockView = ({ onReplenish }: StockViewProps) => {
+  const [selectedSchema, setSelectedSchema] = useState<SchemaTableId>('inventory');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [syncing, setSyncing] = useState(false);
 
-  useEffect(() => {
-    // Mock inicial de aprobaciones
+  const handleSync = () => {
+    setSyncing(true);
     setTimeout(() => {
-      setApprovals([
-        {
-          id: 'appr_001',
-          actionType: 'crear_orden_compra',
-          reason: 'La orden para 20 sensores supera el límite de autorización de $10,000 MXN',
-          amount: '15450.00',
-          currency: 'MXN',
-          requestedAt: Date.now() - 3600000,
-        },
-        {
-          id: 'appr_002',
-          actionType: 'revision_inventario',
-          reason: 'Divergencia detectada entre stock físico y registro ERP en línea B',
-          amount: '0.00',
-          currency: 'MXN',
-          requestedAt: Date.now() - 7200000,
-        }
-      ]);
-    }, 500);
-  }, []);
-
-  const handleApprove = async (id: string, action: 'aprobado'|'rechazado') => {
-    // Mock de aprobación
-    setApprovals(prev => prev.filter(a => a.id !== id));
-    toast.success(`Orden ${action === 'aprobado' ? 'aprobada' : 'rechazada'} con éxito.`);
+      setSyncing(false);
+      toast.success('Esquemas Drizzle sincronizados con PostgreSQL (4ms)');
+    }, 700);
   };
 
-  const containerVariants: Variants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
+  // Filtrado reactivo de inventario
+  const filteredInventory = useMemo(() => {
+    return INVENTORY_DATA.filter((i) => {
+      const match =
+        i.sku.toLowerCase().includes(search.toLowerCase()) ||
+        i.name.toLowerCase().includes(search.toLowerCase()) ||
+        i.warehouse.toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === 'all' || i.status === statusFilter;
+      return match && matchStatus;
+    });
+  }, [search, statusFilter]);
+
+  // Filtrado reactivo de casos
+  const filteredCases = useMemo(() => {
+    return CASES_DATA.filter((c) => {
+      return (
+        c.id.toLowerCase().includes(search.toLowerCase()) ||
+        c.title.toLowerCase().includes(search.toLowerCase()) ||
+        c.agent.toLowerCase().includes(search.toLowerCase())
+      );
+    });
+  }, [search]);
+
+  // Filtrado reactivo de órdenes
+  const filteredOrders = useMemo(() => {
+    return ORDERS_DATA.filter((o) => {
+      return (
+        o.orderId.toLowerCase().includes(search.toLowerCase()) ||
+        o.productName.toLowerCase().includes(search.toLowerCase()) ||
+        o.provider.toLowerCase().includes(search.toLowerCase())
+      );
+    });
+  }, [search]);
+
+  const exportCurrentTable = () => {
+    let csv = '';
+    if (selectedSchema === 'inventory') {
+      csv =
+        'SKU,Producto,Almacen,Stock,Minimo,Estado\n' +
+        filteredInventory.map((i) => `${i.sku},"${i.name}","${i.warehouse}",${i.quantity},${i.minimum},${i.status}`).join('\n');
+    } else if (selectedSchema === 'cases') {
+      csv =
+        'ID,Titulo,Agente,Prioridad,Estado,SLA\n' +
+        filteredCases.map((c) => `${c.id},"${c.title}","${c.agent}",${c.priority},${c.status},"${c.sla}"`).join('\n');
+    } else {
+      csv =
+        'OrderID,SKU,Producto,Proveedor,Monto,AprobacionHITL,Estado\n' +
+        filteredOrders
+          .map((o) => `${o.orderId},${o.sku},"${o.productName}","${o.provider}","${o.amountMXN}",${o.humanApproved},${o.status}`)
+          .join('\n');
     }
-  };
-
-  const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 15 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `drizzle-schema-${selectedSchema}-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Tabla "${selectedSchema}" exportada`);
   };
 
   return (
-    <motion.div 
-      className="flex flex-col w-full px-6 py-8 max-w-[1400px] mx-auto gap-10 font-geist"
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-    >
-      {/* Header */}
-      <motion.header variants={itemVariants} className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] text-warning uppercase tracking-[0.2em] font-semibold flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-warning shadow-[0_0_8px_rgba(245,158,11,0.6)]"></span>
-              Logística & Almacén
-            </span>
+    <div className="flex flex-col w-full max-w-[1360px] mx-auto gap-6 font-sans text-zinc-100 pb-12">
+      {/* ───────── HEADER NEUTRO MODERNISTA ───────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <Database className="h-5 w-5 text-emerald-400" />
+            <h1 className="text-2xl font-bold font-headline text-zinc-100 tracking-tight">
+              Explorador de Esquemas (Base de Datos)
+            </h1>
           </div>
-          <h1 className="text-3xl text-text-primary tracking-tight font-medium font-outfit">
-            Aprobaciones Críticas
-          </h1>
+          <p className="text-xs text-zinc-400 mt-1 pl-7.5">
+            Aquí se visualizarán las tablas reales de inventario y agentes conectadas mediante Drizzle ORM.
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-6 bg-bg-glass border border-border-glass px-5 py-3 rounded-xl backdrop-blur-sm">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-text-tertiary uppercase tracking-widest font-medium">Capacidad</span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-sm text-text-primary font-mono">78%</span>
-              <span className="text-xs text-mint-primary">Óptimo</span>
-            </div>
-          </div>
-          <div className="w-px h-6 bg-border-glass"></div>
-          <div className="flex flex-col">
-            <span className="text-[10px] text-text-tertiary uppercase tracking-widest font-medium">En Tránsito</span>
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-mint-primary animate-pulse"></span>
-              <span className="text-sm text-text-primary font-mono">3 envíos</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-300 transition-all hover:bg-white/[0.08] hover:border-white/[0.14] hover:text-white disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-emerald-400 ${syncing ? 'animate-spin' : ''}`} />
+            <span>Sincronizar ORM</span>
+          </button>
         </div>
-      </motion.header>
+      </div>
 
-      {/* Hero Approval Card - Unmistakable Critical Approval */}
-      <motion.section variants={itemVariants} className="relative bg-[#1a1405] border border-warning/40 rounded-2xl p-6 md:p-8 overflow-hidden backdrop-blur-md shadow-[0_10px_40px_rgba(245,158,11,0.05)]">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-warning/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
-        <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-warning shadow-[0_0_10px_rgba(245,158,11,1)]"></div>
-        
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 relative z-10">
-          <div className="flex flex-col gap-5 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="bg-warning/20 border border-warning/30 text-warning px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
-                <AlertTriangle className="w-3 h-3" />
-                Acción Inmediata
-              </span>
-              <span className="text-[10px] text-text-secondary font-mono tracking-widest">PRIORIDAD ALFA-1</span>
-            </div>
-            
-            <div className="flex flex-col gap-1">
-              <h2 className="text-2xl text-white tracking-tight font-medium font-outfit flex items-center gap-3">
-                Lote Bobinas E-Cu 
-                <span className="px-2 py-0.5 rounded bg-bg-surface border border-border-glass text-xs font-mono text-text-secondary">SKU-1104</span>
-              </h2>
-              <p className="text-sm text-warning/80">Agotamiento en 5 días. Propuesta calculada por Mint.</p>
-            </div>
+      {/* ───────── 3 SCHEMA CARDS (NEUTRAS CON BORDE SUPERIOR FINO CUANDO ACTIVA) ───────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+        {SCHEMAS.map((schema) => {
+          const isSelected = selectedSchema === schema.id;
+          return (
+            <div
+              key={schema.id}
+              onClick={() => {
+                setSelectedSchema(schema.id);
+                setSearch('');
+              }}
+              className={`cursor-pointer rounded-xl p-5 flex flex-col justify-between transition-all duration-150 border bg-[#0C0C0E] shadow-[0_4px_20px_rgba(0,0,0,0.4)] ${
+                isSelected
+                  ? 'border-white/[0.12] border-t-2 border-t-emerald-500 bg-white/[0.03]'
+                  : 'border-white/[0.07] hover:border-white/[0.14] hover:bg-white/[0.02]'
+              }`}
+            >
+              {/* Header de la tarjeta */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      isSelected ? 'bg-emerald-400' : 'bg-zinc-600'
+                    }`}
+                  />
+                  <span className="font-mono text-sm font-medium text-zinc-100">
+                    {schema.name}
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] text-zinc-400 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.07]">
+                  {schema.rows} rows
+                </span>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-text-tertiary uppercase tracking-wider font-medium">Stock / Mínimo</span>
-                <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-lg text-danger font-mono font-bold">14u</span>
-                  <span className="text-sm text-text-secondary font-mono">/ 20</span>
+              {/* Subtítulo de columnas */}
+              <p className="font-mono text-[11px] text-zinc-400 mb-4 truncate">
+                {schema.columnsSummary}
+              </p>
+
+              {/* Barra de progreso sutil y limpia */}
+              <div className="space-y-1.5">
+                <div className="w-full h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      isSelected ? 'bg-emerald-400' : 'bg-zinc-600'
+                    }`}
+                    style={{ width: `${schema.capacityPercent}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-[10px] font-mono text-zinc-500 pt-0.5">
+                  <span>{schema.capacityLabel}</span>
+                  <span className={isSelected ? 'text-zinc-300 font-medium' : 'text-zinc-500'}>
+                    {isSelected ? 'Activa' : `${schema.capacityPercent}%`}
+                  </span>
                 </div>
               </div>
-              
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-text-tertiary uppercase tracking-wider font-medium">Logística</span>
-                <span className="text-sm text-white font-medium mt-0.5">Aéreo Express</span>
-                <span className="text-[11px] text-text-secondary font-mono">Metales Norte (48h)</span>
-              </div>
-              
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-text-tertiary uppercase tracking-wider font-medium">Inversión</span>
-                <span className="text-lg text-white font-mono font-medium mt-0.5">$890 USD</span>
-                <span className="text-[11px] text-mint-primary">Tarifa fija pre-negociada</span>
-              </div>
             </div>
+          );
+        })}
+      </div>
+
+      {/* ───────── VISTA PREVIA (CONTENEDOR NEUTRO CON ALINEACIÓN NUMÉRICA Y GHOST BUTTONS) ───────── */}
+      <div className="rounded-xl border border-white/[0.07] bg-[#0C0C0E] p-5 md:p-6 flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+        {/* Barra superior de la tabla */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-1 border-b border-white/[0.06]">
+          <div className="flex items-center gap-2">
+            <Search className="h-4 w-4 text-emerald-400" />
+            <h2 className="text-sm font-medium font-headline text-zinc-200">
+              Vista Previa: <span className="font-mono text-white font-semibold">{selectedSchema}</span>
+            </h2>
           </div>
 
-          <div className="flex flex-col gap-3 w-full lg:w-auto shrink-0 self-end lg:self-center">
-            <button className="px-8 py-4 rounded-xl bg-warning text-black text-sm font-bold hover:bg-warning/90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.4)]">
-              <Zap className="w-4 h-4" />
-              <span>Aprobar Despacho</span>
-            </button>
-            <div className="grid grid-cols-2 gap-2">
-              <button className="px-4 py-2.5 rounded-lg bg-bg-glass border border-border-glass text-text-primary text-xs font-medium hover:bg-border-glass transition-all flex items-center justify-center gap-2">
-                <Settings2 className="w-3.5 h-3.5" />
-                Modificar
-              </button>
-              <button className="px-4 py-2.5 rounded-lg border border-transparent text-text-secondary text-xs hover:text-text-primary hover:bg-bg-glass transition-all text-center">
-                Ignorar
-              </button>
-            </div>
-          </div>
-        </div>
-      </motion.section>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-        
-        {/* Left Column: Shipments & Stock List */}
-        <motion.div variants={itemVariants} className="xl:col-span-8 flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h3 className="text-base text-text-primary font-medium tracking-tight">Otras Aprobaciones</h3>
-              <span className="px-2 py-0.5 rounded bg-bg-glass border border-border-glass text-[10px] font-mono text-text-secondary">{approvals.length} activas</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="p-1.5 rounded-lg border border-transparent hover:bg-bg-glass text-text-secondary transition-colors" title="Filtrar">
-                <Filter className="w-4 h-4" />
-              </button>
-              <button className="p-1.5 rounded-lg border border-transparent hover:bg-bg-glass text-text-secondary transition-colors" title="Actualizar">
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            {approvals.map((approval) => (
-              <div key={approval.id} className="bg-bg-surface border border-border-glass hover:border-border-glass-hover p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors">
-                <div className="flex items-start gap-4 w-full sm:w-auto">
-                  <div className="w-10 h-10 rounded-lg bg-bg-glass border border-border-glass flex items-center justify-center shrink-0">
-                    <Activity className="w-4 h-4 text-text-secondary" />
-                  </div>
-                  <div className="flex flex-col gap-1 w-full">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-text-primary font-medium">{approval.actionType === 'crear_orden_compra' ? 'Orden de Compra' : 'Revisión'}</span>
-                      <span className="text-[9px] text-text-tertiary font-mono border border-border-glass px-1.5 py-0.5 rounded">ID-{approval.id.substring(approval.id.length - 4)}</span>
-                    </div>
-                    <p className="text-xs text-text-secondary">{approval.reason}</p>
-                    <div className="flex items-center gap-3 mt-0.5 text-[10px] font-mono text-text-tertiary">
-                      <span>${approval.amount} {approval.currency}</span>
-                      <span className="text-border-glass-hover">·</span>
-                      <span>{new Date(approval.requestedAt || Date.now()).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto justify-end">
-                  <button onClick={() => handleApprove(approval.id, 'aprobado')} className="px-3 py-1.5 rounded-lg border border-border-glass bg-bg-glass text-text-primary hover:text-mint-primary hover:border-mint-primary/50 transition-all flex items-center gap-1.5 text-xs font-medium">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Aprobar
-                  </button>
-                  <button onClick={() => handleApprove(approval.id, 'rechazado')} className="px-3 py-1.5 rounded-lg border border-transparent text-text-secondary hover:text-danger hover:bg-danger/10 transition-all flex items-center gap-1.5 text-xs font-medium">
-                    Declinar
-                  </button>
-                </div>
-              </div>
-            ))}
-            
-            {approvals.length === 0 && (
-              <div className="border border-border-glass border-dashed p-8 rounded-xl flex flex-col items-center justify-center gap-2 text-center bg-bg-glass/50">
-                <CheckCircle2 className="w-6 h-6 text-mint-primary/50" />
-                <div className="text-sm text-text-primary font-medium">Bandeja al día</div>
-                <div className="text-xs text-text-secondary">No hay operaciones pendientes de revisión manual.</div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Filtros sutiles para Inventory */}
+            {selectedSchema === 'inventory' && (
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                {[
+                  { id: 'all', label: 'Todos' },
+                  { id: 'reorder', label: 'Bajo Stock' },
+                  { id: 'healthy', label: 'Óptimo' },
+                ].map((pill) => {
+                  const isActive = statusFilter === pill.id;
+                  return (
+                    <button
+                      key={pill.id}
+                      onClick={() => setStatusFilter(pill.id)}
+                      className={`cursor-pointer rounded-md px-2.5 py-1 text-xs transition-all ${
+                        isActive
+                          ? 'bg-white/[0.08] text-zinc-100 font-medium'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      {pill.label}
+                    </button>
+                  );
+                })}
               </div>
             )}
-          </div>
 
-          <div className="border border-border-glass p-4 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Package className="w-4 h-4 text-mint-primary" />
-              <div className="flex flex-col">
-                <span className="text-sm text-text-primary font-medium">Pipeline Autónomo</span>
-                <span className="text-[11px] text-text-secondary">18 despachos ejecutados por Mint en las últimas 24h.</span>
-              </div>
+            {/* Input Buscador */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Filtrar registros..."
+                className="rounded-lg border border-white/[0.08] bg-white/[0.02] pl-8 pr-3 py-1 text-xs text-zinc-200 placeholder:text-zinc-500 outline-none transition-all focus:border-white/[0.2] focus:bg-white/[0.04] w-48"
+              />
             </div>
-            <span className="hidden sm:inline-block px-2 py-1 rounded bg-mint-primary/10 text-mint-primary text-[10px] font-mono">
-              99.4% precisión
-            </span>
-          </div>
-        </motion.div>
 
-        {/* Right Column: Actions & Quick Settings */}
-        <motion.div variants={itemVariants} className="xl:col-span-4 flex flex-col gap-6">
-          <h3 className="text-base text-text-primary font-medium tracking-tight">Acciones Rápidas</h3>
-          
-          <div className="flex flex-col gap-2.5">
-            <button className="w-full text-left p-3.5 rounded-xl border border-border-glass bg-bg-glass hover:bg-border-glass transition-all flex items-center gap-3 group">
-              <Settings2 className="w-4 h-4 text-text-secondary group-hover:text-text-primary" />
-              <span className="text-sm text-text-secondary group-hover:text-text-primary font-medium transition-colors">Ajustar umbrales mínimos</span>
-            </button>
-
-            <button className="w-full text-left p-3.5 rounded-xl border border-border-glass bg-bg-glass hover:bg-border-glass transition-all flex items-center gap-3 group">
-              <Truck className="w-4 h-4 text-text-secondary group-hover:text-text-primary" />
-              <span className="text-sm text-text-secondary group-hover:text-text-primary font-medium transition-colors">Modificar ruta prioritaria</span>
-            </button>
-
-            <button className="w-full text-left p-3.5 rounded-xl border border-border-glass bg-bg-glass hover:bg-border-glass transition-all flex items-center gap-3 group">
-              <Download className="w-4 h-4 text-text-secondary group-hover:text-text-primary" />
-              <span className="text-sm text-text-secondary group-hover:text-text-primary font-medium transition-colors">Auditoría ejecutiva (PDF)</span>
-            </button>
-
-            <button onClick={onChatRequest} className="w-full mt-2 text-left p-3.5 rounded-xl bg-mint-primary/5 border border-mint-primary/20 hover:border-mint-primary/50 hover:bg-mint-primary/10 transition-all flex items-center gap-3 group">
-              <MessageSquareText className="w-4 h-4 text-mint-primary" />
-              <span className="text-sm text-mint-primary font-medium">Asistencia de Mint</span>
+            {/* Botón Exportar */}
+            <button
+              onClick={exportCurrentTable}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/[0.14] px-3 py-1 text-xs text-zinc-300 hover:text-white transition-all"
+            >
+              <Download className="h-3 w-3" />
+              <span>Exportar</span>
             </button>
           </div>
-          
-          <div className="border border-border-glass p-5 rounded-xl flex flex-col gap-4 mt-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-text-tertiary uppercase tracking-wider font-medium">Capacidad de Bahías</span>
-              <span className="text-[10px] text-mint-primary font-mono">Zona Norte</span>
-            </div>
-            
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-text-primary">Bahía A</span>
-                  <span className="text-warning font-semibold">92%</span>
-                </div>
-                <div className="w-full h-1 bg-bg-glass rounded-full overflow-hidden">
-                  <div className="h-full bg-warning rounded-full" style={{"width": "92%"}}></div>
-                </div>
-              </div>
-              
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-text-primary">Bahía B</span>
-                  <span className="text-mint-primary font-semibold">64%</span>
-                </div>
-                <div className="w-full h-1 bg-bg-glass rounded-full overflow-hidden">
-                  <div className="h-full bg-mint-primary rounded-full" style={{"width": "64%"}}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
+        </div>
+
+        {/* ───────── TABLA DE DATOS CON GHOST BUTTONS Y ALINEACIÓN TABULAR ───────── */}
+        <div className="overflow-x-auto custom-scrollbar">
+          {selectedSchema === 'inventory' && (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-zinc-400 text-[11px] font-mono uppercase tracking-wider">
+                  <th className="py-3 px-3.5 font-medium">SKU</th>
+                  <th className="py-3 px-3.5 font-medium">Producto</th>
+                  <th className="py-3 px-3.5 font-medium">Almacén</th>
+                  <th className="py-3 px-3.5 font-medium text-right">Stock</th>
+                  <th className="py-3 px-3.5 font-medium text-right">Mínimo</th>
+                  <th className="py-3 px-3.5 font-medium">Estado</th>
+                  <th className="py-3 px-3.5 font-medium text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04] text-xs">
+                {filteredInventory.map((item) => (
+                  <tr key={item.sku} className="hover:bg-white/[0.02] transition-colors group">
+                    {/* SKU neutro en font-mono gris */}
+                    <td className="py-3 px-3.5 font-mono">
+                      <span className="rounded bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 text-zinc-300 text-xs">
+                        {item.sku}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3.5">
+                      <p className="font-medium text-zinc-200">{item.name}</p>
+                      <span className="text-[10px] text-zinc-500 font-mono">{item.category}</span>
+                    </td>
+                    <td className="py-3 px-3.5 text-zinc-400">{item.warehouse}</td>
+                    {/* Stock numérico alineado a la derecha con tabular-nums */}
+                    <td className="py-3 px-3.5 font-mono text-right tabular-nums">
+                      <span className={`font-semibold ${item.quantity <= item.minimum ? 'text-amber-400' : 'text-zinc-200'}`}>
+                        {item.quantity}
+                      </span>
+                    </td>
+                    {/* Mínimo numérico alineado a la derecha con tabular-nums */}
+                    <td className="py-3 px-3.5 font-mono text-right tabular-nums text-zinc-500">
+                      {item.minimum}
+                    </td>
+                    {/* Estado con micro-punto LED semántico */}
+                    <td className="py-3 px-3.5">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                          item.status === 'healthy'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : item.status === 'reorder'
+                            ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                            : 'bg-red-500/10 text-red-300 border-red-500/20'
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            item.status === 'healthy'
+                              ? 'bg-emerald-400'
+                              : item.status === 'reorder'
+                              ? 'bg-amber-400'
+                              : 'bg-red-400'
+                          }`}
+                        />
+                        <span>
+                          {item.status === 'healthy'
+                            ? 'Óptimo'
+                            : item.status === 'reorder'
+                            ? 'Bajo Stock'
+                            : 'Agotado'}
+                        </span>
+                      </span>
+                    </td>
+                    {/* Acción: Botón Resolver en modo Ghost hasta hover de la fila */}
+                    <td className="py-3 px-3.5 text-right">
+                      {item.status !== 'healthy' ? (
+                        <button
+                          onClick={() => onReplenish?.(item.sku)}
+                          className="inline-flex cursor-pointer items-center gap-1 text-xs text-zinc-400 hover:text-zinc-100 group-hover:bg-white/[0.06] group-hover:border group-hover:border-white/[0.1] group-hover:text-zinc-200 rounded-lg px-2.5 py-1 transition-all"
+                        >
+                          <span>Resolver</span>
+                          <ArrowRight className="h-3 w-3 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                        </button>
+                      ) : (
+                        <span className="text-[11px] font-mono text-zinc-600">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {selectedSchema === 'cases' && (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-zinc-400 text-[11px] font-mono uppercase tracking-wider">
+                  <th className="py-3 px-3.5 font-medium">ID</th>
+                  <th className="py-3 px-3.5 font-medium">Caso Operativo</th>
+                  <th className="py-3 px-3.5 font-medium">Agente Asignado</th>
+                  <th className="py-3 px-3.5 font-medium">Prioridad</th>
+                  <th className="py-3 px-3.5 font-medium">Estado</th>
+                  <th className="py-3 px-3.5 font-medium text-right">SLA</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04] text-xs">
+                {filteredCases.map((c) => (
+                  <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3 px-3.5 font-mono">
+                      <span className="rounded bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 text-zinc-300 text-xs">
+                        {c.id}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3.5 font-medium text-zinc-200">{c.title}</td>
+                    <td className="py-3 px-3.5 text-zinc-400 flex items-center gap-1.5 mt-2">
+                      <Sparkles className="h-3 w-3 text-emerald-400" />
+                      <span>{c.agent}</span>
+                    </td>
+                    <td className="py-3 px-3.5">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                          c.priority === 'Crítica'
+                            ? 'bg-red-500/10 text-red-300 border-red-500/20'
+                            : c.priority === 'Alta'
+                            ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                            : 'bg-white/[0.04] text-zinc-300 border-white/[0.08]'
+                        }`}
+                      >
+                        {c.priority}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3.5 text-zinc-300 font-medium">{c.status}</td>
+                    <td className="py-3 px-3.5 text-right font-mono text-zinc-500">{c.sla}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {selectedSchema === 'orders' && (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-zinc-400 text-[11px] font-mono uppercase tracking-wider">
+                  <th className="py-3 px-3.5 font-medium">Orden ID</th>
+                  <th className="py-3 px-3.5 font-medium">Ítem / SKU</th>
+                  <th className="py-3 px-3.5 font-medium">Proveedor</th>
+                  <th className="py-3 px-3.5 font-medium text-right">Monto</th>
+                  <th className="py-3 px-3.5 font-medium">Guardrail HITL</th>
+                  <th className="py-3 px-3.5 font-medium text-right">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04] text-xs">
+                {filteredOrders.map((o) => (
+                  <tr key={o.orderId} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3 px-3.5 font-mono">
+                      <span className="rounded bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 text-zinc-300 text-xs">
+                        {o.orderId}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3.5">
+                      <p className="font-medium text-zinc-200">{o.productName}</p>
+                      <span className="font-mono text-[10px] text-zinc-500">{o.sku}</span>
+                    </td>
+                    <td className="py-3 px-3.5 text-zinc-400">{o.provider}</td>
+                    <td className="py-3 px-3.5 font-mono text-right tabular-nums text-zinc-100 font-semibold">{o.amountMXN}</td>
+                    <td className="py-3 px-3.5">
+                      {o.humanApproved ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-400 font-mono text-[11px]">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Firma Válida</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-amber-300 font-mono text-[11px]">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <span>Requiere Firma</span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3.5 text-right">
+                      <span className="rounded-full bg-white/[0.04] border border-white/[0.08] px-2 py-0.5 font-mono text-[11px] text-zinc-300">
+                        {o.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
-    </motion.div>
+
+      {/* ───────── FOOTER BANNER NEUTRO ───────── */}
+      <div className="rounded-xl border border-white/[0.07] bg-[#0C0C0E] px-4.5 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-400">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span className="text-zinc-200 font-medium">PostgreSQL Pool Activo</span>
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="font-mono text-[10px] text-zinc-400 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.07]">
+              Drizzle ORM v0.38
+            </span>
+            <span>3 esquemas conectados</span>
+          </span>
+        </div>
+        <div className="font-mono text-[10px] text-zinc-500">
+          schema.ts • Tabla activa: {selectedSchema}
+        </div>
+      </div>
+    </div>
   );
 };
+
+export default StockView;

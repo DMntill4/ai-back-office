@@ -153,6 +153,14 @@ ai-back-office/
    npm run chat
    ```
 
+8. **Video Promocional Cinemático (Apple Keynote Style en Remotion):**
+   ```bash
+   cd videos/mint-remotion
+   npm run dev       # Vista previa interactiva en Remotion Studio
+   # Renderizado final MP4 (1080p @ 30 fps, 28.1s / 844 frames):
+   npx remotion render MintLaunchFilm renders/mint-keynote-film.mp4
+   ```
+
 ---
 
 ## 4. Estado de Pruebas y Cobertura

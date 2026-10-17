@@ -1,136 +1,108 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { MintInteractiveMascot } from './MintInteractiveMascot';
+import { ArrowRight } from 'lucide-react';
 
-export const LoginView = ({ onLogin }: { onLogin: () => void }) => {
+interface LoginViewProps {
+  onLogin: () => void;
+}
+
+export const LoginView = ({ onLogin }: LoginViewProps) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onLogin();
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col justify-between items-center relative py-10 px-4 selection:bg-[#2FBF4A] selection:text-black bg-[#06140A] overflow-x-hidden font-outfit text-white">
-      {/* Environmental Depth Background */}
-      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-15%] left-[-10%] w-[50%] h-[50%] bg-[radial-gradient(circle,rgba(47,191,74,0.12)_0%,transparent_60%)] blur-[80px]"></div>
-        <div className="absolute bottom-[-10%] right-[-5%] w-[45%] h-[45%] bg-[radial-gradient(circle,rgba(47,191,74,0.1)_0%,transparent_60%)] blur-[100px]"></div>
-        <div className="absolute top-[40%] left-[50%] w-[60%] h-[60%] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(circle,rgba(184,245,160,0.05)_0%,transparent_50%)] blur-[60px]"></div>
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.20] mix-blend-overlay"></div>
+    <div className="relative min-h-screen w-full flex flex-col justify-between items-center py-10 px-4 bg-[#040A06] font-sans text-[#E8FBEA] overflow-hidden selection:bg-[#0D2E16] selection:text-[#B8F5A0]">
+      {/* Resplandor ambiental orgánico Synthetic Mint (como en los banners oficiales) */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
+        <div className="w-[520px] h-[520px] rounded-full bg-[#34D353]/10 blur-[140px]" />
+        <div className="w-[300px] h-[300px] rounded-full bg-[#0D2E16]/40 blur-[90px] absolute" />
       </div>
 
-
-
-      {/* Central Centered Section */}
-      <main className="w-full flex flex-col items-center justify-center my-auto z-10">
-        
-        {/* Brand Logo & Wordmark */}
-        <div className="flex flex-col items-center mb-8 relative z-10">
-          <div className="w-24 h-24 rounded-2xl flex items-center justify-center relative mb-2 group cursor-default">
-            <img 
-              src="/src/assets/icon.png" 
-              alt="Mint Logo" 
-              className="w-full h-full object-contain filter drop-shadow-[0_0_24px_rgba(47,191,74,0.5)]"
-            />
-          </div>
-          <h1 className="flex items-center m-0">
-            <span className="text-[3.5rem] font-outfit font-bold tracking-tight bg-gradient-to-b from-[#D7F9A0] to-[#2E9B3B] text-transparent bg-clip-text leading-none">
-              Mint
-            </span>
-          </h1>
+      <div className="flex-1 flex flex-col items-center justify-center w-full relative z-10 my-auto">
+        {/* Mascota 3D interactiva oficial con aura radiante */}
+        <div className="mb-2 flex flex-col items-center">
+          <MintInteractiveMascot state="idle" size={80} />
         </div>
 
-        {/* Ambient Glow immediately behind card */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-[#2FBF4A]/20 blur-[100px] rounded-full pointer-events-none z-0"></div>
-
-        {/* Refined Glass Login Card */}
-        <motion.div 
-          initial={{ opacity: 0, y: 16, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ type: "spring", bounce: 0, duration: 0.5 }}
-          className="w-full max-w-[400px] bg-[#0A140F]/80 backdrop-blur-2xl border border-[#2FBF4A]/20 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.8)] rounded-[24px] p-8 relative overflow-hidden z-10"
+        {/* Tarjeta Central Synthetic Mint */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="max-w-sm w-full bg-[#08120B]/90 border border-[#162D1D] rounded-3xl p-8 shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_40px_rgba(52,211,83,0.12),inset_0_1px_0_rgba(184,245,160,0.08)] relative backdrop-blur-xl"
         >
-          
-          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#2FBF4A]/40 to-transparent"></div>
-
-          <div className="text-center mb-8">
-            <h2 className="text-[24px] font-medium text-white tracking-tight mb-2">Iniciar Sesión</h2>
-            <p className="text-[14px] text-[#A3BCA9] font-light leading-relaxed">
-              Mint requiere autenticación para continuar.
+          <div className="text-center mb-6">
+            <h1 className="text-xl font-semibold text-[#E8FBEA] font-headline tracking-tight mb-1">
+              Iniciar sesión en Mint
+            </h1>
+            <p className="text-xs text-[#8EB795]">
+              Ecosistema autónomo de back-office empresarial
             </p>
           </div>
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-[12px] font-medium text-[#C8D6CB] mb-2 ml-1 tracking-wider uppercase">Correo Electrónico</label>
-              <div className="relative">
-                <input 
-                  type="email" 
-                  placeholder="admin@mint.ai" 
-                  defaultValue="admin@mint.ai"
-                  className="w-full bg-[#050A07]/80 text-[14px] font-mono text-[#E0E8E2] placeholder-[#5E7564] border border-[#2FBF4A]/20 rounded-[12px] px-4 py-3 focus:outline-none focus:border-[#2FBF4A]/60 focus:ring-1 focus:ring-[#2FBF4A]/30 transition-all shadow-inner"
-                />
-              </div>
+              <label className="block text-[11px] font-medium text-[#8EB795] mb-1.5 font-label uppercase tracking-wider">
+                Correo Electrónico
+              </label>
+              <input
+                type="email"
+                required
+                defaultValue="andres@mint-ai.io"
+                placeholder="usuario@mint-ai.io"
+                className="w-full bg-[#040A06] border border-[#162D1D] focus:border-[#34D353] focus:shadow-[0_0_15px_rgba(52,211,83,0.2)] rounded-xl px-4 py-2.5 text-xs text-[#E8FBEA] placeholder:text-[#52795F] outline-none transition"
+              />
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2 ml-1 mr-1">
-                <label className="block text-[12px] font-medium text-[#C8D6CB] tracking-wider uppercase">Contraseña</label>
-                <a href="#" className="text-[12px] text-[#A3BCA9] hover:text-[#D7F9A0] transition-colors focus:outline-none font-medium">
-                  ¿Olvidaste la clave?
-                </a>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[11px] font-medium text-[#8EB795] font-label uppercase tracking-wider">
+                  Token o Contraseña
+                </label>
+                <span className="text-[10px] text-[#52795F] hover:text-[#B8F5A0] transition cursor-pointer">
+                  Modo corporativo
+                </span>
               </div>
-              <div className="relative">
-                <input 
-                  type="password" 
-                  placeholder="••••••••••••" 
-                  defaultValue="admin123"
-                  className="w-full bg-[#050A07]/80 text-[14px] font-mono text-[#E0E8E2] placeholder-[#5E7564] border border-[#2FBF4A]/20 rounded-[12px] px-4 py-3 pr-10 focus:outline-none focus:border-[#2FBF4A]/60 focus:ring-1 focus:ring-[#2FBF4A]/30 transition-all shadow-inner"
-                />
-                <button 
-                  type="button" 
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5E7564] hover:text-[#A3BCA9] transition-colors p-1"
-                  title="Mostrar contraseña"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </button>
-              </div>
+              <input
+                type="password"
+                required
+                defaultValue="••••••••••••"
+                placeholder="••••••••••••"
+                className="w-full bg-[#040A06] border border-[#162D1D] focus:border-[#34D353] focus:shadow-[0_0_15px_rgba(52,211,83,0.2)] rounded-xl px-4 py-2.5 text-xs text-[#E8FBEA] placeholder:text-[#52795F] outline-none transition font-mono"
+              />
             </div>
 
-            <div className="pt-4 flex justify-center">
-              <motion.button 
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-                type="submit" 
-                className="w-full sm:w-auto bg-gradient-to-r from-[#B8F5A0] to-[#2FBF4A] text-[#040A06] font-semibold text-[14px] py-3 px-10 rounded-full flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(47,191,74,0.3)] hover:shadow-[0_0_30px_rgba(47,191,74,0.5)] border-none"
+            <div className="pt-2">
+              <button
+                type="submit"
+                className="w-full bg-[#34D353] text-[#040A06] hover:bg-[#2ecc4b] rounded-full py-3 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer shadow-[0_0_24px_rgba(52,211,83,0.35)] active:scale-[0.98]"
               >
-                <span>Acceder al Sistema</span>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
-              </motion.button>
+                <span>Acceder al Espacio de Trabajo</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </form>
 
-
-
+          <div className="mt-6 pt-4 border-t border-[#14281B] flex items-center justify-between text-[10px] text-[#8EB795]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#34D353] shadow-[0_0_6px_#34D353]" />
+              <span>Grok-4.6 Conectado</span>
+            </span>
+            <span className="font-mono text-[#52795F]">v2.4 LTS</span>
+          </div>
         </motion.div>
+      </div>
 
-        <div className="mt-6 flex items-center gap-2 font-mono text-xs text-[#9DB5A3] bg-[#08120B]/60 border border-[#2FBF4A]/10 px-4 py-2 rounded-full backdrop-blur-md z-10">
-          <span className="inline-block w-2 h-2 rounded-full bg-[#2FBF4A] shadow-[0_0_8px_#2FBF4A] animate-pulse"></span>
-          <span>Mint activo</span>
-        </div>
-
-      </main>
-
-      <footer className="w-full text-center z-10 py-4">
-        <p className="font-mono text-[12px] text-[#A3BCA9] tracking-tight">
-          Hecho por Guanábana Labs
+      <footer className="relative z-10 py-3 text-center">
+        <p className="font-mono text-[10px] text-[#52795F]">
+          © 2026 MINT AI • Synthetic Mint System • El modelo propone, el código gobierna
         </p>
       </footer>
-
     </div>
   );
 };
+
+export default LoginView;
