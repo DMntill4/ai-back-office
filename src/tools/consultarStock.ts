@@ -35,9 +35,12 @@ export async function executeConsultarStock(args: ConsultarStockInput) {
       };
     }
 
+    const isReal = (stockInfo as any).origin === "real";
     return {
       isSuccess: true,
-      message: "Consulta de stock exitosa.",
+      message: isReal
+        ? "Consulta de stock exitosa en base de datos REAL de la empresa."
+        : "Consulta de stock exitosa.",
       data: stockInfo,
     };
   } catch (error) {

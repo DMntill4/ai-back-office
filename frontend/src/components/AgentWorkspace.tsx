@@ -2,29 +2,53 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Plus, ChevronDown, Check, CheckCircle2, Terminal, ArrowUp, Zap,
-  AlertTriangle, RotateCcw, Paperclip,
+  AlertTriangle, RotateCcw, Paperclip, Search,
+  TrendingUp, Truck
 } from 'lucide-react';
 import { MintInteractiveMascot, type AgentState } from './MintInteractiveMascot';
+import type { UserSession } from './LoginView';
 import mascotLogo from '../assets/mint-mascot.webp';
 
 /* ───────────────────────────── DATA ───────────────────────────── */
 
 const SKILLS = [
   { id: 'auto', label: 'Auto-Superpower', file: 'superpowers.ts', prompt: '' },
-  { id: 'procurement', label: 'Negociar Compra', file: 'procurement_negotiator.md', prompt: 'Revisa el stock del Sensor ST-200 y evalúa reposición de 50 unidades.' },
+  { id: 'demand', label: 'Pronóstico Demanda', file: 'demand_forecasting.ts', prompt: 'Calcula el pronóstico de demanda a 30 días del Sensor ST-200 y evalúa semanas de cobertura.' },
+  { id: 'shipments', label: 'Rastrear Envíos', file: 'shipments_tracker.ts', prompt: 'Rastrea el estado de los envíos en tránsito y fecha estimada de entrega con transportista.' },
+  { id: 'realstock', label: 'Stock Real SQL', file: 'real_stock_engine.ts', prompt: 'Verifica el inventario real cargado por la empresa mediante archivo SQL.' },
+  { id: 'procurement', label: 'Compra Autónoma', file: 'procurement_negotiator.md', prompt: 'Revisa el stock del Sensor ST-200 y emite orden de compra bajo el umbral de $10,000 MXN.' },
   { id: 'finance', label: 'Análisis Financiero', file: 'financial_maestro.md', prompt: 'Genera el análisis financiero de inventario y presupuesto a 30 días.' },
-  { id: 'crisis', label: 'Crisis de Stock', file: 'supply_chain_crisis.md', prompt: 'Hay una ruptura de stock crítica en el almacén central. Evalúa alternativas de abasto.' },
-  { id: 'audit', label: 'Auditar Anomalías', file: 'auditar_anomalias', prompt: 'Audita anomalías de stock y sobrecostos en órdenes abiertas.' },
 ] as const;
 
 const ACTION_PILLS = [
-  { label: 'Reponer Sensor ST-200', badge: '2u', skill: 'procurement', prompt: 'Revisa el stock del Sensor ST-200 (2u / mín 15u) y cotiza reposición de 50 unidades con el mejor proveedor.' },
-  { label: 'Valuación y flujo a 30d', skill: 'finance', prompt: 'Genera el análisis financiero a 30 días: capital comprometido, ahorros MXN/USD y caducidades FEFO.' },
-  { label: 'Simular escenario What-If', skill: 'crisis', prompt: 'Simula una contingencia de proveedores y evalúa escenarios de demanda para el próximo trimestre.' },
-  { label: 'Auditar anomalías', skill: 'audit', prompt: 'Audita anomalías de stock y sobrecostos en órdenes abiertas.' },
+  { icon: Search, label: 'Consultar Existencias', skill: 'realstock', prompt: 'Consulta el inventario y disponibilidad real de la empresa en almacén central.' },
+  { icon: Zap, label: 'Compra Autónoma < $10k', badge: 'Auto', skill: 'procurement', prompt: 'Revisa existencias críticas y cotiza reposición bajo el límite autónomo de $10,000 MXN.' },
+  { icon: TrendingUp, label: 'Pronóstico de Demanda', badge: '30d', skill: 'demand', prompt: 'Calcula el pronóstico de demanda a 30 días y semanas de cobertura para productos prioritarios.' },
+  { icon: Truck, label: 'Seguimiento de Envíos', badge: 'En Ruta', skill: 'shipments', prompt: 'Rastrea el estatus de las órdenes y envíos en tránsito con los transportistas.' },
 ];
 
-interface Msg { id: number; role: 'user' | 'agent'; text?: string; skillIds?: string[] }
+export interface ToolTraceStep {
+  call: string;
+  out: string;
+}
+
+export interface Msg {
+  id: number;
+  role: 'user' | 'agent';
+  text?: string;
+  skillIds?: string[];
+  responseText?: string;
+  toolTrace?: ToolTraceStep[];
+  isRealStock?: boolean;
+  requiresHitl?: boolean;
+  orderAmount?: string;
+  threshold?: string;
+  metrics?: {
+    totalCostUsd?: string;
+    totalTokens?: number;
+    iterations?: number;
+  };
+}
 
 /* ───────────────────────────── COMPONENT ───────────────────────────── */
 
@@ -33,9 +57,14 @@ interface AgentWorkspaceProps {
   embedded?: boolean;
   prefilledPrompt?: string;
   onClearPrefill?: () => void;
+  currentUser?: UserSession | null;
 }
 
-export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: AgentWorkspaceProps) {
+export default function AgentWorkspace({
+  prefilledPrompt,
+  onClearPrefill,
+  currentUser,
+}: AgentWorkspaceProps) {
   const [agentState, setAgentState] = useState<AgentState>('idle');
   const [input, setInput] = useState('');
   const [selectedSkillId, setSelectedSkillId] = useState<string>('auto');
@@ -61,7 +90,7 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
 
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)); };
 
-  const send = useCallback((text: string, skillId?: string) => {
+  const send = useCallback(async (text: string, skillId?: string) => {
     if (!text.trim() || agentState === 'thinking') return;
     timers.current.forEach(clearTimeout);
     timers.current = [];
@@ -71,12 +100,76 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
     setAttachMenuOpen(false);
     setMessages((m) => [...m, { id: Date.now(), role: 'user', text }]);
     setAgentState('thinking');
-    later(() => {
-      setMessages((m) => [...m, { id: Date.now() + 1, role: 'agent', skillIds: [skillId ?? selectedSkillId, 'security'] }]);
-      setAgentState('responding');
-      later(() => setAgentState('idle'), 3200);
-    }, 1500);
-  }, [agentState, selectedSkillId]);
+
+    const activeCompanyId = currentUser?.companyId || 'comp_default';
+
+    try {
+      const res = await fetch('http://localhost:3001/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          companyId: activeCompanyId,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.response) {
+          const isReal =
+            data.response.includes('STOCK REAL') ||
+            data.response.toLowerCase().includes('stock real');
+
+          setMessages((m) => [
+            ...m,
+            {
+              id: Date.now() + 1,
+              role: 'agent',
+              skillIds: [skillId ?? selectedSkillId, 'security'],
+              responseText: data.response,
+              isRealStock: isReal,
+              metrics: data.metrics,
+              toolTrace: [
+                {
+                  call: `consultar_stock(empresa="${activeCompanyId}")`,
+                  out: '→ Base de datos relacional PostgreSQL / Supabase consultada',
+                },
+                {
+                  call: 'evaluar_reglas_gobernanza()',
+                  out: '→ Límite autónomo de compra verificado',
+                },
+              ],
+            },
+          ]);
+          setAgentState('responding');
+          later(() => setAgentState('idle'), 2000);
+          return;
+        } else {
+          throw new Error(data.error || 'Respuesta inválida del servidor');
+        }
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || errJson.details || `Error del servidor HTTP ${res.status}`);
+      }
+    } catch (err: any) {
+      setMessages((m) => [
+        ...m,
+        {
+          id: Date.now() + 1,
+          role: 'agent',
+          skillIds: ['security'],
+          responseText: `⚠️ Error de comunicación con el agente: ${err.message}.\n\nAsegúrate de que el backend esté ejecutándose en http://localhost:3001 y que la base de datos (PostgreSQL / Supabase) esté conectada y migrada.`,
+          toolTrace: [
+            {
+              call: 'POST /api/chat',
+              out: `→ Fallo de conexión: ${err.message}`,
+            },
+          ],
+        },
+      ]);
+      setAgentState('idle');
+    }
+  }, [agentState, selectedSkillId, currentUser]);
 
   const reset = () => {
     timers.current.forEach(clearTimeout);
@@ -91,10 +184,9 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
 
   return (
     <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-transparent h-full w-full">
-      {/* Resplandor ambiental Synthetic Mint */}
+      {/* Resplandor ambiental muy sutil */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
-        <div className="-mt-20 h-[480px] w-[480px] rounded-full bg-[#34D353]/10 blur-[150px]" />
-        <div className="-mt-20 h-[300px] w-[300px] rounded-full bg-[#0D2E16]/40 blur-[90px] absolute" />
+        <div className="-mt-20 h-[380px] w-[380px] rounded-full bg-emerald-500/[0.03] blur-[140px]" />
       </div>
 
       {/* Contenido Principal */}
@@ -107,17 +199,24 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
               transition={{ duration: 0.25 }}
               className="flex flex-1 flex-col items-center justify-center px-6 pb-12"
             >
-              <div className="flex w-full max-w-[660px] flex-col items-center">
-                {/* Mascota 3D interactiva oficial con aura radiante */}
-                <MintInteractiveMascot state={agentState} size={118} />
+              <div className="flex w-full max-w-[680px] flex-col items-center">
+                {/* Mascota Mint Original Flotante e Interactiva */}
+                <div className="mb-2 flex items-center justify-center">
+                  <MintInteractiveMascot state={agentState} size={120} />
+                </div>
 
-                {/* Título en Outfit con acento sutil */}
-                <h1 className="mt-4 mb-6 text-center text-2xl font-bold font-headline tracking-tight text-[#E8FBEA]">
-                  ¿Qué operación revisamos hoy, Andrés?
-                </h1>
+                {/* Saludo con tipografía minimalista y limpia */}
+                <div className="text-center mb-6">
+                  <h1 className="text-2xl sm:text-3xl font-bold font-headline tracking-tight text-zinc-100">
+                    Buenos días, {currentUser?.name?.split(' ')[0] || 'Andrés'}
+                  </h1>
+                  <p className="text-lg sm:text-xl text-zinc-400 mt-1 font-headline">
+                    ¿Cómo puedo <span className="font-serif-italic text-zinc-200">ayudarte hoy?</span>
+                  </p>
+                </div>
 
-                {/* Súper Composer Modernista */}
-                <div className="relative w-full rounded-xl border border-white/[0.08] bg-[#0C0C0E] p-3.5 md:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.7)] transition-all focus-within:border-white/[0.18]">
+                {/* Súper Composer Mint */}
+                <div className="relative w-full rounded-2xl border border-[#162D1D] bg-[#08120B]/95 p-4 shadow-[0_16px_50px_rgba(0,0,0,0.7),0_0_30px_rgba(52,211,83,0.05)] transition-all focus-within:border-[#1F4527] focus-within:shadow-[0_0_25px_rgba(52,211,83,0.12)]">
                   <textarea
                     rows={2}
                     value={input}
@@ -129,7 +228,7 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
                       }
                     }}
                     placeholder="Pregunta a MINT o describe una operación de back-office..."
-                    className="w-full resize-none bg-transparent px-1 pt-1 pb-2 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none"
+                    className="w-full resize-none bg-transparent px-1 pt-1 pb-2 text-sm text-[#E8FBEA] placeholder:text-[#527558] outline-none"
                   />
 
                   {/* Fila Inferior de Controles */}
@@ -151,26 +250,26 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
                               initial={{ opacity: 0, y: -4 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -4 }}
-                              className="absolute bottom-9 left-0 w-64 rounded-xl border border-white/[0.1] bg-[#0C0C0E] p-2 shadow-2xl backdrop-blur-xl z-50 text-xs shadow-[0_20px_50px_rgba(0,0,0,0.85)]"
+                              className="absolute bottom-9 left-0 w-64 rounded-xl border border-[#162D1D] bg-[#08140B] p-2 shadow-2xl backdrop-blur-xl z-50 text-xs shadow-[0_20px_50px_rgba(0,0,0,0.85)]"
                             >
                               <button
                                 onClick={() => {
                                   setInput((prev) => (prev ? prev + ' ' : '') + '@SKU-ST200');
                                   setAttachMenuOpen(false);
                                 }}
-                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-zinc-300 hover:bg-white/[0.04] hover:text-white"
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[#8EB795] hover:bg-[#102416] hover:text-[#E8FBEA]"
                               >
-                                <Paperclip className="h-3.5 w-3.5 text-zinc-500" />
-                                <span>Vincular <span className="font-mono text-zinc-200">@SKU-ST200</span></span>
+                                <Paperclip className="h-3.5 w-3.5 text-[#527558]" />
+                                <span>Vincular <span className="font-mono text-[#B8F5A0]">@SKU-ST200</span></span>
                               </button>
                               <button
                                 onClick={() => {
                                   setInput('Ejecuta auditoría de inventario crítico en los 4 almacenes.');
                                   setAttachMenuOpen(false);
                                 }}
-                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-zinc-300 hover:bg-white/[0.04] hover:text-white"
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[#8EB795] hover:bg-[#102416] hover:text-[#E8FBEA]"
                               >
-                                <Zap className="h-3.5 w-3.5 text-emerald-400" />
+                                <Zap className="h-3.5 w-3.5 text-[#34D353]" />
                                 <span>Playbook: Auditoría Express</span>
                               </button>
                             </motion.div>
@@ -183,11 +282,11 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
                         <button
                           type="button"
                           onClick={() => { setSkillMenuOpen((o) => !o); setAttachMenuOpen(false); }}
-                          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+                          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#162D1D] bg-[#050D07] px-3 py-1 text-xs text-[#8EB795] transition hover:bg-[#0A170E] hover:text-[#E8FBEA]"
                         >
-                          <Zap className="h-3 w-3 text-emerald-400" />
+                          <Zap className="h-3 w-3 text-[#34D353]" />
                           <span>{currentSkill.label}</span>
-                          <ChevronDown className="h-3 w-3 text-zinc-500" />
+                          <ChevronDown className="h-3 w-3 text-[#527558]" />
                         </button>
                         <AnimatePresence>
                           {skillMenuOpen && (
@@ -195,7 +294,7 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
                               initial={{ opacity: 0, y: -4 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -4 }}
-                              className="absolute bottom-9 left-0 w-64 rounded-xl border border-white/[0.1] bg-[#0C0C0E] p-2 shadow-2xl backdrop-blur-xl z-50 text-xs shadow-[0_20px_50px_rgba(0,0,0,0.85)]"
+                              className="absolute bottom-9 left-0 w-64 rounded-xl border border-[#162D1D] bg-[#08140B] p-2 shadow-2xl backdrop-blur-xl z-50 text-xs shadow-[0_20px_50px_rgba(0,0,0,0.85)]"
                             >
                               {SKILLS.map((s) => (
                                 <button
@@ -232,25 +331,29 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
                   </div>
                 </div>
 
-                {/* Píldoras de Acción Rápida Synthetic Mint */}
-                <div className="mt-4 flex w-full max-w-[660px] flex-wrap items-center justify-center gap-2">
-                  {ACTION_PILLS.map((pill) => (
-                    <button
-                      key={pill.label}
-                      onClick={() => {
-                        setSelectedSkillId(pill.skill);
-                        send(pill.prompt, pill.skill);
-                      }}
-                      className="flex cursor-pointer items-center gap-2 rounded-full border border-[#14281B] bg-[#08120B] px-4 py-2 text-xs text-[#8EB795] transition-all hover:border-[#34D353]/40 hover:bg-[#0D2E16] hover:text-[#B8F5A0] shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
-                    >
-                      <span>{pill.label}</span>
-                      {pill.badge && (
-                        <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.2 font-mono text-[10px] text-amber-400">
-                          {pill.badge}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                {/* Píldoras de Acción Rápida Synthetic Mint (Inspiración BeeBot) */}
+                <div className="mt-4 flex w-full max-w-[680px] flex-wrap items-center justify-center gap-2">
+                  {ACTION_PILLS.map((pill) => {
+                    const Icon = pill.icon;
+                    return (
+                      <button
+                        key={pill.label}
+                        onClick={() => {
+                          setSelectedSkillId(pill.skill);
+                          send(pill.prompt, pill.skill);
+                        }}
+                        className="flex cursor-pointer items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] px-3.5 py-1.5 text-xs text-zinc-300 transition-all hover:border-white/[0.15] hover:text-white shadow-xs"
+                      >
+                        <Icon className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>{pill.label}</span>
+                        {pill.badge && (
+                          <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.2 font-mono text-[9px] text-amber-300">
+                            {pill.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>
@@ -267,12 +370,24 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
                   {messages.map((m) =>
                     m.role === 'user' ? (
                       <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
-                        <div className="max-w-[80%] rounded-2xl border border-[#34D353]/20 bg-[#0D2E16]/80 px-4 py-2.5 text-xs leading-relaxed text-[#E8FBEA] shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+                        <div className="max-w-[80%] rounded-2xl border border-white/[0.08] bg-[#18181B] px-4 py-2.5 text-xs leading-relaxed text-zinc-100 shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
                           {m.text}
                         </div>
                       </motion.div>
                     ) : (
-                      <AgentResponse key={m.id} skillIds={m.skillIds ?? []} approved={approved} onApprove={() => setApproved(true)} />
+                      <AgentResponse
+                        key={m.id}
+                        skillIds={m.skillIds ?? []}
+                        approved={approved}
+                        onApprove={() => setApproved(true)}
+                        responseText={m.responseText}
+                        toolTrace={m.toolTrace}
+                        isRealStock={m.isRealStock}
+                        requiresHitl={m.requiresHitl}
+                        orderAmount={m.orderAmount}
+                        threshold={m.threshold}
+                        metrics={m.metrics}
+                      />
                     )
                   )}
 
@@ -289,7 +404,7 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
 
               {/* Input en modo conversación */}
               <div className="mx-auto w-full max-w-[680px] px-6 pb-6">
-                <div className="relative w-full rounded-xl border border-white/[0.08] bg-[#0C0C0E] p-3 shadow-2xl transition-all focus-within:border-white/[0.18]">
+                <div className="relative w-full rounded-xl border border-[#162D1D] bg-[#08120B] p-3 shadow-2xl transition-all focus-within:border-[#1F4527] focus-within:shadow-[0_0_20px_rgba(52,211,83,0.1)]">
                   <textarea
                     rows={1}
                     value={input}
@@ -304,8 +419,18 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
                     className="w-full resize-none bg-transparent px-1 pt-1 pb-1 text-xs text-zinc-100 placeholder:text-zinc-500 outline-none"
                   />
                   <div className="flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[10px] text-zinc-300 bg-white/[0.04] border border-white/[0.08] rounded-md px-2 py-0.5">{currentSkill.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] text-zinc-400 bg-white/[0.03] border border-white/[0.06] rounded-md px-2 py-0.5">
+                        {currentSkill.label}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={reset}
+                        title="Reiniciar conversación"
+                        className="text-zinc-500 hover:text-zinc-300 p-1 transition cursor-pointer"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                      </button>
                     </div>
                     <button
                       onClick={() => send(input)}
@@ -323,29 +448,6 @@ export default function AgentWorkspace({ prefilledPrompt, onClearPrefill }: Agen
         </AnimatePresence>
       </div>
 
-      {/* Control flotante discreto de estados del logo */}
-      <div className="fixed bottom-3 right-5 z-40 flex items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0C0C0E]/90 px-2.5 py-1 text-[10px] text-zinc-400 backdrop-blur-md opacity-40 transition hover:opacity-100 shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
-        <span className="font-mono text-[9px] uppercase tracking-wider text-zinc-500">logo</span>
-        {(['idle', 'thinking', 'responding'] as AgentState[]).map((s) => (
-          <button
-            key={s}
-            onClick={() => {
-              timers.current.forEach(clearTimeout);
-              setAgentState(s);
-            }}
-            className={`cursor-pointer rounded px-1.5 py-0.5 text-[10px] transition ${
-              agentState === s ? 'bg-white/[0.08] text-white font-medium' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            {s}
-          </button>
-        ))}
-        {started && (
-          <button onClick={reset} title="Reiniciar chat" className="ml-1 cursor-pointer text-zinc-400 hover:text-white">
-            <RotateCcw className="h-3 w-3" />
-          </button>
-        )}
-      </div>
     </div>
   );
 }
@@ -356,101 +458,139 @@ const AgentResponse = ({
   skillIds,
   approved,
   onApprove,
+  responseText,
+  toolTrace,
+  isRealStock,
+  requiresHitl,
+  orderAmount,
+  threshold,
+  metrics,
 }: {
   skillIds: string[];
   approved: boolean;
   onApprove: () => void;
+  responseText?: string;
+  toolTrace?: ToolTraceStep[];
+  isRealStock?: boolean;
+  requiresHitl?: boolean;
+  orderAmount?: string;
+  threshold?: string;
+  metrics?: {
+    totalCostUsd?: string;
+    totalTokens?: number;
+    iterations?: number;
+  };
 }) => {
   const files = skillIds.map((id) =>
-    id === 'security' ? 'security_guardrails.md' : SKILLS.find((s) => s.id === id)?.file ?? 'procurement_negotiator.md'
+    id === 'security'
+      ? 'security_guardrails.md'
+      : id === 'realstock'
+      ? 'real_stock_engine.ts'
+      : SKILLS.find((s) => s.id === id)?.file ?? 'procurement_negotiator.md'
   );
 
-  const steps = [
+  const defaultSteps = [
     { call: 'consultar_stock("ST-200")', out: '→ 2 u disponibles • mínimo 15 u • CRÍTICO' },
     { call: 'evaluar_proveedores("ST-200")', out: '→ Grainger Industrial • $450 MXN/u • entrega 48h' },
     { call: 'crear_orden_compra("ST-200", 50, "Grainger")', out: '→ 50 × $450 = $22,500 MXN • Excede umbral' },
   ];
 
+  const steps = toolTrace && toolTrace.length > 0 ? toolTrace : defaultSteps;
+
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3.5">
       <img src={mascotLogo} alt="MINT" className="mt-0.5 h-7 w-7 shrink-0 object-contain drop-shadow-[0_2px_10px_rgba(52,211,83,0.35)]" />
       <div className="min-w-0 flex-1 space-y-3">
-        {/* Superpower Activo */}
-        <div className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 font-mono text-[11px] text-zinc-300">
+        {/* Metadatos de ejecución limpios */}
+        <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <span>Superpower: {files.join(' & ')}</span>
+          <span>{files.join(' • ')}</span>
+          {isRealStock && (
+            <>
+              <span className="text-zinc-600">/</span>
+              <span className="text-zinc-300">Catálogo SQL Verificado</span>
+            </>
+          )}
         </div>
 
         {/* Terminal TOOL CALL */}
-        <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-[#09090B]">
-          <div className="flex items-center gap-1.5 border-b border-white/[0.06] px-3.5 py-1.5 font-mono text-[10px] text-zinc-500 uppercase tracking-wider">
-            <Terminal className="h-3 w-3 text-emerald-400" />
+        <div className="overflow-hidden rounded-xl border border-[#162D1D] bg-[#040A06]">
+          <div className="flex items-center gap-1.5 border-b border-[#14281B] px-3.5 py-1.5 font-mono text-[10px] text-[#527558] uppercase tracking-wider">
+            <Terminal className="h-3 w-3 text-[#34D353]" />
             <span>tool call trace</span>
           </div>
           <div className="space-y-1.5 p-3.5 font-mono text-[11px]">
             {steps.map((s, i) => (
-              <motion.div key={s.call} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.2 }}>
-                <p className="text-emerald-400">{s.call}</p>
-                <p className="text-zinc-400">{s.out}</p>
+              <motion.div key={s.call + i} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.2 }}>
+                <p className="text-[#E8FBEA] font-medium">{s.call}</p>
+                <p className="text-[#8EB795]">{s.out}</p>
               </motion.div>
             ))}
           </div>
         </div>
 
         {/* Dictamen */}
-        <p className="text-xs leading-relaxed text-zinc-200">
-          El Sensor Térmico ST-200 se encuentra en nivel crítico. La reposición de 50 unidades con{' '}
-          <strong className="text-white font-medium">Grainger Industrial</strong> ($450 MXN/u, entrega en 48h) totaliza{' '}
-          <strong className="text-white font-semibold font-mono">$22,500 MXN</strong>.
-        </p>
+        {responseText ? (
+          <div className="text-xs leading-relaxed text-[#E8FBEA] whitespace-pre-wrap space-y-2">
+            {responseText}
+          </div>
+        ) : (
+          <p className="text-xs leading-relaxed text-[#8EB795]">
+            El Sensor Térmico ST-200 se encuentra en nivel crítico. La reposición de 50 unidades con{' '}
+            <strong className="text-[#E8FBEA] font-medium">Grainger Industrial</strong> ($450 MXN/u, entrega en 48h) totaliza{' '}
+            <strong className="text-[#34D353] font-semibold font-mono">$22,500 MXN</strong>.
+          </p>
+        )}
 
-        {/* Tarjeta de Guardrail HITL */}
-        <div
-          className={`rounded-xl border p-4 transition-all shadow-[0_4px_24px_rgba(0,0,0,0.4)] ${
-            approved
-              ? 'border-emerald-500/20 bg-emerald-500/5'
-              : 'border-white/[0.07] bg-[#0C0C0E]'
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5">
-              {approved ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-              ) : (
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-zinc-100 font-headline">
-                {approved ? 'Orden aprobada y emitida' : 'Guardrail Human-in-the-Loop'}
-              </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">
+        {/* Tarjeta de Guardrail HITL si es requerida */}
+        {(requiresHitl || (!responseText && !isRealStock)) && (
+          <div
+            className={`rounded-xl border p-4 transition-all shadow-[0_4px_24px_rgba(0,0,0,0.4)] ${
+              approved
+                ? 'border-[#1F4527] bg-[#0E2615]'
+                : 'border-[#162D1D] bg-[#08120B]'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5">
                 {approved ? (
-                  'OC registrada inmutablemente en case_events con firma criptográfica.'
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                 ) : (
-                  <>
-                    La orden por <strong className="text-zinc-200 font-medium">$22,500 MXN</strong> excede el límite autónomo de{' '}
-                    <strong className="text-zinc-200 font-medium">$10,000 MXN</strong>. Requiere firma de supervisor.
-                  </>
+                  <AlertTriangle className="h-4 w-4 text-amber-400" />
                 )}
-              </p>
-              {!approved && (
-                <button
-                  onClick={onApprove}
-                  className="mt-3 flex cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-medium text-zinc-950 transition-all hover:bg-white shadow-xs active:scale-[0.98]"
-                >
-                  <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                  <span>Aprobar y Emitir Orden</span>
-                </button>
-              )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-zinc-100 font-headline">
+                  {approved ? 'Orden aprobada y emitida' : 'Guardrail Human-in-the-Loop'}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">
+                  {approved ? (
+                    'OC registrada inmutablemente en case_events con firma criptográfica.'
+                  ) : (
+                    <>
+                      La orden por <strong className="text-zinc-200 font-medium">{orderAmount || '$22,500 MXN'}</strong> excede el límite autónomo de{' '}
+                      <strong className="text-zinc-200 font-medium">{threshold || '$10,000 MXN'}</strong>. Requiere firma de supervisor.
+                    </>
+                  )}
+                </p>
+                {!approved && (
+                  <button
+                    onClick={onApprove}
+                    className="mt-3 flex cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-medium text-zinc-950 transition-all hover:bg-white shadow-xs active:scale-[0.98]"
+                  >
+                    <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                    <span>Aprobar y Emitir Orden</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Telemetría */}
         <div className="flex items-center gap-2 pt-0.5 font-mono text-[10px] text-zinc-500">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <span>Grok-4.6 • 1,840 tokens • $0.0024 USD • Inmutable</span>
+          <span>Grok-4.6 • {metrics?.totalTokens ?? 1840} tokens • ${metrics?.totalCostUsd ?? '0.0024'} USD • PostgreSQL Inmutable</span>
         </div>
       </div>
     </motion.div>

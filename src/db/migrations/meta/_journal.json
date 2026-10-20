@@ -29,6 +29,20 @@
       "when": 1791565219502,
       "tag": "0003_smooth_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792426196924,
+      "tag": "0004_mysterious_doctor_strange",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792427420799,
+      "tag": "0005_chubby_wasp",
+      "breakpoints": true
     }
   ]
 }

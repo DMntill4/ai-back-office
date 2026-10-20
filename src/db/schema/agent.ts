@@ -8,10 +8,15 @@ import {
   timestamp,
   jsonb,
 } from "drizzle-orm/pg-core";
+import { companies } from "./business";
 
 // 1. Casos recibidos y gestionados por el agente
 export const cases = pgTable("cases", {
   id: text("id").primaryKey(), // ej: case_abc123 o uuid
+  companyId: text("company_id")
+    .references(() => companies.id, { onDelete: "cascade" })
+    .notNull()
+    .default("comp_default"),
   title: text("title").notNull(),
   description: text("description").notNull(),
   status: text("status", {
@@ -105,6 +110,10 @@ export const idempotencyKeys = pgTable("idempotency_keys", {
 // 6. Solicitudes de aprobación humana ante acciones que superan límites de compra
 export const approvals = pgTable("approvals", {
   id: text("id").primaryKey(),
+  companyId: text("company_id")
+    .references(() => companies.id, { onDelete: "cascade" })
+    .notNull()
+    .default("comp_default"),
   caseId: text("case_id")
     .references(() => cases.id, { onDelete: "cascade" })
     .notNull(),

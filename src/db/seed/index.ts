@@ -7,16 +7,47 @@ import {
   toolCalls,
   idempotencyKeys,
   approvals,
+  companies,
   products,
   warehouses,
   inventory,
   suppliers,
   supplierProducts,
   businessConfig,
+  salesHistory,
+  shipments,
+  users,
 } from "../schema";
 
 export async function runSeed() {
   console.log("🚀 Iniciando siembra masiva de datos logísticos e industriales...");
+
+  // 0. Empresa Base (Multi-tenant)
+  await db
+    .insert(companies)
+    .values([
+      {
+        id: "comp_default",
+        name: "Acme Industrial Corp",
+        slug: "acme-industrial",
+      },
+    ])
+    .onConflictDoNothing();
+
+  // 0.1 Usuario Administrador / Dueño Base
+  await db
+    .insert(users)
+    .values([
+      {
+        id: "usr_default_admin",
+        companyId: "comp_default",
+        email: "andres@mint-ai.io",
+        name: "Andrés Administrador",
+        role: "owner",
+        setupCompleted: false, // Permitir ver el setup wizard
+      },
+    ])
+    .onConflictDoNothing();
 
   // 1. Almacenes / Bodegas
   await db
@@ -368,9 +399,72 @@ export async function runSeed() {
     .insert(businessConfig)
     .values([
       {
+        companyId: "comp_default",
         key: "approval_limit_amount",
         value: "10000.00",
+        currency: "MXN",
         description: "Monto máximo en MXN permitido para crear órdenes de compra sin requerir aprobación humana",
+      },
+    ])
+    .onConflictDoNothing();
+
+  // 7. Historial de Ventas (Para pronosticar_demanda)
+  const now = new Date();
+  const daysAgo = (d: number) => new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
+
+  await db
+    .insert(salesHistory)
+    .values([
+      { id: "sh_001", companyId: "comp_default", productId: "prod_st200", saleDate: daysAgo(30), quantity: 12, unitPrice: "520.00", totalAmount: "6240.00", channel: "directo" },
+      { id: "sh_002", companyId: "comp_default", productId: "prod_st200", saleDate: daysAgo(21), quantity: 15, unitPrice: "520.00", totalAmount: "7800.00", channel: "directo" },
+      { id: "sh_003", companyId: "comp_default", productId: "prod_st200", saleDate: daysAgo(14), quantity: 18, unitPrice: "520.00", totalAmount: "9360.00", channel: "directo" },
+      { id: "sh_004", companyId: "comp_default", productId: "prod_st200", saleDate: daysAgo(7), quantity: 22, unitPrice: "520.00", totalAmount: "11440.00", channel: "directo" },
+      { id: "sh_005", companyId: "comp_default", productId: "prod_v500", saleDate: daysAgo(25), quantity: 4, unitPrice: "1400.00", totalAmount: "5600.00", channel: "industrial" },
+      { id: "sh_006", companyId: "comp_default", productId: "prod_v500", saleDate: daysAgo(10), quantity: 6, unitPrice: "1400.00", totalAmount: "8400.00", channel: "industrial" },
+      { id: "sh_007", companyId: "comp_default", productId: "tool_guantes_g1", saleDate: daysAgo(15), quantity: 50, unitPrice: "180.00", totalAmount: "9000.00", channel: "retail" },
+      { id: "sh_008", companyId: "comp_default", productId: "tool_guantes_g1", saleDate: daysAgo(5), quantity: 70, unitPrice: "180.00", totalAmount: "12600.00", channel: "retail" },
+    ])
+    .onConflictDoNothing();
+
+  // 8. Seguimiento de Envíos (Para consultar_envios)
+  await db
+    .insert(shipments)
+    .values([
+      {
+        id: "ship_001",
+        companyId: "comp_default",
+        trackingNumber: "TRK-FEDEX-98214",
+        carrier: "FedEx Express",
+        status: "en_transito",
+        estimatedDelivery: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000),
+        originLocation: "Monterrey Hub",
+        currentLocation: "Querétaro Distribución",
+        destinationLocation: "Almacén Central (CDMX)",
+        notes: "Tránsito regular sin incidencias",
+      },
+      {
+        id: "ship_002",
+        companyId: "comp_default",
+        trackingNumber: "TRK-DHL-44102",
+        carrier: "DHL Supply Chain",
+        status: "retrasado",
+        estimatedDelivery: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // Venció ayer!
+        originLocation: "Guadalajara Norte",
+        currentLocation: "Toluca Retención Aduana/Inspección",
+        destinationLocation: "Almacén Refrigerado",
+        notes: "Retraso logístico de 48h por inspección en ruta",
+      },
+      {
+        id: "ship_003",
+        companyId: "comp_default",
+        trackingNumber: "TRK-SIM-10023",
+        carrier: "Simulado Logistics",
+        status: "en_preparacion",
+        estimatedDelivery: new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000),
+        originLocation: "Saltillo Terminal",
+        currentLocation: "Patio de Salida",
+        destinationLocation: "Almacén Regional Norte",
+        notes: "En espera de carga de unidades",
       },
     ])
     .onConflictDoNothing();

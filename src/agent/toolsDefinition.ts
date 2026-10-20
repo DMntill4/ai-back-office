@@ -7,6 +7,8 @@ import { executeEvaluarProveedores } from "../tools/evaluarProveedores";
 import { executeAnalisisFinanciero } from "../tools/analisisFinanciero";
 import { executeSimularEscenario } from "../tools/simularEscenario";
 import { executeAuditarAnomalias } from "../tools/auditarAnomalias";
+import { executePronosticarDemanda } from "../tools/pronosticarDemanda";
+import { executeConsultarEnvios } from "../tools/consultarEnvios";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -227,11 +229,55 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "pronosticar_demanda",
+      description:
+        "Calcula el pronóstico de demanda futura, tasa de consumo diario y semanas de cobertura para un producto con base en el historial de ventas.",
+      parameters: {
+        type: "object",
+        properties: {
+          producto_id: {
+            type: "string",
+            description: "ID del producto a pronosticar (ej: 'prod_st200')",
+          },
+          horizonte_dias: {
+            type: "number",
+            description: "Días de horizonte a proyectar (por defecto 30)",
+          },
+        },
+        required: ["producto_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "consultar_envios",
+      description:
+        "Consulta el estado en tiempo real, transportista, ubicación y fecha estimada de entrega de órdenes de compra y envíos en tránsito.",
+      parameters: {
+        type: "object",
+        properties: {
+          numero_rastreo: {
+            type: "string",
+            description: "Número de guía o tracking (ej: 'TRK-MX-88902')",
+          },
+          orden_id: {
+            type: "string",
+            description: "ID de la orden de compra a rastrear (ej: 'po_001')",
+          },
+        },
+      },
+    },
+  },
 ];
 
 export async function dispatchToolCall(
   name: string,
   rawArgs: string,
+  context?: { companyId?: string; caseId?: string },
 ): Promise<{
   result: any;
   isClosingAction: boolean;
@@ -265,7 +311,22 @@ export async function dispatchToolCall(
 
     case "crear_orden_compra":
       return {
-        result: await executeCrearOrdenCompra(parsedArgs),
+        result: await executeCrearOrdenCompra({
+          ...parsedArgs,
+          case_id: parsedArgs.case_id || context?.caseId,
+        }),
+        isClosingAction: false,
+      };
+
+    case "pronosticar_demanda":
+      return {
+        result: await executePronosticarDemanda(parsedArgs, context),
+        isClosingAction: false,
+      };
+
+    case "consultar_envios":
+      return {
+        result: await executeConsultarEnvios(parsedArgs, context),
         isClosingAction: false,
       };
 

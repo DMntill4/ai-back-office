@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { db } from "../db/client";
+import { suppliers, supplierProducts, products } from "../db/schema";
+import { eq, sql } from "drizzle-orm";
 
 export const evaluarProveedoresSchema = z.object({
   producto_id: z.string().describe("ID del producto a cotizar/evaluar (ej. 'prod_st200')"),
@@ -10,10 +13,6 @@ export type EvaluarProveedoresInput = z.infer<typeof evaluarProveedoresSchema>;
 
 export async function executeEvaluarProveedores(args: EvaluarProveedoresInput) {
   try {
-    const { db } = await import("../db/client");
-    const { suppliers, supplierProducts, products } = await import("../db/schema");
-    const { eq, sql } = await import("drizzle-orm");
-
     const rows = await db
       .select({
         supplierId: suppliers.id,
@@ -30,23 +29,28 @@ export async function executeEvaluarProveedores(args: EvaluarProveedoresInput) {
       .where(eq(supplierProducts.productId, args.producto_id));
 
     if (!rows.length) {
-      // Fallback a proveedores estándar de la industria (Grainger, Uline, Mouser)
-      const mockOptions = [
-        { supplierId: "prov_grainger", supplierName: "Grainger Industrial", rating: "4.8", unitPrice: "450.00", minOrderQuantity: 5, leadTimeDays: 2 },
-        { supplierId: "prov_uline", supplierName: "Uline Supply Co.", rating: "4.6", unitPrice: "420.00", minOrderQuantity: 10, leadTimeDays: 4 },
-        { supplierId: "prov_mouser", supplierName: "Mouser Electronics", rating: "4.9", unitPrice: "480.00", minOrderQuantity: 1, leadTimeDays: 1 },
-      ];
-      return sortAndReturnOptions(mockOptions, args.criterio);
+      // Consultar proveedores registrados en la base de datos
+      const registeredSuppliers = await db.select().from(suppliers).limit(5);
+      return {
+        isSuccess: false,
+        criterioUsado: args.criterio,
+        message: `No se encontraron cotizaciones para el producto '${args.producto_id}' en la tabla 'supplier_products'.`,
+        proveedoresDisponiblesEnSistema: registeredSuppliers.map((s) => ({
+          id: s.id,
+          nombre: s.name,
+          email: s.email,
+          telefono: s.phone,
+        })),
+      };
     }
 
     return sortAndReturnOptions(rows, args.criterio);
-  } catch {
-    const mockOptions = [
-      { supplierId: "prov_grainger", supplierName: "Grainger Industrial", rating: "4.8", unitPrice: "450.00", minOrderQuantity: 5, leadTimeDays: 2 },
-      { supplierId: "prov_uline", supplierName: "Uline Supply Co.", rating: "4.6", unitPrice: "420.00", minOrderQuantity: 10, leadTimeDays: 4 },
-      { supplierId: "prov_mouser", supplierName: "Mouser Electronics", rating: "4.9", unitPrice: "480.00", minOrderQuantity: 1, leadTimeDays: 1 },
-    ];
-    return sortAndReturnOptions(mockOptions, args.criterio);
+  } catch (err: any) {
+    return {
+      isSuccess: false,
+      criterioUsado: args.criterio,
+      message: `Error al consultar proveedores en la base de datos: ${err.message}`,
+    };
   }
 }
 
@@ -76,9 +80,9 @@ function sortAndReturnOptions(options: any[], criterio: string) {
       precioUnitario: `$${recomendado.unitPrice} MXN`,
       tiempoEntregaDias: recomendado.leadTimeDays,
       cantidadMinima: recomendado.minOrderQuantity,
-      motivoRecomendacion: `Seleccionado por presentar la mejor puntuación bajo el criterio '${criterio}'.`,
+      motivoRecomendacion: `Seleccionado por presentar la mejor puntuación bajo el criterio '${criterio}' en la base de datos de proveedores.`,
     },
-    todasLasOpciones: sorted.map(o => ({
+    todasLasOpciones: sorted.map((o) => ({
       proveedorId: o.supplierId,
       nombre: o.supplierName,
       precioUnitario: `$${o.unitPrice} MXN`,

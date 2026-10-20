@@ -1,42 +1,41 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.cdnfonts.com/css/google-sans');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@1,400;1,600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* Minimalismo Silencioso Estilo Linear / Vercel / Stripe (Escala Zinc + Toque Quirúrgico Esmeralda) */
-  --color-mint-primary: #10B981;
-  --color-mint-secondary: #34D399;
+  --color-mint-primary: #34D353;
+  --color-mint-secondary: #20C048;
+  --color-mint-accent: #B8F5A0;
   
-  --color-bg-base: #09090B;
-  --color-bg-surface: #121215;
-  --color-bg-elevated: #18181B;
+  --color-bg-base: #040A06;
+  --color-bg-surface: #08120B;
+  --color-bg-elevated: #0E1E12;
 
-  --color-border-subtle: rgba(255, 255, 255, 0.06);
-  --color-border-hover: rgba(255, 255, 255, 0.12);
+  --color-border-subtle: #162D1D;
+  --color-border-hover: #1F4527;
 
-  --color-text-primary: #F4F4F5;
-  --color-text-secondary: #A1A1AA;
-  --color-text-tertiary: #71717A;
+  --color-text-primary: #E8FBEA;
+  --color-text-secondary: #8EB795;
+  --color-text-muted: #527558;
 
-  --font-headline: "Inter", "Geist Sans", "Google Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body: "Inter", "Geist Sans", "Google Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-headline: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif-italic: "Playfair Display", Georgia, serif;
+  --font-body: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-label: "JetBrains Mono", monospace;
-  --font-sans: "Inter", "Geist Sans", "Google Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 }
 
 :root {
-  --bg-color: #09090B;
-  --bg-surface: #0C0C0E;
-  --bg-elevated: #141417;
+  --bg-color: #040A06;
+  --bg-surface: #08120B;
+  --bg-elevated: #0E1E12;
   
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-hover: rgba(255, 255, 255, 0.12);
+  --border-subtle: #162D1D;
+  --border-hover: #1F4527;
 
-  --text-primary: #FAFAFA;
-  --text-secondary: #A1A1AA;
-  --text-tertiary: #71717A;
+  --text-primary: #E8FBEA;
+  --text-secondary: #8EB795;
+  --text-muted: #527558;
 }
 
 * {
@@ -47,24 +46,60 @@ body {
   margin: 0;
   padding: 0;
   font-family: var(--font-body);
-  background-color: #09090B;
-  color: #FAFAFA;
+  background-color: #08090C;
+  color: #F4F4F5;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.02) 0%, transparent 60%);
-  background-attachment: fixed;
 }
 
 h1, h2, h3, .font-headline {
   font-family: var(--font-headline);
 }
 
+.font-serif-italic {
+  font-family: var(--font-serif-italic);
+  font-style: italic;
+}
+
 code, pre, .font-label, .font-mono {
   font-family: var(--font-label);
 }
 
+/* Global Dark Scrollbars for all elements & Firefox/WebKit */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #08090C;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(74, 222, 128, 0.4);
+}
+
+::-webkit-scrollbar-corner {
+  background: #08090C;
+}
+
 /* Custom Scrollbar Neutro */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -73,12 +108,35 @@ code, pre, .font-label, .font-mono {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(74, 222, 128, 0.4);
 }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mint Bottom Rim Light for Inputs */
+.input-rim-focus {
+  background-color: rgba(14, 24, 18, 0.85) !important;
+  border: 1px solid rgba(34, 66, 43, 0.7) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.input-rim-focus:focus,
+.input-rim-focus:focus-within {
+  outline: none !important;
+  border-color: rgba(52, 211, 83, 0.6) !important;
+  box-shadow: inset 0 -12px 20px -12px rgba(52, 211, 83, 0.35), 0 1px 0 0 rgba(184, 245, 160, 0.65) !important;
+}
+
 
 /* Tooltip Styles */
 .TooltipContent {
@@ -86,24 +144,24 @@ code, pre, .font-label, .font-mono {
   padding: 6px 12px;
   font-size: 11px;
   font-weight: 500;
-  background-color: #0C0C0E;
-  color: #FAFAFA;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  background-color: #07140B;
+  color: #E8FBEA;
+  border: 1px solid #162D1D;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 20px rgba(52, 211, 83, 0.08);
   animation-duration: 150ms;
 }
 .TooltipArrow {
-  fill: #0C0C0E;
+  fill: #07140B;
 }
 
-/* Cmdk Palette - Linear/Raycast Style Neutro */
+/* Cmdk Palette - Mint Style */
 .cmdk-root {
-  background: #0C0C0E;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  background: #08120B;
+  border: 1px solid #162D1D;
+  border-radius: 14px;
   overflow: hidden;
-  color: #FAFAFA;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+  color: #E8FBEA;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(52, 211, 83, 0.08);
 }
 
 .cmdk-input {
@@ -111,14 +169,14 @@ code, pre, .font-label, .font-mono {
   padding: 16px 20px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  color: #FAFAFA;
+  border-bottom: 1px solid #162D1D;
+  color: #E8FBEA;
   font-family: var(--font-body);
   font-size: 13px;
   outline: none;
 }
 .cmdk-input::placeholder {
-  color: #71717A;
+  color: #527558;
 }
 
 .cmdk-list {
@@ -134,14 +192,14 @@ code, pre, .font-label, .font-mono {
   align-items: center;
   gap: 12px;
   font-size: 12px;
-  color: #A1A1AA;
+  color: #8EB795;
   cursor: pointer;
   transition: all 120ms ease;
 }
 .cmdk-item[data-selected="true"],
 .cmdk-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #FAFAFA;
+  background: #102315;
+  color: #E8FBEA;
 }
 
 .cmdk-group-heading {
@@ -150,26 +208,27 @@ code, pre, .font-label, .font-mono {
   font-family: var(--font-label);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #71717A;
+  color: #527558;
 }
 
-/* Modernismo Minimalista Cards & Surfaces */
+/* Modernismo Cards & Surfaces */
 .mint-card {
-  background-color: #0C0C0E;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background-color: #08120B;
+  border: 1px solid #162D1D;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  transition: border-color 0.2s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 30px rgba(52, 211, 83, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .mint-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: #1F4527;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 35px rgba(52, 211, 83, 0.08);
 }
 
-/* Primary Button Técnico (rounded-lg) */
+/* Primary Button Mint */
 .btn-mint-primary {
-  background-color: #F4F4F5;
-  color: #09090B;
-  font-weight: 500;
+  background: linear-gradient(135deg, #20C048 0%, #34D353 100%);
+  color: #040A06;
+  font-weight: 600;
   border-radius: 8px;
   padding: 0.45rem 1rem;
   font-size: 0.75rem;
@@ -178,20 +237,21 @@ code, pre, .font-label, .font-mono {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  box-shadow: 0 0 16px rgba(52, 211, 83, 0.35);
 }
 .btn-mint-primary:hover {
-  background-color: #FFFFFF;
+  box-shadow: 0 0 24px rgba(52, 211, 83, 0.5);
+  transform: translateY(-0.5px);
 }
 .btn-mint-primary:active {
   transform: translateY(0.5px);
 }
 
-/* Secondary Button Técnico (rounded-lg) */
+/* Secondary Button Mint */
 .btn-mint-secondary {
-  background-color: rgba(255, 255, 255, 0.04);
-  color: #D4D4D8;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: #0E2214;
+  color: #B8F5A0;
+  border: 1px solid #1F3D29;
   border-radius: 8px;
   padding: 0.45rem 1rem;
   font-size: 0.75rem;
@@ -203,16 +263,16 @@ code, pre, .font-label, .font-mono {
   gap: 0.5rem;
 }
 .btn-mint-secondary:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.14);
-  color: #FAFAFA;
+  background-color: #14301C;
+  border-color: #2D5A3A;
+  color: #E8FBEA;
 }
 
-/* Outlined Button Técnico (rounded-lg) */
+/* Outlined Button Mint */
 .btn-mint-outlined {
   background-color: transparent;
-  color: #A1A1AA;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #8EB795;
+  border: 1px solid #162D1D;
   border-radius: 8px;
   padding: 0.45rem 0.9rem;
   font-size: 0.75rem;
@@ -224,9 +284,9 @@ code, pre, .font-label, .font-mono {
   gap: 0.5rem;
 }
 .btn-mint-outlined:hover {
-  background-color: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #FAFAFA;
+  background-color: #0A170E;
+  border-color: #1F4527;
+  color: #E8FBEA;
 }
 
 /* Micro-pills (Solo para contadores o micro-badges) */
@@ -236,3 +296,106 @@ code, pre, .font-label, .font-mono {
   font-size: 0.65rem;
   font-family: var(--font-label);
 }
+
+/* ───────────────────────────────────────────────────────────── */
+/* MINT TAILWIND ANIMATIONS (Linear & Vercel Motion Standards)   */
+/* ───────────────────────────────────────────────────────────── */
+
+@keyframes mintFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes mintPulseSlow {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes mintHorizonBreathe {
+  0%, 100% {
+    opacity: 0.75;
+    filter: drop-shadow(0 0 16px rgba(52, 211, 83, 0.45));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 32px rgba(52, 211, 83, 0.85));
+  }
+}
+
+@keyframes mintShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes mintMoteDrift {
+  0% {
+    transform: translateY(0px) translateX(0px);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-25px) translateX(12px);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translateY(0px) translateX(0px);
+    opacity: 0.2;
+  }
+}
+
+@keyframes borderGlowPulse {
+  0%, 100% {
+    border-color: rgba(25, 58, 36, 0.8);
+    box-shadow: inset 0 1px 0 0 rgba(184, 245, 160, 0.18), 0 25px 70px rgba(0, 0, 0, 0.9), 0 0 40px rgba(52, 211, 83, 0.06);
+  }
+  50% {
+    border-color: rgba(52, 211, 83, 0.45);
+    box-shadow: inset 0 1px 0 0 rgba(184, 245, 160, 0.35), 0 25px 70px rgba(0, 0, 0, 0.9), 0 0 65px rgba(52, 211, 83, 0.16);
+  }
+}
+
+.animate-mint-float {
+  animation: mintFloat 3.8s ease-in-out infinite;
+}
+
+.animate-mint-pulse-slow {
+  animation: mintPulseSlow 5s ease-in-out infinite;
+}
+
+.animate-horizon-breathe {
+  animation: mintHorizonBreathe 4.5s ease-in-out infinite;
+}
+
+.animate-mint-shimmer {
+  animation: mintShimmer 2.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-card-glow {
+  animation: borderGlowPulse 6s ease-in-out infinite;
+}
+
+.animate-mote-1 {
+  animation: mintMoteDrift 8s ease-in-out infinite;
+}
+
+.animate-mote-2 {
+  animation: mintMoteDrift 11s ease-in-out infinite 3s;
+}
+
+.animate-mote-3 {
+  animation: mintMoteDrift 9s ease-in-out infinite 1.5s;
+}
+
