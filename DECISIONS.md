@@ -28,3 +28,13 @@
 - **Fecha:** 2026-10-23
 - **Estado:** Aceptado
 - **Decisión:** El LLM NUNCA tiene acceso a terminal/shell ni al sistema de archivos arbitrario. Cada herramienta expuesta cuenta con esquema tipado y validación estricta de parámetros.
+
+## ADR-005: Ingesta Asistida, Tolerancia a Fallos y Atribución 'real'
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Las fuentes de datos operativas (CSV, Excel, bases de datos externas) varían en nombres de columnas y suelen contener filas defectuosas.
+- **Decisión:**
+  - El motor de ingesta (`@mint/ingest`) propone mapeos semánticos heurísticos asistidos (detectando variaciones en español/inglés de SKU, nombre, stock, mínimo, categoría, costo).
+  - La importación es resiliente: los registros con errores se aíslan y reportan individualmente sin abortar toda la transacción ni la inserción de las filas válidas.
+  - Todo registro importado se marca con `origin = 'real'`, permitiendo a los agentes y reportes distinguir datos operativos fidedignos de simulaciones.
+  - Para orígenes Postgres externos, se aplican límites de lectura, consultas parametrizadas y conexión en solo lectura.

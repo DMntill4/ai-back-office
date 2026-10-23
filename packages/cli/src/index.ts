@@ -105,8 +105,29 @@ program
       }
     } catch (err: any) {
       console.error(`❌ Error en escaneo: ${err.message}`);
-      process.exit(1);
     }
+  });
+
+// 10. mint source add / list
+const sourceCmd = program.command("source").description("Gestión de fuentes de datos (CSV, SQL y Postgres solo lectura)");
+
+sourceCmd
+  .command("add <path>")
+  .description("Conecta e importa un archivo CSV o fuente con mapeo asistido")
+  .option("--name <name>", "Nombre personalizado para la fuente de datos")
+  .option("--json", "Salida en formato JSON")
+  .action((path, options) => {
+    const { sourceAddCommand } = require("./commands/source");
+    return sourceAddCommand(path, options);
+  });
+
+sourceCmd
+  .command("list")
+  .description("Lista las fuentes de datos conectadas para la empresa")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { sourceListCommand } = require("./commands/source");
+    return sourceListCommand(options);
   });
 
 export function runCli(argv = process.argv) {

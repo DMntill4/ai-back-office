@@ -1,0 +1,6 @@
+Codigo_SKU,Nombre_Producto,Existencias,Stock_Minimo,Categoria
+MINT-VAL-001,Válvula Reguladora de Presión Industrial,45,15,Herramientas
+MINT-SEN-002,Sensor Infrarrojo de Alta Precisión,80,20,Electrónica
+MINT-ERR-003,Cilindro Hidráulico Defectuoso,-10,5,Hidráulica
+MINT-CAB-004,Cable Blindado de Transmisión 50m,120,30,Cableado
+MINT-EMP-005,Empaque de Neopreno Alta Temperatura,200,50,Empaques

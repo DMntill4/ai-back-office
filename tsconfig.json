@@ -11,7 +11,11 @@
     "baseUrl": "./",
     "paths": {
       "@mint/core": ["packages/core/src/index.ts"],
-      "@mint/core/*": ["packages/core/src/*"]
+      "@mint/core/*": ["packages/core/src/*"],
+      "@mint/ingest": ["packages/ingest/src/index.ts"],
+      "@mint/ingest/*": ["packages/ingest/src/*"],
+      "@mint/cli": ["packages/cli/src/index.ts"],
+      "@mint/cli/*": ["packages/cli/src/*"]
     }
   },
   "include": ["src", "scripts", "tests", "packages"]
