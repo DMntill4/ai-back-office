@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { TelegramAdapter } from "./adapters/telegramAdapter";
 import { SlackAdapter } from "./adapters/slackAdapter";
 import { GmailAdapter } from "./adapters/gmailAdapter";
+import { DiscordAdapter } from "./adapters/discordAdapter";
 import { generateApprovalToken } from "./tokenService";
 import { type ChannelType, type NotifierAdapter, type NotificationPayload, type SendResult } from "./types";
 
@@ -16,6 +17,7 @@ const adapters: Record<ChannelType, NotifierAdapter> = {
   telegram: new TelegramAdapter(),
   slack: new SlackAdapter(),
   gmail: new GmailAdapter(),
+  discord: new DiscordAdapter(),
 };
 
 export async function addNotificationChannel(params: {

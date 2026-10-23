@@ -1,5 +1,5 @@
 export type NotificationSeverity = "INFO" | "WARNING" | "CRITICAL";
-export type ChannelType = "telegram" | "slack" | "gmail";
+export type ChannelType = "telegram" | "slack" | "gmail" | "discord";
 
 export interface NotificationPayload {
   companyId: string;
