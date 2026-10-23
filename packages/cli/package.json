@@ -1,0 +1,15 @@
+{
+  "name": "@mint/cli",
+  "version": "1.0.0",
+  "description": "Mint CLI - Autonomous Logistics and Back Office CLI",
+  "bin": {
+    "mint": "./bin/mint.js"
+  },
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^14.0.3"
+  }
+}

@@ -22,7 +22,7 @@
     "dev:backend": "tsx src/server.ts",
     "dev:frontend": "npm run dev --prefix frontend",
     "server": "tsx src/server.ts",
-    "mint": "tsx src/cli/index.ts"
+    "mint": "tsx packages/cli/src/index.ts"
   },
   "repository": {
     "type": "git",
@@ -55,6 +55,7 @@
   "dependencies": {
     "@fastify/cors": "^11.3.1",
     "@supabase/supabase-js": "^2.118.0",
+    "commander": "^15.0.0",
     "dotenv": "^18.0.6",
     "drizzle-orm": "^0.45.3",
     "fastify": "^5.12.5",
