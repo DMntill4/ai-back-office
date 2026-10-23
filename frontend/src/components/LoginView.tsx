@@ -283,7 +283,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         role: assignedRole,
         companyId: `comp_${Date.now()}`,
         companyName: companyName.trim(),
-        setupCompleted: !isCompany,
+        setupCompleted: false, // Forzar siempre el Setup Wizard para cargar base de datos
       });
     } finally {
       setLoading(false);

@@ -44,64 +44,24 @@ interface AccountItem {
 
 const INITIAL_ACCOUNTS: AccountItem[] = [
   {
-    id: 'acc-1',
-    firstName: 'Andrés',
-    lastName: 'Montilla',
-    name: 'Andrés Montilla',
-    role: 'Empresa',
-    title: 'Director de Operaciones & Abastecimiento',
+    id: 'usr_admin',
+    firstName: 'Administrador',
+    lastName: 'Mint',
+    name: 'Administrador Mint',
+    role: 'Admin',
+    title: 'Administrador Principal de Plataforma',
     companyName: 'Acme Industrial Corp',
-    email: 'operaciones@acme.com',
-    phone: '+52 (55) 987-6543',
+    email: 'admin@mint.io',
+    phone: '+52 (55) 1234-5678',
     region: 'México (MXN - $)',
     currency: 'MXN',
     status: 'active',
-    lastActive: 'Hace 3 min',
+    lastActive: 'En línea',
     avatarGradient: 'from-[#064E3B] via-[#10B981] to-[#A7F3D0]',
     autonomousPurchases: true,
     hitlRequired: true,
     sqlInventoryAccess: true,
     autonomousThreshold: 10000,
-  },
-  {
-    id: 'acc-2',
-    firstName: 'Carlos',
-    lastName: 'Herrera',
-    name: 'Carlos Herrera',
-    role: 'Admin',
-    title: 'Administrador de Plataforma & Seguridad IAM',
-    companyName: 'Mint Intelligence Platform',
-    email: 'seguridad@mint-ai.io',
-    phone: '+52 (81) 1234-5678',
-    region: 'México (MXN - $)',
-    currency: 'MXN',
-    status: 'active',
-    lastActive: 'En línea',
-    avatarGradient: 'from-[#0E7490] via-[#06B6D4] to-[#E2E8F0]',
-    autonomousPurchases: true,
-    hitlRequired: true,
-    sqlInventoryAccess: true,
-    autonomousThreshold: 50000,
-  },
-  {
-    id: 'acc-3',
-    firstName: 'Alex',
-    lastName: 'Johnson',
-    name: 'Alex Johnson',
-    role: 'Cliente',
-    title: 'Gerente de Procura B2B & Cadena de Suministro',
-    companyName: 'Tech Innovations Inc',
-    email: 'alex.johnson@techinnovations.com',
-    phone: '+1 (555) 987-6543',
-    region: 'USA (USD - $)',
-    currency: 'USD',
-    status: 'active',
-    lastActive: 'Ayer 18:40',
-    avatarGradient: 'from-[#3F3F46] via-[#71717A] to-[#D4D4D8]',
-    autonomousPurchases: false,
-    hitlRequired: true,
-    sqlInventoryAccess: false,
-    autonomousThreshold: 0,
   },
 ];
 
@@ -182,15 +142,15 @@ export const AccountsManagementView = ({
         {/* 3 Contadores Limpios en Línea + Filtro de Roles + Botón Primario */}
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           
-          {/* 3 Contadores limpios en píldoras */}
+          {/* Contadores dinámicos limpios en píldoras */}
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#101217] border border-white/[0.05] text-xs">
             <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]" />
-              3 Cuentas Activas
+              {accounts.length} {accounts.length === 1 ? 'Cuenta Activa' : 'Cuentas Activas'}
             </span>
             <span className="text-zinc-700">•</span>
             <span className="text-zinc-400">
-              3 Roles Homologados: Empresa, Admin, Cliente
+              Admin Mint
             </span>
             <span className="text-zinc-700">•</span>
             <span className="text-emerald-400 font-mono text-[11px]">

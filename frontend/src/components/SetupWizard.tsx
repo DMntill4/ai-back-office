@@ -267,7 +267,7 @@ export const SetupWizard = ({ user, onComplete }: SetupWizardProps) => {
 
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/setup/upload-sql', {
+      const res = await fetch('/api/setup/upload-sql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -306,7 +306,7 @@ export const SetupWizard = ({ user, onComplete }: SetupWizardProps) => {
 
     setLoading(true);
     try {
-      await fetch('http://localhost:3001/api/setup/config', {
+      await fetch('/api/setup/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

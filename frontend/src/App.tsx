@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Home, Sparkles, CheckSquare, Database, Activity, PanelLeftClose, PanelLeftOpen,
   Search, Plus, Download,
   CheckCircle2, Terminal, RefreshCw, Sliders, LogOut,
-  TrendingUp, Truck, Settings, Server, Bell, ChevronDown, Layers, Zap, Users,
+  Settings, Server, Bell, Zap, Users,
   Menu, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,48 +34,14 @@ interface NavItem {
   meta?: string;
 }
 
-// Módulos Canónicos del Sistema Mint (Arquitectura Stakent Silenciosa)
+// Módulos Canónicos del Sistema Mint (Limpio y Enfocado)
 const NAV: NavItem[] = [
-  { id: 'dashboard', label: 'Centro de Mando', icon: Home },
-  { id: 'demand', label: 'Pronóstico Predictivo', icon: TrendingUp },
-  { id: 'shipments', label: 'Envíos y Logística', icon: Truck },
-  { id: 'accounts', label: 'Cuentas y Perfiles', icon: Users, badge: '3' },
-  { id: 'chat', label: 'Inteligencia ReAct', icon: Sparkles },
-  { id: 'approvals', label: 'Aprobaciones Críticas', icon: CheckSquare, badge: '1' },
+  { id: 'chat', label: 'Asistente IA (Chat)', icon: Sparkles },
   { id: 'stock', label: 'Inventario & Catálogo', icon: Database },
-  { id: 'database', label: 'Gobernanza & DB', icon: Server, meta: 'PostgreSQL' },
-  { id: 'activity', label: 'Auditoría Inmutable', icon: Activity },
-];
-
-const ACTIVE_FACILITIES_SKUS = [
-  {
-    id: 'fac-central',
-    title: 'Almacén Central',
-    subtitle: 'Stock Valuado $7,699.00',
-    iconColor: 'bg-emerald-500/10 text-emerald-400',
-    view: 'stock',
-  },
-  {
-    id: 'sku-vfd10',
-    title: 'Variador VFD-10',
-    subtitle: '2 uds. • Quiebre Inminente',
-    iconColor: 'bg-amber-500/10 text-amber-400',
-    view: 'demand',
-  },
-  {
-    id: 'sku-sm400',
-    title: 'Servomotor SM-400',
-    subtitle: '24 uds. • Cobertura 20D',
-    iconColor: 'bg-blue-500/10 text-blue-400',
-    view: 'demand',
-  },
-  {
-    id: 'ord-088',
-    title: 'Orden OC-2026-088',
-    subtitle: 'En Reparto • Llegada Hoy',
-    iconColor: 'bg-emerald-500/10 text-emerald-400',
-    view: 'shipments',
-  },
+  { id: 'approvals', label: 'Aprobaciones Críticas', icon: CheckSquare },
+  { id: 'dashboard', label: 'Métricas & Operaciones', icon: Home },
+  { id: 'database', label: 'Base de Datos (SQL)', icon: Server },
+  { id: 'accounts', label: 'Equipo & Cuentas', icon: Users },
 ];
 
 const HISTORY_GROUPS = [
@@ -103,15 +69,13 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
-  const [currentView, setCurrentView] = useState('dashboard');
+  const [currentView, setCurrentView] = useState('chat');
   const [collapsed, setCollapsed] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [developerMode, setDeveloperMode] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [prefilledPrompt, setPrefilledPrompt] = useState<string>('');
   const [dbStatus, setDbStatus] = useState<{ connected: boolean; provider: string; latencyMs: number } | null>(null);
-  const [operationalMode, setOperationalMode] = useState<'autonomous' | 'supervised'>('autonomous');
-  const [facilitiesOpen, setFacilitiesOpen] = useState(true);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [accountModalRole, setAccountModalRole] = useState<AccountRoleType>('Empresa');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -128,6 +92,33 @@ export default function App() {
       }
     }).catch(() => {});
   }, []);
+
+  // Escucha activa de alertas proactivas en tiempo real (desabastos y quiebres de inventario)
+  const lastAlertIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.getProactiveAlerts();
+        if (res.success && res.alerts && res.alerts.length > 0) {
+          const newest = res.alerts[0];
+          if (newest.id !== lastAlertIdRef.current) {
+            lastAlertIdRef.current = newest.id;
+            if (newest.severity === 'CRITICAL' || newest.severity === 'HIGH') {
+              toast.error(`⚠️ ${newest.title}: ${newest.message}`, {
+                duration: 6000,
+                action: {
+                  label: 'Ver Stock',
+                  onClick: () => setCurrentView('stock'),
+                },
+              });
+            }
+          }
+        }
+      } catch {}
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   // ⌘K shortcut listener
   useEffect(() => {
@@ -146,7 +137,7 @@ export default function App() {
     setIsAuthenticated(true);
     if (user.setupCompleted) {
       setShowSplash(true);
-      setCurrentView('dashboard');
+      setCurrentView('chat');
     }
   };
 
@@ -257,42 +248,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Switch Segmentado Estilo Píldora (Modo Autónomo vs Supervisado) */}
-          {!collapsed && (
-            <div className="mb-4 bg-[#14161C] p-1 rounded-xl flex items-center border border-white/[0.05] text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setOperationalMode('autonomous');
-                  toast.info('Modo Autónomo activado: Reglas ReAct automáticas < $10k');
-                }}
-                className={`flex-1 py-1 text-center font-medium rounded-lg transition-all cursor-pointer text-[11px] ${
-                  operationalMode === 'autonomous'
-                    ? 'bg-[#1E222B] text-white shadow-xs'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                Modo Autónomo
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setOperationalMode('supervised');
-                  toast.info('Modo Supervisado: Requiere aprobación HITL para toda compra');
-                }}
-                className={`flex-1 py-1 text-center font-medium rounded-lg transition-all cursor-pointer text-[11px] ${
-                  operationalMode === 'supervised'
-                    ? 'bg-[#1E222B] text-white shadow-xs'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                Supervisado
-              </button>
-            </div>
-          )}
-
           {/* Centro: Navegación de Pestañas (Ítem Activo en bg-[#1A1D24] text-white rounded-xl) */}
-          <nav className="space-y-1">
+          <nav className="space-y-1.5 mt-2">
             {NAV.map((n) => {
               const Icon = n.icon;
               const isActive = currentView === n.id;
@@ -302,7 +259,7 @@ export default function App() {
                   onClick={() => setCurrentView(n.id)}
                   title={n.label}
                   className={`flex w-full cursor-pointer items-center ${
-                    collapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2'
+                    collapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
                   } rounded-xl transition-all ${
                     isActive
                       ? 'bg-[#1A1D24] font-medium text-white shadow-sm'
@@ -310,7 +267,7 @@ export default function App() {
                   }`}
                 >
                   <span className="flex items-center gap-2.5 min-w-0">
-                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
+                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-emerald-400' : 'text-zinc-400'}`} />
                     {!collapsed && <span className="truncate text-xs font-medium">{n.label}</span>}
                   </span>
                   {!collapsed && n.badge && (
@@ -318,59 +275,10 @@ export default function App() {
                       {n.badge}
                     </span>
                   )}
-                  {!collapsed && n.meta && (
-                    <span className="font-mono text-[10px] text-zinc-500">
-                      {n.meta}
-                    </span>
-                  )}
                 </button>
               );
             })}
           </nav>
-
-          {/* Mitad Inferior: Instalaciones / SKUs Activos */}
-          {!collapsed && (
-            <div className="mt-5 min-h-0 flex-1 space-y-2 overflow-y-auto border-t border-white/[0.05] pt-3 pr-0.5 custom-scrollbar">
-              <div
-                onClick={() => setFacilitiesOpen((o) => !o)}
-                className="flex items-center justify-between px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer select-none"
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-zinc-400">Instalaciones / SKUs Activos</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-semibold border border-emerald-500/20">
-                    4
-                  </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform ${facilitiesOpen ? '' : '-rotate-90'}`} />
-                </div>
-              </div>
-
-              {facilitiesOpen && (
-                <div className="space-y-1 mt-1">
-                  {ACTIVE_FACILITIES_SKUS.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setCurrentView(item.view)}
-                      className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-white/[0.03] transition text-left cursor-pointer group"
-                    >
-                      <div className={`w-7 h-7 rounded-lg ${item.iconColor} flex items-center justify-center shrink-0`}>
-                        <Layers className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-zinc-200 group-hover:text-white truncate">
-                          {item.title}
-                        </p>
-                        <p className="text-[10px] text-zinc-500 truncate">
-                          {item.subtitle}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Abajo del todo: Tarjeta de Estado ReAct xAI */}
@@ -450,36 +358,8 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Switch Segmentado Modo Autónomo vs Supervisado */}
-                <div className="mb-4 bg-[#14161C] p-1 rounded-xl flex items-center border border-white/[0.05] text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOperationalMode('autonomous');
-                      toast.info('Modo Autónomo activado: Reglas ReAct < $10k');
-                    }}
-                    className={`flex-1 py-1 text-center font-medium rounded-lg transition-all cursor-pointer text-[11px] ${
-                      operationalMode === 'autonomous' ? 'bg-[#1E222B] text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-200'
-                    }`}
-                  >
-                    Modo Autónomo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOperationalMode('supervised');
-                      toast.info('Modo Supervisado: Requiere aprobación HITL');
-                    }}
-                    className={`flex-1 py-1 text-center font-medium rounded-lg transition-all cursor-pointer text-[11px] ${
-                      operationalMode === 'supervised' ? 'bg-[#1E222B] text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-200'
-                    }`}
-                  >
-                    Supervisado
-                  </button>
-                </div>
-
                 {/* Navegación de Pestañas Móvil */}
-                <nav className="space-y-1">
+                <nav className="space-y-1.5 mt-2">
                   {NAV.map((n) => {
                     const Icon = n.icon;
                     const isActive = currentView === n.id;
@@ -490,14 +370,14 @@ export default function App() {
                           setCurrentView(n.id);
                           setMobileNavOpen(false);
                         }}
-                        className={`flex w-full cursor-pointer items-center justify-between px-3 py-2 rounded-xl transition-all ${
+                        className={`flex w-full cursor-pointer items-center justify-between px-3 py-2.5 rounded-xl transition-all ${
                           isActive
                             ? 'bg-[#1A1D24] font-medium text-white shadow-sm'
                             : 'text-zinc-400 hover:bg-white/[0.03] hover:text-zinc-100'
                         }`}
                       >
                         <span className="flex items-center gap-2.5 min-w-0">
-                          <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
+                          <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-emerald-400' : 'text-zinc-400'}`} />
                           <span className="truncate text-xs font-medium">{n.label}</span>
                         </span>
                         {n.badge && (
@@ -505,40 +385,10 @@ export default function App() {
                             {n.badge}
                           </span>
                         )}
-                        {n.meta && (
-                          <span className="font-mono text-[10px] text-zinc-500">
-                            {n.meta}
-                          </span>
-                        )}
                       </button>
                     );
                   })}
                 </nav>
-
-                {/* Instalaciones / SKUs Activos */}
-                <div className="mt-4 pt-3 border-t border-white/[0.05] space-y-1">
-                  <span className="text-[10px] font-mono uppercase text-zinc-500 px-2 block mb-1">
-                    Instalaciones / SKUs Activos
-                  </span>
-                  {ACTIVE_FACILITIES_SKUS.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setCurrentView(item.view);
-                        setMobileNavOpen(false);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-white/[0.03] transition text-left cursor-pointer"
-                    >
-                      <div className={`w-7 h-7 rounded-lg ${item.iconColor} flex items-center justify-center shrink-0`}>
-                        <Layers className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-zinc-200 truncate">{item.title}</p>
-                        <p className="text-[10px] text-zinc-500 truncate">{item.subtitle}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* Pie del Drawer Móvil */}
@@ -962,11 +812,7 @@ interface ApprovalsViewProps {
   onOpenPrompt?: (prompt: string) => void;
 }
 
-const RECENT_DECISIONS = [
-  { id: 'OC-2026-088', product: 'Fusible Cerámico 10A (100u)', provider: 'ElectroGlobal', amount: '$4,800.00 MXN', resolution: 'Aprobada automáticamente (Regla < $10k)', status: 'approved', time: 'Hace 2h' },
-  { id: 'OC-2026-087', product: 'Microcontrolador X1 Cortex (20u)', provider: 'TechCorp MX', amount: '$9,200.00 MXN', resolution: 'Aprobada por supervisor (HITL)', status: 'approved', time: 'Ayer' },
-  { id: 'OC-2026-084', product: 'Sensor de Presión P1 (15u)', provider: 'FastShip Logistics', amount: '$18,400.00 MXN', resolution: 'Rechazada por sobrecosto logístico', status: 'rejected', time: 'Hace 2 días' },
-];
+const RECENT_DECISIONS: any[] = [];
 
 function ApprovalsView({ onOpenPrompt }: ApprovalsViewProps) {
   const [approvedList, setApprovedList] = useState<string[]>([]);
@@ -975,49 +821,32 @@ function ApprovalsView({ onOpenPrompt }: ApprovalsViewProps) {
   useEffect(() => {
     const fetchApprovals = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/approvals');
+        const res = await fetch('/api/approvals');
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          if (json.success && Array.isArray(json.data)) {
             setLiveApprovals(json.data);
           }
         }
       } catch {
-        // Modo local
+        // Fallback silencioso
       }
     };
     fetchApprovals();
   }, []);
 
-  const defaultPending = [
-    {
-      id: 'OC-2026-089',
-      sku: 'ST-200',
-      productName: 'Sensor Térmico ST-200 (50 unidades)',
-      currentStock: '2u / mín 15u',
-      provider: 'Grainger Industrial',
-      amountMXN: '$22,500.00 MXN',
-      amountUSD: '$1,250.00 USD',
-      sla: '48 Horas',
-      reason: 'El monto excede el umbral autónomo de $10,000 MXN. Requiere validación de supervisor (Human-in-the-Loop).',
-      prompt: 'Explica el desglose y cotización de la orden OC-2026-089 para el Sensor ST-200.',
-    },
-  ];
-
-  const pendingApprovals = liveApprovals.length > 0
-    ? liveApprovals.map((a) => ({
-        id: a.id,
-        sku: 'ST-200',
-        productName: `Reposición de Insumos Críticos (${a.id})`,
-        currentStock: '2u / mín 15u',
-        provider: 'Grainger Industrial',
-        amountMXN: `$${Number(a.amount || 15450).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
-        amountUSD: `$${Math.round(Number(a.amount || 15450) / 18).toLocaleString('en-US')} USD`,
-        sla: '48 Horas',
-        reason: `El monto de $${Number(a.amount || 15450).toLocaleString('es-MX')} MXN supera el límite autónomo de $10,000 MXN. Requiere validación humana.`,
-        prompt: `Explica la cotización y desglose de la orden ${a.id} por $${a.amount} MXN.`,
-      }))
-    : defaultPending;
+  const pendingApprovals = liveApprovals.map((a) => ({
+    id: a.id,
+    sku: a.sku || 'SKU-GEN',
+    productName: a.title || `Reposición de Insumos Críticos (${a.id})`,
+    currentStock: a.currentStock || 'Bajo Mínimo',
+    provider: a.provider || 'Proveedor Homologado',
+    amountMXN: `$${Number(a.amount || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
+    amountUSD: `$${Math.round(Number(a.amount || 0) / 18).toLocaleString('en-US')} USD`,
+    sla: a.sla || '48 Horas',
+    reason: a.reason || `El monto de $${Number(a.amount || 0).toLocaleString('es-MX')} MXN supera el límite autónomo de $10,000 MXN. Requiere validación humana.`,
+    prompt: `Explica la cotización y desglose de la orden ${a.id}.`,
+  }));
 
   const handleApprove = async (id: string) => {
     setApprovedList((prev) => [...prev, id]);
@@ -1179,24 +1008,30 @@ function ApprovalsView({ onOpenPrompt }: ApprovalsViewProps) {
         </div>
 
         <div className="divide-y divide-white/[0.04]">
-          {RECENT_DECISIONS.map((d) => (
-            <div key={d.id} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-[11px] text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06]">
-                  {d.id}
-                </span>
-                <span className="font-medium text-zinc-200">{d.product}</span>
-                <span className="text-zinc-500 text-[11px]">• {d.provider}</span>
-              </div>
-              <div className="flex items-center gap-4 text-zinc-400 font-mono text-[11px]">
-                <span className="text-white font-semibold">{d.amount}</span>
-                <span className={d.status === 'approved' ? 'text-emerald-400' : 'text-red-400'}>
-                  {d.resolution}
-                </span>
-                <span className="text-zinc-500">{d.time}</span>
-              </div>
+          {RECENT_DECISIONS.length === 0 ? (
+            <div className="py-6 text-center text-xs text-zinc-500">
+              No hay decisiones registradas aún en el historial. Las órdenes que excedan $10,000 MXN o requieran firma humana aparecerán aquí.
             </div>
-          ))}
+          ) : (
+            RECENT_DECISIONS.map((d) => (
+              <div key={d.id} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[11px] text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06]">
+                    {d.id}
+                  </span>
+                  <span className="font-medium text-zinc-200">{d.product}</span>
+                  <span className="text-zinc-500 text-[11px]">• {d.provider}</span>
+                </div>
+                <div className="flex items-center gap-4 text-zinc-400 font-mono text-[11px]">
+                  <span className="text-white font-semibold">{d.amount}</span>
+                  <span className={d.status === 'approved' ? 'text-emerald-400' : 'text-red-400'}>
+                    {d.resolution}
+                  </span>
+                  <span className="text-zinc-500">{d.time}</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

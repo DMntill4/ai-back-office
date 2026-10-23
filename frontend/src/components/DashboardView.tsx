@@ -455,8 +455,8 @@ export const DashboardView = ({
     const fetchLiveTelemetry = async () => {
       try {
         const [dashRes, alertRes] = await Promise.all([
-          fetch('http://localhost:3001/api/dashboard?companyId=comp_default'),
-          fetch('http://localhost:3001/api/v1/alerts/proactive'),
+          fetch('/api/dashboard?companyId=comp_default'),
+          fetch('/api/v1/alerts/proactive'),
         ]);
 
         if (dashRes.ok && mounted) {
@@ -923,19 +923,21 @@ export const DashboardView = ({
                   Presupuesto Comprometido Este Mes
                 </h2>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
-                  68.4% En Uso
+                  {liveReport ? `${((liveReport.spend / 100000) * 100).toFixed(1)}% En Uso` : '0.0% En Uso'}
                 </span>
               </div>
             </div>
 
-            {/* Cifra Principal Gigante */}
+            {/* Cifra Principal */}
             <div className="my-3">
               <span className="text-[11px] text-zinc-500 block">Consumo Acumulado vs. Límite Mensual ($100,000 MXN)</span>
               <div className="flex items-baseline gap-3 mt-1">
                 <span className="text-4xl font-bold text-white font-headline tracking-tight">
-                  $68,400 MXN
+                  {liveReport ? `$${liveReport.spend.toLocaleString('es-MX')} MXN` : '$0 MXN'}
                 </span>
-                <span className="text-xs text-emerald-400 font-mono">$31,600 MXN remanente</span>
+                <span className="text-xs text-emerald-400 font-mono">
+                  {liveReport ? `$${Math.max(0, 100000 - liveReport.spend).toLocaleString('es-MX')} MXN remanente` : '$100,000 MXN remanente'}
+                </span>
               </div>
             </div>
 
@@ -947,7 +949,7 @@ export const DashboardView = ({
                 className="bg-[#6EE7B7] hover:bg-[#34D399] text-zinc-950 px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-sm active:scale-[0.98]"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Revisar Cola HITL (2 pendientes) ↗</span>
+                <span>Revisar Cola HITL ({liveReport?.pendingReview ?? 0} pendientes) ↗</span>
               </button>
 
               <button
@@ -972,26 +974,34 @@ export const DashboardView = ({
               </span>
             </div>
 
-            {/* Regla Graduada Horizontal con Nodo Activo en 68.4% y Alerta en 80% */}
+            {/* Regla Graduada Horizontal con Nodo Activo dinámico */}
             <div className="relative py-6">
               {/* Tooltip flotante encima del nodo activo */}
               <div
                 className="absolute top-0 transform -translate-x-1/2 bg-[#1B1F2A] border border-emerald-400/30 text-white text-[10px] font-mono px-2 py-0.5 rounded-md shadow-lg flex items-center gap-1"
-                style={{ left: '68.4%' }}
+                style={{ left: `${Math.min(100, Math.max(0, liveReport ? (liveReport.spend / 100000) * 100 : 0))}%` }}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span>$68,400 MXN (68.4%)</span>
+                <span>
+                  {liveReport ? `$${liveReport.spend.toLocaleString('es-MX')} MXN (${((liveReport.spend / 100000) * 100).toFixed(1)}%)` : '$0 MXN (0.0%)'}
+                </span>
               </div>
 
-              {/* Riel base graduado con zona de advertencia */}
+              {/* Riel base graduado */}
               <div className="h-2 w-full bg-[#202533] rounded-full overflow-hidden relative">
-                <div className="h-full bg-gradient-to-r from-emerald-500 to-[#4ADE80] rounded-full" style={{ width: '68.4%' }} />
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-[#4ADE80] rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, liveReport ? (liveReport.spend / 100000) * 100 : 0))}%` }}
+                />
               </div>
 
               {/* Nodo circular activo */}
               <div
-                className="absolute top-1/2 -mt-2.5 w-5 h-5 rounded-full bg-[#101217] border-2 border-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.6)] flex items-center justify-center"
-                style={{ left: '68.4%', transform: 'translateX(-50%)' }}
+                className="absolute top-1/2 -mt-2.5 w-5 h-5 rounded-full bg-[#101217] border-2 border-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.6)] flex items-center justify-center transition-all duration-500"
+                style={{
+                  left: `${Math.min(100, Math.max(0, liveReport ? (liveReport.spend / 100000) * 100 : 0))}%`,
+                  transform: 'translateX(-50%)',
+                }}
               >
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               </div>
@@ -1030,12 +1040,25 @@ export const DashboardView = ({
               </div>
               <div className="rounded-xl bg-[#14171F] border border-white/[0.04] p-4 flex flex-col justify-between">
                 <div className="flex items-center justify-between">
-                  <span className="text-2xl font-semibold text-white tracking-tight font-headline">142</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">91.0%</span>
+                  <span className="text-2xl font-semibold text-white tracking-tight font-headline">
+                    {liveReport ? liveReport.automated : 0}
+                  </span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
+                    {liveReport && liveReport.totalOrders > 0
+                      ? `${Math.round((liveReport.automated / liveReport.totalOrders) * 100)}.0%`
+                      : '0.0%'}
+                  </span>
                 </div>
                 <div className="mt-3">
                   <div className="h-1.5 w-full bg-white/[0.04] rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-400 rounded-full" style={{ width: '91%' }} />
+                    <div
+                      className="h-full bg-emerald-400 rounded-full"
+                      style={{
+                        width: liveReport && liveReport.totalOrders > 0
+                          ? `${Math.round((liveReport.automated / liveReport.totalOrders) * 100)}%`
+                          : '0%',
+                      }}
+                    />
                   </div>
                   <div className="flex items-center justify-between text-[10px] text-zinc-500 mt-1.5">
                     <span>Sin fricción humana</span>
@@ -1053,16 +1076,27 @@ export const DashboardView = ({
               </div>
               <div className="rounded-xl bg-[#14171F] border border-white/[0.04] p-4 flex flex-col justify-between">
                 <div className="flex items-center justify-between">
-                  <span className="text-2xl font-semibold text-white tracking-tight font-headline">2 órdenes</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">Pendiente</span>
+                  <span className="text-2xl font-semibold text-white tracking-tight font-headline">
+                    {liveReport?.pendingReview ?? 0} {liveReport?.pendingReview === 1 ? 'orden' : 'órdenes'}
+                  </span>
+                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                    (liveReport?.pendingReview ?? 0) > 0 ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'
+                  }`}>
+                    {(liveReport?.pendingReview ?? 0) > 0 ? 'Pendiente' : 'Al día'}
+                  </span>
                 </div>
                 <div className="mt-3">
                   <div className="h-1.5 w-full bg-white/[0.04] rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-400 rounded-full" style={{ width: '25%' }} />
+                    <div
+                      className="h-full bg-amber-400 rounded-full"
+                      style={{ width: `${Math.min(100, (liveReport?.pendingReview ?? 0) * 20)}%` }}
+                    />
                   </div>
                   <div className="flex items-center justify-between text-[10px] text-zinc-500 mt-1.5">
-                    <span>$40,900 MXN en espera</span>
-                    <span className="text-amber-400 font-medium">Requiere firma</span>
+                    <span>${((liveReport?.pendingReview ?? 0) * 15000).toLocaleString('es-MX')} MXN en espera</span>
+                    <span className="text-amber-400 font-medium">
+                      {(liveReport?.pendingReview ?? 0) > 0 ? 'Requiere firma' : 'Sin pendientes'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1076,15 +1110,22 @@ export const DashboardView = ({
               </div>
               <div className="rounded-xl bg-[#14171F] border border-white/[0.04] p-4 flex flex-col justify-between">
                 <div className="flex items-center justify-between">
-                  <span className="text-2xl font-semibold text-white tracking-tight font-headline">$31,600</span>
+                  <span className="text-2xl font-semibold text-white tracking-tight font-headline">
+                    ${liveReport ? Math.max(0, 100000 - liveReport.spend).toLocaleString('es-MX') : '100,000'}
+                  </span>
                   <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-zinc-400">MXN</span>
                 </div>
                 <div className="mt-3">
                   <div className="h-1.5 w-full bg-white/[0.04] rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-400 rounded-full" style={{ width: '31.6%' }} />
+                    <div
+                      className="h-full bg-emerald-400 rounded-full"
+                      style={{ width: `${Math.max(0, 100 - (liveReport ? (liveReport.spend / 100000) * 100 : 0))}%` }}
+                    />
                   </div>
                   <div className="flex items-center justify-between text-[10px] text-zinc-500 mt-1.5">
-                    <span>31.6% disponible</span>
+                    <span>
+                      {liveReport ? `${Math.max(0, 100 - (liveReport.spend / 100000) * 100).toFixed(1)}% disponible` : '100% disponible'}
+                    </span>
                     <span className="text-emerald-400 font-medium">Flujo óptimo</span>
                   </div>
                 </div>
