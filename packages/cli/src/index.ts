@@ -78,8 +78,9 @@ program
   .description("Plan de operaciones ('mint plan today')")
   .option("--json", "Salida en formato JSON")
   .action((target, options) => {
+    const { planTodayCommand } = require("./commands/daemon");
     if (target === "today" || !target) {
-      return todayCommand(options);
+      return planTodayCommand(options);
     }
     console.log(`Plan para '${target}' no reconocido. Usa 'mint plan today'.`);
   });
@@ -149,6 +150,65 @@ autonomyCmd
   .action((level, options) => {
     const { autonomySetCommand } = require("./commands/autonomy");
     return autonomySetCommand(level, options);
+  });
+
+// 12. mint daemon start|stop|status
+const daemonCmd = program.command("daemon").description("Gestión del proceso autónomo en segundo plano");
+
+daemonCmd
+  .command("start")
+  .description("Inicia el proceso en segundo plano que vigila fuentes y stock")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { daemonStartCommand } = require("./commands/daemon");
+    return daemonStartCommand(options);
+  });
+
+daemonCmd
+  .command("stop")
+  .description("Detiene el proceso autónomo en segundo plano")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { daemonStopCommand } = require("./commands/daemon");
+    return daemonStopCommand(options);
+  });
+
+daemonCmd
+  .command("status")
+  .description("Consulta el estado del proceso daemon")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { daemonStatusCommand } = require("./commands/daemon");
+    return daemonStatusCommand(options);
+  });
+
+// 13. mint pause / resume
+program
+  .command("pause")
+  .description("Interruptor de emergencia: pausa de inmediato la autonomía operativa")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { pauseCommand } = require("./commands/daemon");
+    return pauseCommand(options);
+  });
+
+program
+  .command("resume")
+  .description("Reanuda la autonomía operativa pausada")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { resumeCommand } = require("./commands/daemon");
+    return resumeCommand(options);
+  });
+
+// 14. mint watch
+program
+  .command("watch")
+  .description("Feed en vivo de eventos, decisiones y acciones tomadas")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { watchCommand } = require("./commands/daemon");
+    return watchCommand(options);
   });
 
 export function runCli(argv = process.argv) {

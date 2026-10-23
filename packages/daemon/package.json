@@ -1,0 +1,11 @@
+{
+  "name": "@mint/daemon",
+  "version": "1.0.0",
+  "description": "Mint Daemon: Background autonomous logistics monitor and trigger engine",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@mint/core": "*",
+    "@mint/ingest": "*"
+  }
+}

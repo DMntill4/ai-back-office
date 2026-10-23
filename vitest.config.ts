@@ -11,6 +11,7 @@ export default defineConfig({
       "@mint/core": path.resolve(__dirname, "packages/core/src/index.ts"),
       "@mint/ingest": path.resolve(__dirname, "packages/ingest/src/index.ts"),
       "@mint/cli": path.resolve(__dirname, "packages/cli/src/index.ts"),
+      "@mint/daemon": path.resolve(__dirname, "packages/daemon/src/index.ts"),
     },
   },
 });

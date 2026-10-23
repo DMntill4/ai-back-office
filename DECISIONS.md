@@ -51,3 +51,15 @@
     - `assisted`: autoejecuta bajo el umbral ($10,000 MXN) si el riesgo es bajo y la confianza alta; escala a HITL todo lo demás.
     - `auto`: autoejecuta con umbral expandido siempre que el auditor de riesgo no marque banderas críticas.
   - Toda propuesta evaluada se persiste de forma inmutable en la tabla `decisions`.
+
+## ADR-007: Daemon Autónomo de Fondo, Observador de Archivos e Interruptor de Emergencia
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** El usuario no debe tener que abrir la terminal para que el sistema reaccione. Los desabastos, retrasos y llegada de nuevos datos deben abrir casos solos en segundo plano.
+- **Decisión:**
+  - El paquete `@mint/daemon` corre un bucle periódico desacoplado con disparadores:
+    - Escaneo de desabasto (`scanStockDeficits`).
+    - Escaneo de retrasos en transporte (`scanDelayedShipments`).
+    - Plan diario estructurado (`generateDailyPlan`).
+  - Detección reactiva de archivos (`watchDirectory` y `processFileChange`): al modificarse o añadirse un archivo en directorios vigilados, el daemon realiza ingesta asistida e invoca inmediatamente al coordinador, abriendo un caso automáticamente en PostgreSQL.
+  - Interruptor de emergencia (`mint pause` / `mint resume`): persiste bandera en `~/.mint/daemon.json` que aborta cualquier tick operativo de inmediato sin reiniciar procesos.
