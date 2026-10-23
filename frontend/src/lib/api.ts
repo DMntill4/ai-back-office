@@ -126,6 +126,18 @@ export const api = {
       }>;
     }>(`/api/products?companyId=${encodeURIComponent(companyId)}`),
 
+  // Actualizar stock directamente desde la UI de base de datos
+  updateStock: (productId: string, stock: number, minStock?: number, companyId = 'comp_default') =>
+    request<{
+      success: boolean;
+      message: string;
+      alertTriggered?: boolean;
+      alert?: any;
+    }>(`/api/inventory/${encodeURIComponent(productId)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ stock, minStock, companyId }),
+    }),
+
   // Casos Operativos Reales
   getCases: (companyId = 'comp_default') =>
     request<{

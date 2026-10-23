@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Home, Sparkles, CheckSquare, Database, Activity, PanelLeftClose, PanelLeftOpen,
   Search, Plus, Download,
@@ -65,7 +65,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
-  const [currentView, setCurrentView] = useState('dashboard');
+  const [currentView, setCurrentView] = useState('chat');
   const [collapsed, setCollapsed] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [developerMode, setDeveloperMode] = useState(false);
@@ -117,6 +117,33 @@ export default function App() {
     });
   }, [currentView]);
 
+  // Escucha activa de alertas proactivas en tiempo real (desabastos y quiebres de inventario)
+  const lastAlertIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.getProactiveAlerts();
+        if (res.success && res.alerts && res.alerts.length > 0) {
+          const newest = res.alerts[0];
+          if (newest.id !== lastAlertIdRef.current) {
+            lastAlertIdRef.current = newest.id;
+            if (newest.severity === 'CRITICAL' || newest.severity === 'HIGH') {
+              toast.error(`⚠️ ${newest.title}: ${newest.message}`, {
+                duration: 6000,
+                action: {
+                  label: 'Ver Stock',
+                  onClick: () => setCurrentView('stock'),
+                },
+              });
+            }
+          }
+        }
+      } catch {}
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
   // ⌘K shortcut listener
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -134,7 +161,7 @@ export default function App() {
     setIsAuthenticated(true);
     if (user.setupCompleted) {
       setShowSplash(true);
-      setCurrentView('dashboard');
+      setCurrentView('chat');
     }
   };
 
@@ -274,7 +301,7 @@ export default function App() {
           )}
 
           {/* Centro: Navegación de Pestañas (Ítem Activo en bg-[#1A1D24] text-white rounded-xl) */}
-          <nav className="space-y-1">
+          <nav className="space-y-1.5 mt-2">
             {NAV.map((n) => {
               const Icon = n.icon;
               const isActive = currentView === n.id;
@@ -284,7 +311,7 @@ export default function App() {
                   onClick={() => setCurrentView(n.id)}
                   title={n.label}
                   className={`flex w-full cursor-pointer items-center ${
-                    collapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2'
+                    collapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
                   } rounded-xl transition-all ${
                     isActive
                       ? 'bg-[#1A1D24] font-medium text-white shadow-sm'
@@ -292,17 +319,12 @@ export default function App() {
                   }`}
                 >
                   <span className="flex items-center gap-2.5 min-w-0">
-                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
+                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-emerald-400' : 'text-zinc-400'}`} />
                     {!collapsed && <span className="truncate text-xs font-medium">{n.label}</span>}
                   </span>
                   {!collapsed && n.badge && (
                     <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.2 font-mono text-[10px] font-semibold text-emerald-400">
                       {n.badge}
-                    </span>
-                  )}
-                  {!collapsed && n.meta && (
-                    <span className="font-mono text-[10px] text-zinc-500">
-                      {n.meta}
                     </span>
                   )}
                 </button>
@@ -499,7 +521,7 @@ export default function App() {
                 </div>
 
                 {/* Navegación de Pestañas Móvil */}
-                <nav className="space-y-1">
+                <nav className="space-y-1.5 mt-2">
                   {NAV.map((n) => {
                     const Icon = n.icon;
                     const isActive = currentView === n.id;
@@ -510,24 +532,19 @@ export default function App() {
                           setCurrentView(n.id);
                           setMobileNavOpen(false);
                         }}
-                        className={`flex w-full cursor-pointer items-center justify-between px-3 py-2 rounded-xl transition-all ${
+                        className={`flex w-full cursor-pointer items-center justify-between px-3 py-2.5 rounded-xl transition-all ${
                           isActive
                             ? 'bg-[#1A1D24] font-medium text-white shadow-sm'
                             : 'text-zinc-400 hover:bg-white/[0.03] hover:text-zinc-100'
                         }`}
                       >
                         <span className="flex items-center gap-2.5 min-w-0">
-                          <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
+                          <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-emerald-400' : 'text-zinc-400'}`} />
                           <span className="truncate text-xs font-medium">{n.label}</span>
                         </span>
                         {n.badge && (
                           <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.2 font-mono text-[10px] font-semibold text-emerald-400">
                             {n.badge}
-                          </span>
-                        )}
-                        {n.meta && (
-                          <span className="font-mono text-[10px] text-zinc-500">
-                            {n.meta}
                           </span>
                         )}
                       </button>

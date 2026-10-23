@@ -9,6 +9,7 @@ import { executeSimularEscenario } from "../tools/simularEscenario";
 import { executeAuditarAnomalias } from "../tools/auditarAnomalias";
 import { executePronosticarDemanda } from "../tools/pronosticarDemanda";
 import { executeConsultarEnvios } from "../tools/consultarEnvios";
+import { executeAjustarStock } from "../tools/ajustarStock";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -254,6 +255,32 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "ajustar_stock",
+      description:
+        "Modifica, suma o resta existencias de stock de un producto específico en la base de datos de la empresa (ej: cuando el usuario pide quitar o sumar unidades).",
+      parameters: {
+        type: "object",
+        properties: {
+          producto_id: {
+            type: "string",
+            description: "ID o SKU del producto (ej: 'prod_st200', 'SKU-MAN-SM400')",
+          },
+          cantidad_delta: {
+            type: "number",
+            description: "Cantidad a sumar o restar del inventario. Usa números negativos para restar (ej: -5) o positivos para agregar (ej: 10).",
+          },
+          motivo: {
+            type: "string",
+            description: "Razón del ajuste de inventario",
+          },
+        },
+        required: ["producto_id", "cantidad_delta"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "consultar_envios",
       description:
         "Consulta el estado en tiempo real, transportista, ubicación y fecha estimada de entrega de órdenes de compra y envíos en tránsito.",
@@ -327,6 +354,12 @@ export async function dispatchToolCall(
     case "consultar_envios":
       return {
         result: await executeConsultarEnvios(parsedArgs, context),
+        isClosingAction: false,
+      };
+
+    case "ajustar_stock":
+      return {
+        result: await executeAjustarStock(parsedArgs, context),
         isClosingAction: false,
       };
 

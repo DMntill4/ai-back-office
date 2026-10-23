@@ -217,15 +217,15 @@ export const AccountsManagementView = ({
         {/* 3 Contadores Limpios en Línea + Filtro de Roles + Botón Primario */}
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           
-          {/* 3 Contadores limpios en píldoras */}
+          {/* Contadores dinámicos limpios en píldoras */}
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#101217] border border-white/[0.05] text-xs">
             <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]" />
-              3 Cuentas Activas
+              {accounts.length} {accounts.length === 1 ? 'Cuenta Activa' : 'Cuentas Activas'}
             </span>
             <span className="text-zinc-700">•</span>
             <span className="text-zinc-400">
-              3 Roles Homologados: Empresa, Admin, Cliente
+              Admin Mint
             </span>
             <span className="text-zinc-700">•</span>
             <span className="text-emerald-400 font-mono text-[11px]">

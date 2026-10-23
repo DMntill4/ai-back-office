@@ -22,10 +22,10 @@ const SKILLS = [
 ] as const;
 
 const ACTION_PILLS = [
-  { icon: Search, label: 'Consultar Existencias', skill: 'realstock', prompt: 'Consulta el inventario y disponibilidad real de la empresa en almacén central.' },
-  { icon: Zap, label: 'Compra Autónoma < $10k', badge: 'Auto', skill: 'procurement', prompt: 'Revisa existencias críticas y cotiza reposición bajo el límite autónomo de $10,000 MXN.' },
-  { icon: TrendingUp, label: 'Pronóstico de Demanda', badge: '30d', skill: 'demand', prompt: 'Calcula el pronóstico de demanda a 30 días y semanas de cobertura para productos prioritarios.' },
-  { icon: Truck, label: 'Seguimiento de Envíos', badge: 'En Ruta', skill: 'shipments', prompt: 'Rastrea el estatus de las órdenes y envíos en tránsito con los transportistas.' },
+  { icon: Search, label: '¿Qué productos tienen bajo stock?', skill: 'realstock', prompt: 'Revisa todo el inventario de la empresa y dime qué productos están con bajo stock o agotados.' },
+  { icon: Zap, label: 'Quitar 5 unidades de stock', badge: 'Ajuste', skill: 'realstock', prompt: 'Resta 5 unidades de stock del primer producto disponible en almacén y confirma el cambio.' },
+  { icon: TrendingUp, label: 'Comprar insumo bajo umbral', badge: 'Auto', skill: 'procurement', prompt: 'Evalúa proveedores y genera una orden de compra para reponer existencias bajo el límite de $10,000 MXN.' },
+  { icon: Truck, label: 'Ver estado de pedidos y envíos', badge: 'Rastreo', skill: 'shipments', prompt: 'Consulta las órdenes de compra abiertas y el estado de rastreo de envíos.' },
 ];
 
 export interface ToolTraceStep {
@@ -448,18 +448,8 @@ export default function AgentWorkspace({
 
 /* ───────────────────────── AGENT RESPONSE (MODERNISMO MINIMALISTA) ───────────────────────── */
 
-const AgentResponse = ({
-  skillIds,
-  approved,
-  onApprove,
-  responseText,
-  toolTrace,
-  isRealStock,
-  requiresHitl,
-  orderAmount,
-  threshold,
-  metrics,
-}: {
+interface AgentResponseProps {
+  key?: React.Key;
   skillIds: string[];
   approved: boolean;
   onApprove: () => void;
@@ -474,6 +464,19 @@ const AgentResponse = ({
     totalTokens?: number;
     iterations?: number;
   };
+}
+
+const AgentResponse: React.FC<AgentResponseProps> = ({
+  skillIds,
+  approved,
+  onApprove,
+  responseText,
+  toolTrace,
+  isRealStock,
+  requiresHitl,
+  orderAmount,
+  threshold,
+  metrics,
 }) => {
   const files = skillIds.map((id) =>
     id === 'security'

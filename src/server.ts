@@ -34,7 +34,7 @@ import {
   users,
   companies,
 } from "./db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 const server = Fastify({ logger: true });
 
@@ -263,6 +263,71 @@ server.get("/api/products", async (request, reply) => {
   }
 });
 
+server.put("/api/inventory/:productId", async (request, reply) => {
+  const { productId } = request.params as { productId: string };
+  const body = (request.body as any) || {};
+  const companyId = body.companyId || "comp_default";
+  const newStock = typeof body.stock === "number" ? body.stock : parseInt(body.stock, 10);
+  const minStock = typeof body.minStock === "number" ? body.minStock : undefined;
+
+  if (isNaN(newStock) || newStock < 0) {
+    return reply.status(400).send({ success: false, error: "El valor de stock debe ser un número entero mayor o igual a 0." });
+  }
+
+  try {
+    // 1. Actualizar o insertar en inventory
+    const existing = await db
+      .select()
+      .from(inventory)
+      .where(and(eq(inventory.productId, productId), eq(inventory.companyId, companyId)))
+      .limit(1);
+
+    if (existing.length > 0) {
+      await db
+        .update(inventory)
+        .set({ stock: newStock })
+        .where(eq(inventory.id, existing[0].id));
+    } else {
+      await db.insert(inventory).values({
+        id: `inv_${Date.now()}`,
+        companyId,
+        productId,
+        warehouseId: "alm_central",
+        stock: newStock,
+      });
+    }
+
+    // 2. Si enviaron minStock, actualizarlo en products
+    if (minStock !== undefined && !isNaN(minStock)) {
+      await db
+        .update(products)
+        .set({ minStock })
+        .where(and(eq(products.id, productId), eq(products.companyId, companyId)));
+    }
+
+    // 3. Revisar si cae bajo el mínimo para disparar alerta en tiempo real
+    const prod = await db
+      .select()
+      .from(products)
+      .where(and(eq(products.id, productId), eq(products.companyId, companyId)))
+      .limit(1);
+
+    const threshold = prod.length > 0 ? prod[0].minStock : (minStock || 10);
+    const { triggerStockAlertIfLow } = await import("./worker/proactiveMonitor");
+    const alert = await triggerStockAlertIfLow(productId, newStock, threshold, companyId);
+
+    return reply.send({
+      success: true,
+      message: `Stock actualizado a ${newStock} unidades.`,
+      alertTriggered: !!alert,
+      alert,
+    });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, error: err.message });
+  }
+});
+
+
 server.get("/api/dashboard", async (request, reply) => {
   const query = (request.query as any) || {};
   const companyId = query.companyId || "comp_default";
@@ -457,7 +522,7 @@ server.get("/api/audit", async (request, reply) => {
     const [caseList, orderList, apprvList] = await Promise.all([
       db.select().from(cases).where(eq(cases.companyId, companyId)).orderBy(desc(cases.createdAt)).limit(20),
       db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)).orderBy(desc(purchaseOrders.createdAt)).limit(20),
-      db.select().from(approvals).where(eq(approvals.companyId, companyId)).orderBy(desc(approvals.createdAt)).limit(20),
+      db.select().from(approvals).where(eq(approvals.companyId, companyId)).orderBy(desc(approvals.requestedAt)).limit(20),
     ]);
 
     const events: Array<{
@@ -485,11 +550,11 @@ server.get("/api/audit", async (request, reply) => {
     for (const a of apprvList) {
       events.push({
         id: `ev_appr_${a.id}`,
-        time: a.createdAt ? new Date(a.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Reciente",
+        time: a.requestedAt ? new Date(a.requestedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Reciente",
         category: "security",
-        title: `Guardrail HITL: Orden ${a.purchaseOrderId || a.id}`,
+        title: `Guardrail HITL: Aprobación ${a.id}`,
         detail: a.reason || `Monto superior al límite autónomo. Estado: ${a.status}.`,
-        createdAt: a.createdAt ? a.createdAt.toISOString() : new Date().toISOString(),
+        createdAt: a.requestedAt ? a.requestedAt.toISOString() : new Date().toISOString(),
       });
     }
 

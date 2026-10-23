@@ -24,6 +24,7 @@ interface SchemaCardInfo {
 
 // Datos de Inventory
 interface InventoryRow {
+  id: string;
   sku: string;
   name: string;
   warehouse: string;
@@ -74,6 +75,44 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
   const [liveCases, setLiveCases] = useState<CaseRow[]>([]);
   const [liveOrders, setLiveOrders] = useState<OrderRow[]>([]);
 
+  // Edición interactiva de stock directa a base de datos
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editStockVal, setEditStockVal] = useState<number>(0);
+  const [savingStock, setSavingStock] = useState(false);
+
+  const handleSaveStock = async (product: InventoryRow) => {
+    if (isNaN(editStockVal) || editStockVal < 0) {
+      toast.error('Ingresa una cantidad válida mayor o igual a 0');
+      return;
+    }
+    setSavingStock(true);
+    try {
+      const res = await api.updateStock(product.id, editStockVal, product.minimum);
+      if (res.success) {
+        toast.success(res.message);
+        if (res.alertTriggered) {
+          toast.warning(`⚠️ ¡Alerta Crítica! ${product.name} cayó por debajo del stock de seguridad.`);
+        }
+        setLiveProducts((prev) =>
+          prev.map((p) =>
+            p.id === product.id
+              ? {
+                  ...p,
+                  quantity: editStockVal,
+                  status: editStockVal === 0 ? 'out_of_stock' : editStockVal < p.minimum ? 'reorder' : 'healthy',
+                }
+              : p
+          )
+        );
+        setEditingId(null);
+      }
+    } catch (err: any) {
+      toast.error(`Error guardando stock: ${err.message}`);
+    } finally {
+      setSavingStock(false);
+    }
+  };
+
   const fetchAllData = async () => {
     try {
       const [prodsRes, casesRes, ordersRes] = await Promise.all([
@@ -84,6 +123,7 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
 
       if (prodsRes.success && Array.isArray(prodsRes.data)) {
         const mapped: InventoryRow[] = prodsRes.data.map((p) => ({
+          id: p.id,
           sku: p.sku,
           name: p.name,
           warehouse: 'Almacén Central • Bahía ' + (p.sku.slice(-1) || 'A'),
@@ -467,7 +507,46 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
                         {item.warehouse}
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-bold text-[#E8FBEA]">
-                        {item.quantity} u
+                        {editingId === item.id ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <input
+                              type="number"
+                              min={0}
+                              value={editStockVal}
+                              onChange={(e) => setEditStockVal(parseInt(e.target.value, 10) || 0)}
+                              className="w-16 px-1.5 py-0.5 text-xs text-right bg-[#050B07] border border-emerald-500 rounded text-emerald-300 font-mono focus:outline-none"
+                              autoFocus
+                            />
+                            <button
+                              disabled={savingStock}
+                              onClick={() => handleSaveStock(item)}
+                              title="Guardar cambio en base de datos"
+                              className="px-1.5 py-0.5 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white rounded font-sans cursor-pointer disabled:opacity-50"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              disabled={savingStock}
+                              onClick={() => setEditingId(null)}
+                              title="Cancelar"
+                              className="px-1.5 py-0.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded font-sans cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => {
+                              setEditingId(item.id);
+                              setEditStockVal(item.quantity);
+                            }}
+                            className="cursor-pointer group flex items-center justify-end gap-1 hover:text-emerald-400 transition"
+                            title="Haz clic para modificar existencias en la base de datos"
+                          >
+                            <span>{item.quantity} u</span>
+                            <span className="opacity-0 group-hover:opacity-100 text-[10px] text-zinc-500">✎</span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-3 text-right font-mono text-[#8EB795]">
                         {item.minimum} u

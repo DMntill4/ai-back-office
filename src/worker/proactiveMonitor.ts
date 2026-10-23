@@ -100,3 +100,36 @@ export async function runProactiveAuditCycle(): Promise<ProactiveAlert[]> {
 export function getActiveProactiveAlerts(): ProactiveAlert[] {
   return [...alertsMemoryStore];
 }
+
+/**
+ * Emite una alerta proactiva inmediata cuando un ajuste de inventario o venta deja el stock bajo el umbral mínimo.
+ */
+export async function triggerStockAlertIfLow(
+  productId: string,
+  currentStock: number,
+  minStock: number,
+  companyId: string = "comp_default",
+): Promise<ProactiveAlert | null> {
+  if (currentStock >= minStock) return null;
+
+  const alert: ProactiveAlert = {
+    id: `alt_stock_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    type: "STOCK_CRITICO",
+    severity: currentStock === 0 ? "CRITICAL" : "HIGH",
+    title: `¡Desabasto Crítico en Tiempo Real! (${productId})`,
+    message: `El stock se redujo a ${currentStock} unidades (mínimo de seguridad: ${minStock}). Es necesario reponer inmediatamente.`,
+    metadata: {
+      productId,
+      currentStock,
+      minStock,
+      companyId,
+      timestamp: new Date().toISOString(),
+    },
+    createdAt: new Date(),
+  };
+
+  alertsMemoryStore.unshift(alert);
+  if (alertsMemoryStore.length > 50) alertsMemoryStore.length = 50;
+  alertDispatcher.emit("proactive_alert", alert);
+  return alert;
+}
