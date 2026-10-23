@@ -260,6 +260,13 @@ export async function saveBotSetupConfig(input: SetupConfigInput) {
         });
     }
 
+    if (input.userId) {
+      await db
+        .update(users)
+        .set({ setupCompleted: true, updatedAt: new Date() })
+        .where(eq(users.id, input.userId));
+    }
+
     return {
       success: true,
       message: "Configuración guardada exitosamente.",
@@ -288,25 +295,58 @@ export async function executeSqlUpload(input: SqlUploadInput) {
   }
 
   try {
-    // Reemplazar marcador de posición {{COMPANY_ID}} si viene en la plantilla
-    const processedSql = sqlContent.replace(/\{\{COMPANY_ID\}\}/g, companyId);
+    // 1. Reemplazar marcador de posición {{COMPANY_ID}} o 'comp_default' si aplica
+    let processedSql = sqlContent.replace(/\{\{COMPANY_ID\}\}/g, companyId);
+    if (companyId && companyId !== "comp_default") {
+      // Si la consulta inserta en tablas del sistema con 'comp_default', redirigir a companyId
+      processedSql = processedSql.replace(/'comp_default'/g, `'${companyId}'`);
+    }
 
-    // Contar sentencias aproximadas
-    const statements = processedSql
+    // 2. Extraer y ejecutar sentencias SQL individuales
+    const rawStatements = processedSql
       .split(";")
       .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+      .filter((s) => s.length > 0 && !s.startsWith("--"));
 
-    // Ejecutar sentencia nativa en la base de datos Postgres
-    await pool.query(processedSql);
+    let executedCount = 0;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      for (const stmt of rawStatements) {
+        // Ignorar comentarios de una línea puros
+        const cleanStmt = stmt.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n").trim();
+        if (cleanStmt.length > 0) {
+          await client.query(cleanStmt);
+          executedCount++;
+        }
+      }
+      await client.query("COMMIT");
+    } catch (err: any) {
+      await client.query("ROLLBACK");
+      // Intento de ejecución directa de todo el bloque como fallback
+      try {
+        await pool.query(processedSql);
+        executedCount = rawStatements.length;
+      } catch (fallbackErr: any) {
+        throw new Error(err.message || fallbackErr.message);
+      }
+    } finally {
+      client.release();
+    }
 
-    // Contar cuántos productos con origin = 'real' tiene ahora la empresa
-    const realProducts = await db
+    // 3. Asegurar que los productos cargados tengan origin = 'real'
+    await db
+      .update(products)
+      .set({ origin: "real" })
+      .where(eq(products.companyId, companyId));
+
+    // 4. Contar cuántos productos tiene ahora la empresa en la base de datos
+    const allCompanyProducts = await db
       .select()
       .from(products)
-      .where(and(eq(products.companyId, companyId), eq(products.origin, "real")));
+      .where(eq(products.companyId, companyId));
 
-    // Marcar setup_completed = true en el usuario si userId fue provisto
+    // 5. Marcar setup_completed = true en el usuario si userId fue provisto
     if (userId) {
       await db
         .update(users)
@@ -316,11 +356,11 @@ export async function executeSqlUpload(input: SqlUploadInput) {
 
     return {
       success: true,
-      message: "Base de datos SQL importada correctamente. Stock REAL habilitado.",
-      totalStatementsExecuted: statements.length,
-      realProductsInserted: realProducts.length,
-      realProductsCount: realProducts.length,
-      sampleProducts: realProducts.slice(0, 5).map((p) => ({
+      message: "Base de datos SQL importada y sincronizada correctamente en PostgreSQL / Supabase.",
+      totalStatementsExecuted: executedCount,
+      realProductsInserted: allCompanyProducts.length,
+      realProductsCount: allCompanyProducts.length,
+      sampleProducts: allCompanyProducts.slice(0, 5).map((p) => ({
         id: p.id,
         name: p.name,
         sku: p.sku,
@@ -368,7 +408,7 @@ VALUES
   ('prov_directo_mx', '${companyId}', 'Automatización y Motores de México', 'ventas@automa.mx', '+52 55 9812 3456', 'real')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO supplier_products (id, company_id, supplierId, productId, unitPrice, minOrderQuantity, leadTimeDays)
+INSERT INTO supplier_products (id, company_id, supplier_id, product_id, unit_price, min_order_quantity, lead_time_days)
 VALUES
   ('sp_real_01', '${companyId}', 'prov_directo_mx', 'prod_real_02', '2450.00', 2, 2),
   ('sp_real_02', '${companyId}', 'prov_directo_mx', 'prod_real_05', '890.00', 5, 1)

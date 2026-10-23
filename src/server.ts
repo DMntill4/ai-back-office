@@ -204,6 +204,51 @@ server.post("/api/chat", async (request, reply) => {
   }
 });
 
+server.get("/api/chat/history", async (request, reply) => {
+  const query = (request.query as any) || {};
+  const companyId = query.companyId || "comp_default";
+
+  try {
+    const chatCases = await db
+      .select()
+      .from(cases)
+      .where(and(eq(cases.companyId, companyId), eq(cases.title, "Chat Frontend (API)")))
+      .orderBy(desc(cases.createdAt))
+      .limit(20);
+
+    const formattedHistory = chatCases.reverse().flatMap((c) => [
+      {
+        id: `user_${c.id}`,
+        role: "user" as const,
+        text: c.description,
+        timestamp: c.createdAt,
+      },
+      {
+        id: `agent_${c.id}`,
+        role: "agent" as const,
+        responseText: c.summary,
+        status: c.status,
+        timestamp: c.updatedAt,
+        metrics: {
+          totalCostUsd: c.totalCost,
+          totalTokens: c.totalTokens,
+        },
+      },
+    ]);
+
+    return reply.send({
+      success: true,
+      history: formattedHistory,
+    });
+  } catch (error) {
+    return reply.status(500).send({
+      success: false,
+      error: "Error al recuperar historial de chat",
+      details: (error as Error).message,
+    });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────
 // MOTOR PROACTIVO DE AUDITORÍA
 // ─────────────────────────────────────────────────────────────

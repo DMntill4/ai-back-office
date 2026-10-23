@@ -9,3 +9,4 @@ export * from "./auditarAnomalias";
 export * from "./pronosticarDemanda";
 export * from "./consultarEnvios";
 export * from "./ajustarStock";
+export * from "./consultarEstadoSistema";

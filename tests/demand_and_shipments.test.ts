@@ -1,12 +1,63 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { executePronosticarDemanda } from "../src/tools/pronosticarDemanda";
 import { executeConsultarEnvios } from "../src/tools/consultarEnvios";
 import { executeCrearOrdenCompra } from "../src/tools/crearOrdenCompra";
 import { saveBotSetupConfig, registerUser } from "../src/services/authAndSetupService";
 import { calculateDemandForecast } from "../src/services/demandService";
 import { trackShipments } from "../src/services/shipmentService";
+import { db } from "../src/db/client";
+import { companies, products, suppliers, supplierProducts, salesHistory, shipments, warehouses } from "../src/db/schema";
+import { eq } from "drizzle-orm";
 
 describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umbral y Seguimiento de Envíos", () => {
+  beforeAll(async () => {
+    await db.insert(companies).values({ id: "comp_default", name: "Acme Industrial Corp", slug: "acme-corp" }).onConflictDoNothing();
+    await db.insert(warehouses).values({ id: "alm_central", companyId: "comp_default", name: "Almacén Central", location: "Bahía Principal" }).onConflictDoNothing();
+    await db.insert(products).values({
+      id: "prod_st200",
+      companyId: "comp_default",
+      name: "Sensor Térmico ST-200",
+      category: "industrial",
+      sku: "SKU-ST200",
+      minStock: 10,
+      origin: "real",
+    }).onConflictDoNothing();
+    await db.insert(suppliers).values({
+      id: "prov_acme",
+      companyId: "comp_default",
+      name: "Acme Components",
+      origin: "real",
+    }).onConflictDoNothing();
+    await db.insert(supplierProducts).values({
+      id: "sp_st200_acme",
+      companyId: "comp_default",
+      supplierId: "prov_acme",
+      productId: "prod_st200",
+      unitPrice: "450.00",
+      minOrderQuantity: 1,
+      leadTimeDays: 2,
+    }).onConflictDoNothing();
+    await db.insert(salesHistory).values({
+      id: "sh_test_01",
+      companyId: "comp_default",
+      productId: "prod_st200",
+      saleDate: new Date(),
+      quantity: 15,
+      unitPrice: "450.00",
+      totalAmount: "6750.00",
+    }).onConflictDoNothing();
+    await db.delete(shipments).where(eq(shipments.id, "ship_test_01"));
+    await db.insert(shipments).values({
+      id: "ship_test_01",
+      companyId: "comp_default",
+      trackingNumber: "TRK-MX-88902",
+      carrier: "DHL Supply Chain",
+      status: "en_transito",
+      estimatedDelivery: new Date(Date.now() + 86400000 * 3),
+      currentLocation: "Hub Central Monterrey",
+    });
+  });
+
   it("pronosticar_demanda debe calcular tasa de consumo diario, demanda proyectada y semanas de cobertura", async () => {
     const result = await executePronosticarDemanda({
       producto_id: "prod_st200",

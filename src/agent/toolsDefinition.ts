@@ -10,6 +10,7 @@ import { executeAuditarAnomalias } from "../tools/auditarAnomalias";
 import { executePronosticarDemanda } from "../tools/pronosticarDemanda";
 import { executeConsultarEnvios } from "../tools/consultarEnvios";
 import { executeAjustarStock } from "../tools/ajustarStock";
+import { executeConsultarEstadoSistema } from "../tools/consultarEstadoSistema";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -299,6 +300,23 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "consultar_estado_sistema",
+      description:
+        "Consulta qué base de datos está conectada (PostgreSQL / Supabase), las tablas y cantidad de productos registrados en el catálogo de la empresa activa.",
+      parameters: {
+        type: "object",
+        properties: {
+          empresa_id: {
+            type: "string",
+            description: "ID opcional de la empresa a consultar",
+          },
+        },
+      },
+    },
+  },
 ];
 
 export async function dispatchToolCall(
@@ -360,6 +378,12 @@ export async function dispatchToolCall(
     case "ajustar_stock":
       return {
         result: await executeAjustarStock(parsedArgs, context),
+        isClosingAction: false,
+      };
+
+    case "consultar_estado_sistema":
+      return {
+        result: await executeConsultarEstadoSistema(parsedArgs, context),
         isClosingAction: false,
       };
 
