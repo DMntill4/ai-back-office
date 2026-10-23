@@ -33,8 +33,13 @@ import {
   shipments,
   users,
   companies,
+  decisions,
+  operationalEvents,
 } from "./db/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { ensureDecisionsTables } from "./db/ensureDecisionsTables";
+import { runFullOperationalEventScan } from "./events/eventEngine";
+import { executeAndVerifyDecision, rejectDecision } from "./services/decisionExecutionService";
 
 const server = Fastify({ logger: true });
 
@@ -778,8 +783,157 @@ server.get("/api/shipments/:tracking", async (request, reply) => {
   return reply.send(result);
 });
 
+// ─────────────────────────────────────────────────────────────
+// BANDEJA DE DECISIONES Y MOTOR MULTI-AGENTE (EVENT-DRIVEN)
+// ─────────────────────────────────────────────────────────────
+
+server.get("/api/decisions/pending", async (request, reply) => {
+  const query = (request.query as any) || {};
+  const companyId = query.companyId || "comp_default";
+
+  try {
+    const list = await db
+      .select()
+      .from(decisions)
+      .where(and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval")))
+      .orderBy(desc(decisions.createdAt))
+      .limit(50);
+
+    return reply.send({
+      success: true,
+      data: list.map((d) => ({
+        id: d.id,
+        caseId: d.caseId,
+        title: d.title,
+        actionType: d.actionType,
+        proposingAgent: d.proposingAgent,
+        costMxn: parseFloat(d.costMxn),
+        riskScore: parseFloat(d.riskScore),
+        reversible: d.reversible,
+        evidence: d.evidencePayload,
+        risk: d.riskPayload,
+        policyReason: d.policyReason,
+        createdAt: d.createdAt,
+      })),
+    });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, error: err.message, data: [] });
+  }
+});
+
+server.post("/api/decisions/:id/resolve", async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const body = (request.body as any) || {};
+  const action = body.action as "approve" | "reject";
+  const approvedBy = body.approvedBy || "HUMANO_ADMIN";
+  const feedback = body.feedback;
+
+  if (action === "approve") {
+    const result = await executeAndVerifyDecision(id, approvedBy, feedback);
+    if (!result.success) {
+      return reply.status(500).send(result);
+    }
+    return reply.send(result);
+  } else {
+    const result = await rejectDecision(id, approvedBy, feedback);
+    return reply.send(result);
+  }
+});
+
+server.get("/api/decisions/history", async (request, reply) => {
+  const query = (request.query as any) || {};
+  const companyId = query.companyId || "comp_default";
+
+  try {
+    const list = await db
+      .select()
+      .from(decisions)
+      .where(eq(decisions.companyId, companyId))
+      .orderBy(desc(decisions.createdAt))
+      .limit(50);
+
+    return reply.send({
+      success: true,
+      data: list,
+    });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, error: err.message, data: [] });
+  }
+});
+
+server.get("/api/events/live", async (request, reply) => {
+  const query = (request.query as any) || {};
+  const companyId = query.companyId || "comp_default";
+
+  try {
+    const list = await db
+      .select()
+      .from(operationalEvents)
+      .where(eq(operationalEvents.companyId, companyId))
+      .orderBy(desc(operationalEvents.createdAt))
+      .limit(50);
+
+    return reply.send({
+      success: true,
+      data: list,
+    });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, error: err.message, data: [] });
+  }
+});
+
+server.post("/api/events/scan", async (request, reply) => {
+  const body = (request.body as any) || {};
+  const companyId = body.companyId || "comp_default";
+
+  try {
+    const result = await runFullOperationalEventScan(companyId);
+    return reply.send({
+      success: true,
+      ...result,
+    });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, error: err.message });
+  }
+});
+
+server.get("/api/briefing/today", async (request, reply) => {
+  const query = (request.query as any) || {};
+  const companyId = query.companyId || "comp_default";
+
+  try {
+    const allDecisions = await db
+      .select()
+      .from(decisions)
+      .where(eq(decisions.companyId, companyId));
+
+    const autoExecuted = allDecisions.filter((d) => d.policyDecision === "auto_executed" || d.policyDecision === "approved");
+    const pending = allDecisions.filter((d) => d.policyDecision === "pending_approval");
+    const blocked = allDecisions.filter((d) => d.policyDecision === "blocked");
+
+    const totalAutonomousSpend = autoExecuted.reduce((sum, d) => sum + parseFloat(d.costMxn), 0);
+    const estimatedSavings = totalAutonomousSpend * 0.12;
+
+    return reply.send({
+      success: true,
+      data: {
+        totalDecisions: allDecisions.length,
+        autoExecutedCount: autoExecuted.length,
+        pendingReviewCount: pending.length,
+        blockedRiskCount: blocked.length,
+        totalAutonomousSpendMxn: totalAutonomousSpend,
+        estimatedSavingsMxn: estimatedSavings,
+        systemHealth: pending.length > 3 ? "ATENCIÓN_REQUERIDA" : "ÓPTIMO_PROACTIVO",
+      },
+    });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, error: err.message });
+  }
+});
+
 const start = async () => {
   try {
+    await ensureDecisionsTables().catch((e) => console.warn("Error en ensureDecisionsTables:", e.message));
     await server.listen({ port: 3001, host: "0.0.0.0" });
     console.log("🚀 Servidor HTTP MINT corriendo en http://localhost:3001");
     console.log("📡 Conexión a Base de Datos relacional activa (Drizzle ORM & Supabase ready)");
