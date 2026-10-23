@@ -14,9 +14,9 @@
     "db:seed": "tsx src/db/seed/index.ts",
     "db:reset": "tsx scripts/clear-db.ts",
     "db:studio": "drizzle-kit studio",
-    "smoke": "tsx scripts/smoke.ts",
-    "run-case": "tsx scripts/run-case.ts",
-    "chat": "tsx scripts/chat.ts",
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"tsx src/server.ts\" \"npm run dev --prefix frontend\"",
+    "dev:backend": "tsx src/server.ts",
+    "dev:frontend": "npm run dev --prefix frontend",
     "server": "tsx src/server.ts"
   },
   "repository": {
@@ -37,6 +37,7 @@
     "@types/pg": "^8.23.1",
     "@typescript-eslint/eslint-plugin": "^8.71.1",
     "@typescript-eslint/parser": "^8.71.1",
+    "concurrently": "^10.0.6",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.12.0",
     "eslint-plugin-prettier": "^5.5.6",
