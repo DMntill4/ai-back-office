@@ -31,6 +31,8 @@ import {
   caseEvents,
   suppliers,
   shipments,
+  users,
+  companies,
 } from "./db/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -279,7 +281,7 @@ server.get("/api/dashboard", async (request, reply) => {
     const pendingReview = apprvs.filter((a) => a.status === "pendiente").length;
     const automated = Math.max(0, totalOrders - pendingReview);
     const totalSpend = orders.reduce((sum, o) => sum + parseFloat(o.totalAmount || "0"), 0);
-    const estimatedSavings = totalSpend > 0 ? totalSpend * 0.12 : 34800;
+    const estimatedSavings = totalSpend > 0 ? totalSpend * 0.12 : 0;
 
     // Contar productos bajo stock mínimo
     const lowStockCount = prods.filter((p) => {
@@ -297,8 +299,8 @@ server.get("/api/dashboard", async (request, reply) => {
         lowStockCount,
         inTransitShipments,
         dailyReport: {
-          totalOrders: totalOrders || 15,
-          automated: automated || 14,
+          totalOrders,
+          automated,
           pendingReview,
           savings: Math.round(estimatedSavings),
           spend: parseFloat(totalSpend.toFixed(2)),
@@ -411,6 +413,107 @@ server.post("/api/approvals/:id", async (request, reply) => {
   }
 
   return reply.send(result);
+});
+
+// ─────────────────────────────────────────────────────────────
+// AUDITORÍA Y USUARIOS REALES (DRIZZLE ORM)
+// ─────────────────────────────────────────────────────────────
+
+server.get("/api/users", async (request, reply) => {
+  const query = (request.query as any) || {};
+  const companyId = query.companyId;
+
+  try {
+    const userList = companyId
+      ? await db.select().from(users).where(eq(users.companyId, companyId)).limit(50)
+      : await db.select().from(users).limit(50);
+
+    const companyList = await db.select().from(companies);
+    const companyMap = new Map(companyList.map((c) => [c.id, c.name]));
+
+    return reply.send({
+      success: true,
+      data: userList.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        companyId: u.companyId,
+        companyName: companyMap.get(u.companyId) || "Empresa Registrada",
+        setupCompleted: u.setupCompleted,
+        createdAt: u.createdAt,
+      })),
+    });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, error: err.message, data: [] });
+  }
+});
+
+server.get("/api/audit", async (request, reply) => {
+  const query = (request.query as any) || {};
+  const companyId = query.companyId || "comp_default";
+
+  try {
+    const [caseList, orderList, apprvList] = await Promise.all([
+      db.select().from(cases).where(eq(cases.companyId, companyId)).orderBy(desc(cases.createdAt)).limit(20),
+      db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)).orderBy(desc(purchaseOrders.createdAt)).limit(20),
+      db.select().from(approvals).where(eq(approvals.companyId, companyId)).orderBy(desc(approvals.createdAt)).limit(20),
+    ]);
+
+    const events: Array<{
+      id: string;
+      time: string;
+      category: "agent" | "order" | "db" | "security";
+      title: string;
+      detail: string;
+      createdAt: string;
+    }> = [];
+
+    // Mapear eventos de casos
+    for (const c of caseList) {
+      events.push({
+        id: `ev_case_${c.id}`,
+        time: c.createdAt ? new Date(c.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Reciente",
+        category: "agent",
+        title: `Caso ${c.status === "resuelto" ? "Resuelto" : "Procesado"}: ${c.title}`,
+        detail: c.resultSummary || c.description || "Resolución autónoma ejecutada por el agente Mint ReAct.",
+        createdAt: c.createdAt ? c.createdAt.toISOString() : new Date().toISOString(),
+      });
+    }
+
+    // Mapear aprobaciones HITL
+    for (const a of apprvList) {
+      events.push({
+        id: `ev_appr_${a.id}`,
+        time: a.createdAt ? new Date(a.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Reciente",
+        category: "security",
+        title: `Guardrail HITL: Orden ${a.purchaseOrderId || a.id}`,
+        detail: a.reason || `Monto superior al límite autónomo. Estado: ${a.status}.`,
+        createdAt: a.createdAt ? a.createdAt.toISOString() : new Date().toISOString(),
+      });
+    }
+
+    // Mapear órdenes de compra
+    for (const o of orderList) {
+      events.push({
+        id: `ev_ord_${o.id}`,
+        time: o.createdAt ? new Date(o.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Reciente",
+        category: "order",
+        title: `Orden Emitida: ${o.id}`,
+        detail: `Cantidad: ${o.quantity}u • Total: $${parseFloat(o.totalAmount || "0").toLocaleString("es-MX")} MXN • Estado: ${o.status}`,
+        createdAt: o.createdAt ? o.createdAt.toISOString() : new Date().toISOString(),
+      });
+    }
+
+    events.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return reply.send({
+      success: true,
+      data: events.slice(0, 50),
+    });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, error: err.message, data: [] });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────

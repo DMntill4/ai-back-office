@@ -3,7 +3,7 @@ import {
   Home, Sparkles, CheckSquare, Database, Activity, PanelLeftClose, PanelLeftOpen,
   Search, Plus, Download,
   CheckCircle2, Terminal, RefreshCw, Sliders, LogOut,
-  TrendingUp, Truck, Settings, Server, Bell, ChevronDown, Layers, Zap, Users,
+  Truck, Settings, Server, Bell, ChevronDown, ChevronLeft, ChevronRight, Layers, Zap, Users,
   Menu, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,8 +15,7 @@ import { DatabaseManagerView } from './components/DatabaseManagerView';
 import { LoginView, type UserSession } from './components/LoginView';
 import { SetupWizard } from './components/SetupWizard';
 import { MintSplashIntro } from './components/MintSplashIntro';
-import { DemandForecastView } from './components/DemandForecastView';
-import { ShipmentsTrackerView } from './components/ShipmentsTrackerView';
+import { LogisticsView } from './components/LogisticsView';
 import { AccountProfileModal, type AccountRoleType } from './components/AccountProfileModal';
 import { AccountsManagementView } from './components/AccountsManagementView';
 import AgentWorkspace from './components/AgentWorkspace';
@@ -34,64 +33,27 @@ interface NavItem {
   meta?: string;
 }
 
-// Módulos Canónicos del Sistema Mint (Arquitectura Stakent Silenciosa)
+// Módulos Canónicos Esenciales del Sistema Mint (5 Pestañas de Negocio Claras)
 const NAV: NavItem[] = [
   { id: 'dashboard', label: 'Centro de Mando', icon: Home },
-  { id: 'demand', label: 'Pronóstico Predictivo', icon: TrendingUp },
-  { id: 'shipments', label: 'Envíos y Logística', icon: Truck },
-  { id: 'accounts', label: 'Cuentas y Perfiles', icon: Users, badge: '3' },
-  { id: 'chat', label: 'Inteligencia ReAct', icon: Sparkles },
-  { id: 'approvals', label: 'Aprobaciones Críticas', icon: CheckSquare, badge: '1' },
-  { id: 'stock', label: 'Inventario & Catálogo', icon: Database },
-  { id: 'database', label: 'Gobernanza & DB', icon: Server, meta: 'PostgreSQL' },
-  { id: 'activity', label: 'Auditoría Inmutable', icon: Activity },
+  { id: 'chat', label: 'Asistente MINT', icon: Sparkles },
+  { id: 'approvals', label: 'Aprobaciones', icon: CheckSquare },
+  { id: 'stock', label: 'Inventario & Stock', icon: Database },
+  { id: 'logistics', label: 'Logística & Envíos', icon: Truck },
 ];
 
-const ACTIVE_FACILITIES_SKUS = [
-  {
-    id: 'fac-central',
-    title: 'Almacén Central',
-    subtitle: 'Stock Valuado $7,699.00',
-    iconColor: 'bg-emerald-500/10 text-emerald-400',
-    view: 'stock',
-  },
-  {
-    id: 'sku-vfd10',
-    title: 'Variador VFD-10',
-    subtitle: '2 uds. • Quiebre Inminente',
-    iconColor: 'bg-amber-500/10 text-amber-400',
-    view: 'demand',
-  },
-  {
-    id: 'sku-sm400',
-    title: 'Servomotor SM-400',
-    subtitle: '24 uds. • Cobertura 20D',
-    iconColor: 'bg-blue-500/10 text-blue-400',
-    view: 'demand',
-  },
-  {
-    id: 'ord-088',
-    title: 'Orden OC-2026-088',
-    subtitle: 'En Reparto • Llegada Hoy',
-    iconColor: 'bg-emerald-500/10 text-emerald-400',
-    view: 'shipments',
-  },
+const SECONDARY_NAV: NavItem[] = [
+  { id: 'system', label: 'Gobernanza & DB', icon: Server, meta: 'PostgreSQL' },
 ];
 
 const HISTORY_GROUPS = [
   {
-    group: 'Hoy',
+    group: 'Atajos y Consultas Rápidas',
     items: [
-      { title: 'Reposición 50x Sensor ST-200', prompt: 'Revisa el stock del Sensor ST-200 (2u / mín 15u) y cotiza reposición de 50 unidades con Grainger Industrial.' },
-      { title: 'Evaluación Grainger vs TechCorp', prompt: 'Compara precios unitarios y SLA de entrega entre Grainger Industrial y TechCorp MX para componentes de instrumentación.' },
-      { title: 'Auditoría preventiva almacén central', prompt: 'Ejecuta una auditoría de descalces y productos en mínimo crítico en el Almacén Central.' },
-    ],
-  },
-  {
-    group: 'Ayer',
-    items: [
-      { title: 'Balance presupuestal a 30 días', prompt: 'Genera el análisis financiero a 30 días: capital comprometido, flujo proyectado y caducidades FEFO.' },
-      { title: 'Simulación crisis logística Q4', prompt: 'Simula un incremento de demanda del 30% y evalúa el riesgo de ruptura en sensores y microcontroladores.' },
+      { title: 'Auditoría preventiva de existencias', prompt: 'Ejecuta una auditoría de descalces y productos en mínimo crítico en el inventario.' },
+      { title: 'Evaluación y comparación de proveedores', prompt: 'Compara precios unitarios, SLA y confiabilidad entre proveedores homologados para reposición.' },
+      { title: 'Pronóstico de consumo a 30 días', prompt: 'Genera el pronóstico de demanda a 30 días y calcula semanas de cobertura de inventario.' },
+      { title: 'Balance presupuestal y compras', prompt: 'Genera el análisis financiero: órdenes comprometidas y presupuesto proyectado.' },
     ],
   },
 ];
@@ -115,6 +77,8 @@ export default function App() {
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [accountModalRole, setAccountModalRole] = useState<AccountRoleType>('Empresa');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
+  const [sidebarFacilities, setSidebarFacilities] = useState<Array<{ id: string; title: string; subtitle: string; iconColor: string; view: string }>>([]);
 
   // Consulta de salud y conectividad de PostgreSQL / Supabase
   useEffect(() => {
@@ -127,7 +91,31 @@ export default function App() {
         });
       }
     }).catch(() => {});
-  }, []);
+
+    api.getApprovals().then((res) => {
+      if (res.success && Array.isArray(res.data)) {
+        setPendingApprovalsCount(res.data.length);
+      }
+    }).catch(() => {});
+
+    api.getProducts().then((res) => {
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        setSidebarFacilities(
+          res.data.slice(0, 5).map((p) => ({
+            id: p.id,
+            title: p.name,
+            subtitle: `${p.stock} uds. • ${p.isLowStock ? 'Bajo Mínimo' : 'Stock Óptimo'}`,
+            iconColor: p.isLowStock ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400',
+            view: 'stock',
+          }))
+        );
+      } else {
+        setSidebarFacilities([]);
+      }
+    }).catch(() => {
+      setSidebarFacilities([]);
+    });
+  }, [currentView]);
 
   // ⌘K shortcut listener
   useEffect(() => {
@@ -262,10 +250,7 @@ export default function App() {
             <div className="mb-4 bg-[#14161C] p-1 rounded-xl flex items-center border border-white/[0.05] text-xs">
               <button
                 type="button"
-                onClick={() => {
-                  setOperationalMode('autonomous');
-                  toast.info('Modo Autónomo activado: Reglas ReAct automáticas < $10k');
-                }}
+                onClick={() => setOperationalMode('autonomous')}
                 className={`flex-1 py-1 text-center font-medium rounded-lg transition-all cursor-pointer text-[11px] ${
                   operationalMode === 'autonomous'
                     ? 'bg-[#1E222B] text-white shadow-xs'
@@ -276,10 +261,7 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setOperationalMode('supervised');
-                  toast.info('Modo Supervisado: Requiere aprobación HITL para toda compra');
-                }}
+                onClick={() => setOperationalMode('supervised')}
                 className={`flex-1 py-1 text-center font-medium rounded-lg transition-all cursor-pointer text-[11px] ${
                   operationalMode === 'supervised'
                     ? 'bg-[#1E222B] text-white shadow-xs'
@@ -326,6 +308,38 @@ export default function App() {
                 </button>
               );
             })}
+
+            {/* Separador sutil para Infraestructura & Gobernanza */}
+            <div className="pt-2 mt-2 border-t border-white/[0.04]">
+              {SECONDARY_NAV.map((n) => {
+                const Icon = n.icon;
+                const isActive = currentView === n.id;
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => setCurrentView(n.id)}
+                    title={n.label}
+                    className={`flex w-full cursor-pointer items-center ${
+                      collapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2'
+                    } rounded-xl transition-all ${
+                      isActive
+                        ? 'bg-[#1A1D24] font-medium text-white shadow-sm'
+                        : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-500'}`} />
+                      {!collapsed && <span className="truncate text-xs font-medium">{n.label}</span>}
+                    </span>
+                    {!collapsed && n.meta && (
+                      <span className="font-mono text-[9px] text-zinc-500 bg-white/[0.03] px-1.5 py-0.2 rounded border border-white/[0.04]">
+                        {n.meta}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </nav>
 
           {/* Mitad Inferior: Instalaciones / SKUs Activos */}
@@ -340,7 +354,7 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-semibold border border-emerald-500/20">
-                    4
+                    {sidebarFacilities.length}
                   </span>
                   <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform ${facilitiesOpen ? '' : '-rotate-90'}`} />
                 </div>
@@ -348,7 +362,7 @@ export default function App() {
 
               {facilitiesOpen && (
                 <div className="space-y-1 mt-1">
-                  {ACTIVE_FACILITIES_SKUS.map((item) => (
+                  {sidebarFacilities.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => setCurrentView(item.view)}
@@ -367,6 +381,18 @@ export default function App() {
                       </div>
                     </button>
                   ))}
+
+                  {sidebarFacilities.length === 0 && (
+                    <div className="px-3 py-3 text-center text-zinc-500 text-[11px] rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                      <p className="text-zinc-400">Sin insumos cargados</p>
+                      <button
+                        onClick={() => setCurrentView('system')}
+                        className="mt-1 text-[10px] text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        Cargar Base de Datos →
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -454,10 +480,7 @@ export default function App() {
                 <div className="mb-4 bg-[#14161C] p-1 rounded-xl flex items-center border border-white/[0.05] text-xs">
                   <button
                     type="button"
-                    onClick={() => {
-                      setOperationalMode('autonomous');
-                      toast.info('Modo Autónomo activado: Reglas ReAct < $10k');
-                    }}
+                    onClick={() => setOperationalMode('autonomous')}
                     className={`flex-1 py-1 text-center font-medium rounded-lg transition-all cursor-pointer text-[11px] ${
                       operationalMode === 'autonomous' ? 'bg-[#1E222B] text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
@@ -466,10 +489,7 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setOperationalMode('supervised');
-                      toast.info('Modo Supervisado: Requiere aprobación HITL');
-                    }}
+                    onClick={() => setOperationalMode('supervised')}
                     className={`flex-1 py-1 text-center font-medium rounded-lg transition-all cursor-pointer text-[11px] ${
                       operationalMode === 'supervised' ? 'bg-[#1E222B] text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
@@ -513,14 +533,50 @@ export default function App() {
                       </button>
                     );
                   })}
+
+                  <div className="pt-2 mt-2 border-t border-white/[0.04]">
+                    {SECONDARY_NAV.map((n) => {
+                      const Icon = n.icon;
+                      const isActive = currentView === n.id;
+                      return (
+                        <button
+                          key={n.id}
+                          onClick={() => {
+                            setCurrentView(n.id);
+                            setMobileNavOpen(false);
+                          }}
+                          className={`flex w-full cursor-pointer items-center justify-between px-3 py-2 rounded-xl transition-all ${
+                            isActive
+                              ? 'bg-[#1A1D24] font-medium text-white shadow-sm'
+                              : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2.5 min-w-0">
+                            <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-500'}`} />
+                            <span className="truncate text-xs font-medium">{n.label}</span>
+                          </span>
+                          {n.meta && (
+                            <span className="font-mono text-[9px] text-zinc-500 bg-white/[0.03] px-1.5 py-0.2 rounded border border-white/[0.04]">
+                              {n.meta}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </nav>
 
                 {/* Instalaciones / SKUs Activos */}
                 <div className="mt-4 pt-3 border-t border-white/[0.05] space-y-1">
-                  <span className="text-[10px] font-mono uppercase text-zinc-500 px-2 block mb-1">
-                    Instalaciones / SKUs Activos
-                  </span>
-                  {ACTIVE_FACILITIES_SKUS.map((item) => (
+                  <div className="flex items-center justify-between px-2 mb-1">
+                    <span className="text-[10px] font-mono uppercase text-zinc-500 block">
+                      Instalaciones / SKUs Activos
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-semibold border border-emerald-500/20">
+                      {sidebarFacilities.length}
+                    </span>
+                  </div>
+                  {sidebarFacilities.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => {
@@ -538,6 +594,21 @@ export default function App() {
                       </div>
                     </button>
                   ))}
+
+                  {sidebarFacilities.length === 0 && (
+                    <div className="px-3 py-3 text-center text-zinc-500 text-[11px] rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                      <p className="text-zinc-400">Sin insumos cargados</p>
+                      <button
+                        onClick={() => {
+                          setCurrentView('system');
+                          setMobileNavOpen(false);
+                        }}
+                        className="mt-1 text-[10px] text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        Cargar Base de Datos →
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -629,17 +700,19 @@ export default function App() {
 
           {/* Derecha: Campana con Badge Numérico + Buscador Compacto + Botón Configuración */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Campana de Notificaciones con Badge Numérico 2 */}
+            {/* Campana de Notificaciones con Badge Dinámico Real */}
             <button
               type="button"
               onClick={() => setCurrentView('approvals')}
-              title="2 notificaciones operativas"
+              title={pendingApprovalsCount > 0 ? `${pendingApprovalsCount} notificaciones operativas pendientes` : 'Sin notificaciones pendientes'}
               className="relative w-8 h-8 rounded-xl bg-[#12141A] border border-white/[0.06] flex items-center justify-center text-zinc-400 hover:text-white hover:border-white/[0.12] transition cursor-pointer"
             >
               <Bell className="w-3.5 h-3.5" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 text-zinc-950 text-[10px] font-bold flex items-center justify-center shadow-xs">
-                2
-              </span>
+              {pendingApprovalsCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-400 text-zinc-950 text-[10px] font-bold flex items-center justify-center shadow-xs">
+                  {pendingApprovalsCount}
+                </span>
+              )}
             </button>
 
             {/* Buscador Compacto Icono en Mobile (< sm) */}
@@ -751,10 +824,7 @@ export default function App() {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          setDeveloperMode((m) => !m);
-                          toast.info(!developerMode ? 'Modo Técnico activado' : 'Modo Técnico desactivado');
-                        }}
+                        onClick={() => setDeveloperMode((m) => !m)}
                         className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
                           developerMode ? 'bg-emerald-400' : 'bg-zinc-800'
                         }`}
@@ -803,38 +873,6 @@ export default function App() {
             />
           )}
 
-          {currentView === 'demand' && (
-            <DemandForecastView
-              onOpenPrompt={(p) => {
-                setPrefilledPrompt(p);
-                setCurrentView('chat');
-              }}
-              currency="MXN"
-            />
-          )}
-
-          {currentView === 'shipments' && (
-            <ShipmentsTrackerView
-              onOpenPrompt={(p) => {
-                setPrefilledPrompt(p);
-                setCurrentView('chat');
-              }}
-            />
-          )}
-
-          {currentView === 'accounts' && (
-            <AccountsManagementView
-              onOpenAccountModal={(r) => {
-                if (r) setAccountModalRole(r);
-                setAccountModalOpen(true);
-              }}
-              onOpenPrompt={(p) => {
-                setPrefilledPrompt(p);
-                setCurrentView('chat');
-              }}
-            />
-          )}
-
           {currentView === 'chat' && (
             <div className="h-full w-full flex-1 flex flex-col">
               <AgentWorkspace
@@ -848,10 +886,13 @@ export default function App() {
           )}
 
           {currentView === 'approvals' && (
-            <ApprovalsView onNavigate={setCurrentView} onOpenPrompt={(p) => {
-              setPrefilledPrompt(p);
-              setCurrentView('chat');
-            }} />
+            <ApprovalsView
+              onNavigate={setCurrentView}
+              onOpenPrompt={(p) => {
+                setPrefilledPrompt(p);
+                setCurrentView('chat');
+              }}
+            />
           )}
 
           {currentView === 'stock' && (
@@ -864,12 +905,28 @@ export default function App() {
             />
           )}
 
-          {currentView === 'database' && (
-            <DatabaseManagerView />
+          {currentView === 'logistics' && (
+            <LogisticsView
+              onOpenPrompt={(p) => {
+                setPrefilledPrompt(p);
+                setCurrentView('chat');
+              }}
+              currency="MXN"
+            />
           )}
 
-          {currentView === 'activity' && (
-            <ActivityAuditView />
+          {currentView === 'system' && (
+            <SystemGovernanceView
+              currentUser={currentUser}
+              onOpenAccountModal={(role) => {
+                if (role) setAccountModalRole(role);
+                setAccountModalOpen(true);
+              }}
+              onOpenPrompt={(p) => {
+                setPrefilledPrompt(p);
+                setCurrentView('chat');
+              }}
+            />
           )}
         </main>
       </div>
@@ -894,7 +951,7 @@ export default function App() {
                 <Command.List className="cmdk-list custom-scrollbar">
                   <Command.Empty className="cmdk-empty p-4 text-xs text-[#52795F]">Sin resultados coincidentes.</Command.Empty>
                   <Command.Group heading="Navegación de Módulos" className="cmdk-group">
-                    {NAV.map((n) => {
+                    {[...NAV, ...SECONDARY_NAV].map((n) => {
                       const Icon = n.icon;
                       return (
                         <Command.Item
@@ -962,71 +1019,52 @@ interface ApprovalsViewProps {
   onOpenPrompt?: (prompt: string) => void;
 }
 
-const RECENT_DECISIONS = [
-  { id: 'OC-2026-088', product: 'Fusible Cerámico 10A (100u)', provider: 'ElectroGlobal', amount: '$4,800.00 MXN', resolution: 'Aprobada automáticamente (Regla < $10k)', status: 'approved', time: 'Hace 2h' },
-  { id: 'OC-2026-087', product: 'Microcontrolador X1 Cortex (20u)', provider: 'TechCorp MX', amount: '$9,200.00 MXN', resolution: 'Aprobada por supervisor (HITL)', status: 'approved', time: 'Ayer' },
-  { id: 'OC-2026-084', product: 'Sensor de Presión P1 (15u)', provider: 'FastShip Logistics', amount: '$18,400.00 MXN', resolution: 'Rechazada por sobrecosto logístico', status: 'rejected', time: 'Hace 2 días' },
-];
-
 function ApprovalsView({ onOpenPrompt }: ApprovalsViewProps) {
   const [approvedList, setApprovedList] = useState<string[]>([]);
   const [liveApprovals, setLiveApprovals] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [approvalsPage, setApprovalsPage] = useState(1);
+  const APPROVALS_PER_PAGE = 10;
 
   useEffect(() => {
     const fetchApprovals = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/approvals');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            setLiveApprovals(json.data);
-          }
+        const res = await api.getApprovals();
+        if (res.success && Array.isArray(res.data)) {
+          setLiveApprovals(res.data);
         }
       } catch {
-        // Modo local
+        // Fallback silencioso
       }
     };
     fetchApprovals();
   }, []);
 
-  const defaultPending = [
-    {
-      id: 'OC-2026-089',
-      sku: 'ST-200',
-      productName: 'Sensor Térmico ST-200 (50 unidades)',
-      currentStock: '2u / mín 15u',
-      provider: 'Grainger Industrial',
-      amountMXN: '$22,500.00 MXN',
-      amountUSD: '$1,250.00 USD',
-      sla: '48 Horas',
-      reason: 'El monto excede el umbral autónomo de $10,000 MXN. Requiere validación de supervisor (Human-in-the-Loop).',
-      prompt: 'Explica el desglose y cotización de la orden OC-2026-089 para el Sensor ST-200.',
-    },
-  ];
+  useEffect(() => {
+    api.getOrders('comp_default').then((res) => {
+      if (res.success && Array.isArray(res.data)) {
+        setRecentOrders(res.data);
+      }
+    }).catch(() => {});
+  }, [approvedList]);
 
-  const pendingApprovals = liveApprovals.length > 0
-    ? liveApprovals.map((a) => ({
-        id: a.id,
-        sku: 'ST-200',
-        productName: `Reposición de Insumos Críticos (${a.id})`,
-        currentStock: '2u / mín 15u',
-        provider: 'Grainger Industrial',
-        amountMXN: `$${Number(a.amount || 15450).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
-        amountUSD: `$${Math.round(Number(a.amount || 15450) / 18).toLocaleString('en-US')} USD`,
-        sla: '48 Horas',
-        reason: `El monto de $${Number(a.amount || 15450).toLocaleString('es-MX')} MXN supera el límite autónomo de $10,000 MXN. Requiere validación humana.`,
-        prompt: `Explica la cotización y desglose de la orden ${a.id} por $${a.amount} MXN.`,
-      }))
-    : defaultPending;
+  const pendingApprovals = liveApprovals.map((a) => ({
+    id: a.id,
+    sku: a.sku || 'SKU-HITL',
+    productName: a.productName || `Reposición de Insumos Críticos (${a.id})`,
+    currentStock: a.currentStock || 'Stock bajo mínimo',
+    provider: a.supplierName || a.provider || 'Proveedor Homologado',
+    amountMXN: `$${Number(a.amount || a.totalAmount || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
+    amountUSD: `$${Math.round(Number(a.amount || a.totalAmount || 0) / 18).toLocaleString('en-US')} USD`,
+    sla: a.sla || '48 Horas',
+    reason: a.reason || `El monto de $${Number(a.amount || a.totalAmount || 0).toLocaleString('es-MX')} MXN supera el límite autónomo de $10,000 MXN. Requiere validación humana.`,
+    prompt: `Explica la cotización y desglose de la orden ${a.id} por $${a.amount || a.totalAmount} MXN.`,
+  }));
 
   const handleApprove = async (id: string) => {
     setApprovedList((prev) => [...prev, id]);
     try {
-      await fetch(`http://localhost:3001/api/approvals/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'aprobado' }),
-      });
+      await api.resolveApproval(id, 'aprobado');
     } catch {
       // Local
     }
@@ -1036,18 +1074,29 @@ function ApprovalsView({ onOpenPrompt }: ApprovalsViewProps) {
   const handleReject = async (id: string) => {
     setApprovedList((prev) => [...prev, id]);
     try {
-      await fetch(`http://localhost:3001/api/approvals/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'rechazado' }),
-      });
+      await api.resolveApproval(id, 'rechazado');
     } catch {
       // Local
     }
     toast.error(`Orden ${id} rechazada por el supervisor.`);
   };
 
-  const activeCount = pendingApprovals.filter((a) => !approvedList.includes(a.id)).length;
+  const unapproved = pendingApprovals.filter((a) => !approvedList.includes(a.id));
+  const activeCount = unapproved.length;
+  const totalApprovalsPages = Math.ceil(activeCount / APPROVALS_PER_PAGE) || 1;
+  const paginatedApprovals = unapproved.slice(
+    (approvalsPage - 1) * APPROVALS_PER_PAGE,
+    approvalsPage * APPROVALS_PER_PAGE
+  );
+
+  const [decisionsPage, setDecisionsPage] = useState(1);
+  const DECISIONS_PER_PAGE = 10;
+  const totalDecisionsPages = Math.ceil(recentOrders.length / DECISIONS_PER_PAGE) || 1;
+  const paginatedRecentOrders = recentOrders.slice(
+    (decisionsPage - 1) * DECISIONS_PER_PAGE,
+    decisionsPage * DECISIONS_PER_PAGE
+  );
+
 
   return (
     <div className="flex flex-col w-full max-w-[1360px] mx-auto gap-6 font-sans text-zinc-100 pb-12">
@@ -1064,12 +1113,38 @@ function ApprovalsView({ onOpenPrompt }: ApprovalsViewProps) {
           <span className="font-mono text-[11px] text-zinc-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-0.5 rounded-full">
             {activeCount} {activeCount === 1 ? 'orden pendiente' : 'órdenes pendientes'}
           </span>
+
+          {totalApprovalsPages > 1 && (
+            <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-1.5 py-0.5">
+              <button
+                type="button"
+                onClick={() => setApprovalsPage((p) => Math.max(1, p - 1))}
+                disabled={approvalsPage === 1}
+                title="Página anterior"
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-[11px] font-mono text-zinc-300 px-1">
+                {approvalsPage} / {totalApprovalsPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setApprovalsPage((p) => Math.min(totalApprovalsPages, p + 1))}
+                disabled={approvalsPage === totalApprovalsPages}
+                title="Página siguiente"
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Lista de Aprobaciones */}
+      {/* Lista de Aprobaciones con Paginación de 10 */}
       <div className="space-y-4">
-        {pendingApprovals.map((item) => {
+        {paginatedApprovals.map((item) => {
           const isDone = approvedList.includes(item.id);
           return (
             <div
@@ -1167,37 +1242,106 @@ function ApprovalsView({ onOpenPrompt }: ApprovalsViewProps) {
             </p>
           </div>
         )}
+
+        {/* Paginación Inferior */}
+        {totalApprovalsPages > 1 && (
+          <div className="pt-4 mt-2 border-t border-white/[0.05] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-zinc-400">
+            <span className="text-[11px] text-zinc-500 font-mono">
+              Mostrando {(approvalsPage - 1) * APPROVALS_PER_PAGE + 1} - {Math.min(approvalsPage * APPROVALS_PER_PAGE, activeCount)} de {activeCount} órdenes pendientes
+            </span>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setApprovalsPage((p) => Math.max(1, p - 1))}
+                disabled={approvalsPage === 1}
+                className="flex items-center gap-1 px-3 py-1 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] text-xs font-medium text-zinc-300 disabled:opacity-30 disabled:hover:bg-white/[0.03] cursor-pointer disabled:cursor-not-allowed transition active:scale-[0.98]"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Anterior</span>
+              </button>
+              <span className="font-mono text-xs text-emerald-400 font-semibold px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                Pág. {approvalsPage} de {totalApprovalsPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setApprovalsPage((p) => Math.min(totalApprovalsPages, p + 1))}
+                disabled={approvalsPage === totalApprovalsPages}
+                className="flex items-center gap-1 px-3 py-1 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] text-xs font-medium text-zinc-300 disabled:opacity-30 disabled:hover:bg-white/[0.03] cursor-pointer disabled:cursor-not-allowed transition active:scale-[0.98]"
+              >
+                <span>Siguiente</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ───────── HISTORIAL DE DECISIONES RECIENTES ───────── */}
+      {/* ───────── HISTORIAL DE DECISIONES RECIENTES REALES ───────── */}
       <div className="rounded-2xl border border-white/[0.05] bg-[#101217] p-5 shadow-sm">
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.05]">
           <span className="text-xs font-semibold uppercase font-label tracking-wider text-zinc-400">
             Historial de Decisiones Recientes (Firmadas / Rechazadas)
           </span>
-          <span className="font-mono text-[10px] text-zinc-500">Últimos 7 días • Auditoría HITL</span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] text-zinc-500">
+              {recentOrders.length} {recentOrders.length === 1 ? 'registro' : 'registros'}
+            </span>
+            {totalDecisionsPages > 1 && (
+              <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-1.5 py-0.5">
+                <button
+                  type="button"
+                  onClick={() => setDecisionsPage((p) => Math.max(1, p - 1))}
+                  disabled={decisionsPage === 1}
+                  title="Página anterior"
+                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] font-mono text-zinc-300 px-1">
+                  {decisionsPage} / {totalDecisionsPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDecisionsPage((p) => Math.min(totalDecisionsPages, p + 1))}
+                  disabled={decisionsPage === totalDecisionsPages}
+                  title="Página siguiente"
+                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="divide-y divide-white/[0.04]">
-          {RECENT_DECISIONS.map((d) => (
-            <div key={d.id} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-[11px] text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06]">
-                  {d.id}
-                </span>
-                <span className="font-medium text-zinc-200">{d.product}</span>
-                <span className="text-zinc-500 text-[11px]">• {d.provider}</span>
+        {recentOrders.length === 0 ? (
+          <div className="py-6 text-center text-xs text-zinc-500">
+            Sin decisiones registradas aún. Las órdenes autorizadas o rechazadas aparecerán aquí para auditoría.
+          </div>
+        ) : (
+          <div className="divide-y divide-white/[0.04]">
+            {paginatedRecentOrders.map((d) => (
+              <div key={d.orderId} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[11px] text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06]">
+                    {d.orderId}
+                  </span>
+                  <span className="font-medium text-zinc-200">{d.productName}</span>
+                  <span className="text-zinc-500 text-[11px]">• {d.provider}</span>
+                </div>
+                <div className="flex items-center gap-4 text-zinc-400 font-mono text-[11px]">
+                  <span className="text-white font-semibold">{d.amountMXN}</span>
+                  <span className={d.humanApproved ? 'text-emerald-400' : 'text-amber-400'}>
+                    {d.humanApproved ? 'Aprobada por supervisor (HITL)' : 'En evaluación'}
+                  </span>
+                  <span className="text-zinc-500">
+                    {d.createdAt ? new Date(d.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }) : 'Reciente'}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-4 text-zinc-400 font-mono text-[11px]">
-                <span className="text-white font-semibold">{d.amount}</span>
-                <span className={d.status === 'approved' ? 'text-emerald-400' : 'text-red-400'}>
-                  {d.resolution}
-                </span>
-                <span className="text-zinc-500">{d.time}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1206,25 +1350,40 @@ function ApprovalsView({ onOpenPrompt }: ApprovalsViewProps) {
 /* ───────────────────── 4. AUDITORÍA INMUTABLE (MODERNISMO MINIMALISTA) ───────────────────── */
 
 interface AuditEvent {
-  id: number;
+  id: string | number;
   time: string;
   category: 'agent' | 'order' | 'db' | 'security';
   title: string;
   detail: string;
+  createdAt?: string;
 }
 
-const INITIAL_EVENTS: AuditEvent[] = [
-  { id: 1, time: '10:45:12', category: 'agent', title: 'Dictamen ReAct Emitido', detail: 'Evaluación de proveedores finalizada para ST-200. Grainger seleccionado (SLA 48h).' },
-  { id: 2, time: '10:45:10', category: 'security', title: 'Guardrail HITL Activado', detail: 'Orden por $22,500 MXN supera el límite de $10,000 MXN. Se requiere firma de supervisor.' },
-  { id: 3, time: '10:44:58', category: 'agent', title: 'Ejecución Tool: consultar_stock', detail: 'Lectura de tabla inventory para SKU ST-200: 2 unidades disponibles, mínimo 15 unidades.' },
-  { id: 4, time: '10:30:00', category: 'db', title: 'CRON Proactivo Almacenes', detail: 'Escaneo completado en 4 almacenes. 1 SKU en estado crítico detectado.' },
-  { id: 5, time: '09:00:15', category: 'order', title: 'Cierre Contable FEFO', detail: 'Consolidación de órdenes matutinas y verificación de hash en PostgreSQL.' },
-];
-
 function ActivityAuditView() {
-  const [events] = useState<AuditEvent[]>(INITIAL_EVENTS);
+  const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [auditPage, setAuditPage] = useState(1);
+  const EVENTS_PER_PAGE = 10;
   const [sqlLog, setSqlLog] = useState<string | null>(null);
   const [testingSql, setTestingSql] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    api.getAuditEvents('comp_default')
+      .then((res) => {
+        if (mounted && res.success && Array.isArray(res.data)) {
+          setEvents(res.data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const totalAuditPages = Math.ceil(events.length / EVENTS_PER_PAGE) || 1;
+  const paginatedEvents = events.slice(
+    (auditPage - 1) * EVENTS_PER_PAGE,
+    auditPage * EVENTS_PER_PAGE
+  );
 
   const simulateIllegalMutation = () => {
     setTestingSql(true);
@@ -1240,7 +1399,6 @@ function ActivityAuditView() {
         `HINT: No records can be updated or deleted once committed to the audit trail.\n` +
         `TRANSACTION ABORTED (0 rows affected).`
       );
-      toast.error('Trigger PostgreSQL activado: Operación ilegal bloqueada exitosamente');
     }, 700);
   };
 
@@ -1266,36 +1424,101 @@ function ActivityAuditView() {
         <div className="lg:col-span-2 rounded-2xl border border-white/[0.05] bg-[#101217] p-5 md:p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5 pb-3 border-b border-white/[0.05]">
             <span className="text-xs font-semibold uppercase font-label tracking-wider text-zinc-400">Línea de Tiempo Operativa</span>
-            <span className="text-[11px] font-mono text-zinc-500">{events.length} eventos inmutables</span>
-          </div>
-
-          <div className="relative pl-6 space-y-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1px] before:bg-white/[0.08]">
-            {events.map((ev) => {
-              const dotColor =
-                ev.category === 'security'
-                  ? 'bg-amber-400 ring-amber-400/20'
-                  : ev.category === 'db'
-                  ? 'bg-zinc-400 ring-zinc-500/20'
-                  : ev.title.includes('Tool')
-                  ? 'bg-blue-400 ring-blue-500/20'
-                  : 'bg-emerald-400 ring-emerald-500/20';
-
-              return (
-                <div key={ev.id} className="relative">
-                  <span
-                    className={`absolute -left-[27px] top-1.5 h-2 w-2 rounded-full ${dotColor} ring-4 ring-[#101217]`}
-                  />
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-xs font-semibold text-white font-headline">{ev.title}</span>
-                    <span className="font-mono text-[10px] text-zinc-500">{ev.time}</span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
-                    {ev.detail}
-                  </p>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono text-zinc-500">{events.length} eventos inmutables</span>
+              {totalAuditPages > 1 && (
+                <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-1.5 py-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                    disabled={auditPage === 1}
+                    title="Página anterior"
+                    className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[11px] font-mono text-zinc-300 px-1">
+                    {auditPage} / {totalAuditPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAuditPage((p) => Math.min(totalAuditPages, p + 1))}
+                    disabled={auditPage === totalAuditPages}
+                    title="Página siguiente"
+                    className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              );
-            })}
+              )}
+            </div>
           </div>
+
+          {events.length === 0 ? (
+            <div className="py-12 text-center text-zinc-500 text-xs rounded-xl bg-white/[0.02] border border-white/[0.04]">
+              <Activity className="w-8 h-8 mx-auto text-zinc-600 mb-2 opacity-50" />
+              <p className="font-medium text-zinc-400">Sin eventos operativos registrados aún</p>
+              <p className="text-[11px] text-zinc-500 mt-1 max-w-sm mx-auto">
+                Los dictámenes del agente ReAct, órdenes de compra y validaciones de gobernanza HITL se registrarán de forma inmutable aquí al ejecutarse.
+              </p>
+            </div>
+          ) : (
+            <div className="relative pl-6 space-y-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1px] before:bg-white/[0.08]">
+              {paginatedEvents.map((ev) => {
+                const dotColor =
+                  ev.category === 'security'
+                    ? 'bg-amber-400 ring-amber-400/20'
+                    : ev.category === 'db'
+                    ? 'bg-zinc-400 ring-zinc-500/20'
+                    : ev.title.includes('Tool')
+                    ? 'bg-blue-400 ring-blue-500/20'
+                    : 'bg-emerald-400 ring-emerald-500/20';
+
+                return (
+                  <div key={ev.id} className="relative">
+                    <span
+                      className={`absolute -left-[27px] top-1.5 h-2 w-2 rounded-full ${dotColor} ring-4 ring-[#101217]`}
+                    />
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-xs font-semibold text-white font-headline">{ev.title}</span>
+                      <span className="font-mono text-[10px] text-zinc-500">{ev.time}</span>
+                    </div>
+                    <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
+                      {ev.detail}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {totalAuditPages > 1 && (
+            <div className="pt-4 mt-4 border-t border-white/[0.05] flex items-center justify-between text-xs text-zinc-400">
+              <span className="text-[11px] text-zinc-500 font-mono">
+                Página {auditPage} de {totalAuditPages}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                  disabled={auditPage === 1}
+                  className="flex items-center gap-1 px-3 py-1 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] text-xs font-medium text-zinc-300 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Anterior</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuditPage((p) => Math.min(totalAuditPages, p + 1))}
+                  disabled={auditPage === totalAuditPages}
+                  className="flex items-center gap-1 px-3 py-1 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] text-xs font-medium text-zinc-300 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <span>Siguiente</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Columna Derecha: Verificador de Inmutabilidad SQL */}
@@ -1341,3 +1564,87 @@ function ActivityAuditView() {
     </div>
   );
 }
+
+/* ───────────────────── 5. GOBERNANZA & BASE DE DATOS (VISTA TÉCNICA AISLADA) ───────────────────── */
+
+interface SystemGovernanceViewProps {
+  currentUser?: UserSession | null;
+  onOpenAccountModal?: (role?: AccountRoleType) => void;
+  onOpenPrompt?: (prompt: string) => void;
+}
+
+function SystemGovernanceView({
+  currentUser,
+  onOpenAccountModal,
+  onOpenPrompt,
+}: SystemGovernanceViewProps) {
+  const [subTab, setSubTab] = useState<'database' | 'accounts' | 'audit'>('database');
+
+  return (
+    <div className="flex flex-col w-full max-w-[1360px] mx-auto gap-6 font-sans text-zinc-100 pb-12">
+      {/* Sub-header con selector de módulo técnico */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/[0.05]">
+        <div>
+          <div className="flex items-center gap-2">
+            <Server className="w-5 h-5 text-emerald-400" />
+            <h1 className="text-2xl font-bold font-headline text-white tracking-tight">
+              Gobernanza &amp; Infraestructura
+            </h1>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1">
+            Gestión técnica del esquema PostgreSQL / Supabase, directorio RBAC y auditoría inmutable de decisiones.
+          </p>
+        </div>
+
+        {/* Sub-tab pills */}
+        <div className="flex items-center p-1 bg-[#12141A] rounded-xl border border-white/[0.06] text-xs self-start sm:self-auto flex-wrap gap-1">
+          <button
+            onClick={() => setSubTab('database')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition cursor-pointer text-xs ${
+              subTab === 'database'
+                ? 'bg-[#1E222B] text-white shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Base de Datos &amp; Esquema</span>
+          </button>
+          <button
+            onClick={() => setSubTab('accounts')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition cursor-pointer text-xs ${
+              subTab === 'accounts'
+                ? 'bg-[#1E222B] text-white shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Directorio &amp; RBAC</span>
+          </button>
+          <button
+            onClick={() => setSubTab('audit')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition cursor-pointer text-xs ${
+              subTab === 'audit'
+                ? 'bg-[#1E222B] text-white shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5 text-blue-400" />
+            <span>Auditoría &amp; Trazabilidad</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Sub-tab content */}
+      {subTab === 'database' && <DatabaseManagerView />}
+      {subTab === 'accounts' && (
+        <AccountsManagementView
+          currentUser={currentUser}
+          onOpenAccountModal={onOpenAccountModal}
+          onOpenPrompt={onOpenPrompt}
+        />
+      )}
+      {subTab === 'audit' && <ActivityAuditView />}
+    </div>
+  );
+}
+

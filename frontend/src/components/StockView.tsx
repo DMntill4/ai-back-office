@@ -5,6 +5,8 @@ import {
   ArrowRight,
   Download,
   RefreshCw,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
@@ -64,6 +66,8 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tablePage, setTablePage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Estados con datos 100% reales de PostgreSQL / Supabase
   const [liveProducts, setLiveProducts] = useState<InventoryRow[]>([]);
@@ -99,9 +103,8 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
       if (ordersRes.success && Array.isArray(ordersRes.data)) {
         setLiveOrders(ordersRes.data);
       }
-    } catch (err: any) {
-      console.error('Error sincronizando tablas relacionales:', err);
-      toast.error(`Error al conectar con la base de datos: ${err.message}`);
+    } catch {
+      // Fallback silencioso sin alertas intrusivas en carga inicial
     } finally {
       setLoading(false);
     }
@@ -115,7 +118,6 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
     setSyncing(true);
     await fetchAllData();
     setSyncing(false);
-    toast.success('Catálogo, casos y órdenes sincronizados en tiempo real con PostgreSQL / Supabase');
   };
 
   // Esquemas dinámicos calculados directamente con las filas reales
@@ -184,6 +186,30 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
     });
   }, [liveOrders, search]);
 
+  const currentTotal =
+    selectedSchema === 'inventory'
+      ? filteredInventory.length
+      : selectedSchema === 'cases'
+      ? filteredCases.length
+      : filteredOrders.length;
+
+  const totalTablePages = Math.ceil(currentTotal / ITEMS_PER_PAGE) || 1;
+
+  const paginatedInventory = filteredInventory.slice(
+    (tablePage - 1) * ITEMS_PER_PAGE,
+    tablePage * ITEMS_PER_PAGE
+  );
+
+  const paginatedCases = filteredCases.slice(
+    (tablePage - 1) * ITEMS_PER_PAGE,
+    tablePage * ITEMS_PER_PAGE
+  );
+
+  const paginatedOrders = filteredOrders.slice(
+    (tablePage - 1) * ITEMS_PER_PAGE,
+    tablePage * ITEMS_PER_PAGE
+  );
+
   const exportCurrentTable = () => {
     let csv = '';
     if (selectedSchema === 'inventory') {
@@ -250,6 +276,7 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
               onClick={() => {
                 setSelectedSchema(schema.id);
                 setSearch('');
+                setTablePage(1);
               }}
               className={`cursor-pointer rounded-xl p-5 flex flex-col justify-between transition-all duration-150 border bg-[#08120B] shadow-[0_4px_20px_rgba(0,0,0,0.4)] ${
                 isSelected
@@ -345,11 +372,41 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
                 type="text"
                 placeholder="Buscar registros..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setTablePage(1);
+                }}
                 className="w-full sm:w-52 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 pl-8 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-[#34D353] focus:outline-none transition-all"
               />
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
             </div>
+
+            {/* Controles de Paginación (< y >) */}
+            {totalTablePages > 1 && (
+              <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-1.5 py-0.5">
+                <button
+                  type="button"
+                  onClick={() => setTablePage((p) => Math.max(1, p - 1))}
+                  disabled={tablePage === 1}
+                  title="Página anterior"
+                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] font-mono text-zinc-300 px-1">
+                  {tablePage} / {totalTablePages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTablePage((p) => Math.min(totalTablePages, p + 1))}
+                  disabled={tablePage === totalTablePages}
+                  title="Página siguiente"
+                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Botón Exportar CSV */}
             <button
@@ -388,7 +445,7 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#162D1D] text-xs">
-                  {filteredInventory.map((item) => (
+                  {paginatedInventory.map((item) => (
                     <tr
                       key={item.sku}
                       className="hover:bg-[#0E2415]/50 transition-colors duration-100 group"
@@ -471,7 +528,7 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#162D1D] text-xs">
-                  {filteredCases.map((item) => (
+                  {paginatedCases.map((item) => (
                     <tr
                       key={item.id}
                       className="hover:bg-[#0E2415]/50 transition-colors duration-100"
@@ -533,7 +590,7 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#162D1D] text-xs">
-                  {filteredOrders.map((item) => (
+                  {paginatedOrders.map((item) => (
                     <tr
                       key={item.orderId}
                       className="hover:bg-[#0E2415]/50 transition-colors duration-100"
@@ -572,6 +629,38 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
                 </tbody>
               </table>
             )}
+          </div>
+        )}
+
+        {/* Paginación Inferior Accesible (< y >) */}
+        {totalTablePages > 1 && (
+          <div className="pt-4 mt-2 border-t border-[#162D1D] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-400 font-mono">
+            <span>
+              Mostrando {Math.min(currentTotal, (tablePage - 1) * ITEMS_PER_PAGE + 1)} - {Math.min(currentTotal, tablePage * ITEMS_PER_PAGE)} de {currentTotal} registros
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setTablePage((p) => Math.max(1, p - 1))}
+                disabled={tablePage === 1}
+                className="p-1 rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:text-white transition disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                title="Página anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-2 text-zinc-300 font-medium">
+                Pág. {tablePage} de {totalTablePages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setTablePage((p) => Math.min(totalTablePages, p + 1))}
+                disabled={tablePage === totalTablePages}
+                className="p-1 rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:text-white transition disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                title="Página siguiente"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Users,
   Shield,
@@ -9,15 +9,20 @@ import {
   Mail,
   History,
   Save,
-  DollarSign,
   FileCheck2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AccountRoleType } from './AccountProfileModal';
+import type { UserSession } from './LoginView';
+import { NumberStepper } from './NumberStepper';
+import { api } from '../lib/api';
 
 interface AccountsManagementViewProps {
   onOpenAccountModal?: (role?: AccountRoleType) => void;
   onOpenPrompt?: (prompt: string) => void;
+  currentUser?: UserSession | null;
 }
 
 interface AccountItem {
@@ -42,77 +47,101 @@ interface AccountItem {
   autonomousThreshold: number;
 }
 
-const INITIAL_ACCOUNTS: AccountItem[] = [
-  {
-    id: 'acc-1',
-    firstName: 'Andrés',
-    lastName: 'Montilla',
-    name: 'Andrés Montilla',
-    role: 'Empresa',
-    title: 'Director de Operaciones & Abastecimiento',
-    companyName: 'Acme Industrial Corp',
-    email: 'operaciones@acme.com',
-    phone: '+52 (55) 987-6543',
-    region: 'México (MXN - $)',
-    currency: 'MXN',
-    status: 'active',
-    lastActive: 'Hace 3 min',
-    avatarGradient: 'from-[#064E3B] via-[#10B981] to-[#A7F3D0]',
-    autonomousPurchases: true,
-    hitlRequired: true,
-    sqlInventoryAccess: true,
-    autonomousThreshold: 10000,
-  },
-  {
-    id: 'acc-2',
-    firstName: 'Carlos',
-    lastName: 'Herrera',
-    name: 'Carlos Herrera',
-    role: 'Admin',
-    title: 'Administrador de Plataforma & Seguridad IAM',
-    companyName: 'Mint Intelligence Platform',
-    email: 'seguridad@mint-ai.io',
-    phone: '+52 (81) 1234-5678',
-    region: 'México (MXN - $)',
-    currency: 'MXN',
-    status: 'active',
-    lastActive: 'En línea',
-    avatarGradient: 'from-[#0E7490] via-[#06B6D4] to-[#E2E8F0]',
-    autonomousPurchases: true,
-    hitlRequired: true,
-    sqlInventoryAccess: true,
-    autonomousThreshold: 50000,
-  },
-  {
-    id: 'acc-3',
-    firstName: 'Alex',
-    lastName: 'Johnson',
-    name: 'Alex Johnson',
-    role: 'Cliente',
-    title: 'Gerente de Procura B2B & Cadena de Suministro',
-    companyName: 'Tech Innovations Inc',
-    email: 'alex.johnson@techinnovations.com',
-    phone: '+1 (555) 987-6543',
-    region: 'USA (USD - $)',
-    currency: 'USD',
-    status: 'active',
-    lastActive: 'Ayer 18:40',
-    avatarGradient: 'from-[#3F3F46] via-[#71717A] to-[#D4D4D8]',
-    autonomousPurchases: false,
-    hitlRequired: true,
-    sqlInventoryAccess: false,
-    autonomousThreshold: 0,
-  },
-];
-
 export const AccountsManagementView = ({
   onOpenAccountModal,
   onOpenPrompt,
+  currentUser,
 }: AccountsManagementViewProps) => {
-  const [accounts, setAccounts] = useState<AccountItem[]>(INITIAL_ACCOUNTS);
+  const [accounts, setAccounts] = useState<AccountItem[]>([]);
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<'Todos' | AccountRoleType>('Todos');
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(INITIAL_ACCOUNTS[0].id);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [accountsPage, setAccountsPage] = useState(1);
+  const ACCOUNTS_PER_PAGE = 10;
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await api.getUsers();
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped: AccountItem[] = res.data.map((u, idx) => ({
+            id: u.id,
+            firstName: u.name.split(' ')[0] || u.name,
+            lastName: u.name.split(' ').slice(1).join(' ') || '',
+            name: u.name,
+            role: (u.role === 'owner' ? 'Empresa' : u.role === 'auditor' ? 'Admin' : 'Cliente') as AccountRoleType,
+            title: u.role === 'owner' ? 'Propietario / Director de Operaciones' : u.role === 'auditor' ? 'Supervisor Auditor HITL' : 'Operador de Cadena de Suministro',
+            companyName: u.companyName || 'Empresa Registrada',
+            email: u.email,
+            phone: '+52 (55) Registrado',
+            region: 'México (MXN - $)',
+            currency: 'MXN',
+            status: 'active',
+            lastActive: 'En línea',
+            avatarGradient: idx % 2 === 0 ? 'from-[#064E3B] via-[#10B981] to-[#A7F3D0]' : 'from-[#0E7490] via-[#06B6D4] to-[#E2E8F0]',
+            autonomousPurchases: u.role === 'owner' || u.role === 'operator',
+            hitlRequired: true,
+            sqlInventoryAccess: u.role === 'owner',
+            autonomousThreshold: 10000,
+          }));
+          setAccounts(mapped);
+          setSelectedAccountId((prev) => prev || mapped[0]?.id || '');
+        } else if (currentUser) {
+          const fallback: AccountItem = {
+            id: currentUser.id || 'usr_current',
+            firstName: currentUser.name.split(' ')[0] || currentUser.name,
+            lastName: currentUser.name.split(' ').slice(1).join(' ') || '',
+            name: currentUser.name,
+            role: (currentUser.role === 'owner' ? 'Empresa' : currentUser.role === 'auditor' ? 'Admin' : 'Cliente') as AccountRoleType,
+            title: 'Titular de Cuenta Activa',
+            companyName: currentUser.companyName,
+            email: currentUser.email,
+            phone: '+52 (55) Registrado',
+            region: 'México (MXN - $)',
+            currency: 'MXN',
+            status: 'active',
+            lastActive: 'Sesión activa',
+            avatarGradient: 'from-[#064E3B] via-[#10B981] to-[#A7F3D0]',
+            autonomousPurchases: true,
+            hitlRequired: true,
+            sqlInventoryAccess: true,
+            autonomousThreshold: 10000,
+          };
+          setAccounts([fallback]);
+          setSelectedAccountId(fallback.id);
+        } else {
+          setAccounts([]);
+        }
+      } catch {
+        if (currentUser) {
+          const fallback: AccountItem = {
+            id: currentUser.id || 'usr_current',
+            firstName: currentUser.name.split(' ')[0] || currentUser.name,
+            lastName: currentUser.name.split(' ').slice(1).join(' ') || '',
+            name: currentUser.name,
+            role: (currentUser.role === 'owner' ? 'Empresa' : currentUser.role === 'auditor' ? 'Admin' : 'Cliente') as AccountRoleType,
+            title: 'Titular de Cuenta Activa',
+            companyName: currentUser.companyName,
+            email: currentUser.email,
+            phone: '+52 (55) Registrado',
+            region: 'México (MXN - $)',
+            currency: 'MXN',
+            status: 'active',
+            lastActive: 'Sesión activa',
+            avatarGradient: 'from-[#064E3B] via-[#10B981] to-[#A7F3D0]',
+            autonomousPurchases: true,
+            hitlRequired: true,
+            sqlInventoryAccess: true,
+            autonomousThreshold: 10000,
+          };
+          setAccounts([fallback]);
+          setSelectedAccountId(fallback.id);
+        }
+      }
+    };
+
+    fetchUsers();
+  }, [currentUser]);
 
   // Local state for interactive editing of current account
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) || accounts[0];
@@ -126,6 +155,12 @@ export const AccountsManagementView = ({
       a.role.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
+
+  const totalAccountPages = Math.ceil(filteredAccounts.length / ACCOUNTS_PER_PAGE) || 1;
+  const paginatedAccounts = filteredAccounts.slice(
+    (accountsPage - 1) * ACCOUNTS_PER_PAGE,
+    accountsPage * ACCOUNTS_PER_PAGE
+  );
 
   const handleUpdateCurrentAccount = (updates: Partial<AccountItem>) => {
     setAccounts((prev) =>
@@ -248,7 +283,31 @@ export const AccountsManagementView = ({
                   {filteredAccounts.length}
                 </span>
               </div>
-              <span className="text-[10px] text-zinc-500">RBAC Homologado</span>
+              {totalAccountPages > 1 && (
+                <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-1.5 py-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setAccountsPage((p) => Math.max(1, p - 1))}
+                    disabled={accountsPage === 1}
+                    className="p-1 rounded-lg text-zinc-400 hover:text-white transition disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                    title="Página anterior"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[10px] font-mono text-zinc-300 px-1">
+                    {accountsPage} / {totalAccountPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAccountsPage((p) => Math.min(totalAccountPages, p + 1))}
+                    disabled={accountsPage === totalAccountPages}
+                    className="p-1 rounded-lg text-zinc-400 hover:text-white transition disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                    title="Página siguiente"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Buscador Rápido de Cuentas */}
@@ -257,7 +316,10 @@ export const AccountsManagementView = ({
               <input
                 type="text"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setAccountsPage(1);
+                }}
                 placeholder="Buscar por nombre, correo, empresa o rol..."
                 className="w-full bg-[#14171F] border border-white/[0.05] focus:border-emerald-500/50 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-zinc-500 outline-none transition"
               />
@@ -265,7 +327,7 @@ export const AccountsManagementView = ({
 
             {/* Lista Vertical de Tarjetas de Cuenta con scroll responsive */}
             <div className="space-y-2.5 max-h-72 sm:max-h-96 lg:max-h-[580px] overflow-y-auto custom-scrollbar pr-0.5">
-              {filteredAccounts.map((acc) => {
+              {paginatedAccounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
                 
                 // Badge color mapping
@@ -325,6 +387,13 @@ export const AccountsManagementView = ({
                   </div>
                 );
               })}
+
+              {filteredAccounts.length === 0 && (
+                <div className="py-12 text-center text-xs text-zinc-500">
+                  <Users className="w-6 h-6 text-zinc-600 mx-auto mb-2" />
+                  <p>No se encontraron cuentas registradas.</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -563,22 +632,21 @@ export const AccountsManagementView = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <DollarSign className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5" />
-                      <input
-                        type="number"
-                        min="0"
-                        step="1000"
-                        value={selectedAccount.autonomousThreshold}
-                        onChange={(e) =>
-                          handleUpdateCurrentAccount({
-                            autonomousThreshold: Math.max(0, parseInt(e.target.value) || 0),
-                          })
-                        }
-                        className="w-36 bg-[#14171F] border border-white/[0.08] focus:border-emerald-500/50 rounded-xl pl-8 pr-3 py-1.5 text-xs font-mono font-semibold text-white outline-none transition text-right"
-                      />
-                    </div>
-                    <span className="text-xs font-mono text-zinc-400">{selectedAccount.currency}</span>
+                    <NumberStepper
+                      value={selectedAccount.autonomousThreshold}
+                      onChange={(val) =>
+                        handleUpdateCurrentAccount({
+                          autonomousThreshold: val,
+                        })
+                      }
+                      min={0}
+                      max={1000000}
+                      step={1000}
+                      suffix={selectedAccount.currency}
+                      presets={[5000, 10000, 25000, 50000]}
+                      presetSuffix=""
+                      ariaLabel="Umbral de compra autónoma"
+                    />
                   </div>
                 </div>
 

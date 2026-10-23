@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
   Mail,
   Lock,
@@ -50,8 +50,70 @@ const COUNTRIES: CountryOption[] = [
   { code: 'CL', name: 'Chile', flag: '🇨🇱', dialCode: '+56', placeholder: '(9) 1234-5678' },
 ];
 
+const formVariants: Variants = {
+  enter: (dir: number) => ({
+    x: dir > 0 ? 36 : -36,
+    opacity: 0,
+    filter: 'blur(4px)',
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    filter: 'blur(0px)',
+    transition: {
+      duration: 0.28,
+      ease: [0.16, 1, 0.3, 1] as const,
+      staggerChildren: 0.035,
+      delayChildren: 0.02,
+    },
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? -36 : 36,
+    opacity: 0,
+    filter: 'blur(4px)',
+    transition: {
+      duration: 0.18,
+      ease: [0.4, 0, 0.2, 1] as const,
+    },
+  }),
+};
+
+const inputItemVariants: Variants = {
+  enter: { opacity: 0, y: 10 },
+  center: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] as const },
+  },
+  exit: { opacity: 0, y: -6, transition: { duration: 0.14 } },
+};
+
+const headerVariants: Variants = {
+  enter: (d: number) => ({ opacity: 0, x: d > 0 ? 16 : -16, filter: 'blur(3px)' }),
+  center: {
+    opacity: 1,
+    x: 0,
+    filter: 'blur(0px)',
+    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] as const },
+  },
+  exit: (d: number) => ({
+    opacity: 0,
+    x: d > 0 ? -16 : 16,
+    filter: 'blur(3px)',
+    transition: { duration: 0.16, ease: [0.4, 0, 0.2, 1] as const },
+  }),
+};
+
 export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [tab, setTab] = useState<'signup' | 'signin'>('signup');
+  const [direction, setDirection] = useState<number>(0);
+
+  const handleTabChange = (newTab: 'signup' | 'signin') => {
+    if (newTab === tab) return;
+    setDirection(newTab === 'signin' ? 1 : -1);
+    setTab(newTab);
+  };
+
   const [accountType, setAccountType] = useState<'company' | 'client'>('company');
   const [loading, setLoading] = useState(false);
 
@@ -415,18 +477,23 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
         {/* ─── Tarjeta Central Frosted Obsidian con Acentos Verde Mint y Borde Respirante ─── */}
         <motion.div
+          layout
           initial={{ opacity: 0, scale: 0.96, y: 14 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          transition={{
+            layout: { duration: 0.32, ease: [0.16, 1, 0.3, 1] },
+            duration: 0.25,
+            ease: [0.16, 1, 0.3, 1],
+          }}
           className="w-full rounded-[24px] sm:rounded-[28px] bg-[#0A160F]/90 backdrop-blur-2xl p-5 sm:p-8 border border-[#193A24]/80 shadow-[inset_0_1px_0_0_rgba(184,245,160,0.18),0_25px_70px_rgba(0,0,0,0.9),0_0_50px_rgba(52,211,83,0.08)] animate-card-glow transition-all"
         >
         {/* Esquina Superior: Segmented Control tipo píldora animado con Framer Motion & Botón Cerrar */}
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-4">
           {/* Segmented Control tipo píldora con indicador flotante animado */}
           <div className="relative inline-flex items-center p-1 rounded-full bg-[#050D08] border border-[#14281B]">
             <button
               type="button"
-              onClick={() => setTab('signup')}
+              onClick={() => handleTabChange('signup')}
               className={`relative z-10 px-4 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 cursor-pointer ${
                 tab === 'signup'
                   ? 'text-[#B8F5A0] font-semibold'
@@ -444,7 +511,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             </button>
             <button
               type="button"
-              onClick={() => setTab('signin')}
+              onClick={() => handleTabChange('signin')}
               className={`relative z-10 px-4 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 cursor-pointer ${
                 tab === 'signin'
                   ? 'text-[#B8F5A0] font-semibold'
@@ -473,69 +540,88 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           </button>
         </div>
 
-        {/* Título de la tarjeta */}
-        <h2 className="text-[22px] font-semibold text-white tracking-tight mb-4">
-          {tab === 'signup' ? 'Create an account' : 'Sign in'}
-        </h2>
-
-        {/* Sub-selector de Rol: Cliente vs Empresa con píldora deslizante animada */}
-        {tab === 'signup' && (
-          <div className="relative flex items-center p-1 rounded-xl bg-[#050D08] border border-[#14281B] mb-4">
-            <button
-              type="button"
-              onClick={() => setAccountType('company')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 cursor-pointer ${
-                accountType === 'company'
-                  ? 'text-[#B8F5A0] font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
+        {/* Título y Subtítulo Dinámicos con Transición Suave de Orientación */}
+        <div className="relative overflow-hidden mb-4 min-h-[48px]">
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={tab}
+              custom={direction}
+              variants={headerVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
             >
-              {accountType === 'company' && (
-                <motion.div
-                  layoutId="activeAccountTypePill"
-                  className="absolute inset-0 bg-[#122B1A] border border-[#275935] rounded-lg shadow-xs -z-10"
-                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                />
-              )}
-              <Building2 className={`w-3.5 h-3.5 transition-colors ${accountType === 'company' ? 'text-[#34D353]' : 'text-zinc-500'}`} />
-              <span>Cuenta Empresa</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setAccountType('client')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 cursor-pointer ${
-                accountType === 'client'
-                  ? 'text-[#B8F5A0] font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              {accountType === 'client' && (
-                <motion.div
-                  layoutId="activeAccountTypePill"
-                  className="absolute inset-0 bg-[#122B1A] border border-[#275935] rounded-lg shadow-xs -z-10"
-                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                />
-              )}
-              <User className={`w-3.5 h-3.5 transition-colors ${accountType === 'client' ? 'text-[#34D353]' : 'text-zinc-500'}`} />
-              <span>Cuenta Cliente</span>
-            </button>
-          </div>
-        )}
+              <h2 className="text-[22px] font-semibold text-white tracking-tight">
+                {tab === 'signup' ? 'Create an account' : 'Welcome back'}
+              </h2>
+              <p className="text-xs text-[#6F9A75] mt-0.5 font-normal">
+                {tab === 'signup'
+                  ? 'Registra tu empresa o accede como operador de clientes'
+                  : 'Ingresa tus credenciales para acceder a la consola'}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+        </div>
 
-        {/* ─── 3. Inputs con Validación Estricta y Micro-interacciones de Focus ─── */}
-        <AnimatePresence mode="wait">
+        {/* ─── 3. Inputs con Transición Direccional y Animación Staggered en Cascada ─── */}
+        <AnimatePresence mode="wait" custom={direction}>
           {tab === 'signup' ? (
             <motion.form
               key="signup-form"
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 6 }}
-              transition={{ duration: 0.15 }}
+              custom={direction}
+              variants={formVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
               onSubmit={handleSignUpSubmit}
               className="space-y-3"
             >
-              {/* First Name & Last Name (Side by side) */}
-              <div>
+              {/* 1. Sub-selector de Rol: Cliente vs Empresa con píldora animada */}
+              <motion.div variants={inputItemVariants}>
+                <div className="relative flex items-center p-1 rounded-xl bg-[#050D08] border border-[#14281B]">
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('company')}
+                    className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 cursor-pointer ${
+                      accountType === 'company'
+                        ? 'text-[#B8F5A0] font-semibold'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    {accountType === 'company' && (
+                      <motion.div
+                        layoutId="activeAccountTypePill"
+                        className="absolute inset-0 bg-[#122B1A] border border-[#275935] rounded-lg shadow-xs -z-10"
+                        transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      />
+                    )}
+                    <Building2 className={`w-3.5 h-3.5 transition-colors ${accountType === 'company' ? 'text-[#34D353]' : 'text-zinc-500'}`} />
+                    <span>Cuenta Empresa</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('client')}
+                    className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 cursor-pointer ${
+                      accountType === 'client'
+                        ? 'text-[#B8F5A0] font-semibold'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    {accountType === 'client' && (
+                      <motion.div
+                        layoutId="activeAccountTypePill"
+                        className="absolute inset-0 bg-[#122B1A] border border-[#275935] rounded-lg shadow-xs -z-10"
+                        transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      />
+                    )}
+                    <User className={`w-3.5 h-3.5 transition-colors ${accountType === 'client' ? 'text-[#34D353]' : 'text-zinc-500'}`} />
+                    <span>Cuenta Cliente</span>
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* 2. First Name & Last Name (Side by side) */}
+              <motion.div variants={inputItemVariants}>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="group relative">
                     <input
@@ -566,10 +652,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     <AlertCircle className="w-3 h-3" /> Solo letras, mín. 2 caracteres por campo
                   </p>
                 )}
-              </div>
+              </motion.div>
 
-              {/* Email */}
-              <div>
+              {/* 3. Email */}
+              <motion.div variants={inputItemVariants}>
                 <div className="relative group">
                   <Mail className="w-4 h-4 text-[#4B7355] group-focus-within:text-[#34D353] group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
@@ -591,10 +677,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     <AlertCircle className="w-3 h-3" /> Formato inválido (ej. usuario@empresa.com)
                   </p>
                 )}
-              </div>
+              </motion.div>
 
-              {/* Phone with Country Dropdown */}
-              <div>
+              {/* 4. Phone with Country Dropdown */}
+              <motion.div variants={inputItemVariants}>
                 <div className="group relative flex items-center bg-[#0C1911]/80 border border-[#193A24] rounded-xl transition-all duration-200 input-rim-focus focus-within:scale-[1.005]">
                   <div className="relative">
                     <button
@@ -646,10 +732,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     <AlertCircle className="w-3 h-3" /> Mínimo 10 dígitos numéricos
                   </p>
                 )}
-              </div>
+              </motion.div>
 
-              {/* Password */}
-              <div>
+              {/* 5. Password */}
+              <motion.div variants={inputItemVariants}>
                 <div className="relative group">
                   <Lock className="w-4 h-4 text-[#4B7355] group-focus-within:text-[#34D353] group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
@@ -689,10 +775,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     </div>
                   </div>
                 )}
-              </div>
+              </motion.div>
 
-              {/* Empresa (si es tipo empresa) o Empresa asignada (si es cliente) */}
-              <div>
+              {/* 6. Company Name */}
+              <motion.div variants={inputItemVariants}>
                 <div className="relative group">
                   <Building2 className="w-4 h-4 text-[#4B7355] group-focus-within:text-[#34D353] group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
@@ -714,34 +800,36 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     <AlertCircle className="w-3 h-3" /> Mínimo 3 caracteres válidos
                   </p>
                 )}
-              </div>
+              </motion.div>
 
-              {/* ─── 4. Botón Primario con Shimmer Light Beam y Micro-interacción Mint ─── */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="relative overflow-hidden w-full py-3.5 rounded-xl bg-gradient-to-r from-[#20C048] via-[#34D353] to-[#4ADE80] text-[#040A06] font-bold text-sm shadow-[0_0_24px_rgba(52,211,83,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] hover:shadow-[0_0_38px_rgba(52,211,83,0.6)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 cursor-pointer mt-4 flex items-center justify-center gap-2 disabled:opacity-50 group"
-              >
-                {/* Shimmer light beam animation */}
-                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent group-hover:animate-mint-shimmer" />
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  {loading && <RefreshCw className="w-4 h-4 animate-spin text-[#040A06]" />}
-                  <span>{loading ? 'Creating account...' : 'Create an account'}</span>
-                </span>
-              </button>
+              {/* 7. Botón Primario con Shimmer Light Beam */}
+              <motion.div variants={inputItemVariants} className="pt-1">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="relative overflow-hidden w-full py-3.5 rounded-xl bg-gradient-to-r from-[#20C048] via-[#34D353] to-[#4ADE80] text-[#040A06] font-bold text-sm shadow-[0_0_24px_rgba(52,211,83,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] hover:shadow-[0_0_38px_rgba(52,211,83,0.6)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 group"
+                >
+                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent group-hover:animate-mint-shimmer" />
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    {loading && <RefreshCw className="w-4 h-4 animate-spin text-[#040A06]" />}
+                    <span>{loading ? 'Creating account...' : 'Create an account'}</span>
+                  </span>
+                </button>
+              </motion.div>
             </motion.form>
           ) : (
             <motion.form
               key="signin-form"
-              initial={{ opacity: 0, x: 6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -6 }}
-              transition={{ duration: 0.15 }}
+              custom={direction}
+              variants={formVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
               onSubmit={handleSignInSubmit}
               className="space-y-3"
             >
-              {/* Email */}
-              <div>
+              {/* 1. Email */}
+              <motion.div variants={inputItemVariants}>
                 <div className="relative group">
                   <Mail className="w-4 h-4 text-[#4B7355] group-focus-within:text-[#34D353] group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
@@ -759,10 +847,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     <AlertCircle className="w-3 h-3" /> Ingresa un correo válido
                   </p>
                 )}
-              </div>
+              </motion.div>
 
-              {/* Password */}
-              <div>
+              {/* 2. Password */}
+              <motion.div variants={inputItemVariants}>
                 <div className="relative group">
                   <Lock className="w-4 h-4 text-[#4B7355] group-focus-within:text-[#34D353] group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
@@ -787,20 +875,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     <AlertCircle className="w-3 h-3" /> Mínimo 6 caracteres
                   </p>
                 )}
-              </div>
+              </motion.div>
 
-              {/* ─── 4. Botón Primario con Shimmer Light Beam y Micro-interacción Mint ─── */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="relative overflow-hidden w-full py-3.5 rounded-xl bg-gradient-to-r from-[#20C048] via-[#34D353] to-[#4ADE80] text-[#040A06] font-bold text-sm shadow-[0_0_24px_rgba(52,211,83,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] hover:shadow-[0_0_38px_rgba(52,211,83,0.6)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 cursor-pointer mt-4 flex items-center justify-center gap-2 disabled:opacity-50 group"
-              >
-                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent group-hover:animate-mint-shimmer" />
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  {loading && <RefreshCw className="w-4 h-4 animate-spin text-[#040A06]" />}
-                  <span>{loading ? 'Signing in...' : 'Sign in'}</span>
-                </span>
-              </button>
+              {/* 3. Botón Primario con Shimmer Light Beam */}
+              <motion.div variants={inputItemVariants} className="pt-1">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="relative overflow-hidden w-full py-3.5 rounded-xl bg-gradient-to-r from-[#20C048] via-[#34D353] to-[#4ADE80] text-[#040A06] font-bold text-sm shadow-[0_0_24px_rgba(52,211,83,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] hover:shadow-[0_0_38px_rgba(52,211,83,0.6)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 group"
+                >
+                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent group-hover:animate-mint-shimmer" />
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    {loading && <RefreshCw className="w-4 h-4 animate-spin text-[#040A06]" />}
+                    <span>{loading ? 'Signing in...' : 'Sign in'}</span>
+                  </span>
+                </button>
+              </motion.div>
             </motion.form>
           )}
         </AnimatePresence>

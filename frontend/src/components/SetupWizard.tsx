@@ -13,6 +13,7 @@ import {
   Factory,
   Cpu,
   Stethoscope,
+  Truck,
   Eye,
   FileCheck2,
   Coins,
@@ -36,87 +37,13 @@ interface ParsedProduct {
   minStock: number;
 }
 
-// Plantillas por industria para carga en 1-clic
-const INDUSTRY_TEMPLATES = [
-  {
-    id: 'manufactura',
-    name: 'Manufactura & Automatización',
-    icon: Factory,
-    desc: 'Servomotores, variadores de frecuencia, sensores y cilindros neumáticos.',
-    getSql: (companyId: string) => `-- ==============================================================
--- CATÁLOGO REAL: MANUFACTURA INDUSTRIAL Y AUTOMATIZACIÓN
--- ==============================================================
-INSERT INTO products (id, company_id, name, description, category, sku, min_stock, origin)
-VALUES
-  ('prod_man_01', '${companyId}', 'Servomotor Industrial SM-400', 'Servomotor brushless 400W 3000 RPM de alta precisión', 'automatizacion', 'SKU-MAN-SM400', 8, 'real'),
-  ('prod_man_02', '${companyId}', 'Variador de Frecuencia VFD-10', 'Controlador trifásico 3HP para motores y bombas', 'electricidad', 'SKU-MAN-VFD10', 5, 'real'),
-  ('prod_man_03', '${companyId}', 'Sensor Fotoeléctrico Óptico', 'Sensor de proximidad infrarrojo 10m IP67', 'sensores', 'SKU-MAN-OP10', 12, 'real'),
-  ('prod_man_04', '${companyId}', 'Cilindro Neumático Doble Efecto', 'Actuador neumático ISO 15552 carrera 100mm', 'neumatica', 'SKU-MAN-CNEU', 6, 'real'),
-  ('prod_man_05', '${companyId}', 'Fuente de Poder DIN 24V 10A', 'Fuente conmutada riel DIN 240W certificada', 'electricidad', 'SKU-MAN-DIN24', 15, 'real')
-ON CONFLICT (id) DO UPDATE SET origin = 'real', min_stock = EXCLUDED.min_stock;
+import { ECOSYSTEM_TEMPLATES } from '../lib/ecosystemTemplates';
 
-INSERT INTO inventory (id, company_id, product_id, warehouse_id, stock)
-VALUES
-  ('inv_man_01', '${companyId}', 'prod_man_01', 'alm_central', 24),
-  ('inv_man_02', '${companyId}', 'prod_man_02', 'alm_central', 2), -- ¡Bajo stock crítico!
-  ('inv_man_03', '${companyId}', 'prod_man_03', 'alm_central', 35),
-  ('inv_man_04', '${companyId}', 'prod_man_04', 'alm_central', 14),
-  ('inv_man_05', '${companyId}', 'prod_man_05', 'alm_central', 18)
-ON CONFLICT (id) DO UPDATE SET stock = EXCLUDED.stock;`,
-  },
-  {
-    id: 'tecnologia',
-    name: 'Tecnología & Redes IT',
-    icon: Cpu,
-    desc: 'Switches capa 3, servidores rack, transceptores de fibra y routers.',
-    getSql: (companyId: string) => `-- ==============================================================
--- CATÁLOGO REAL: INFRAESTRUCTURA IT Y TELECOMUNICACIONES
--- ==============================================================
-INSERT INTO products (id, company_id, name, description, category, sku, min_stock, origin)
-VALUES
-  ('prod_tech_01', '${companyId}', 'Switch Enterprise 48 Puertos PoE+', 'Switch gestionable capa 3 con 4 uplinks SFP+ 10G', 'redes', 'SKU-TECH-SW48', 4, 'real'),
-  ('prod_tech_02', '${companyId}', 'Servidor Rack 1U Intel Xeon', 'Servidor de virtualización 64GB ECC 2TB NVMe', 'servidores', 'SKU-TECH-SRV1U', 2, 'real'),
-  ('prod_tech_03', '${companyId}', 'Transceptor Óptico SFP+ 10G', 'Módulo transceptor monomodo 1310nm LC 10km', 'conectividad', 'SKU-TECH-SFP10', 16, 'real'),
-  ('prod_tech_04', '${companyId}', 'Router Gateway SD-WAN Seguro', 'Firewall de alta disponibilidad balanceo multi-WAN', 'seguridad', 'SKU-TECH-RTR01', 5, 'real'),
-  ('prod_tech_05', '${companyId}', 'Sistema UPS Rack 3kVA Online', 'Batería de respaldo ininterrumpido onda senoidal', 'energia', 'SKU-TECH-UPS3K', 3, 'real')
-ON CONFLICT (id) DO UPDATE SET origin = 'real', min_stock = EXCLUDED.min_stock;
-
-INSERT INTO inventory (id, company_id, product_id, warehouse_id, stock)
-VALUES
-  ('inv_tech_01', '${companyId}', 'prod_tech_01', 'alm_central', 8),
-  ('inv_tech_02', '${companyId}', 'prod_tech_02', 'alm_central', 1), -- ¡Bajo stock crítico!
-  ('inv_tech_03', '${companyId}', 'prod_tech_03', 'alm_central', 45),
-  ('inv_tech_04', '${companyId}', 'prod_tech_04', 'alm_central', 11),
-  ('inv_tech_05', '${companyId}', 'prod_tech_05', 'alm_central', 4)
-ON CONFLICT (id) DO UPDATE SET stock = EXCLUDED.stock;`,
-  },
-  {
-    id: 'salud',
-    name: 'Salud & Insumos Médicos',
-    icon: Stethoscope,
-    desc: 'Monitores hospitalarios, bombas de infusión, instrumental y descartables.',
-    getSql: (companyId: string) => `-- ==============================================================
--- CATÁLOGO REAL: SALUD Y EQUIPAMIENTO CLÍNICO
--- ==============================================================
-INSERT INTO products (id, company_id, name, description, category, sku, min_stock, origin)
-VALUES
-  ('prod_med_01', '${companyId}', 'Monitor Signos Vitales Multi-Par', 'Monitor ECG, SpO2, PNI y temperatura clínica 12 pulg', 'equipamiento', 'SKU-MED-MON01', 3, 'real'),
-  ('prod_med_02', '${companyId}', 'Caja Guantes Nitrilo Estéril x100', 'Guantes libres de polvo grado hospitalario caja 100u', 'descartables', 'SKU-MED-GNT01', 35, 'real'),
-  ('prod_med_03', '${companyId}', 'Bomba de Infusión Continua', 'Bomba peristáltica digital con batería de respaldo', 'equipamiento', 'SKU-MED-BMB01', 4, 'real'),
-  ('prod_med_04', '${companyId}', 'Oxímetro de Pulso Digital OLED', 'Sensor de saturación y frecuencia cardíaca pediátrico', 'diagnostico', 'SKU-MED-OXI01', 12, 'real'),
-  ('prod_med_05', '${companyId}', 'Equipo Desfibrilador DEA Portátil', 'Desfibrilador externo automatizado con autodiagnóstico', 'emergencias', 'SKU-MED-DEA01', 2, 'real')
-ON CONFLICT (id) DO UPDATE SET origin = 'real', min_stock = EXCLUDED.min_stock;
-
-INSERT INTO inventory (id, company_id, product_id, warehouse_id, stock)
-VALUES
-  ('inv_med_01', '${companyId}', 'prod_med_01', 'alm_central', 6),
-  ('inv_med_02', '${companyId}', 'prod_med_02', 'alm_central', 8), -- ¡Bajo stock crítico!
-  ('inv_med_03', '${companyId}', 'prod_med_03', 'alm_central', 5),
-  ('inv_med_04', '${companyId}', 'prod_med_04', 'alm_central', 22),
-  ('inv_med_05', '${companyId}', 'prod_med_05', 'alm_central', 1) -- ¡Bajo stock crítico!
-ON CONFLICT (id) DO UPDATE SET stock = EXCLUDED.stock;`,
-  },
-];
+// Plantillas por industria para carga en 1-clic (reemplazables en cualquier momento)
+const INDUSTRY_TEMPLATES = ECOSYSTEM_TEMPLATES.map((t) => ({
+  ...t,
+  icon: t.id === 'manufactura' ? Factory : t.id === 'tecnologia' ? Cpu : t.id === 'salud' ? Stethoscope : Truck,
+}));
 
 // Directivas sugeridas para inserción en 1-clic (sin emojis)
 const DIRECTIVE_SUGGESTIONS = [
@@ -267,7 +194,7 @@ export const SetupWizard = ({ user, onComplete }: SetupWizardProps) => {
 
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/setup/upload-sql', {
+      const res = await fetch('/api/setup/upload-sql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -306,7 +233,7 @@ export const SetupWizard = ({ user, onComplete }: SetupWizardProps) => {
 
     setLoading(true);
     try {
-      await fetch('http://localhost:3001/api/setup/config', {
+      await fetch('/api/setup/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -692,10 +619,10 @@ export const SetupWizard = ({ user, onComplete }: SetupWizardProps) => {
               >
                 <div>
                   <h3 className="text-base font-semibold text-[#E8FBEA] flex items-center gap-2 font-headline">
-                    <Database className="w-4 h-4 text-[#34D353]" /> Subir Catálogo e Inventario Real (SQL)
+                    <Database className="w-4 h-4 text-[#34D353]" /> Base de Datos del Ecosistema de la Empresa
                   </h3>
                   <p className="text-xs text-[#8EB795] mt-0.5">
-                    Mint operará con tu inventario real (<span className="text-[#B8F5A0] font-mono">origin = 'real'</span>). Tus datos están aislados por empresa.
+                    Para evaluar y resolver requerimientos con autonomía, Mint necesita acceso a tu inventario real. Puedes cargar la base de datos de tu ecosistema o iniciar con una plantilla preconfigurada que podrás <strong className="text-[#B8F5A0] font-medium">reemplazar en cualquier momento</strong> desde Gobernanza &amp; DB.
                   </p>
                 </div>
 
@@ -703,13 +630,16 @@ export const SetupWizard = ({ user, onComplete }: SetupWizardProps) => {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-medium text-[#8EB795]">
-                      1. Elige una plantilla de industria o usa tu propio archivo SQL
+                      1. Elige una plantilla de tu ecosistema o sube tu propia base de datos (.sql)
+                    </span>
+                    <span className="text-[10px] text-[#527558] font-mono">
+                      Reemplazable en cualquier momento
                     </span>
                   </div>
 
                   {!fileName ? (
                     <div className="space-y-2">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                         {INDUSTRY_TEMPLATES.map((ind) => {
                           const Icon = ind.icon;
                           const isSel = selectedIndustry === ind.id;
@@ -727,7 +657,7 @@ export const SetupWizard = ({ user, onComplete }: SetupWizardProps) => {
                               <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${isSel ? 'text-[#34D353]' : 'text-[#527558]'}`} />
                               <div className="overflow-hidden">
                                 <span className="block text-xs font-semibold truncate text-[#E8FBEA]">{ind.name}</span>
-                                <span className="block text-[10px] text-[#527558] line-clamp-1 mt-0.5">{ind.desc}</span>
+                                <span className="block text-[10px] text-[#527558] line-clamp-2 mt-0.5">{ind.desc}</span>
                               </div>
                             </button>
                           );
@@ -748,14 +678,14 @@ export const SetupWizard = ({ user, onComplete }: SetupWizardProps) => {
                             : 'border-[#162D1D] bg-[#050D07] text-[#8EB795]'
                         }`}
                       >
-                        <span>{isDragging ? 'Suelta tu archivo .sql aquí' : '¿Prefieres usar tu propio esquema de base de datos?'}</span>
+                        <span>{isDragging ? 'Suelta tu archivo .sql aquí' : '¿Prefieres cargar la base de datos de tu ecosistema (.sql o .txt)?'}</span>
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
                           className="text-xs font-medium text-[#B8F5A0] hover:text-white flex items-center gap-1.5 cursor-pointer transition-colors"
                         >
                           <Upload className="w-3.5 h-3.5 text-[#34D353]" />
-                          <span>Subir archivo .sql</span>
+                          <span>Subir esquema propio</span>
                         </button>
                       </div>
                     </div>

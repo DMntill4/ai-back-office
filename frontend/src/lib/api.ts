@@ -52,6 +52,10 @@ export const api = {
           url: string | null;
           hasServiceKey: boolean;
           hasAnonKey: boolean;
+          fullUrl?: string | null;
+          restUrl?: string | null;
+          projectRef?: string | null;
+          hasClient?: boolean;
         };
         error?: string;
       };
@@ -92,6 +96,18 @@ export const api = {
   runDbSeed: () =>
     request<{ success: boolean; message: string }>('/api/db/seed', {
       method: 'POST',
+    }),
+
+  uploadSql: (companyId: string, sqlContent: string, userId?: string) =>
+    request<{
+      success: boolean;
+      message: string;
+      realProductsInserted?: number;
+      realProductsCount?: number;
+      error?: string;
+    }>('/api/setup/upload-sql', {
+      method: 'POST',
+      body: JSON.stringify({ companyId, sqlContent, userId }),
     }),
 
   // Inventario y Catálogo de Productos (Drizzle)
@@ -232,4 +248,34 @@ export const api = {
     }>('/api/v1/alerts/trigger-audit', {
       method: 'POST',
     }),
+
+  // Usuarios Reales en PostgreSQL
+  getUsers: (companyId?: string) =>
+    request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        companyId: string;
+        companyName: string;
+        setupCompleted: boolean;
+        createdAt: string;
+      }>;
+    }>(`/api/users${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ''}`),
+
+  // Línea de Auditoría Inmutable Real
+  getAuditEvents: (companyId = 'comp_default') =>
+    request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        time: string;
+        category: 'agent' | 'order' | 'db' | 'security';
+        title: string;
+        detail: string;
+        createdAt: string;
+      }>;
+    }>(`/api/audit?companyId=${encodeURIComponent(companyId)}`),
 };

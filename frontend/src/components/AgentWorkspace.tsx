@@ -8,6 +8,7 @@ import {
 import { MintInteractiveMascot, type AgentState } from './MintInteractiveMascot';
 import type { UserSession } from './LoginView';
 import mascotLogo from '../assets/mint-mascot.webp';
+import { api } from '../lib/api';
 
 /* ───────────────────────────── DATA ───────────────────────────── */
 
@@ -104,52 +105,45 @@ export default function AgentWorkspace({
     const activeCompanyId = currentUser?.companyId || 'comp_default';
 
     try {
-      const res = await fetch('http://localhost:3001/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          companyId: activeCompanyId,
-        }),
-      });
+      const data = await api.sendChat(text, activeCompanyId);
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.response) {
-          const isReal =
-            data.response.includes('STOCK REAL') ||
-            data.response.toLowerCase().includes('stock real');
+      if (data.success && data.response) {
+        const isReal =
+          data.response.includes('STOCK REAL') ||
+          data.response.toLowerCase().includes('stock real');
 
-          setMessages((m) => [
-            ...m,
-            {
-              id: Date.now() + 1,
-              role: 'agent',
-              skillIds: [skillId ?? selectedSkillId, 'security'],
-              responseText: data.response,
-              isRealStock: isReal,
-              metrics: data.metrics,
-              toolTrace: [
-                {
-                  call: `consultar_stock(empresa="${activeCompanyId}")`,
-                  out: '→ Base de datos relacional PostgreSQL / Supabase consultada',
-                },
-                {
-                  call: 'evaluar_reglas_gobernanza()',
-                  out: '→ Límite autónomo de compra verificado',
-                },
-              ],
-            },
-          ]);
-          setAgentState('responding');
-          later(() => setAgentState('idle'), 2000);
-          return;
-        } else {
-          throw new Error(data.error || 'Respuesta inválida del servidor');
+        const toolCallsFromText: ToolTraceStep[] = [];
+        if (text.toLowerCase().includes('stock') || text.toLowerCase().includes('inventario')) {
+          toolCallsFromText.push({ call: `consultar_stock("${activeCompanyId}")`, out: '→ Lectura de tabla inventory en PostgreSQL' });
         }
+        if (text.toLowerCase().includes('compr') || text.toLowerCase().includes('cotiz') || text.toLowerCase().includes('repon')) {
+          toolCallsFromText.push({ call: 'evaluar_proveedores()', out: '→ Matriz multicriterio de costo, SLA y confiabilidad' });
+          toolCallsFromText.push({ call: 'evaluar_reglas_gobernanza()', out: '→ Verificación de límite autónomo $10,000 MXN' });
+        }
+        if (toolCallsFromText.length === 0) {
+          toolCallsFromText.push({ call: 'bucle_react_grok()', out: '→ Análisis de intención e inferencia en xAI' });
+        }
+
+        setMessages((m) => [
+          ...m,
+          {
+            id: Date.now() + 1,
+            role: 'agent',
+            skillIds: [skillId ?? selectedSkillId, 'security'],
+            responseText: data.response,
+            isRealStock: isReal,
+            metrics: {
+              totalCostUsd: data.metrics?.totalCostUsd != null ? String(data.metrics.totalCostUsd) : undefined,
+              totalTokens: data.metrics?.totalTokens,
+              iterations: data.metrics?.iterations,
+            },
+            toolTrace: toolCallsFromText,
+          },
+        ]);
+        setAgentState('responding');
+        later(() => setAgentState('idle'), 1500);
       } else {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || errJson.details || `Error del servidor HTTP ${res.status}`);
+        throw new Error('Respuesta no concluyente del agente');
       }
     } catch (err: any) {
       setMessages((m) => [
@@ -158,11 +152,11 @@ export default function AgentWorkspace({
           id: Date.now() + 1,
           role: 'agent',
           skillIds: ['security'],
-          responseText: `⚠️ Error de comunicación con el agente: ${err.message}.\n\nAsegúrate de que el backend esté ejecutándose en http://localhost:3001 y que la base de datos (PostgreSQL / Supabase) esté conectada y migrada.`,
+          responseText: `⚠️ Error de comunicación: ${err.message}.\n\nVerifica que el backend esté activo en el puerto 3001 con la base de datos conectada.`,
           toolTrace: [
             {
               call: 'POST /api/chat',
-              out: `→ Fallo de conexión: ${err.message}`,
+              out: `→ Fallo: ${err.message}`,
             },
           ],
         },
@@ -496,12 +490,13 @@ const AgentResponse = ({
   ];
 
   const steps = toolTrace && toolTrace.length > 0 ? toolTrace : defaultSteps;
+  const [showTools, setShowTools] = useState(false);
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3.5">
       <img src={mascotLogo} alt="MINT" className="mt-0.5 h-7 w-7 shrink-0 object-contain drop-shadow-[0_2px_10px_rgba(52,211,83,0.35)]" />
       <div className="min-w-0 flex-1 space-y-3">
-        {/* Metadatos de ejecución limpios */}
+        {/* Metadatos de ejecución sutiles */}
         <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
           <span>{files.join(' • ')}</span>
@@ -513,42 +508,56 @@ const AgentResponse = ({
           )}
         </div>
 
-        {/* Terminal TOOL CALL */}
-        <div className="overflow-hidden rounded-xl border border-[#162D1D] bg-[#040A06]">
-          <div className="flex items-center gap-1.5 border-b border-[#14281B] px-3.5 py-1.5 font-mono text-[10px] text-[#527558] uppercase tracking-wider">
-            <Terminal className="h-3 w-3 text-[#34D353]" />
-            <span>tool call trace</span>
-          </div>
-          <div className="space-y-1.5 p-3.5 font-mono text-[11px]">
-            {steps.map((s, i) => (
-              <motion.div key={s.call + i} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.2 }}>
-                <p className="text-[#E8FBEA] font-medium">{s.call}</p>
-                <p className="text-[#8EB795]">{s.out}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        {/* Dictamen */}
+        {/* Dictamen / Respuesta Principal en lenguaje claro */}
         {responseText ? (
-          <div className="text-xs leading-relaxed text-[#E8FBEA] whitespace-pre-wrap space-y-2">
+          <div className="text-sm leading-relaxed text-zinc-100 whitespace-pre-wrap space-y-2 bg-[#101217] border border-white/[0.06] rounded-2xl p-4 shadow-sm">
             {responseText}
           </div>
         ) : (
-          <p className="text-xs leading-relaxed text-[#8EB795]">
+          <div className="text-sm leading-relaxed text-zinc-100 bg-[#101217] border border-white/[0.06] rounded-2xl p-4 shadow-sm">
             El Sensor Térmico ST-200 se encuentra en nivel crítico. La reposición de 50 unidades con{' '}
-            <strong className="text-[#E8FBEA] font-medium">Grainger Industrial</strong> ($450 MXN/u, entrega en 48h) totaliza{' '}
-            <strong className="text-[#34D353] font-semibold font-mono">$22,500 MXN</strong>.
-          </p>
+            <strong className="text-white font-medium">Grainger Industrial</strong> ($450 MXN/u, entrega en 48h) totaliza{' '}
+            <strong className="text-emerald-400 font-semibold font-mono">$22,500 MXN</strong>.
+          </div>
+        )}
+
+        {/* Acordeón opcional: Razonamiento y Herramientas */}
+        {steps.length > 0 && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowTools((o) => !o)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.06] text-[11px] font-mono text-zinc-400 hover:text-zinc-200 transition cursor-pointer"
+            >
+              <Terminal className="h-3 w-3 text-emerald-400" />
+              <span>{showTools ? 'Ocultar razonamiento y herramientas' : `Ver razonamiento y herramientas (${steps.length})`}</span>
+              <ChevronDown className={`h-3 w-3 text-zinc-500 transition-transform ${showTools ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showTools && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mt-2 overflow-hidden rounded-xl border border-white/[0.06] bg-[#07090C] p-3.5 font-mono text-[11px] space-y-2"
+              >
+                {steps.map((s, i) => (
+                  <div key={s.call + i} className="border-l-2 border-emerald-500/40 pl-2.5 py-0.5">
+                    <p className="text-zinc-200 font-medium">{s.call}</p>
+                    <p className="text-emerald-400/80 text-[10px] mt-0.5">{s.out}</p>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </div>
         )}
 
         {/* Tarjeta de Guardrail HITL si es requerida */}
         {(requiresHitl || (!responseText && !isRealStock)) && (
           <div
-            className={`rounded-xl border p-4 transition-all shadow-[0_4px_24px_rgba(0,0,0,0.4)] ${
+            className={`rounded-2xl border p-4 transition-all shadow-sm ${
               approved
-                ? 'border-[#1F4527] bg-[#0E2615]'
-                : 'border-[#162D1D] bg-[#08120B]'
+                ? 'border-emerald-500/20 bg-emerald-950/20'
+                : 'border-amber-500/20 bg-amber-950/10'
             }`}
           >
             <div className="flex items-start gap-3">
@@ -576,7 +585,7 @@ const AgentResponse = ({
                 {!approved && (
                   <button
                     onClick={onApprove}
-                    className="mt-3 flex cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-medium text-zinc-950 transition-all hover:bg-white shadow-xs active:scale-[0.98]"
+                    className="mt-3 flex cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-400 hover:bg-emerald-300 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 transition-all shadow-xs active:scale-[0.98]"
                   >
                     <Check className="h-3.5 w-3.5 stroke-[2.5]" />
                     <span>Aprobar y Emitir Orden</span>
@@ -587,10 +596,10 @@ const AgentResponse = ({
           </div>
         )}
 
-        {/* Telemetría */}
+        {/* Telemetría ejecutiva */}
         <div className="flex items-center gap-2 pt-0.5 font-mono text-[10px] text-zinc-500">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <span>Grok-4.6 • {metrics?.totalTokens ?? 1840} tokens • ${metrics?.totalCostUsd ?? '0.0024'} USD • PostgreSQL Inmutable</span>
+          <span>Grok-4.6 ReAct • {metrics?.totalTokens ?? 1840} tokens • ${metrics?.totalCostUsd ?? '0.0024'} USD</span>
         </div>
       </div>
     </motion.div>

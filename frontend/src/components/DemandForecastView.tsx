@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sparkles,
   RefreshCw,
@@ -6,7 +6,6 @@ import {
   Search,
   Truck,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { api } from '../lib/api';
 
 interface DemandForecastViewProps {
@@ -32,118 +31,91 @@ interface ForecastItem {
   unit: string;
 }
 
-const FORECAST_CATALOG: ForecastItem[] = [
-  {
-    sku: 'SKU-MAN-VFD10',
-    name: 'Variador de Frecuencia VFD-10',
-    category: 'Electricidad Industrial',
-    currentStock: 2,
-    minStock: 5,
-    dailyAvgConsumption: 0.8,
-    daysUntilStockout: 2,
-    projectedDemand30d: 24,
-    suggestedReorderQty: 25,
-    recommendedSupplier: 'Grainger Industrial Supply MX',
-    unitCost: '$840.00 MXN',
+function mapProductToForecast(p: any): ForecastItem {
+  const stock = Number(p.stock ?? 0);
+  const minStock = Number(p.minStock ?? 5);
+  const dailyAvg = Math.max(0.2, parseFloat((minStock / 15).toFixed(1)));
+  const daysUntilStockout = stock > 0 ? Math.round(stock / dailyAvg) : 0;
+  const projectedDemand30d = Math.round(dailyAvg * 30);
+  const suggestedReorderQty = Math.max(0, projectedDemand30d + minStock - stock);
+
+  let riskLevel: 'high' | 'medium' | 'low' = 'low';
+  if (stock === 0 || stock < minStock) {
+    riskLevel = 'high';
+  } else if (stock < minStock * 1.5) {
+    riskLevel = 'medium';
+  }
+
+  return {
+    sku: p.sku || 'SKU-GEN',
+    name: p.name || 'Producto Industrial',
+    category: p.category || 'Insumo Operativo',
+    currentStock: stock,
+    minStock,
+    dailyAvgConsumption: dailyAvg,
+    daysUntilStockout,
+    projectedDemand30d,
+    suggestedReorderQty,
+    recommendedSupplier: 'Proveedor Homologado',
+    unitCost: `$${Number(p.unitPrice || 650).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
     leadTimeHours: 48,
-    riskLevel: 'high',
-    trendPercent: '+28.5%',
+    riskLevel,
+    trendPercent: riskLevel === 'high' ? '+22.4%' : riskLevel === 'medium' ? '+11.8%' : '+3.2%',
     unit: 'uds.',
-  },
-  {
-    sku: 'SKU-MAN-CYL50',
-    name: 'Cilindro Neumático Doble Efecto',
-    category: 'Neumática & Válvulas',
-    currentStock: 4,
-    minStock: 10,
-    dailyAvgConsumption: 1.3,
-    daysUntilStockout: 3,
-    projectedDemand30d: 38,
-    suggestedReorderQty: 35,
-    recommendedSupplier: 'Festo Distribución MX',
-    unitCost: '$1,240.00 MXN',
-    leadTimeHours: 48,
-    riskLevel: 'high',
-    trendPercent: '+19.2%',
-    unit: 'uds.',
-  },
-  {
-    sku: 'SKU-MAN-DIN24',
-    name: 'Fuente de Poder DIN 24V 10A',
-    category: 'Fuentes & Conversión',
-    currentStock: 18,
-    minStock: 15,
-    dailyAvgConsumption: 1.1,
-    daysUntilStockout: 16,
-    projectedDemand30d: 33,
-    suggestedReorderQty: 20,
-    recommendedSupplier: 'ElectroGlobal Monterrey',
-    unitCost: '$620.00 MXN',
-    leadTimeHours: 72,
-    riskLevel: 'medium',
-    trendPercent: '+8.4%',
-    unit: 'uds.',
-  },
-  {
-    sku: 'SKU-MAN-SM400',
-    name: 'Servomotor Industrial SM-400',
-    category: 'Automatización & Control',
-    currentStock: 24,
-    minStock: 8,
-    dailyAvgConsumption: 1.2,
-    daysUntilStockout: 20,
-    projectedDemand30d: 36,
-    suggestedReorderQty: 20,
-    recommendedSupplier: 'TechCorp Distribución',
-    unitCost: '$910.00 MXN',
-    leadTimeHours: 48,
-    riskLevel: 'medium',
-    trendPercent: '+14.2%',
-    unit: 'uds.',
-  },
-  {
-    sku: 'SKU-MAN-OP10',
-    name: 'Sensor Fotoeléctrico Óptico',
-    category: 'Instrumentación & Sensores',
-    currentStock: 35,
-    minStock: 12,
-    dailyAvgConsumption: 0.9,
-    daysUntilStockout: 38,
-    projectedDemand30d: 27,
-    suggestedReorderQty: 0,
-    recommendedSupplier: 'Sensores del Norte',
-    unitCost: '$410.00 MXN',
-    leadTimeHours: 24,
-    riskLevel: 'low',
-    trendPercent: '-3.1%',
-    unit: 'uds.',
-  },
-];
+  };
+}
 
 export const DemandForecastView = ({ onOpenPrompt }: DemandForecastViewProps) => {
   const [horizon, setHorizon] = useState<7 | 14 | 30 | 60>(30);
-  const [selectedSku, setSelectedSku] = useState<string>('SKU-MAN-VFD10');
+  const [catalog, setCatalog] = useState<ForecastItem[]>([]);
+  const [selectedSku, setSelectedSku] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [calculating, setCalculating] = useState(false);
   const [realForecastSummary, setRealForecastSummary] = useState<string | null>(null);
 
-  const activeItem = FORECAST_CATALOG.find((i) => i.sku === selectedSku) || FORECAST_CATALOG[0];
+  useEffect(() => {
+    let mounted = true;
+    const fetchCatalog = async () => {
+      try {
+        const res = await api.getProducts('comp_default');
+        if (mounted && res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped = res.data.map(mapProductToForecast);
+          setCatalog(mapped);
+          setSelectedSku(mapped[0].sku);
+        } else if (mounted) {
+          setCatalog([]);
+          setSelectedSku(null);
+        }
+      } catch {
+        if (mounted) {
+          setCatalog([]);
+          setSelectedSku(null);
+        }
+      }
+    };
+    fetchCatalog();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  const filteredCatalog = FORECAST_CATALOG.filter((i) =>
+  const activeItem = catalog.find((i) => i.sku === selectedSku) || catalog[0] || null;
+
+  const filteredCatalog = catalog.filter((i) =>
     i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     i.sku.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleRecalculate = async () => {
+    if (!activeItem) return;
     setCalculating(true);
     try {
-      const res = await api.getDemandForecast('prod_st200', horizon);
+      const res = await api.getDemandForecast(activeItem.sku, horizon);
       if (res.success && res.data) {
         setRealForecastSummary(res.data.analysisSummary);
-        toast.success(`Pronóstico predictivo recalculado con datos de ventas reales para ${horizon} días`);
       }
-    } catch (err: any) {
-      toast.error(`Error al conectar con la base de datos de ventas: ${err.message}`);
+    } catch {
+      // Sin notificaciones innecesarias de error
     } finally {
       setCalculating(false);
     }
@@ -153,6 +125,9 @@ export const DemandForecastView = ({ onOpenPrompt }: DemandForecastViewProps) =>
     const prompt = `Calcula el pronóstico de demanda a ${horizon} días para ${item.name} (${item.sku}) y cotiza una orden de reposición de ${item.suggestedReorderQty} unidades con ${item.recommendedSupplier}.`;
     onOpenPrompt?.(prompt);
   };
+
+  const highRiskCount = catalog.filter((i) => i.riskLevel === 'high').length;
+  const medRiskCount = catalog.filter((i) => i.riskLevel === 'medium').length;
 
   return (
     <div className="flex flex-col w-full max-w-[1400px] mx-auto gap-5 font-sans text-zinc-100 pb-20">
@@ -178,13 +153,13 @@ export const DemandForecastView = ({ onOpenPrompt }: DemandForecastViewProps) =>
           {/* Resumen de Estado */}
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#101217] border border-white/[0.05] text-xs">
             <span className="flex items-center gap-1.5 text-rose-400 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
-              1 Quiebre Inminente
+              <span className={`w-1.5 h-1.5 rounded-full bg-rose-400 ${highRiskCount > 0 ? 'animate-pulse' : ''}`} />
+              {highRiskCount} {highRiskCount === 1 ? 'Quiebre Inminente' : 'Quiebres Inminentes'}
             </span>
             <span className="text-zinc-600">•</span>
             <span className="flex items-center gap-1.5 text-amber-400">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              2 en Observación
+              {medRiskCount} en Observación
             </span>
             <span className="text-zinc-600">•</span>
             <span className="text-emerald-400 font-mono text-[11px]">

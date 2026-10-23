@@ -1,23 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Database,
   Server,
   Cloud,
-  CheckCircle2,
-  XCircle,
   RefreshCw,
   Zap,
-  Play,
   Table as TableIcon,
   HardDrive,
   Activity,
   Layers,
-  Copy,
+  Building2,
+  Factory,
+  Cpu,
+  Stethoscope,
+  Truck,
+  Upload,
+  Sparkles,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+import { ECOSYSTEM_TEMPLATES, type EcosystemTemplate } from '../lib/ecosystemTemplates';
 
 interface DbStatusData {
   connected: boolean;
@@ -36,6 +41,10 @@ interface DbStatusData {
     url: string | null;
     hasServiceKey: boolean;
     hasAnonKey: boolean;
+    fullUrl?: string | null;
+    restUrl?: string | null;
+    projectRef?: string | null;
+    hasClient?: boolean;
   };
   error?: string;
 }
@@ -53,12 +62,63 @@ export function DatabaseManagerView() {
   const [selectedTable, setSelectedTable] = useState<string>('products');
   const [tableRows, setTableRows] = useState<any[]>([]);
   const [loadingRows, setLoadingRows] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [rowsPage, setRowsPage] = useState(1);
 
-  // Formulario de prueba de conexión
-  const [customConn, setCustomConn] = useState('');
-  const [testingConn, setTestingConn] = useState(false);
-  const [connTestResult, setConnTestResult] = useState<any>(null);
+
+  // Gestión de Plantillas de Ecosistema y Carga de Base de Datos para Rol Empresa
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('manufactura');
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const customFileInputRef = useRef<HTMLInputElement>(null);
+
+  const activeTemplate = ECOSYSTEM_TEMPLATES.find((t) => t.id === selectedTemplateId) || ECOSYSTEM_TEMPLATES[0];
+
+  const handleApplyTemplate = async (tmpl: EcosystemTemplate) => {
+    setApplyingTemplate(true);
+    try {
+      const sql = tmpl.getSql('comp_default');
+      const res = await api.uploadSql('comp_default', sql);
+      if (res.success) {
+        toast.success(`Plantilla '${tmpl.name}' aplicada con éxito. ${res.realProductsCount || 5} productos sincronizados en PostgreSQL.`);
+        await fetchDbState();
+        if (selectedTable) {
+          await loadTableRows(selectedTable);
+        }
+      } else {
+        toast.error(`Error al aplicar plantilla: ${res.error}`);
+      }
+    } catch (err: any) {
+      toast.error(`Error: ${err.message}`);
+    } finally {
+      setApplyingTemplate(false);
+    }
+  };
+
+  const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      if (!content) return;
+      setApplyingTemplate(true);
+      try {
+        const res = await api.uploadSql('comp_default', content);
+        if (res.success) {
+          toast.success(`Base de datos '${file.name}' cargada exitosamente.`);
+          await fetchDbState();
+          if (selectedTable) await loadTableRows(selectedTable);
+        } else {
+          toast.error(`Error al cargar archivo SQL: ${res.error}`);
+        }
+      } catch (err: any) {
+        toast.error(`Fallo de importación: ${err.message}`);
+      } finally {
+        setApplyingTemplate(false);
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const fetchDbState = async () => {
     try {
@@ -74,7 +134,7 @@ export function DatabaseManagerView() {
         setTables(tablesRes.tables);
       }
     } catch (err: any) {
-      toast.error(`Error al conectar con la base de datos: ${err.message}`);
+      setStatus(null);
     } finally {
       setRefreshing(false);
     }
@@ -86,6 +146,7 @@ export function DatabaseManagerView() {
 
   const loadTableRows = async (tableName: string) => {
     setSelectedTable(tableName);
+    setRowsPage(1);
     setLoadingRows(true);
     try {
       const res = await api.getDbTableRows(tableName);
@@ -93,7 +154,7 @@ export function DatabaseManagerView() {
         setTableRows(res.data);
       }
     } catch (err: any) {
-      toast.error(`Error al consultar tabla ${tableName}: ${err.message}`);
+      setTableRows([]);
     } finally {
       setLoadingRows(false);
     }
@@ -111,69 +172,8 @@ export function DatabaseManagerView() {
     if (selectedTable) {
       await loadTableRows(selectedTable);
     }
-    toast.success('Estado de Drizzle y Supabase actualizado');
   };
 
-  const handleTestConnection = async () => {
-    if (!customConn.trim()) {
-      toast.error('Ingresa una cadena de conexión válida de Supabase o PostgreSQL');
-      return;
-    }
-    setTestingConn(true);
-    setConnTestResult(null);
-    try {
-      const res = await api.testDbConnection(customConn.trim());
-      setConnTestResult(res);
-      if (res.success) {
-        toast.success(`¡Conexión exitosa a ${res.database} (${res.latencyMs}ms)!`);
-      } else {
-        toast.error(`Fallo de conexión: ${res.error}`);
-      }
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setTestingConn(false);
-    }
-  };
-
-  const handleRunMigrate = async () => {
-    try {
-      const res = await api.runDbMigrate();
-      if (res.success) {
-        toast.success(res.message);
-        fetchDbState();
-      }
-    } catch (err: any) {
-      toast.error(`Error de migración: ${err.message}`);
-    }
-  };
-
-  const handleRunSeed = async () => {
-    try {
-      const res = await api.runDbSeed();
-      if (res.success) {
-        toast.success(res.message);
-        fetchDbState();
-        if (selectedTable) loadTableRows(selectedTable);
-      }
-    } catch (err: any) {
-      toast.error(`Error de siembra: ${err.message}`);
-    }
-  };
-
-  const copyEnvSnippet = () => {
-    const snippet = `# Supabase PostgreSQL Connection String
-DATABASE_URL=postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
-
-# Supabase API Keys (Opcional)
-SUPABASE_URL=https://[PROJECT_REF].supabase.co
-SUPABASE_ANON_KEY=ey...
-SUPABASE_SERVICE_ROLE_KEY=ey...`;
-    navigator.clipboard.writeText(snippet);
-    setCopied(true);
-    toast.success('Plantilla de configuración de Supabase copiada');
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -207,21 +207,124 @@ SUPABASE_SERVICE_ROLE_KEY=ey...`;
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             <span>Refrescar</span>
           </button>
-          <button
-            onClick={handleRunMigrate}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs transition cursor-pointer active:scale-[0.98]"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>db:migrate</span>
-          </button>
-          <button
-            onClick={handleRunSeed}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs transition cursor-pointer active:scale-[0.98]"
-          >
-            <Play className="w-3.5 h-3.5" />
-            <span>db:seed</span>
-          </button>
         </div>
+      </div>
+
+      {/* ─── ECOSISTEMA DE BASE DE DATOS DE LA EMPRESA (CARGA O PLANTILLAS REEMPLAZABLES) ─── */}
+      <div className="p-5 sm:p-6 rounded-2xl bg-[#0D0F14] border border-white/10 shadow-lg relative overflow-hidden">
+        {/* Glow de fondo tenue */}
+        <div className="absolute top-0 right-0 w-96 h-40 bg-emerald-500/5 blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4 pb-4 border-b border-white/[0.08]">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <Building2 className="w-4 h-4" />
+              </span>
+              <h2 className="text-sm font-semibold text-white tracking-tight font-headline">
+                Ecosistema de Base de Datos de la Empresa
+              </h2>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                Rol: Empresa
+              </span>
+            </div>
+            <p className="text-xs text-white/60 leading-relaxed max-w-2xl">
+              Toda cuenta de Empresa debe contar con el catálogo e inventario de su ecosistema para permitir que Mint evalúe stock y automatice compras. Puedes cargar tu base de datos propia (<span className="text-emerald-400 font-mono">.sql / conexión</span>) o utilizar cualquiera de las siguientes <strong className="text-emerald-300 font-medium">plantillas reemplazables</strong> para operar de inmediato.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => customFileInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs transition cursor-pointer font-medium active:scale-[0.98]"
+            >
+              <Upload className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Cargar SQL Propio</span>
+            </button>
+            <input
+              type="file"
+              ref={customFileInputRef}
+              accept=".sql,.txt"
+              onChange={handleCustomFileUpload}
+              className="hidden"
+            />
+          </div>
+        </div>
+
+        {/* Selector de 4 Plantillas Reemplazables */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          {ECOSYSTEM_TEMPLATES.map((tmpl) => {
+            const isSelected = selectedTemplateId === tmpl.id;
+            const IconComponent =
+              tmpl.id === 'manufactura' ? Factory :
+              tmpl.id === 'tecnologia' ? Cpu :
+              tmpl.id === 'salud' ? Stethoscope : Truck;
+
+            return (
+              <div
+                key={tmpl.id}
+                onClick={() => setSelectedTemplateId(tmpl.id)}
+                className={`p-3.5 rounded-xl border transition cursor-pointer flex flex-col justify-between text-left relative ${
+                  isSelected
+                    ? 'bg-emerald-500/[0.08] border-emerald-500/40 text-white shadow-[0_0_20px_rgba(16,185,129,0.08)]'
+                    : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] text-white/70'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/5 text-white/50'}`}>
+                      <IconComponent className="w-4 h-4" />
+                    </div>
+                    {isSelected && (
+                      <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1 font-semibold">
+                        <Check className="w-3 h-3" /> Seleccionada
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xs font-semibold text-white truncate font-headline">{tmpl.name}</h3>
+                  <span className="text-[10px] font-mono text-emerald-400/80 block mt-0.5 truncate">{tmpl.sector}</span>
+                  <p className="text-[11px] text-white/50 mt-1.5 line-clamp-2 leading-relaxed">{tmpl.desc}</p>
+                </div>
+
+                <div className="mt-3 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-white/40 font-mono">
+                  <span>5 SKUs activos</span>
+                  <span className="text-emerald-400/70">Reemplazable</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Barra de Ejecución del Reemplazo */}
+        {activeTemplate && (
+          <div className="p-3.5 rounded-xl bg-black/40 border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="min-w-0">
+                <span className="text-xs font-medium text-white block truncate">
+                  Plantilla seleccionada: <span className="text-emerald-300 font-semibold">{activeTemplate.name}</span>
+                </span>
+                <span className="text-[11px] text-white/40 block truncate">
+                  Reemplazará el inventario actual con insumos de {activeTemplate.sector}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleApplyTemplate(activeTemplate)}
+              disabled={applyingTemplate}
+              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs transition flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-50 active:scale-[0.98]"
+            >
+              {applyingTemplate ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Zap className="w-3.5 h-3.5 fill-current" />
+              )}
+              <span>{applyingTemplate ? 'Aplicando...' : 'Reemplazar con esta Plantilla'}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Grid de Estado de Conexión */}
@@ -251,7 +354,7 @@ SUPABASE_SERVICE_ROLE_KEY=ey...`;
                 {status?.provider || 'Cargando...'}
               </p>
               <p className="text-xs text-white/50 font-mono">
-                BD: {status?.database || 'ai_back_office'} • Usuario: {status?.user || 'postgres'}
+                Servidor central gestionado por Mint
               </p>
             </div>
           </div>
@@ -269,8 +372,8 @@ SUPABASE_SERVICE_ROLE_KEY=ey...`;
             </span>
             <span className="text-xs text-emerald-400 font-mono">ms (Round-trip)</span>
           </div>
-          <p className="text-xs text-white/40 mt-2 truncate font-mono">
-            Host: {status?.host || 'localhost:5432'}
+          <p className="text-xs text-white/40 mt-2 truncate">
+            Tus datos se alojan de forma aislada por empresa.
           </p>
         </div>
 
@@ -292,79 +395,7 @@ SUPABASE_SERVICE_ROLE_KEY=ey...`;
         </div>
       </div>
 
-      {/* Panel de Conexión con Supabase */}
-      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/10 backdrop-blur-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Cloud className="w-4 h-4 text-emerald-400" />
-              Conectar Proyecto de Supabase
-            </h2>
-            <p className="text-xs text-white/50 mt-0.5">
-              Ingresa la cadena de conexión de tu proyecto de Supabase (modo Session Pooler 5432 o Transaction Pooler 6543) para verificarla en vivo.
-            </p>
-          </div>
-          <button
-            onClick={copyEnvSnippet}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 text-xs transition"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            Copiar .env plantilla
-          </button>
-        </div>
 
-        <div className="flex flex-col md:flex-row gap-3">
-          <input
-            type="text"
-            placeholder="postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres"
-            value={customConn}
-            onChange={(e) => setCustomConn(e.target.value)}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs font-mono placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50"
-          />
-          <button
-            onClick={handleTestConnection}
-            disabled={testingConn || !customConn.trim()}
-            className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-black font-semibold text-xs flex items-center justify-center gap-2 transition disabled:opacity-50"
-          >
-            {testingConn ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Zap className="w-3.5 h-3.5" />
-            )}
-            Probar Conexión
-          </button>
-        </div>
-
-        {connTestResult && (
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`mt-3 p-3 rounded-xl border text-xs flex items-center justify-between ${
-              connTestResult.success
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-red-500/10 border-red-500/30 text-red-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              {connTestResult.success ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              ) : (
-                <XCircle className="w-4 h-4 text-red-400 shrink-0" />
-              )}
-              <span>
-                {connTestResult.success
-                  ? `Conexión verificada: Base de datos '${connTestResult.database}' activa (Latencia: ${connTestResult.latencyMs}ms)`
-                  : `Error: ${connTestResult.error}`}
-              </span>
-            </div>
-            {connTestResult.success && (
-              <span className="text-[11px] font-mono opacity-70">
-                Pega esta URL en tu archivo .env en DATABASE_URL
-              </span>
-            )}
-          </motion.div>
-        )}
-      </div>
 
       {/* Catálogo de Tablas Drizzle e Inspector de Filas */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -430,13 +461,7 @@ SUPABASE_SERVICE_ROLE_KEY=ey...`;
             ) : tableRows.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center py-16 text-center text-white/40">
                 <HardDrive className="w-8 h-8 mb-2 opacity-30" />
-                <p className="text-xs">Esta tabla no tiene registros aún en la base de datos.</p>
-                <button
-                  onClick={handleRunSeed}
-                  className="mt-3 text-xs text-emerald-400 hover:underline cursor-pointer"
-                >
-                  Sembrar datos de ejemplo con db:seed
-                </button>
+                <p className="text-xs">Esta tabla no tiene registros aún. Carga tu SQL o una plantilla arriba.</p>
               </div>
             ) : (
               <div className="flex-1 overflow-x-auto max-h-[440px] overflow-y-auto custom-scrollbar rounded-xl border border-white/[0.04]">
@@ -451,7 +476,7 @@ SUPABASE_SERVICE_ROLE_KEY=ey...`;
                     </tr>
                   </thead>
                   <tbody>
-                    {tableRows.map((row, idx) => (
+                    {tableRows.slice((rowsPage - 1) * 10, rowsPage * 10).map((row, idx) => (
                       <tr
                         key={idx}
                         className="border-b border-white/5 hover:bg-white/[0.03] transition text-white/80"
@@ -482,55 +507,30 @@ SUPABASE_SERVICE_ROLE_KEY=ey...`;
                 </table>
               </div>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Comandos y Flujo de Trabajo con Drizzle CLI */}
-      <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-500/5 to-teal-500/5 border border-emerald-500/20 backdrop-blur-xl">
-        <h3 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
-          <TerminalIcon className="w-4 h-4 text-emerald-400" />
-          Comandos Drizzle para Administrar la Base de Datos
-        </h3>
-        <p className="text-xs text-white/60 mb-4">
-          Puedes ejecutar estos comandos directamente desde tu terminal para sincronizar o inspeccionar la base de datos en Supabase:
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono text-xs">
-          <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-            <span className="text-emerald-400 font-semibold">npm run db:push</span>
-            <p className="text-[11px] text-white/50 mt-1 font-sans">
-              Aplica cambios de esquemas de Drizzle directamente a Supabase sin archivos de migración manuales.
-            </p>
-          </div>
-          <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-            <span className="text-teal-400 font-semibold">npm run db:studio</span>
-            <p className="text-[11px] text-white/50 mt-1 font-sans">
-              Abre Drizzle Studio en el navegador para editar y visualizar todas las tablas de Supabase en UI.
-            </p>
-          </div>
-          <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-            <span className="text-indigo-400 font-semibold">npm run db:pull</span>
-            <p className="text-[11px] text-white/50 mt-1 font-sans">
-              Inspecciona tablas existentes creadas en Supabase Dashboard y genera el esquema TypeScript de Drizzle.
-            </p>
+            {tableRows.length > 10 && (
+              <div className="pt-3 flex items-center justify-end gap-2 text-xs text-white/60">
+                <button
+                  type="button"
+                  onClick={() => setRowsPage((p) => Math.max(1, p - 1))}
+                  disabled={rowsPage === 1}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="font-mono">{rowsPage} / {Math.ceil(tableRows.length / 10)}</span>
+                <button
+                  type="button"
+                  onClick={() => setRowsPage((p) => Math.min(Math.ceil(tableRows.length / 10), p + 1))}
+                  disabled={rowsPage >= Math.ceil(tableRows.length / 10)}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function TerminalIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-    >
-      <polyline points="4 17 10 11 4 5" />
-      <line x1="12" y1="19" x2="20" y2="19" />
-    </svg>
   );
 }

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { UserSession } from './LoginView';
+import { NumberStepper } from './NumberStepper';
 
 export type AccountRoleType = 'Admin' | 'Empresa' | 'Cliente';
 
@@ -609,15 +610,17 @@ export const AccountProfileModal = ({
                 </span>
 
                 <div className="flex items-center gap-2.5">
-                  <input
-                    type="number"
-                    value={windowDays}
-                    onChange={(e) => setWindowDays(e.target.value)}
-                    className="w-16 px-2.5 py-1.5 rounded-lg bg-[#0B0C10] border border-white/[0.1] text-sm font-semibold text-white text-center focus:outline-none focus:border-emerald-400/60 shadow-inner"
+                  <NumberStepper
+                    value={parseInt(windowDays, 10) || 30}
+                    onChange={(val) => setWindowDays(String(val))}
+                    min={1}
+                    max={365}
+                    step={1}
+                    suffix={currentPreset.windowLabel}
+                    presets={[7, 15, 30, 60, 90]}
+                    presetSuffix="d"
+                    ariaLabel="Días de plazo o ventana operativa"
                   />
-                  <span className="text-xs text-zinc-300">
-                    {currentPreset.windowLabel}
-                  </span>
                 </div>
 
                 {/* Nota informativa con icono ⓘ */}
