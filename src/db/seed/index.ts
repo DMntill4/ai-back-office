@@ -466,6 +466,18 @@ export async function runSeed() {
         destinationLocation: "Almacén Regional Norte",
         notes: "En espera de carga de unidades",
       },
+      {
+        id: "ship_004",
+        companyId: "comp_default",
+        trackingNumber: "TRK-MX-88902",
+        carrier: "Estafeta Carga",
+        status: "en_transito",
+        estimatedDelivery: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000),
+        originLocation: "San Luis Potosí",
+        currentLocation: "Centro de Clasificación CDMX",
+        destinationLocation: "Almacén Central",
+        notes: "En ruta local para entrega",
+      },
     ])
     .onConflictDoNothing();
 

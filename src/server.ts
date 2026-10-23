@@ -32,7 +32,7 @@ import {
   suppliers,
   shipments,
 } from "./db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 const server = Fastify({ logger: true });
 
@@ -261,6 +261,71 @@ server.get("/api/products", async (request, reply) => {
   }
 });
 
+server.put("/api/inventory/:productId", async (request, reply) => {
+  const { productId } = request.params as { productId: string };
+  const body = (request.body as any) || {};
+  const companyId = body.companyId || "comp_default";
+  const newStock = typeof body.stock === "number" ? body.stock : parseInt(body.stock, 10);
+  const minStock = typeof body.minStock === "number" ? body.minStock : undefined;
+
+  if (isNaN(newStock) || newStock < 0) {
+    return reply.status(400).send({ success: false, error: "El valor de stock debe ser un número entero mayor o igual a 0." });
+  }
+
+  try {
+    // 1. Actualizar o insertar en inventory
+    const existing = await db
+      .select()
+      .from(inventory)
+      .where(and(eq(inventory.productId, productId), eq(inventory.companyId, companyId)))
+      .limit(1);
+
+    if (existing.length > 0) {
+      await db
+        .update(inventory)
+        .set({ stock: newStock })
+        .where(eq(inventory.id, existing[0].id));
+    } else {
+      await db.insert(inventory).values({
+        id: `inv_${Date.now()}`,
+        companyId,
+        productId,
+        warehouseId: "alm_central",
+        stock: newStock,
+      });
+    }
+
+    // 2. Si enviaron minStock, actualizarlo en products
+    if (minStock !== undefined && !isNaN(minStock)) {
+      await db
+        .update(products)
+        .set({ minStock })
+        .where(and(eq(products.id, productId), eq(products.companyId, companyId)));
+    }
+
+    // 3. Revisar si cae bajo el mínimo para disparar alerta en tiempo real
+    const prod = await db
+      .select()
+      .from(products)
+      .where(and(eq(products.id, productId), eq(products.companyId, companyId)))
+      .limit(1);
+
+    const threshold = prod.length > 0 ? prod[0].minStock : (minStock || 10);
+    const { triggerStockAlertIfLow } = await import("./worker/proactiveMonitor");
+    const alert = await triggerStockAlertIfLow(productId, newStock, threshold, companyId);
+
+    return reply.send({
+      success: true,
+      message: `Stock actualizado a ${newStock} unidades.`,
+      alertTriggered: !!alert,
+      alert,
+    });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, error: err.message });
+  }
+});
+
+
 server.get("/api/dashboard", async (request, reply) => {
   const query = (request.query as any) || {};
   const companyId = query.companyId || "comp_default";
@@ -279,7 +344,7 @@ server.get("/api/dashboard", async (request, reply) => {
     const pendingReview = apprvs.filter((a) => a.status === "pendiente").length;
     const automated = Math.max(0, totalOrders - pendingReview);
     const totalSpend = orders.reduce((sum, o) => sum + parseFloat(o.totalAmount || "0"), 0);
-    const estimatedSavings = totalSpend > 0 ? totalSpend * 0.12 : 34800;
+    const estimatedSavings = totalSpend > 0 ? totalSpend * 0.12 : 0;
 
     // Contar productos bajo stock mínimo
     const lowStockCount = prods.filter((p) => {
@@ -297,8 +362,8 @@ server.get("/api/dashboard", async (request, reply) => {
         lowStockCount,
         inTransitShipments,
         dailyReport: {
-          totalOrders: totalOrders || 15,
-          automated: automated || 14,
+          totalOrders: totalOrders,
+          automated: automated,
           pendingReview,
           savings: Math.round(estimatedSavings),
           spend: parseFloat(totalSpend.toFixed(2)),
