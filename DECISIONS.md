@@ -96,3 +96,16 @@
   - Panel unificado (`mint dashboard` / `mint status`): vista única con inventario, alertas de stockout, pipeline de casos, bandeja HITL y canales conectados.
   - Consola interactiva permanente (`mint console` / `mint repl`): shell REPL que mantiene la sesión activa para ejecutar comandos directos sin recargar el proceso Node.js.
 
+## ADR-011: Harness Autónomo de Controladores Multi-Agente y Gestión Multi-Usuario SaaS
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Las empresas requieren un verdadero Back Office autónomo que opere en paralelo (no un simple chatbot reactivo), con soporte multi-usuario donde equipos completos (owners, operadores, auditores y visualizadores) puedan colaborar con aislamiento estricto de datos.
+- **Decisión:**
+  - `runBackOfficeHarness` (`packages/core/src/agent/harness.ts`): Ejecuta en paralelo los especialistas de Inventario, Compras, Transporte y Riesgo mediante orquestación concurrente resiliente (`Promise.all`), sintetizando opciones y generando árboles de razonamiento ASCII para auditoría.
+  - Servicio de equipo SaaS (`packages/core/src/services/teamService.ts`):
+    - Multi-tenant estricto: toda operación está vinculada al `companyId` del usuario autenticado.
+    - Roles RBAC: `owner` (administración), `operator` (gestión de stock/compras), `auditor` (supervisión HITL), `viewer` (solo lectura).
+    - Protección contra orfandad: imposibilidad de eliminar al único owner de la empresa.
+  - Endpoints REST en Fastify (`/api/team`, `/api/team/invite`, `/api/team/:id`, `/api/harness/run`) y comando CLI (`mint team list|invite|remove`).
+
+

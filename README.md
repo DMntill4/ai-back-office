@@ -89,6 +89,8 @@ mint console                       # Consola interactiva REPL con prompt permane
 mint plan today                    # Resumen diario (casos en curso, decisiones, stock en riesgo)
 mint stock                         # Catálogo e inventario actual en tiempo real formateado en tablas Unicode
 mint orders                        # Listado de órdenes de compra abiertas y en tránsito
+mint team list                     # Lista miembros y roles RBAC del tenant (owner, operator, auditor, viewer)
+mint team invite <email>           # Invita o da de alta un miembro del equipo a la organización
 mint chat "<mensaje>"              # Consulta conversacional directa al Agente Coordinador con métricas y spinner
 
 # 6. Notificaciones Remotas y Aprobación por Canal

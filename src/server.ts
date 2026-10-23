@@ -564,6 +564,74 @@ server.get("/api/users", async (request, reply) => {
   }
 });
 
+server.get("/api/team", async (request, reply) => {
+  const query = (request.query as any) || {};
+  const companyId = query.companyId || "comp_default";
+  try {
+    const { listTeamMembers } = await import("@mint/core");
+    const members = await listTeamMembers(companyId);
+    return reply.send({ success: true, data: members });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, error: err.message, data: [] });
+  }
+});
+
+server.post("/api/team/invite", async (request, reply) => {
+  const body = (request.body as any) || {};
+  const { companyId, email, name, role } = body;
+  if (!companyId || !email || !name) {
+    return reply.status(400).send({ success: false, message: "companyId, email y name son requeridos" });
+  }
+  try {
+    const { inviteTeamMember } = await import("@mint/core");
+    const result = await inviteTeamMember({ companyId, email, name, role });
+    if (!result.success) {
+      return reply.status(400).send(result);
+    }
+    return reply.send(result);
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, message: err.message });
+  }
+});
+
+server.delete("/api/team/:id", async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const query = (request.query as any) || {};
+  const companyId = query.companyId || "comp_default";
+  try {
+    const { removeTeamMember } = await import("@mint/core");
+    const result = await removeTeamMember({ companyId, userId: id });
+    if (!result.success) {
+      return reply.status(400).send(result);
+    }
+    return reply.send(result);
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, message: err.message });
+  }
+});
+
+server.post("/api/harness/run", async (request, reply) => {
+  const body = (request.body as any) || {};
+  const { companyId, productId, eventType, severity, customNotes, forceAutonomyLevel } = body;
+  if (!companyId || !productId) {
+    return reply.status(400).send({ success: false, message: "companyId y productId son requeridos" });
+  }
+  try {
+    const { runBackOfficeHarness } = await import("@mint/core");
+    const result = await runBackOfficeHarness({
+      companyId,
+      productId,
+      eventType,
+      severity,
+      customNotes,
+      forceAutonomyLevel,
+    });
+    return reply.send({ success: true, data: result });
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, message: err.message });
+  }
+});
+
 server.get("/api/audit", async (request, reply) => {
   const query = (request.query as any) || {};
   const companyId = query.companyId || "comp_default";

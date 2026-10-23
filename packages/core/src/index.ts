@@ -14,6 +14,7 @@ export * from "./agent/especialistas/inventarioSpecialist";
 export * from "./agent/especialistas/comprasSpecialist";
 export * from "./agent/especialistas/transporteSpecialist";
 export * from "./agent/especialistas/riesgoSpecialist";
+export * from "./agent/harness";
 
 // 2. Herramientas Especializadas (12 Tools)
 export * from "./tools/index";
@@ -36,6 +37,7 @@ export * from "./services/demandService";
 export * from "./services/shipmentService";
 export * from "./services/authAndSetupService";
 export * from "./services/decisionExecutionService";
+export * from "./services/teamService";
 
 // 7. Cliente LLM
 export * from "./llm/client";

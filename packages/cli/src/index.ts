@@ -8,6 +8,7 @@ import { explainCommand } from "./commands/explain";
 import { simulateCommand } from "./commands/simulate";
 import { dashboardCommand } from "./commands/dashboard";
 import { consoleCommand } from "./commands/console";
+import { teamCommand } from "./commands/team";
 import { triggerScanApi } from "./client";
 import { getSession } from "./keychain";
 import { theme } from "./ui/theme";
@@ -55,8 +56,17 @@ program
 program
   .command("console")
   .alias("repl")
-  .description("Consola interactiva con prompt permanente para operaciones continuas")
+  .description("Consola interactiva con prompt permanente para operaciones continuas (estilo Kali / Claude Code)")
   .action(() => consoleCommand());
+
+// 4.1 mint team [list|invite|remove]
+program
+  .command("team [action] [arg]")
+  .description("Gestión de equipo y control de acceso (RBAC): mint team list | mint team invite <email> | mint team remove <id>")
+  .option("--name <name>", "Nombre completo del usuario")
+  .option("--role <role>", "Rol en la organización: owner, operator, auditor, viewer")
+  .option("--json", "Salida en formato JSON")
+  .action((action, arg, options) => teamCommand(action || "list", arg, options));
 
 // 5. mint login
 program
