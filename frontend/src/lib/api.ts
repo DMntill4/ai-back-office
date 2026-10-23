@@ -307,4 +307,80 @@ export const api = {
         createdAt: string;
       }>;
     }>(`/api/audit?companyId=${encodeURIComponent(companyId)}`),
+
+  // ─────────────────────────────────────────────────────────────
+  // MINT 2.0: DECISIONES MULTI-AGENTE & EVENT ENGINE
+  // ─────────────────────────────────────────────────────────────
+  getPendingDecisions: (companyId = 'comp_default') =>
+    request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        caseId: string;
+        title: string;
+        actionType: string;
+        proposingAgent: string;
+        costMxn: number;
+        riskScore: number;
+        reversible: boolean;
+        evidence: any;
+        risk: any;
+        policyReason: string;
+        createdAt: string;
+      }>;
+    }>(`/api/decisions/pending?companyId=${encodeURIComponent(companyId)}`),
+
+  resolveDecision: (id: string, action: 'approve' | 'reject', feedback?: string, approvedBy?: string) =>
+    request<{
+      success: boolean;
+      orderId?: string;
+      verified?: boolean;
+      message: string;
+    }>(`/api/decisions/${encodeURIComponent(id)}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ action, feedback, approvedBy }),
+    }),
+
+  getLiveEvents: (companyId = 'comp_default') =>
+    request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        companyId: string;
+        eventType: string;
+        severity: string;
+        status: string;
+        caseId?: string;
+        title: string;
+        description: string;
+        payload: any;
+        createdAt: string;
+      }>;
+    }>(`/api/events/live?companyId=${encodeURIComponent(companyId)}`),
+
+  triggerEventScan: (companyId = 'comp_default') =>
+    request<{
+      success: boolean;
+      stockDeficitsFound: number;
+      delayedShipmentsFound: number;
+      eventsTriggered: number;
+      processedDecisions: string[];
+    }>('/api/events/scan', {
+      method: 'POST',
+      body: JSON.stringify({ companyId }),
+    }),
+
+  getDailyBriefing: (companyId = 'comp_default') =>
+    request<{
+      success: boolean;
+      data: {
+        totalDecisions: number;
+        autoExecutedCount: number;
+        pendingReviewCount: number;
+        blockedRiskCount: number;
+        totalAutonomousSpendMxn: number;
+        estimatedSavingsMxn: number;
+        systemHealth: string;
+      };
+    }>(`/api/briefing/today?companyId=${encodeURIComponent(companyId)}`),
 };

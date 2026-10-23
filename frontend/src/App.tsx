@@ -4,7 +4,7 @@ import {
   Search, Plus, Download,
   CheckCircle2, Terminal, RefreshCw, Sliders, LogOut,
   Truck, Settings, Server, Bell, ChevronDown, ChevronLeft, ChevronRight, Layers, Zap, Users,
-  Menu, X
+  Menu, X, Inbox
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster, toast } from 'sonner';
@@ -18,6 +18,7 @@ import { MintSplashIntro } from './components/MintSplashIntro';
 import { LogisticsView } from './components/LogisticsView';
 import { AccountProfileModal, type AccountRoleType } from './components/AccountProfileModal';
 import { AccountsManagementView } from './components/AccountsManagementView';
+import { DecisionsInboxView } from './components/DecisionsInboxView';
 import AgentWorkspace from './components/AgentWorkspace';
 import mascotLogo from './assets/mint-mascot.webp';
 import { api } from './lib/api';
@@ -33,8 +34,9 @@ interface NavItem {
   meta?: string;
 }
 
-// Módulos Canónicos Esenciales del Sistema Mint (5 Pestañas de Negocio Claras)
+// Módulos Canónicos Esenciales del Sistema Mint (6 Pestañas de Negocio Claras)
 const NAV: NavItem[] = [
+  { id: 'inbox', label: 'Bandeja de Decisiones', icon: Inbox, badge: 'Live' },
   { id: 'dashboard', label: 'Centro de Mando', icon: Home },
   { id: 'chat', label: 'Asistente MINT', icon: Sparkles },
   { id: 'approvals', label: 'Aprobaciones', icon: CheckSquare },
@@ -80,7 +82,7 @@ export default function App() {
   });
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
-  const [currentView, setCurrentView] = useState('chat');
+  const [currentView, setCurrentView] = useState('inbox');
   const [collapsed, setCollapsed] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [developerMode, setDeveloperMode] = useState(false);
@@ -904,6 +906,10 @@ export default function App() {
 
         {/* Contenido Central de las Vistas */}
         <main className={`relative flex-1 overflow-y-auto custom-scrollbar bg-[#08090C] ${currentView === 'chat' ? 'p-0 flex flex-col' : 'p-3.5 sm:p-6 md:p-8'}`}>
+          {currentView === 'inbox' && (
+            <DecisionsInboxView companyId={currentUser?.companyId || 'comp_default'} />
+          )}
+
           {currentView === 'dashboard' && (
             <DashboardView
               onNavigate={setCurrentView}
