@@ -231,7 +231,7 @@ server.get("/api/chat/history", async (request, reply) => {
       {
         id: `agent_${c.id}`,
         role: "agent" as const,
-        responseText: c.summary,
+        responseText: c.resultSummary || "",
         status: c.status,
         timestamp: c.updatedAt,
         metrics: {

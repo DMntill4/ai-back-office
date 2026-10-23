@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "workspaces": [
+    "packages/*",
+    "frontend"
+  ],
   "scripts": {
     "test": "vitest run tests",
     "typecheck": "tsc --noEmit",

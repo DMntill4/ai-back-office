@@ -84,7 +84,7 @@ export async function executeConsultarEstadoSistema(
         id: p.id,
         sku: p.sku,
         nombre: p.name,
-        categoria: p.category,
+        categoria: p.category || "general",
         stock: pInv?.stock ?? 0,
         minimo: p.minStock,
         origen: p.origin || "real",
