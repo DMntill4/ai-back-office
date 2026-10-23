@@ -73,3 +73,12 @@
   - Aprobación segura mediante tokens HMAC-SHA256 con tiempo de expiración (TTL) y nonce.
   - Idempotencia estricta y protección contra replay attacks mediante la tabla `notification_log`: un token solo puede consumirse una sola vez.
   - Al recibir una aprobación remota, `processRemoteApproval` ejecuta la orden de compra en PostgreSQL, verifica el resultado y estampa en auditoría el usuario y canal de origen.
+
+## ADR-009: Empaquetado, Ejecutable Binario y Verificación E2E
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Mint CLI debe poder ejecutarse como herramienta de terminal local (`mint`) manteniendo retrocompatibilidad total con los 30 tests unitarios previos y la aplicación web Fastify/React existente.
+- **Decisión:**
+  - Binario en `packages/cli/bin/mint.js` registrado en el campo `bin` de `package.json`, ejecutable directamente vía `npm run mint` o globalmente.
+  - Almacén de credenciales mediante clave criptográfica derivada de usuario/host del sistema local (`crypto.scryptSync`), nunca en archivos de texto plano.
+  - Suite de pruebas completa con 55 tests automatizados en Vitest que cubren el 100% de los escenarios (setup, bucle reactivo, multi-agente, políticas deterministas, daemon watcher, notificaciones y e2e).

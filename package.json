@@ -1,8 +1,11 @@
 {
   "name": "ai-back-office",
   "version": "1.0.0",
-  "description": "",
+  "description": "Mint CLI: Autonomous Multi-Agent Logistics Coordinator",
   "main": "index.js",
+  "bin": {
+    "mint": "./packages/cli/bin/mint.js"
+  },
   "workspaces": [
     "packages/*",
     "frontend"

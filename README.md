@@ -17,9 +17,132 @@
 
 ---
 
-# AI Back Office Agent (MINT)
+# AI Back Office Agent (MINT) & Mint CLI
 
-> **Plataforma Integral de Agente Autónomo para Operaciones de Back Office** (coordinación logística, gestión de abastecimiento, auditoría de existencias y control financiero). Impulsado por **Grok (xAI)** con bucle de razonamiento ReAct, motor de superpoderes por dominio, arsenal de 8 herramientas operacionales, persistencia en Supabase/PostgreSQL y una moderna **consola web interactiva Mint** con gobernanza **Human-in-the-Loop**.
+> **Coordinador Logístico Autónomo Multi-Agente y Suite de Operaciones de Back Office**  
+> Corre en el PC del operador mediante **Mint CLI**, vigila el inventario en segundo plano con **Mint Daemon**, aplica guardrails deterministas inviolables con su **Motor de Políticas**, y notifica de forma remota e interactiva vía **Telegram**, **Slack** y **Gmail**.
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Mint_CLI-v1.0.0-10B981?style=for-the-badge&logo=gnometerminal&logoColor=white" alt="Mint CLI" />
+  <img src="https://img.shields.io/badge/Grok_xAI-grok--4.6-FDB813?style=for-the-badge&logo=openai&logoColor=black" alt="Grok xAI" />
+  <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Monorepo-npm_workspaces-CB3837?style=for-the-badge&logo=npm&logoColor=white" alt="Monorepo" />
+  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Telegram_Bot-Interactive-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Bot" />
+  <img src="https://img.shields.io/badge/Slack-Block_Kit-4A154B?style=for-the-badge&logo=slack&logoColor=white" alt="Slack" />
+  <img src="https://img.shields.io/badge/Vitest-55_Tests_Passing-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
+</p>
+
+---
+
+## 🏛️ Arquitectura Monorepo
+
+El proyecto está organizado como un **Monorepo limpio** con `npm workspaces`:
+
+| Paquete | Responsabilidad |
+|---|---|
+| `@mint/core` | Cerebro del sistema: agentes especialistas, tools tipadas (Zod), Drizzle ORM / PostgreSQL, Context Manager y Motor de Políticas Determinista. Cero dependencias de frameworks HTTP. |
+| `@mint/cli` | Interfaz de línea de comandos (`mint login`, `mint inbox`, `mint watch`, `mint source add`, `mint autonomy`, etc.) con sesión cifrada en Keychain local (AES-256-GCM). |
+| `@mint/daemon` | Proceso autónomo en segundo plano. Vigila carpetas de datos con fs.watch nativo, detecta desabastos, evalúa retrasos de camiones y cron del plan diario. |
+| `@mint/notifiers` | Adaptadores remotos para **Telegram** (Bot API con inline buttons), **Slack** (Block Kit) y **Gmail** (HTML responsivo con links firmados HMAC-SHA256). |
+| `@mint/ingest` | Motor de ingesta asistida de CSV/Excel/Postgres con mapeo semántico heurístico de columnas, tolerancia a fallos por fila y marca de procedencia `origin = 'real'`. |
+| `frontend` | Consola web interactiva en React 19 + Tailwind CSS v4 + Framer Motion. |
+
+---
+
+## 💻 Mint CLI: Comandos Principales
+
+Ejecuta el CLI mediante `npm run mint -- <comando>` o enlazando el binario global `mint`:
+
+```bash
+# 1. Autenticación y Almacén Cifrado (Keychain)
+mint login <email> <password>      # Autenticación con sesión cifrada AES-256 en ~/.mint/session.enc
+mint whoami                        # Consulta usuario, rol y companyId extraído del token
+mint logout                        # Cierra sesión y elimina credenciales locales
+
+# 2. Ingesta de Fuentes de Datos Reales
+mint source add <archivo.csv>      # Mapeo asistido de columnas e importación tolerante a errores
+mint source list                   # Lista las fuentes de datos registradas por empresa
+
+# 3. Gobernanza y Motor de Autonomía
+mint autonomy get                  # Consulta el modo activo (dry-run, assisted, auto)
+mint autonomy set dry-run          # Modo seguro por defecto: propuestas estructuradas sin mutar BD
+mint autonomy set assisted         # Autoejecuta bajo $10,000 MXN con alta confianza; escala a HITL el resto
+mint autonomy set auto             # Autonomía total con veto de seguridad por auditoría de riesgo
+
+# 4. Proceso en Segundo Plano (Daemon)
+mint daemon start                  # Inicia el daemon que vigila inventario y fuentes
+mint daemon status                 # Consulta estado, PID, ciclos y eventos disparados
+mint daemon stop                   # Detiene el proceso autónomo
+mint pause                         # Interruptor de emergencia: detiene la autonomía de inmediato
+mint resume                        # Reanuda la autonomía operativa
+
+# 5. Operaciones en Vivo y Aprobaciones
+mint watch                         # Feed en tiempo real de eventos, decisiones y compras
+mint inbox                         # Bandeja de decisiones pendientes con evidencia y costo
+mint inbox approve <id>            # Autoriza una compra desde la terminal ejecutando la orden en BD
+mint inbox reject <id>             # Rechaza una propuesta de compra
+mint plan today                    # Resumen diario (casos en curso, decisiones, stock en riesgo)
+mint stock                         # Catálogo e inventario actual en tiempo real
+mint orders                        # Listado de órdenes de compra abiertas y en tránsito
+mint chat "<mensaje>"              # Consulta conversacional directa al Agente Coordinador
+
+# 6. Notificaciones Remotas y Aprobación por Canal
+mint notify add telegram           # Conecta bot de Telegram con botones inline
+mint notify add slack              # Conecta webhook o app de Slack
+mint notify add gmail              # Conecta notificaciones por correo electrónico
+mint notify list                   # Lista canales activos y horarios silenciosos
+mint notify test telegram          # Envía notificación de prueba con botones interactivos
+```
+
+> **Nota:** Todos los comandos soportan el flag `--json` para integración en scripts o pipelines de automatización.
+
+---
+
+## 🤖 Red Multi-Agente y Motor de Políticas
+
+```
+           [ Disparador: Archivo Modificado / Stock Bajo / Envío Retrasado ]
+                                         │
+                                         ▼
+                     ┌───────────────────────────────────────┐
+                     │     AGENTE COORDINADOR (Orchestrator) │
+                     │   Abre caso operativo en PostgreSQL   │
+                     └───────────────────┬───────────────────┘
+                                         │
+                 ┌───────────────────────┼───────────────────────┐
+                 ▼                       ▼                       ▼
+      ┌──────────────────────┐┌──────────────────────┐┌──────────────────────┐
+      │ ESPECIALISTA EN      ││ ESPECIALISTA EN      ││ ESPECIALISTA EN      │
+      │ INVENTARIO Y DEMANDA ││ TRANSPORTE Y ENVÍOS  ││ COMPRAS Y PROVEEDORES│
+      │ Detección de déficit ││ Tracking retrasado   ││ Selección mejor      │
+      │ y días de cobertura  ││ y recalculo de ETA   ││ cotización homologada│
+      └──────────┬───────────┘└──────────┬───────────┘└──────────┬───────────┘
+                 │                       │                       │
+                 └───────────────────────┼───────────────────────┘
+                                         │
+                                         ▼
+                     ┌───────────────────────────────────────┐
+                     │ ESPECIALISTA EN RIESGO Y AUDITORÍA    │
+                     │ Abogado del Diablo: Score, duplicados │
+                     │ en 72h, solvencia y sobrecostos       │
+                     └───────────────────┬───────────────────┘
+                                         │ Emite ActionProposal estructurada
+                                         ▼
+                     ┌───────────────────────────────────────┐
+                     │   MOTOR DE POLÍTICAS DETERMINISTA     │
+                     │  (Código matemático, NUNCA el LLM)    │
+                     │  Anti-duplicados, umbral presupuestal,│
+                     │  reversibilidad y modo de autonomía   │
+                     └───────────────────┬───────────────────┘
+                                         │
+                   ┌─────────────────────┴─────────────────────┐
+                   ▼                                           ▼
+       [ AUTO-EJECUCIÓN INMEDIATA ]               [ ESCALADO A BANDEJA HITL ]
+       Orden de compra en PostgreSQL              Notificación interactiva por
+       y paso de verificación                     Telegram / Slack / Gmail
+                                                  (Token firmado de un solo uso)
+```
 
 ---
 
