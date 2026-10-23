@@ -211,6 +211,43 @@ program
     return watchCommand(options);
   });
 
+// 15. mint notify add|test|list
+const notifyCmd = program.command("notify").description("Gestión de notificaciones remotas y botones interactivos (Telegram, Slack, Gmail)");
+
+notifyCmd
+  .command("add <type>")
+  .description("Agrega un canal de notificación: telegram, slack, o gmail")
+  .option("--name <name>", "Nombre personalizado del canal")
+  .option("--token <token>", "Token de bot (Telegram)")
+  .option("--chat-id <chatId>", "Chat ID de destino (Telegram)")
+  .option("--webhook <webhook>", "Webhook URL (Slack)")
+  .option("--email <email>", "Correo electrónico (Gmail)")
+  .option("--quiet-start <time>", "Inicio de horario silencioso (ej: 22:00)")
+  .option("--quiet-end <time>", "Fin de horario silencioso (ej: 07:00)")
+  .option("--json", "Salida en formato JSON")
+  .action((type, options) => {
+    const { notifyAddCommand } = require("./commands/notify");
+    return notifyAddCommand(type, options);
+  });
+
+notifyCmd
+  .command("test [type]")
+  .description("Envía una notificación de prueba interactiva con botones firmados")
+  .option("--json", "Salida en formato JSON")
+  .action((type, options) => {
+    const { notifyTestCommand } = require("./commands/notify");
+    return notifyTestCommand(type || "telegram", options);
+  });
+
+notifyCmd
+  .command("list")
+  .description("Lista los canales de notificación configurados")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { notifyListCommand } = require("./commands/notify");
+    return notifyListCommand(options);
+  });
+
 export function runCli(argv = process.argv) {
   program.parse(argv);
 }

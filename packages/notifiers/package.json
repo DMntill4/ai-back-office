@@ -1,0 +1,10 @@
+{
+  "name": "@mint/notifiers",
+  "version": "1.0.0",
+  "description": "Mint Remote Notifiers & Signed Token Approval Engine (Telegram, Slack, Gmail)",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@mint/core": "*"
+  }
+}

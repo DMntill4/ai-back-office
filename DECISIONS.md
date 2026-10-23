@@ -63,3 +63,13 @@
     - Plan diario estructurado (`generateDailyPlan`).
   - Detección reactiva de archivos (`watchDirectory` y `processFileChange`): al modificarse o añadirse un archivo en directorios vigilados, el daemon realiza ingesta asistida e invoca inmediatamente al coordinador, abriendo un caso automáticamente en PostgreSQL.
   - Interruptor de emergencia (`mint pause` / `mint resume`): persiste bandera en `~/.mint/daemon.json` que aborta cualquier tick operativo de inmediato sin reiniciar procesos.
+
+## ADR-008: Notificadores Remotos (Telegram, Slack, Gmail) con Tokens Firmados Idempotentes
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Las decisiones operativas que exceden el umbral o requieren aprobación humana deben resolverse desde donde esté el operador (móvil/chat/correo) sin necesidad de abrir la terminal o la web.
+- **Decisión:**
+  - Adaptadores modulares (`@mint/notifiers`) para Telegram (Bot API con botones inline), Slack (Block Kit interactivo) y Gmail (HTML responsivo con botones de acción).
+  - Aprobación segura mediante tokens HMAC-SHA256 con tiempo de expiración (TTL) y nonce.
+  - Idempotencia estricta y protección contra replay attacks mediante la tabla `notification_log`: un token solo puede consumirse una sola vez.
+  - Al recibir una aprobación remota, `processRemoteApproval` ejecuta la orden de compra en PostgreSQL, verifica el resultado y estampa en auditoría el usuario y canal de origen.

@@ -17,7 +17,9 @@
       "@mint/cli": ["packages/cli/src/index.ts"],
       "@mint/cli/*": ["packages/cli/src/*"],
       "@mint/daemon": ["packages/daemon/src/index.ts"],
-      "@mint/daemon/*": ["packages/daemon/src/*"]
+      "@mint/daemon/*": ["packages/daemon/src/*"],
+      "@mint/notifiers": ["packages/notifiers/src/index.ts"],
+      "@mint/notifiers/*": ["packages/notifiers/src/*"]
     }
   },
   "include": ["src", "scripts", "tests", "packages"]

@@ -90,9 +90,38 @@ export async function ensureDecisionsTables(): Promise<void> {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS notification_channels (
+        id VARCHAR(64) PRIMARY KEY,
+        company_id VARCHAR(64) NOT NULL DEFAULT 'comp_default' REFERENCES companies(id) ON DELETE CASCADE,
+        type VARCHAR(32) NOT NULL,
+        name TEXT NOT NULL,
+        config JSONB NOT NULL DEFAULT '{}'::jsonb,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        quiet_hours_start VARCHAR(8),
+        quiet_hours_end VARCHAR(8),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS notification_log (
+        id VARCHAR(64) PRIMARY KEY,
+        company_id VARCHAR(64) NOT NULL DEFAULT 'comp_default' REFERENCES companies(id) ON DELETE CASCADE,
+        channel_id VARCHAR(64) REFERENCES notification_channels(id) ON DELETE SET NULL,
+        decision_id VARCHAR(64) REFERENCES decisions(id) ON DELETE SET NULL,
+        severity VARCHAR(16) NOT NULL DEFAULT 'INFO',
+        status VARCHAR(32) NOT NULL DEFAULT 'SENT',
+        message_id VARCHAR(128),
+        signed_token VARCHAR(256),
+        token_expires_at TIMESTAMP WITH TIME ZONE,
+        is_used BOOLEAN NOT NULL DEFAULT FALSE,
+        payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_decisions_company_status ON decisions(company_id, policy_decision);
       CREATE INDEX IF NOT EXISTS idx_operational_events_company_status ON operational_events(company_id, status);
       CREATE INDEX IF NOT EXISTS idx_data_sources_company ON data_sources(company_id);
+      CREATE INDEX IF NOT EXISTS idx_notif_channels_company ON notification_channels(company_id);
+      CREATE INDEX IF NOT EXISTS idx_notif_log_token ON notification_log(signed_token);
     `);
     console.log("✅ Tablas de decisiones, eventos y reglas operativas verificadas en PostgreSQL.");
   } catch (err) {
