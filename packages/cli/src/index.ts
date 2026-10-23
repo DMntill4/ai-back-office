@@ -163,13 +163,37 @@ program
     }
   });
 
-// 14. mint source add / list
-const sourceCmd = program.command("source").description("Gestión de fuentes de datos (CSV, SQL y Postgres solo lectura)");
+// 14. mint source discover / inspect / add / status / list
+const sourceCmd = program.command("source").description("Gestión de fuentes de datos (CSV, Excel, SQLite y Postgres solo lectura)");
+
+sourceCmd
+  .command("discover [path]")
+  .description("Descubre fuentes de datos (.csv, .xlsx, .sqlite, .db) en el directorio indicado o de trabajo")
+  .option("--depth <depth>", "Profundidad máxima de recursión (default: 3)")
+  .option("--json", "Salida en formato JSON")
+  .action((targetPath, options) => {
+    const { sourceDiscoverCommand } = require("./commands/source");
+    return sourceDiscoverCommand(targetPath, options);
+  });
+
+sourceCmd
+  .command("inspect <path>")
+  .description("Inspecciona estructura, columnas y propone mapeo sin tocar la base de datos")
+  .option("--sheet <sheet>", "Nombre de la hoja (para archivos Excel)")
+  .option("--table <table>", "Nombre de la tabla (para SQLite o PostgreSQL)")
+  .option("--json", "Salida en formato JSON")
+  .action((targetPath, options) => {
+    const { sourceInspectCommand } = require("./commands/source");
+    return sourceInspectCommand(targetPath, options);
+  });
 
 sourceCmd
   .command("add <path>")
-  .description("Conecta e importa un archivo CSV o fuente con mapeo asistido")
+  .description("Conecta, valida y sincroniza una fuente de datos con mapeo asistido y detección de drift")
   .option("--name <name>", "Nombre personalizado para la fuente de datos")
+  .option("--sheet <sheet>", "Hoja específica (Excel)")
+  .option("--table <table>", "Tabla específica (SQLite / PostgreSQL)")
+  .option("--force", "Fuerza la aceptación de cambio de esquema (drift) si fue deliberado")
   .option("--json", "Salida en formato JSON")
   .action((path, options) => {
     const { sourceAddCommand } = require("./commands/source");
@@ -177,8 +201,17 @@ sourceCmd
   });
 
 sourceCmd
+  .command("status")
+  .description("Audita la frescura de datos, fuentes desfasadas (>24h) y estado de drift")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { sourceStatusCommand } = require("./commands/source");
+    return sourceStatusCommand(options);
+  });
+
+sourceCmd
   .command("list")
-  .description("Lista las fuentes de datos conectadas para la empresa")
+  .description("Lista las fuentes de datos conectadas y su estado de salud")
   .option("--json", "Salida en formato JSON")
   .action((options) => {
     const { sourceListCommand } = require("./commands/source");

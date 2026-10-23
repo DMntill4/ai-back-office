@@ -23,14 +23,14 @@
 > Corre en el PC del operador mediante **Mint CLI**, vigila el inventario en segundo plano con **Mint Daemon**, aplica guardrails deterministas inviolables con su **Motor de Políticas**, y notifica de forma remota e interactiva vía **Telegram**, **Slack** y **Gmail**.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Mint_CLI-v1.0.0-10B981?style=for-the-badge&logo=gnometerminal&logoColor=white" alt="Mint CLI" />
+  <img src="https://img.shields.io/badge/Mint_CLI-v2.6.0-10B981?style=for-the-badge&logo=gnometerminal&logoColor=white" alt="Mint CLI" />
   <img src="https://img.shields.io/badge/Grok_xAI-grok--4.6-FDB813?style=for-the-badge&logo=openai&logoColor=black" alt="Grok xAI" />
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Monorepo-npm_workspaces-CB3837?style=for-the-badge&logo=npm&logoColor=white" alt="Monorepo" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Telegram_Bot-Interactive-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Bot" />
   <img src="https://img.shields.io/badge/Slack-Block_Kit-4A154B?style=for-the-badge&logo=slack&logoColor=white" alt="Slack" />
-  <img src="https://img.shields.io/badge/Vitest-55_Tests_Passing-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
+  <img src="https://img.shields.io/badge/Vitest-72_Tests_Passing-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
 </p>
 
 ---
@@ -45,7 +45,7 @@ El proyecto está organizado como un **Monorepo limpio** con `npm workspaces`:
 | `@mint/cli` | Interfaz de línea de comandos (`mint login`, `mint inbox`, `mint watch`, `mint source add`, `mint autonomy`, etc.) con sesión cifrada en Keychain local (AES-256-GCM). |
 | `@mint/daemon` | Proceso autónomo en segundo plano. Vigila carpetas de datos con fs.watch nativo, detecta desabastos, evalúa retrasos de camiones y cron del plan diario. |
 | `@mint/notifiers` | Adaptadores remotos para **Telegram** (Bot API con inline buttons), **Slack** (Block Kit) y **Gmail** (HTML responsivo con links firmados HMAC-SHA256). |
-| `@mint/ingest` | Motor de ingesta asistida de CSV/Excel/Postgres con mapeo semántico heurístico de columnas, tolerancia a fallos por fila y marca de procedencia `origin = 'real'`. |
+| `@mint/ingest` | Motor de ingesta asistida de CSV/Excel/SQLite/Postgres con mapeo semántico heurístico, detección de schema drift, rastreo de borrados, sanitización contra prompt/SQL injection y marca `origin = 'real'`. |
 | `frontend` | Consola web interactiva en React 19 + Tailwind CSS v4 + Framer Motion. |
 
 ---
@@ -60,9 +60,12 @@ mint login <email> <password>      # Autenticación con sesión cifrada AES-256 
 mint whoami                        # Consulta usuario, rol y companyId extraído del token
 mint logout                        # Cierra sesión y elimina credenciales locales
 
-# 2. Ingesta de Fuentes de Datos Reales
-mint source add <archivo.csv>      # Mapeo asistido de columnas e importación tolerante a errores
-mint source list                   # Lista las fuentes de datos registradas por empresa
+# 2. Ingesta y Gestión de Fuentes de Datos (Data Layer Hardened)
+mint source discover [path]        # Descubre archivos (.csv, .xlsx, .sqlite, .db) en el directorio indicado o de trabajo
+mint source inspect <ruta>         # Introspección de columnas, tablas/hojas y propuesta de mapeo sin tocar la BD
+mint source add <ruta>             # Sincronización idempotente con tolerancia a fallos, sanitización y drift protection
+mint source status                 # Auditoría de frescura de datos: detecta fuentes desfasadas (>24h) y estado de drift
+mint source list                   # Lista fuentes conectadas y su estado de salud (HEALTHY / DRIFTED / ERROR)
 
 # 3. Gobernanza y Motor de Autonomía
 mint autonomy get                  # Consulta el modo activo (dry-run, assisted, auto)

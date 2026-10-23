@@ -8,6 +8,7 @@ import { analyzeShipmentsForProduct, type ShipmentAnalysis } from "./especialist
 import { auditProposalRisk, type RiskAuditResult } from "./especialistas/riesgoSpecialist";
 import { evaluatePolicy, type ActionProposal, type PolicyEvaluation, type AutonomyLevel } from "../policy/policyEngine";
 import { executeAndVerifyDecision } from "../services/decisionExecutionService";
+import { checkDataFreshness } from "../services/dataFreshnessService";
 
 export interface HarnessScenarioOption {
   optionId: string;
@@ -107,6 +108,8 @@ export async function runBackOfficeHarness(params: {
   const scenarios: HarnessScenarioOption[] = [];
   const autonomyLevel = params.forceAutonomyLevel || "dry-run";
 
+  const freshnessResult = await checkDataFreshness(companyId).catch(() => null);
+
   if (purchasingResult && purchasingResult.recommendedOption) {
     const rec = purchasingResult.recommendedOption;
     const baseProposal: ActionProposal = {
@@ -129,6 +132,13 @@ export async function runBackOfficeHarness(params: {
         supplierName: rec.supplierName,
         quantity: purchasingResult.recommendedQuantity,
         unitPrice: rec.unitPrice,
+        dataFreshness: freshnessResult ? {
+          isFresh: freshnessResult.isFresh,
+          lastSyncedAt: freshnessResult.newestSyncAt ? freshnessResult.newestSyncAt.toISOString() : null,
+          hoursSinceLastSync: freshnessResult.hoursSinceLastSync,
+          sourceStatus: freshnessResult.status,
+          reason: freshnessResult.reason,
+        } : undefined,
       },
       riskAssessment: {
         riskScore: riskResult?.riskScore || 0.1,

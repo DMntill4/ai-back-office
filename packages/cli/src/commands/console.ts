@@ -106,6 +106,7 @@ export async function consoleCommand() {
           console.log(`  ${theme.mintBold("explain <id>")}             Explicación profunda de razonamiento y regla de política`);
           console.log(`  ${theme.mintBold("simulate [shock]")}         Simular choques what-if (stockout, delay, price-spike)`);
           console.log(`  ${theme.mintBold("team [list|invite]")}       Gestión de usuarios y permisos RBAC del tenant`);
+          console.log(`  ${theme.mintBold("source [list|discover]")}   Descubrimiento, inspección y estado de fuentes de datos`);
           console.log(`  ${theme.mintBold("scan")}                     Disparar escaneo proactivo de stock y transporte`);
           console.log(`  ${theme.mintBold("autonomy [nivel]")}         Consultar o fijar nivel (dry-run, assisted, auto)`);
           console.log(`  ${theme.mintBold("pause / resume")}           Interruptor de emergencia del daemon`);
@@ -251,6 +252,29 @@ export async function consoleCommand() {
           console.log(
             `\n${theme.success("✔")} Escaneo completado: ${theme.bold(res.stockDeficitsFound)} desabastos, ${theme.bold(res.delayedShipmentsFound)} retrasos, ${theme.bold(res.processedDecisions.length)} decisiones procesadas.\n`,
           );
+          break;
+        }
+
+        case "source": {
+          const sub = args[0] || "list";
+          const {
+            sourceDiscoverCommand,
+            sourceInspectCommand,
+            sourceAddCommand,
+            sourceStatusCommand,
+            sourceListCommand,
+          } = require("./source");
+          if (sub === "discover") {
+            await sourceDiscoverCommand(args[1]);
+          } else if (sub === "inspect") {
+            await sourceInspectCommand(args[1]);
+          } else if (sub === "add") {
+            await sourceAddCommand(args[1]);
+          } else if (sub === "status") {
+            await sourceStatusCommand();
+          } else {
+            await sourceListCommand();
+          }
           break;
         }
 

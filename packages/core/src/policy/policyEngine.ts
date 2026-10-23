@@ -27,6 +27,13 @@ export interface ActionProposal {
     unitPrice?: number;
     quantity?: number;
     trackingNumber?: string;
+    dataFreshness?: {
+      isFresh: boolean;
+      lastSyncedAt?: string | null;
+      hoursSinceLastSync?: number;
+      sourceStatus?: "HEALTHY" | "DRIFTED" | "ERROR" | "STALE" | "NO_SOURCES";
+      reason?: string;
+    };
     [key: string]: any;
   };
   riskAssessment: {
@@ -47,6 +54,7 @@ export interface CompanyPolicyRules {
   minConfidenceThreshold?: number; // ej: 0.80
   maxAutonomousRiskScore?: number; // ej: 0.25
   autonomyLevel?: AutonomyLevel; // dry-run | assisted | auto
+  maxDataStalenessHours?: number; // Límite máximo de desfase en horas (ej: 24h)
 }
 
 export interface PolicyEvaluation {
@@ -71,10 +79,30 @@ export function evaluatePolicy(
   const maxRiskForAuto = rules.maxAutonomousRiskScore ?? 0.25;
   const requireHitlOnIrreversible = rules.requireHitlOnIrreversible ?? true;
   const autonomyLevel = rules.autonomyLevel ?? "assisted";
+  const maxStaleness = rules.maxDataStalenessHours ?? 24;
 
   const evaluatedAt = new Date().toISOString();
 
-  // 1. REGLAS DE BLOQUEO (VETO ABSOLUTO)
+  // 1. REGLAS DE BLOQUEO / VETO
+  // 1.0 VETO POR DATOS DESACTUALIZADOS (DATA FRESHNESS GUARDRAIL)
+  const freshness = proposal.evidence?.dataFreshness;
+  if (
+    freshness &&
+    (!freshness.isFresh ||
+      freshness.sourceStatus === "DRIFTED" ||
+      freshness.sourceStatus === "ERROR" ||
+      (freshness.hoursSinceLastSync !== undefined && freshness.hoursSinceLastSync > maxStaleness))
+  ) {
+    return {
+      policyDecision: "pending_approval",
+      reason: `NEGATIVA POR DATOS DESACTUALIZADOS: ${freshness.reason || `La fuente externa tiene ${freshness.hoursSinceLastSync} horas sin sincronizar (límite: ${maxStaleness}h) o su estado es "${freshness.sourceStatus}"`}. El agente rechaza decidir autónomamente y escala a revisión humana.`,
+      matchedRule: "RULE_STALE_DATA_REFUSAL",
+      requiresHitl: true,
+      canExecuteNow: false,
+      costMxn: proposal.costMxn,
+      evaluatedAt,
+    };
+  }
   // 1.1 Duplicidad confirmada en ventana reciente
   if (proposal.riskAssessment.isDuplicate) {
     return {

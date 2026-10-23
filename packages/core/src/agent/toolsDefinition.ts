@@ -11,8 +11,26 @@ import { executePronosticarDemanda } from "../tools/pronosticarDemanda";
 import { executeConsultarEnvios } from "../tools/consultarEnvios";
 import { executeAjustarStock } from "../tools/ajustarStock";
 import { executeConsultarEstadoSistema } from "../tools/consultarEstadoSistema";
+import { executeVerificarFrescuraDatos } from "../tools/verificarFrescuraDatos";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
+    type: "function",
+    function: {
+      name: "verificar_frescura_datos",
+      description:
+        "Verifica si las fuentes de datos externas e inventario están al día (<24h) o si hay desactualización o cambios de esquema (drift).",
+      parameters: {
+        type: "object",
+        properties: {
+          horas_limite: {
+            type: "number",
+            description: "Horas máximas de desfase aceptadas (por defecto: 24).",
+          },
+        },
+      },
+    },
+  },
   {
     type: "function",
     function: {
@@ -384,6 +402,12 @@ export async function dispatchToolCall(
     case "consultar_estado_sistema":
       return {
         result: await executeConsultarEstadoSistema(parsedArgs, context),
+        isClosingAction: false,
+      };
+
+    case "verificar_frescura_datos":
+      return {
+        result: await executeVerificarFrescuraDatos(parsedArgs, context?.companyId || "comp_default"),
         isClosingAction: false,
       };
 

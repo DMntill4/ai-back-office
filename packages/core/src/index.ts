@@ -38,6 +38,7 @@ export * from "./services/shipmentService";
 export * from "./services/authAndSetupService";
 export * from "./services/decisionExecutionService";
 export * from "./services/teamService";
+export * from "./services/dataFreshnessService";
 
 // 7. Cliente LLM
 export * from "./llm/client";

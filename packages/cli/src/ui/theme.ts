@@ -39,6 +39,7 @@ export const theme = {
   success: wrap("\x1b[38;2;16;185;129m", "\x1b[39m"),
   warning: wrap("\x1b[38;2;245;158;11m", "\x1b[39m"),
   danger: wrap("\x1b[38;2;239;68;68m", "\x1b[39m"),
+  error: wrap("\x1b[38;2;239;68;68m", "\x1b[39m"),
   info: wrap("\x1b[38;2;6;182;212m", "\x1b[39m"),
   muted: wrap("\x1b[38;2;148;163;184m", "\x1b[39m"),
 

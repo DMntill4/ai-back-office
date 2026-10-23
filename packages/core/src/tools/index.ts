@@ -10,3 +10,4 @@ export * from "./pronosticarDemanda";
 export * from "./consultarEnvios";
 export * from "./ajustarStock";
 export * from "./consultarEstadoSistema";
+export * from "./verificarFrescuraDatos";

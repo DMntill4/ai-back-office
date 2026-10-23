@@ -2,3 +2,8 @@ export * from "./csvParser";
 export * from "./columnMapper";
 export * from "./importer";
 export * from "./postgresSource";
+export * from "./sanitizer";
+export * from "./sqliteSource";
+export * from "./excelParser";
+export * from "./localDiscovery";
+export * from "./syncEngine";

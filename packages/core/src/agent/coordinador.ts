@@ -8,6 +8,7 @@ import { analyzeShipmentsForProduct } from "./especialistas/transporteSpecialist
 import { auditProposalRisk } from "./especialistas/riesgoSpecialist";
 import { evaluatePolicy, type ActionProposal, type PolicyEvaluation } from "../policy/policyEngine";
 import { executeAndVerifyDecision } from "../services/decisionExecutionService";
+import { checkDataFreshness } from "../services/dataFreshnessService";
 
 export interface CoordinatorResult {
   success: boolean;
@@ -113,7 +114,10 @@ export async function coordinateOperationalEvent(params: {
     companyId,
   });
 
-  // 6. Armar la Propuesta de Acción Estructurada
+  // 6. Consultar frescura de datos antes de decidir
+  const freshnessResult = await checkDataFreshness(companyId).catch(() => null);
+
+  // 7. Armar la Propuesta de Acción Estructurada
   const proposal: ActionProposal = {
     id: decisionId,
     companyId,
@@ -137,6 +141,13 @@ export async function coordinateOperationalEvent(params: {
       supplierName: recommendedOption.supplierName,
       unitPrice: recommendedOption.unitPrice,
       quantity: purchasingAnalysis.recommendedQuantity,
+      dataFreshness: freshnessResult ? {
+        isFresh: freshnessResult.isFresh,
+        lastSyncedAt: freshnessResult.newestSyncAt ? freshnessResult.newestSyncAt.toISOString() : null,
+        hoursSinceLastSync: freshnessResult.hoursSinceLastSync,
+        sourceStatus: freshnessResult.status,
+        reason: freshnessResult.reason,
+      } : undefined,
       delayedShipmentNotice: transportAnalysis.hasDelayedShipment
         ? `Envío anterior con demora detectada en guía(s): ${transportAnalysis.delayedTrackingNumbers.join(", ")}`
         : undefined,

@@ -108,4 +108,38 @@
     - Protección contra orfandad: imposibilidad de eliminar al único owner de la empresa.
   - Endpoints REST en Fastify (`/api/team`, `/api/team/invite`, `/api/team/:id`, `/api/harness/run`) y comando CLI (`mint team list|invite|remove`).
 
+## ADR-012: Blindaje del Data Layer, Detección de Schema Drift, Conectores Portables y Guardrail de Frescura
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Mint CLI debe operar de forma confiable y portátil en cualquier máquina (Windows, macOS, Linux) sin depender de servicios externos obligatorios, tratando todas las fuentes externas como estrictamente de SOLO LECTURA, protegiendo al agente contra inyecciones hostiles, cambios de esquema no anunciados (schema drift), datos eliminados externamente y obsolescencia de datos.
+- **Decisión:**
+  1. **Sanitizador y Blindaje contra Entradas Hostiles (`packages/ingest/src/sanitizer.ts`):**
+     - Neutraliza secuencias de escape ANSI, marcas de orden de bytes (BOM), caracteres nulos y normaliza cadenas.
+     - Sanitización estricta de identificadores SQL (`sanitizeSqlIdentifier`), rechazando inyecciones (`'; DROP TABLE ...; --`).
+     - Neutralización de inyecciones de prompt dirigidas al LLM (`SYSTEM: IGNORE PREVIOUS INSTRUCTIONS`), marcándolas como `[FILTERED_PROMPT_INJECTION]`.
+  2. **Conectores Portables de Solo Lectura (Zero-Dependency SQLite, Excel, Postgres):**
+     - Módulo nativo `node:sqlite` en modo `readOnly: true` para bases de datos SQLite locales (`.db`, `.sqlite`, `.sqlite3`) con introspección de tablas (`listSqliteTables`) y consultas seguras sin drivers externos.
+     - Parser de hojas de cálculo Excel (`.xlsx`, `.xls`) con sanitización de celdas y mapeo asistido.
+     - Introspección de esquemas en PostgreSQL externo (`listPostgresTables`) con transacciones `READ ONLY` forzadas y timeouts de 5s.
+  3. **Motor de Descubrimiento Local Autorizado (`packages/ingest/src/localDiscovery.ts`):**
+     - Escaneo delimitado en el directorio de trabajo del usuario (con límite de profundidad y omisión de directorios del sistema/git/node_modules).
+     - Detección de metadatos, hojas y tablas sin ejecutar código no confiable ni realizar fuerza bruta de accesos.
+  4. **Motor de Sincronización Resiliente (`packages/ingest/src/syncEngine.ts`):**
+     - **Idempotencia:** Localiza la fuente existente por `(companyId, uriOrPath)` reutilizando su `dataSourceId` en lugar de crear registros duplicados.
+     - **Detección de Schema Drift:** Si las columnas esperadas en el mapeo guardado desaparecen o cambian, el motor congela de inmediato la fuente (`DRIFTED`), genera una propuesta de corrección asistida y rechaza la ingestión a ciegas hasta aprobación humana (`--force`).
+     - **Detección de Registros Eliminados (Deletion Tracking):** Mantiene la huella de claves activas (`activeSkus`). Si la fuente externa elimina un ítem, el sistema actualiza su inventario a existencias 0 con trazabilidad sin destruir datos históricos ni desencadenar borrados en cascada.
+     - **Protección contra Avalanchas en Carga Inicial:** Distingue la carga base (`isInitialSync`) para hidratar el catálogo sin disparar un alud desmedido de casos operativos.
+  5. **Guardrail Determinista de Frescura de Datos (`RULE_STALE_DATA_REFUSAL`):**
+     - Servicio de auditoría (`checkDataFreshness`): evalúa si las fuentes externas superan 24 horas sin sincronizarse o si están en estado `DRIFTED` o `ERROR`.
+     - El Motor de Políticas Determinista (`evaluatePolicy`) incorpora la regla `RULE_STALE_DATA_REFUSAL`: el agente rechaza terminantemente auto-ejecutar órdenes sobre inventario desfasado y escala la decisión a revisión humana (HITL).
+     - Herramienta ReAct `verificar_frescura_datos` expuesta al agente para consultar la vigencia de los datos antes de proponer compras.
+  6. **Comandos CLI para el Operador:**
+     - `mint source discover [path]`: Descubre archivos locales disponibles.
+     - `mint source inspect <ruta>`: Analiza encabezados y propone mapeo sin alterar la BD.
+     - `mint source add <ruta>`: Conecta e importa con tolerancia a errores y detección de drift.
+     - `mint source status`: Audita la frescura y fuentes desfasadas de la empresa.
+     - `mint source list`: Lista fuentes y su estado de salud.
+- **Consecuencias:** Cobertura de pruebas ampliada a 72 tests unitarios e integrados pasando al 100%, cumplimiento total de los principios de no modificación de fuentes externas, portabilidad local y protección absoluta contra decisiones basadas en datos obsoletos.
+
+
 
