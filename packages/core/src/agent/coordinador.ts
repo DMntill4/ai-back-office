@@ -32,6 +32,7 @@ export async function coordinateOperationalEvent(params: {
   title?: string;
   description?: string;
   payload?: Record<string, any>;
+  autonomyLevel?: "dry-run" | "assisted" | "auto";
 }): Promise<CoordinatorResult> {
   const companyId = params.companyId || "comp_default";
   const caseId = `case_${randomUUID().slice(0, 8)}`;
@@ -149,7 +150,7 @@ export async function coordinateOperationalEvent(params: {
     },
   };
 
-  // 7. Consultar configuración de la empresa (umbral monetario)
+  // 7. Consultar configuración de la empresa (umbral monetario y nivel de autonomía)
   const configs = await db
     .select()
     .from(businessConfig)
@@ -157,10 +158,13 @@ export async function coordinateOperationalEvent(params: {
 
   const approvalLimitRaw = configs.find((c) => c.key === "approval_limit_amount")?.value;
   const approvalLimit = approvalLimitRaw ? Number(approvalLimitRaw) : 10000;
+  const autonomyLevelRaw = configs.find((c) => c.key === "autonomy_level")?.value as any;
+  const autonomyLevel = params.autonomyLevel || autonomyLevelRaw || "dry-run";
 
   // 8. Pasar por el Motor de Políticas Determinista
   const policyResult = evaluatePolicy(proposal, {
     approvalLimitAmount: approvalLimit,
+    autonomyLevel,
   });
 
   // 9. Persistir la decisión en la tabla decisions

@@ -1,6 +1,6 @@
 import { db } from "../../db/client";
 import { shipments, purchaseOrders } from "../../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { compactShipmentFacts } from "../context/contextManager";
 
 export interface ShipmentAnalysis {
@@ -29,7 +29,8 @@ export async function analyzeShipmentsForProduct(
       and(
         eq(purchaseOrders.productId, productId),
         eq(purchaseOrders.companyId, companyId),
-        eq(purchaseOrders.status, "abierta"),
+        ne(purchaseOrders.status, "cancelada"),
+        ne(purchaseOrders.status, "recibida"),
       ),
     );
 

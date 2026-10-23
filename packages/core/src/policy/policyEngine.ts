@@ -38,12 +38,15 @@ export interface ActionProposal {
   };
 }
 
+export type AutonomyLevel = "dry-run" | "assisted" | "auto";
+
 export interface CompanyPolicyRules {
   approvalLimitAmount?: number; // Límite monetario autónomo (ej: 10,000 MXN)
   prohibitedSuppliers?: string[];
   requireHitlOnIrreversible?: boolean;
   minConfidenceThreshold?: number; // ej: 0.80
   maxAutonomousRiskScore?: number; // ej: 0.25
+  autonomyLevel?: AutonomyLevel; // dry-run | assisted | auto
 }
 
 export interface PolicyEvaluation {
@@ -67,6 +70,7 @@ export function evaluatePolicy(
   const minConfidence = rules.minConfidenceThreshold ?? 0.80;
   const maxRiskForAuto = rules.maxAutonomousRiskScore ?? 0.25;
   const requireHitlOnIrreversible = rules.requireHitlOnIrreversible ?? true;
+  const autonomyLevel = rules.autonomyLevel ?? "assisted";
 
   const evaluatedAt = new Date().toISOString();
 
@@ -112,16 +116,30 @@ export function evaluatePolicy(
 
   // 2. REGLAS DE AUTO-EJECUCIÓN (AUTONOMÍA COMPLETA)
   // Debe cumplir simultáneamente: bajo el umbral, bajo riesgo, alta confianza y proveedor conocido
-  const isUnderThreshold = proposal.costMxn <= approvalLimit;
+  const effectiveLimit = autonomyLevel === "auto" ? Math.max(approvalLimit, 50000) : approvalLimit;
+  const isUnderThreshold = proposal.costMxn <= effectiveLimit;
   const isSafeRisk = proposal.riskAssessment.riskScore <= maxRiskForAuto;
   const isHighConfidence = proposal.confidence >= minConfidence;
-  const isReversibleOrAllowed = proposal.reversible || !requireHitlOnIrreversible;
+  const isReversibleOrAllowed = proposal.reversible || !requireHitlOnIrreversible || autonomyLevel === "auto";
   const zeroRedFlags = proposal.riskAssessment.redFlags.length === 0;
 
   if (isUnderThreshold && isSafeRisk && isHighConfidence && isReversibleOrAllowed && zeroRedFlags) {
+    // Si está en dry-run, simular y reportar sin ejecutar en base de datos
+    if (autonomyLevel === "dry-run") {
+      return {
+        policyDecision: "pending_approval",
+        reason: `MODO DRY-RUN ACTIVO: La propuesta califica para auto-ejecución ($${proposal.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN), pero no se ejecutó en base de datos porque el modo activo es dry-run.`,
+        matchedRule: "RULE_DRY_RUN_GUARDRAIL",
+        requiresHitl: true,
+        canExecuteNow: false,
+        costMxn: proposal.costMxn,
+        evaluatedAt,
+      };
+    }
+
     return {
       policyDecision: "auto_executed",
-      reason: `AUTO-EJECUTADO: El monto ($${proposal.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN) está bajo el umbral de autonomía ($${approvalLimit.toLocaleString("es-MX")} MXN), con riesgo mínimo (${(proposal.riskAssessment.riskScore * 100).toFixed(0)}%) y confianza sólida (${(proposal.confidence * 100).toFixed(0)}%).`,
+      reason: `AUTO-EJECUTADO: El monto ($${proposal.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN) está bajo el umbral de autonomía ($${effectiveLimit.toLocaleString("es-MX")} MXN), con riesgo mínimo (${(proposal.riskAssessment.riskScore * 100).toFixed(0)}%) y confianza sólida (${(proposal.confidence * 100).toFixed(0)}%).`,
       matchedRule: "RULE_AUTONOMOUS_EXECUTION_ELIGIBLE",
       requiresHitl: false,
       canExecuteNow: true,

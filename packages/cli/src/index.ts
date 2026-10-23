@@ -130,6 +130,27 @@ sourceCmd
     return sourceListCommand(options);
   });
 
+// 11. mint autonomy get / set dry-run|assisted|auto
+const autonomyCmd = program.command("autonomy").description("Control del nivel de autonomía del sistema (dry-run, assisted, auto)");
+
+autonomyCmd
+  .command("get")
+  .description("Muestra el nivel de autonomía activo")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { autonomyGetCommand } = require("./commands/autonomy");
+    return autonomyGetCommand(options);
+  });
+
+autonomyCmd
+  .command("set <level>")
+  .description("Establece el nivel de autonomía: dry-run, assisted, o auto")
+  .option("--json", "Salida en formato JSON")
+  .action((level, options) => {
+    const { autonomySetCommand } = require("./commands/autonomy");
+    return autonomySetCommand(level, options);
+  });
+
 export function runCli(argv = process.argv) {
   program.parse(argv);
 }

@@ -38,3 +38,16 @@
   - La importación es resiliente: los registros con errores se aíslan y reportan individualmente sin abortar toda la transacción ni la inserción de las filas válidas.
   - Todo registro importado se marca con `origin = 'real'`, permitiendo a los agentes y reportes distinguir datos operativos fidedignos de simulaciones.
   - Para orígenes Postgres externos, se aplican límites de lectura, consultas parametrizadas y conexión en solo lectura.
+
+## ADR-006: Orquestación Multi-Agente, Propuesta Estructurada y Modos de Autonomía
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Las decisiones operativas complejas (ej: retraso en transporte con desabasto proyectado) involucran múltiples dominios (inventario, transporte, proveedores, riesgos). El sistema no debe permitir que el LLM ejecute directamente en base de datos.
+- **Decisión:**
+  - Desacoplar propuesta de ejecución: los especialistas (inventario, compras, transporte, riesgo) emiten una `ActionProposal` estructurada con evidencia cuantitativa y auditoría de riesgos (score, banderas rojas, duplicados).
+  - El motor de políticas es código determinista puro (`evaluatePolicy`): aplica reglas inviolables (anti-duplicación, proveedor homologado, umbral presupuestal, reversibilidad).
+  - Tres niveles de autonomía (`mint autonomy set dry-run|assisted|auto`), configurados por empresa y por defecto en `dry-run`:
+    - `dry-run`: genera la propuesta completa con evidencia y policy guardrail (`RULE_DRY_RUN_GUARDRAIL`), pero nunca muta la base de datos sin confirmación.
+    - `assisted`: autoejecuta bajo el umbral ($10,000 MXN) si el riesgo es bajo y la confianza alta; escala a HITL todo lo demás.
+    - `auto`: autoejecuta con umbral expandido siempre que el auditor de riesgo no marque banderas críticas.
+  - Toda propuesta evaluada se persiste de forma inmutable en la tabla `decisions`.
