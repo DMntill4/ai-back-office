@@ -4,59 +4,103 @@ import { logoutCommand, whoamiCommand } from "./commands/whoami";
 import { stockCommand, ordersCommand } from "./commands/stock";
 import { inboxCommand } from "./commands/inbox";
 import { chatCommand, todayCommand } from "./commands/chat";
+import { explainCommand } from "./commands/explain";
+import { simulateCommand } from "./commands/simulate";
+import { dashboardCommand } from "./commands/dashboard";
+import { consoleCommand } from "./commands/console";
 import { triggerScanApi } from "./client";
 import { getSession } from "./keychain";
+import { theme } from "./ui/theme";
+import { printBanner } from "./ui/banner";
 
 export const program = new Command();
 
 program
   .name("mint")
   .description("🍃 Mint CLI - Coordinador Logístico Autónomo y Operaciones Back Office")
-  .version("2.0.0");
+  .version("2.5.0");
 
-// 1. mint login
+// Banner hook on empty invocation
+program.hook("preAction", (thisCommand, actionCommand) => {
+  // If json flag is set, avoid printing banners
+  if (actionCommand.opts().json || thisCommand.opts().json) {
+    return;
+  }
+});
+
+// 1. mint dashboard / mint status
+program
+  .command("dashboard")
+  .alias("status")
+  .description("Panel de control unificado: inventario, casos activos, daemon y notificaciones")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => dashboardCommand(options));
+
+// 2. mint explain <id>
+program
+  .command("explain <id>")
+  .description("Explica la deliberación multi-agente, evidencia y regla de política tras una decisión")
+  .option("--json", "Salida en formato JSON")
+  .action((id, options) => explainCommand(id, options));
+
+// 3. mint simulate [scenario]
+program
+  .command("simulate [scenario]")
+  .description("Simula un escenario logístico what-if en sandbox (stockout, delay, price-spike)")
+  .option("--sku <sku>", "SKU específico para la simulación")
+  .option("--json", "Salida en formato JSON")
+  .action((scenario, options) => simulateCommand(scenario || "stockout", options));
+
+// 4. mint console / mint repl
+program
+  .command("console")
+  .alias("repl")
+  .description("Consola interactiva con prompt permanente para operaciones continuas")
+  .action(() => consoleCommand());
+
+// 5. mint login
 program
   .command("login [email] [password]")
   .description("Inicia sesión contra el servidor y guarda el token cifrado en el keychain")
   .option("--json", "Salida en formato JSON")
   .action((email, password, options) => loginCommand(email, password, options));
 
-// 2. mint logout
+// 6. mint logout
 program
   .command("logout")
   .description("Cierra sesión y elimina el token del keychain seguro")
   .option("--json", "Salida en formato JSON")
   .action((options) => logoutCommand(options));
 
-// 3. mint whoami
+// 7. mint whoami
 program
   .command("whoami")
   .description("Muestra el usuario y empresa activa almacenada en el keychain")
   .option("--json", "Salida en formato JSON")
   .action((options) => whoamiCommand(options));
 
-// 4. mint stock
+// 8. mint stock
 program
   .command("stock")
   .description("Consulta existencias reales de inventario y estado de quiebre de stock")
   .option("--json", "Salida en formato JSON")
   .action((options) => stockCommand(options));
 
-// 5. mint orders
+// 9. mint orders
 program
   .command("orders")
   .description("Consulta las órdenes de compra emitidas a proveedores homologados")
   .option("--json", "Salida en formato JSON")
   .action((options) => ordersCommand(options));
 
-// 6. mint inbox
+// 10. mint inbox
 program
   .command("inbox [action] [id]")
   .description("Bandeja de decisiones (HITL): mint inbox | mint inbox approve <id> | mint inbox reject <id>")
   .option("--json", "Salida en formato JSON")
   .action((action, id, options) => inboxCommand(action, id, options));
 
-// 7. mint chat
+// 11. mint chat
 program
   .command("chat <message...>")
   .description("Envía una consulta operativa al Agente Autónomo Mint")
@@ -66,7 +110,7 @@ program
     return chatCommand(msg, options);
   });
 
-// 8. mint plan today / mint today
+// 12. mint plan today / mint today
 program
   .command("today")
   .description("Resumen diario de decisiones autónomas y presupuesto gestionado")
@@ -85,7 +129,7 @@ program
     console.log(`Plan para '${target}' no reconocido. Usa 'mint plan today'.`);
   });
 
-// 9. mint scan
+// 13. mint scan
 program
   .command("scan")
   .description("Dispara un escaneo de desabastos y retrasos de transporte reales")
@@ -98,18 +142,18 @@ program
       if (options.json) {
         console.log(JSON.stringify(res, null, 2));
       } else {
-        console.log(`\n🔍 Escaneo completado para empresa: ${companyId}`);
-        console.log(`   Desabastos encontrados: ${res.stockDeficitsFound}`);
-        console.log(`   Envíos retrasados:      ${res.delayedShipmentsFound}`);
-        console.log(`   Eventos disparados:     ${res.eventsTriggered}`);
-        console.log(`   Decisiones evaluadas:   ${res.processedDecisions.length}\n`);
+        console.log(`\n${theme.mintBold("🔍 ESCANEO PROACTIVO COMPLETADO")} [${companyId}]`);
+        console.log(`   ${theme.dim("Desabastos encontrados:")} ${theme.bold(res.stockDeficitsFound)}`);
+        console.log(`   ${theme.dim("Envíos retrasados:")}      ${theme.bold(res.delayedShipmentsFound)}`);
+        console.log(`   ${theme.dim("Eventos disparados:")}     ${theme.bold(res.eventsTriggered)}`);
+        console.log(`   ${theme.dim("Decisiones evaluadas:")}   ${theme.bold(res.processedDecisions.length)}\n`);
       }
     } catch (err: any) {
-      console.error(`❌ Error en escaneo: ${err.message}`);
+      console.error(theme.redBold(`❌ Error en escaneo: ${err.message}`));
     }
   });
 
-// 10. mint source add / list
+// 14. mint source add / list
 const sourceCmd = program.command("source").description("Gestión de fuentes de datos (CSV, SQL y Postgres solo lectura)");
 
 sourceCmd
@@ -131,7 +175,7 @@ sourceCmd
     return sourceListCommand(options);
   });
 
-// 11. mint autonomy get / set dry-run|assisted|auto
+// 15. mint autonomy get / set dry-run|assisted|auto
 const autonomyCmd = program.command("autonomy").description("Control del nivel de autonomía del sistema (dry-run, assisted, auto)");
 
 autonomyCmd
@@ -152,7 +196,7 @@ autonomyCmd
     return autonomySetCommand(level, options);
   });
 
-// 12. mint daemon start|stop|status
+// 16. mint daemon start|stop|status
 const daemonCmd = program.command("daemon").description("Gestión del proceso autónomo en segundo plano");
 
 daemonCmd
@@ -182,7 +226,7 @@ daemonCmd
     return daemonStatusCommand(options);
   });
 
-// 13. mint pause / resume
+// 17. mint pause / resume
 program
   .command("pause")
   .description("Interruptor de emergencia: pausa de inmediato la autonomía operativa")
@@ -201,7 +245,7 @@ program
     return resumeCommand(options);
   });
 
-// 14. mint watch
+// 18. mint watch
 program
   .command("watch")
   .description("Feed en vivo de eventos, decisiones y acciones tomadas")
@@ -211,7 +255,7 @@ program
     return watchCommand(options);
   });
 
-// 15. mint notify add|test|list
+// 19. mint notify add|test|list
 const notifyCmd = program.command("notify").description("Gestión de notificaciones remotas y botones interactivos (Telegram, Slack, Gmail)");
 
 notifyCmd
@@ -249,6 +293,9 @@ notifyCmd
   });
 
 export function runCli(argv = process.argv) {
+  if (argv.length <= 2) {
+    printBanner();
+  }
   program.parse(argv);
 }
 

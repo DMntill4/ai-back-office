@@ -1,15 +1,18 @@
+import * as readline from "readline";
 import { getPendingDecisionsApi, resolveDecisionApi } from "../client";
 import { getSession } from "../keychain";
+import { theme } from "../ui/theme";
+import { drawCard, drawDivider } from "../ui/box";
 
 export async function inboxCommand(
   action?: "list" | "approve" | "reject",
   targetId?: string,
-  options: { json?: boolean } = {},
+  options: { json?: boolean; interactive?: boolean } = {},
 ) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
-  // Si se solicita aprobar
+  // 1. Si se solicita aprobar directamente
   if (action === "approve" && targetId) {
     try {
       const res = await resolveDecisionApi(targetId, "approve", session?.name || "CLI_OPERATOR");
@@ -17,11 +20,11 @@ export async function inboxCommand(
         console.log(JSON.stringify(res));
       } else {
         if (res.success) {
-          console.log(`\n✅ Decisión ${targetId} APROBADA.`);
+          console.log(`\n${theme.success("✔")} Decisión ${theme.bold(targetId)} ${theme.mintBold("APROBADA")}.`);
           console.log(`   ${res.message}`);
-          console.log(`   Post-verificación en PostgreSQL confirmada.\n`);
+          console.log(`   ${theme.muted("Post-verificación en PostgreSQL confirmada.")}\n`);
         } else {
-          console.error(`❌ Falló la aprobación: ${res.message}`);
+          console.error(theme.redBold(`❌ Falló la aprobación: ${res.message}`));
         }
       }
       return;
@@ -29,33 +32,33 @@ export async function inboxCommand(
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: err.message }));
       } else {
-        console.error(`❌ Error al aprobar decisión: ${err.message}`);
+        console.error(theme.redBold(`❌ Error al aprobar decisión: ${err.message}`));
       }
       process.exit(1);
     }
   }
 
-  // Si se solicita rechazar
+  // 2. Si se solicita rechazar directamente
   if (action === "reject" && targetId) {
     try {
       const res = await resolveDecisionApi(targetId, "reject", session?.name || "CLI_OPERATOR");
       if (options.json) {
         console.log(JSON.stringify(res));
       } else {
-        console.log(`\n⚠️ Decisión ${targetId} RECHAZADA y archivada.\n`);
+        console.log(`\n${theme.warning("⚠")} Decisión ${theme.bold(targetId)} ${theme.amberBold("RECHAZADA")} y archivada en bitácora.\n`);
       }
       return;
     } catch (err: any) {
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: err.message }));
       } else {
-        console.error(`❌ Error al rechazar decisión: ${err.message}`);
+        console.error(theme.redBold(`❌ Error al rechazar decisión: ${err.message}`));
       }
       process.exit(1);
     }
   }
 
-  // Por defecto: listar decisiones pendientes (inbox list)
+  // 3. Listar decisiones pendientes (inbox list / visualización interactiva)
   try {
     const res = await getPendingDecisionsApi(companyId);
     if (!res.success) {
@@ -67,35 +70,55 @@ export async function inboxCommand(
       return;
     }
 
-    console.log(`\n📥 BANDEJA DE DECISIONES PENDIENTES [Empresa: ${companyId}]`);
+    console.log("\n" + drawDivider(`BANDEJA DE DECISIONES PENDIENTES (HITL) [${companyId}]`, 86));
+
     if (res.data.length === 0) {
-      console.log(`   ✨ No hay decisiones pendientes de supervisión humana.\n`);
+      console.log(`\n  ${theme.success("✨ No hay decisiones pendientes de supervisión humana.")}`);
+      console.log(`  ${theme.muted("El agente autónomo mantiene todas las operaciones al día.")}\n`);
       return;
     }
 
-    console.log(`   ${res.data.length} decisión(es) esperando autorización:\n`);
+    console.log(`\n  ${theme.bold(res.data.length)} decisión(es) esperando autorización del operador:\n`);
+
     for (let i = 0; i < res.data.length; i++) {
       const d = res.data[i];
       const evidence = d.evidence || {};
       const risk = d.risk || {};
 
-      console.log(`[#${i + 1}] ID: ${d.id}`);
-      console.log(`    Título:     ${d.title}`);
-      console.log(`    Agente:     ${d.proposingAgent}`);
-      console.log(`    Costo:      $${d.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`);
-      console.log(`    Riesgo:     ${(d.riskScore * 100).toFixed(0)}%`);
-      console.log(`    Gobernanza: ${d.policyReason}`);
-      console.log(`    Evidencia:  Stock: ${evidence.currentStock ?? "0"}u | Déficit: ${evidence.deficit ?? "N/A"}u | Prov: ${evidence.supplierName ?? "N/A"}`);
+      const costStr = `$${Number(d.costMxn).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
+      const riskPct = `${(Number(d.riskScore) * 100).toFixed(0)}%`;
+      const riskBadge = theme.badge(riskPct, Number(d.riskScore) > 0.4 ? "red" : "mint");
+
+      const cardLines = [
+        `${theme.dim("ID:")}         ${theme.bold(d.id)}  ${theme.dim("│")}  ${theme.dim("Agente:")} ${theme.mintBold(d.proposingAgent)}`,
+        `${theme.dim("Costo:")}      ${theme.bold(costStr)}  ${theme.dim("│")}  ${theme.dim("Riesgo:")} ${riskBadge}`,
+        `${theme.dim("Gobernanza:")} ${d.policyReason}`,
+        `${theme.dim("Evidencia:")}  Stock: ${evidence.currentStock ?? "0"}u │ Déficit: ${evidence.deficit ?? "N/A"}u │ Prov: ${evidence.supplierName ?? "N/A"}`,
+      ];
+
       if (risk.redFlags && risk.redFlags.length > 0) {
-        console.log(`    Banderas:   ⚠️ ${risk.redFlags.join("; ")}`);
+        cardLines.push(`${theme.danger("Banderas:")}   ${risk.redFlags.join("; ")}`);
       }
-      console.log(`    Comandos:   mint inbox approve ${d.id}  |  mint inbox reject ${d.id}\n`);
+
+      cardLines.push(
+        `${theme.dim("Acciones:")}   ${theme.mintBold(`mint inbox approve ${d.id}`)}  ${theme.dim("│")}  ${theme.amberBold(`mint inbox reject ${d.id}`)}  ${theme.dim("│")}  ${theme.cyanBold(`mint explain ${d.id}`)}`,
+      );
+
+      console.log(
+        drawCard(cardLines, {
+          title: `[#${i + 1}] ${d.title}`,
+          badge: "PENDIENTE",
+          badgeColor: "amber",
+          borderColor: theme.amber,
+        }),
+      );
+      console.log("");
     }
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(`❌ Error al consultar inbox: ${err.message}`);
+      console.error(theme.redBold(`❌ Error al consultar inbox: ${err.message}`));
     }
     process.exit(1);
   }

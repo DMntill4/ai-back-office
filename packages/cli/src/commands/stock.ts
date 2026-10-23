@@ -1,5 +1,8 @@
 import { getProductsApi, getOrdersApi } from "../client";
 import { getSession } from "../keychain";
+import { theme } from "../ui/theme";
+import { renderTable } from "../ui/table";
+import { drawDivider } from "../ui/box";
 
 export async function stockCommand(options: { json?: boolean } = {}) {
   const session = await getSession();
@@ -16,34 +19,44 @@ export async function stockCommand(options: { json?: boolean } = {}) {
       return;
     }
 
-    console.log(`\n📦 CATÁLOGO Y EXISTENCIAS EN TIEMPO REAL [Empresa: ${companyId}]`);
-    console.log(`─`.repeat(78));
-    console.log(
-      `SKU`.padEnd(16) +
-        `PRODUCTO`.padEnd(28) +
-        `STOCK`.padEnd(10) +
-        `MÍNIMO`.padEnd(10) +
-        `ESTADO`.padEnd(14),
-    );
-    console.log(`─`.repeat(78));
+    console.log("\n" + drawDivider(`CATÁLOGO Y EXISTENCIAS EN TIEMPO REAL [${companyId}]`, 86));
 
-    for (const p of res.data) {
-      const status = p.stock === 0 ? "⚠️ AGOTADO" : p.isLowStock ? "⚠️ BAJO" : "✅ ÓPTIMO";
-      console.log(
-        p.sku.padEnd(16) +
-          p.name.slice(0, 26).padEnd(28) +
-          `${p.stock}u`.padEnd(10) +
-          `${p.minStock}u`.padEnd(10) +
-          status.padEnd(14),
-      );
-    }
-    console.log(`─`.repeat(78));
-    console.log(`Total productos: ${res.data.length}\n`);
+    const rows = res.data.map((p: any) => {
+      let statusBadge = theme.badge("ÓPTIMO", "mint");
+      if (p.stock === 0) {
+        statusBadge = theme.badge("AGOTADO", "red");
+      } else if (p.isLowStock) {
+        statusBadge = theme.badge("BAJO", "amber");
+      }
+
+      return {
+        sku: theme.bold(p.sku),
+        name: p.name.length > 30 ? p.name.slice(0, 27) + "..." : p.name,
+        stock: `${p.stock}u`,
+        minStock: `${p.minStock}u`,
+        status: statusBadge,
+      };
+    });
+
+    console.log(
+      renderTable(
+        [
+          { header: "SKU", key: "sku", width: 16 },
+          { header: "PRODUCTO", key: "name", width: 32 },
+          { header: "STOCK", key: "stock", width: 10, align: "right" },
+          { header: "MÍNIMO", key: "minStock", width: 10, align: "right" },
+          { header: "ESTADO", key: "status", width: 14, align: "center" },
+        ],
+        rows,
+      ),
+    );
+
+    console.log(`\n${theme.dim("Total productos:")} ${theme.bold(res.data.length)} │ ${theme.dim("Comando:")} ${theme.mintBold("mint scan")} para verificar desabastos.\n`);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(`❌ Error al consultar stock: ${err.message}`);
+      console.error(theme.redBold(`❌ Error al consultar stock: ${err.message}`));
     }
     process.exit(1);
   }
@@ -64,34 +77,45 @@ export async function ordersCommand(options: { json?: boolean } = {}) {
       return;
     }
 
-    console.log(`\n📑 ÓRDENES DE COMPRA REGISTRADAS [Empresa: ${companyId}]`);
-    console.log(`─`.repeat(78));
-    console.log(
-      `ORDEN ID`.padEnd(14) +
-        `PROVEEDOR`.padEnd(24) +
-        `MONTO MXN`.padEnd(18) +
-        `ESTADO`.padEnd(12) +
-        `FECHA`.padEnd(10),
-    );
-    console.log(`─`.repeat(78));
+    console.log("\n" + drawDivider(`ÓRDENES DE COMPRA REGISTRADAS [${companyId}]`, 86));
 
-    for (const o of res.data) {
+    const rows = res.data.map((o: any) => {
       const date = o.createdAt ? new Date(o.createdAt).toLocaleDateString("es-MX") : "N/A";
-      console.log(
-        o.orderId.padEnd(14) +
-          (o.provider || "N/A").slice(0, 22).padEnd(24) +
-          o.amountMXN.padEnd(18) +
-          o.status.padEnd(12) +
-          date.padEnd(10),
-      );
-    }
-    console.log(`─`.repeat(78));
-    console.log(`Total órdenes: ${res.data.length}\n`);
+      const statusBadge =
+        o.status === "approved" || o.status === "completed"
+          ? theme.badge(o.status.toUpperCase(), "mint")
+          : o.status === "pending_approval"
+            ? theme.badge("PENDIENTE", "amber")
+            : theme.badge(o.status.toUpperCase(), "gray");
+
+      return {
+        orderId: theme.bold(o.orderId),
+        provider: (o.provider || "N/A").slice(0, 24),
+        amount: theme.mintBold(o.amountMXN),
+        status: statusBadge,
+        date,
+      };
+    });
+
+    console.log(
+      renderTable(
+        [
+          { header: "ORDEN ID", key: "orderId", width: 16 },
+          { header: "PROVEEDOR", key: "provider", width: 26 },
+          { header: "MONTO MXN", key: "amount", width: 18, align: "right" },
+          { header: "ESTADO", key: "status", width: 14, align: "center" },
+          { header: "FECHA", key: "date", width: 12, align: "center" },
+        ],
+        rows,
+      ),
+    );
+
+    console.log(`\n${theme.dim("Total órdenes:")} ${theme.bold(res.data.length)}\n`);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(`❌ Error al consultar órdenes: ${err.message}`);
+      console.error(theme.redBold(`❌ Error al consultar órdenes: ${err.message}`));
     }
     process.exit(1);
   }

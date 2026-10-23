@@ -82,3 +82,17 @@
   - Binario en `packages/cli/bin/mint.js` registrado en el campo `bin` de `package.json`, ejecutable directamente vía `npm run mint` o globalmente.
   - Almacén de credenciales mediante clave criptográfica derivada de usuario/host del sistema local (`crypto.scryptSync`), nunca en archivos de texto plano.
   - Suite de pruebas completa con 55 tests automatizados en Vitest que cubren el 100% de los escenarios (setup, bucle reactivo, multi-agente, políticas deterministas, daemon watcher, notificaciones y e2e).
+
+## ADR-010: Arquitectura de Terminal TUI, Observabilidad y Simulador Autónomo
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Para que Mint CLI sea una herramienta de categoría profesional para operadores y directores de logística, la experiencia en terminal debe ser intuitiva, moderna y con alta densidad de información (TUI), garantizando completa transparencia y explicabilidad sobre las decisiones del agente autónomo.
+- **Decisión:**
+  - Sistema de diseño de terminal zero-dependencias (`packages/cli/src/ui/theme.ts`, `box.ts`, `table.ts`, `spinner.ts`, `banner.ts`):
+    - Paleta HSL/ANSI Mint Green (`#10B981`), badges coloreados, tablas Unicode con padding dinámico y tarjetas con esquinas redondeadas (`╭`, `╮`, `╰`, `╯`).
+    - Spinner asíncrono para operaciones con LLM/DB, con desactivación automática en entornos no interactivos o pipes (`--json`, `NO_COLOR`).
+  - Comando de explicabilidad profunda (`mint explain <id>`): reconstruye la deliberación de especialistas, score adversarial de riesgo, métricas de evidencia y la regla determinista aplicada.
+  - Simulador logístico what-if (`mint simulate [stockout|delay|price-spike]`): permite a los operadores experimentar en sandbox con choques de suministro y observar cómo el coordinador autónomo reacciona y genera propuestas sin mutar la base de datos de producción.
+  - Panel unificado (`mint dashboard` / `mint status`): vista única con inventario, alertas de stockout, pipeline de casos, bandeja HITL y canales conectados.
+  - Consola interactiva permanente (`mint console` / `mint repl`): shell REPL que mantiene la sesión activa para ejecutar comandos directos sin recargar el proceso Node.js.
+

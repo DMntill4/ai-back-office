@@ -77,15 +77,19 @@ mint daemon stop                   # Detiene el proceso autónomo
 mint pause                         # Interruptor de emergencia: detiene la autonomía de inmediato
 mint resume                        # Reanuda la autonomía operativa
 
-# 5. Operaciones en Vivo y Aprobaciones
+# 5. Operaciones en Vivo, Explicabilidad y Aprobaciones
+mint dashboard                     # Panel unificado: inventario, casos, daemon, alertas y notificaciones (alias: mint status)
 mint watch                         # Feed en tiempo real de eventos, decisiones y compras
 mint inbox                         # Bandeja de decisiones pendientes con evidencia y costo
 mint inbox approve <id>            # Autoriza una compra desde la terminal ejecutando la orden en BD
 mint inbox reject <id>             # Rechaza una propuesta de compra
+mint explain <id>                  # Desglosa deliberación multi-agente, evidencia, riesgo y regla de política
+mint simulate [stockout|delay]     # Simula choques de suministro en sandbox para evaluar cómo responde el coordinador
+mint console                       # Consola interactiva REPL con prompt permanente para operaciones continuas
 mint plan today                    # Resumen diario (casos en curso, decisiones, stock en riesgo)
-mint stock                         # Catálogo e inventario actual en tiempo real
+mint stock                         # Catálogo e inventario actual en tiempo real formateado en tablas Unicode
 mint orders                        # Listado de órdenes de compra abiertas y en tránsito
-mint chat "<mensaje>"              # Consulta conversacional directa al Agente Coordinador
+mint chat "<mensaje>"              # Consulta conversacional directa al Agente Coordinador con métricas y spinner
 
 # 6. Notificaciones Remotas y Aprobación por Canal
 mint notify add telegram           # Conecta bot de Telegram con botones inline

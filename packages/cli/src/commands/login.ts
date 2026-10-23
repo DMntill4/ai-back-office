@@ -1,5 +1,7 @@
 import { loginApi } from "../client";
-import { saveSession, getSession } from "../keychain";
+import { saveSession } from "../keychain";
+import { theme } from "../ui/theme";
+import { drawCard } from "../ui/box";
 
 export async function loginCommand(email?: string, password?: string, options: { json?: boolean } = {}) {
   const targetEmail = email || "admin@mint.local";
@@ -9,7 +11,7 @@ export async function loginCommand(email?: string, password?: string, options: {
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: "Credenciales inválidas" }));
       } else {
-        console.error("❌ Error de autenticación: Credenciales inválidas.");
+        console.error(theme.redBold("❌ Error de autenticación: Credenciales inválidas."));
       }
       process.exit(1);
     }
@@ -28,17 +30,30 @@ export async function loginCommand(email?: string, password?: string, options: {
     if (options.json) {
       console.log(JSON.stringify({ success: true, user: res.user, companyId: res.user.companyId }));
     } else {
-      console.log(`\n✅ Sesión iniciada con éxito.`);
-      console.log(`   Usuario:   ${res.user.name} (${res.user.email})`);
-      console.log(`   Rol:       ${res.user.role}`);
-      console.log(`   Empresa:   ${res.user.companyName} [ID: ${res.user.companyId}]`);
-      console.log(`   Token:     Guardado de forma segura en el keychain del sistema.\n`);
+      console.log("");
+      console.log(
+        drawCard(
+          [
+            `${theme.dim("Usuario:")}   ${theme.bold(res.user.name)} (${res.user.email})`,
+            `${theme.dim("Rol:")}       ${theme.badge(res.user.role.toUpperCase(), "cyan")}`,
+            `${theme.dim("Empresa:")}   ${theme.mintBold(res.user.companyName)} [ID: ${res.user.companyId}]`,
+            `${theme.dim("Keychain:")}  Token cifrado con AES-256-GCM y guardado localmente.`,
+          ],
+          {
+            title: "AUTENTICACIÓN EXITOSA",
+            badge: "CONECTADO",
+            badgeColor: "mint",
+            borderColor: theme.mint,
+          },
+        ),
+      );
+      console.log("");
     }
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
     } else {
-      console.error(`❌ Error al conectar con el servidor: ${err.message}`);
+      console.error(theme.redBold(`❌ Error al conectar con el servidor: ${err.message}`));
     }
     process.exit(1);
   }

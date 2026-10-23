@@ -1,4 +1,6 @@
 import { deleteSession, getSession } from "../keychain";
+import { theme } from "../ui/theme";
+import { drawCard } from "../ui/box";
 
 export async function logoutCommand(options: { json?: boolean } = {}) {
   const session = await getSession();
@@ -8,9 +10,9 @@ export async function logoutCommand(options: { json?: boolean } = {}) {
     console.log(JSON.stringify({ success: true, loggedOut: deleted }));
   } else {
     if (session) {
-      console.log(`\n🚪 Sesión cerrada para ${session.email} (${session.companyName}). Token eliminado del keychain.\n`);
+      console.log(`\n${theme.success("🚪")} Sesión cerrada para ${theme.bold(session.email)} (${session.companyName}). Token eliminado del keychain.\n`);
     } else {
-      console.log(`\nℹ️ No había una sesión activa guardada.\n`);
+      console.log(`\n${theme.dim("ℹ No había una sesión activa guardada.")}\n`);
     }
   }
 }
@@ -22,7 +24,7 @@ export async function whoamiCommand(options: { json?: boolean } = {}) {
     if (options.json) {
       console.log(JSON.stringify({ authenticated: false }));
     } else {
-      console.log("\n⚠️ No has iniciado sesión. Ejecuta `mint login` para autenticarte.\n");
+      console.log(`\n${theme.warning("⚠")} No has iniciado sesión. Ejecuta ${theme.mintBold("mint login")} para autenticarte.\n`);
     }
     return;
   }
@@ -30,10 +32,22 @@ export async function whoamiCommand(options: { json?: boolean } = {}) {
   if (options.json) {
     console.log(JSON.stringify({ authenticated: true, session }));
   } else {
-    console.log(`\n👤 Sesión Activa (Almacenada en Keychain):`);
-    console.log(`   Usuario:     ${session.name} <${session.email}>`);
-    console.log(`   Rol:         ${session.role}`);
-    console.log(`   Empresa ID:  ${session.companyId} (${session.companyName})`);
-    console.log(`   Guardado:    ${new Date(session.savedAt).toLocaleString("es-MX")}\n`);
+    console.log("");
+    console.log(
+      drawCard(
+        [
+          `${theme.dim("Usuario:")}    ${theme.bold(session.name)} <${session.email}>`,
+          `${theme.dim("Rol:")}        ${theme.badge(session.role.toUpperCase(), "cyan")}`,
+          `${theme.dim("Empresa ID:")} ${theme.mintBold(session.companyId)} (${session.companyName})`,
+          `${theme.dim("Cifrado:")}    AES-256-GCM en ~/.mint/session.enc`,
+          `${theme.dim("Sesión:")}     Guardada el ${new Date(session.savedAt).toLocaleString("es-MX")}`,
+        ],
+        {
+          title: "SESIÓN ACTIVA // KEYCHAIN SEGURO",
+          borderColor: theme.mint,
+        },
+      ),
+    );
+    console.log("");
   }
 }
