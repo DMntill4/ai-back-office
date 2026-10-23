@@ -56,12 +56,16 @@ interface OrderRow {
   status: 'Pendiente Firma' | 'Emitida' | 'En Tránsito' | 'Entregada';
 }
 
+import type { UserSession } from './LoginView';
+
 interface StockViewProps {
+  currentUser?: UserSession | null;
   onReplenish?: (sku: string) => void;
   onChatRequest?: () => void;
 }
 
-export const StockView = ({ onReplenish }: StockViewProps) => {
+export const StockView = ({ currentUser, onReplenish }: StockViewProps) => {
+  const activeCompanyId = currentUser?.companyId || 'comp_default';
   const [selectedSchema, setSelectedSchema] = useState<SchemaTableId>('inventory');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -87,7 +91,7 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
     }
     setSavingStock(true);
     try {
-      const res = await api.updateStock(product.id, editStockVal, product.minimum);
+      const res = await api.updateStock(product.id, editStockVal, product.minimum, activeCompanyId);
       if (res.success) {
         toast.success(res.message);
         if (res.alertTriggered) {
@@ -116,9 +120,9 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
   const fetchAllData = async () => {
     try {
       const [prodsRes, casesRes, ordersRes] = await Promise.all([
-        api.getProducts('comp_default'),
-        api.getCases('comp_default'),
-        api.getOrders('comp_default'),
+        api.getProducts(activeCompanyId),
+        api.getCases(activeCompanyId),
+        api.getOrders(activeCompanyId),
       ]);
 
       if (prodsRes.success && Array.isArray(prodsRes.data)) {
@@ -152,7 +156,7 @@ export const StockView = ({ onReplenish }: StockViewProps) => {
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [activeCompanyId]);
 
   const handleSync = async () => {
     setSyncing(true);

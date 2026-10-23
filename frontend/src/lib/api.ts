@@ -244,6 +244,23 @@ export const api = {
       body: JSON.stringify({ message, companyId, caseId }),
     }),
 
+  getChatHistory: (companyId = 'comp_default') =>
+    request<{
+      success: boolean;
+      history: Array<{
+        id: string;
+        role: 'user' | 'agent';
+        text?: string;
+        responseText?: string;
+        status?: string;
+        timestamp?: string;
+        metrics?: {
+          totalCostUsd?: string;
+          totalTokens?: number;
+        };
+      }>;
+    }>(`/api/chat/history?companyId=${encodeURIComponent(companyId)}`),
+
   // Alertas Proactivas
   getProactiveAlerts: () =>
     request<{

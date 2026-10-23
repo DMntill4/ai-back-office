@@ -60,9 +60,24 @@ const HISTORY_GROUPS = [
 
 /* ───────────────────────────── MAIN SHELL ───────────────────────────── */
 
+const SESSION_STORAGE_KEY = 'mint_user_session';
+
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(() => {
+    try {
+      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      return !!localStorage.getItem(SESSION_STORAGE_KEY);
+    } catch {
+      return false;
+    }
+  });
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
   const [currentView, setCurrentView] = useState('chat');
@@ -98,7 +113,8 @@ export default function App() {
       }
     }).catch(() => {});
 
-    api.getProducts().then((res) => {
+    const activeCompanyId = currentUser?.companyId || 'comp_default';
+    api.getProducts(activeCompanyId).then((res) => {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         setSidebarFacilities(
           res.data.slice(0, 5).map((p) => ({
@@ -115,7 +131,7 @@ export default function App() {
     }).catch(() => {
       setSidebarFacilities([]);
     });
-  }, [currentView]);
+  }, [currentView, currentUser?.companyId]);
 
   // Escucha activa de alertas proactivas en tiempo real (desabastos y quiebres de inventario)
   const lastAlertIdRef = useRef<string | null>(null);
@@ -159,6 +175,9 @@ export default function App() {
   const handleLogin = (user: UserSession) => {
     setCurrentUser(user);
     setIsAuthenticated(true);
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
+    } catch {}
     if (user.setupCompleted) {
       setShowSplash(true);
       setCurrentView('chat');
@@ -167,14 +186,18 @@ export default function App() {
 
   const handleFinishSetup = () => {
     if (currentUser) {
-      setCurrentUser({ ...currentUser, setupCompleted: true });
+      const updatedUser = { ...currentUser, setupCompleted: true };
+      setCurrentUser(updatedUser);
+      try {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updatedUser));
+      } catch {}
     }
     const wasCustomizing = isCustomizing;
     setIsCustomizing(false);
     if (!wasCustomizing) {
       setShowSplash(true);
     }
-    setCurrentView('dashboard');
+    setCurrentView('chat');
   };
 
   if (!isAuthenticated || !currentUser) {
@@ -862,6 +885,9 @@ export default function App() {
                           setMenuOpen(false);
                           setIsAuthenticated(false);
                           setCurrentUser(null);
+                          try {
+                            localStorage.removeItem(SESSION_STORAGE_KEY);
+                          } catch {}
                         }}
                         className="w-full text-left px-3 py-1.5 rounded-xl text-rose-400 hover:bg-rose-500/10 transition flex items-center gap-2 cursor-pointer"
                       >
@@ -904,6 +930,7 @@ export default function App() {
 
           {currentView === 'approvals' && (
             <ApprovalsView
+              currentUser={currentUser}
               onNavigate={setCurrentView}
               onOpenPrompt={(p) => {
                 setPrefilledPrompt(p);
@@ -914,6 +941,7 @@ export default function App() {
 
           {currentView === 'stock' && (
             <StockView
+              currentUser={currentUser}
               onReplenish={(sku) => {
                 setPrefilledPrompt(`Revisa el stock de ${sku} y cotiza reposición urgente con el mejor proveedor.`);
                 setCurrentView('chat');
@@ -1032,11 +1060,13 @@ export default function App() {
 /* ───────────────────── 3. APROBACIONES CRÍTICAS (MODERNISMO MINIMALISTA) ───────────────────── */
 
 interface ApprovalsViewProps {
+  currentUser?: UserSession | null;
   onNavigate?: (view: string) => void;
   onOpenPrompt?: (prompt: string) => void;
 }
 
-function ApprovalsView({ onOpenPrompt }: ApprovalsViewProps) {
+function ApprovalsView({ currentUser, onOpenPrompt }: ApprovalsViewProps) {
+  const activeCompanyId = currentUser?.companyId || 'comp_default';
   const [approvedList, setApprovedList] = useState<string[]>([]);
   const [liveApprovals, setLiveApprovals] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
@@ -1058,12 +1088,12 @@ function ApprovalsView({ onOpenPrompt }: ApprovalsViewProps) {
   }, []);
 
   useEffect(() => {
-    api.getOrders('comp_default').then((res) => {
+    api.getOrders(activeCompanyId).then((res) => {
       if (res.success && Array.isArray(res.data)) {
         setRecentOrders(res.data);
       }
     }).catch(() => {});
-  }, [approvedList]);
+  }, [approvedList, activeCompanyId]);
 
   const pendingApprovals = liveApprovals.map((a) => ({
     id: a.id,
@@ -1375,7 +1405,8 @@ interface AuditEvent {
   createdAt?: string;
 }
 
-function ActivityAuditView() {
+function ActivityAuditView({ currentUser }: { currentUser?: UserSession | null }) {
+  const activeCompanyId = currentUser?.companyId || 'comp_default';
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [auditPage, setAuditPage] = useState(1);
   const EVENTS_PER_PAGE = 10;
@@ -1384,7 +1415,7 @@ function ActivityAuditView() {
 
   useEffect(() => {
     let mounted = true;
-    api.getAuditEvents('comp_default')
+    api.getAuditEvents(activeCompanyId)
       .then((res) => {
         if (mounted && res.success && Array.isArray(res.data)) {
           setEvents(res.data);
@@ -1394,7 +1425,7 @@ function ActivityAuditView() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [activeCompanyId]);
 
   const totalAuditPages = Math.ceil(events.length / EVENTS_PER_PAGE) || 1;
   const paginatedEvents = events.slice(
@@ -1652,7 +1683,7 @@ function SystemGovernanceView({
       </div>
 
       {/* Sub-tab content */}
-      {subTab === 'database' && <DatabaseManagerView />}
+      {subTab === 'database' && <DatabaseManagerView currentUser={currentUser} />}
       {subTab === 'accounts' && (
         <AccountsManagementView
           currentUser={currentUser}
@@ -1660,7 +1691,7 @@ function SystemGovernanceView({
           onOpenPrompt={onOpenPrompt}
         />
       )}
-      {subTab === 'audit' && <ActivityAuditView />}
+      {subTab === 'audit' && <ActivityAuditView currentUser={currentUser} />}
     </div>
   );
 }

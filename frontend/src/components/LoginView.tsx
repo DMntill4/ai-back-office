@@ -475,7 +475,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           </div>
         </motion.div>
 
-        {/* ─── Tarjeta Central Frosted Obsidian con Acentos Verde Mint y Borde Respirante ─── */}
+        {/* ─── Tarjeta Central Glassmorphism Oscuro con Borde Negro/Grafito y Transparencia Real ─── */}
         <motion.div
           layout
           initial={{ opacity: 0, scale: 0.96, y: 14 }}
@@ -485,25 +485,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             duration: 0.25,
             ease: [0.16, 1, 0.3, 1],
           }}
-          className="w-full rounded-[24px] sm:rounded-[28px] bg-[#0A160F]/90 backdrop-blur-2xl p-5 sm:p-8 border border-[#193A24]/80 shadow-[inset_0_1px_0_0_rgba(184,245,160,0.18),0_25px_70px_rgba(0,0,0,0.9),0_0_50px_rgba(52,211,83,0.08)] animate-card-glow transition-all"
+          className="w-full rounded-[24px] sm:rounded-[28px] bg-[#07090C]/75 backdrop-blur-2xl p-5 sm:p-8 border border-zinc-800/80 shadow-[0_30px_90px_rgba(0,0,0,0.9),0_0_1px_1px_rgba(255,255,255,0.05)] transition-all"
         >
         {/* Esquina Superior: Segmented Control tipo píldora animado con Framer Motion & Botón Cerrar */}
         <div className="flex items-center justify-between mb-4">
-          {/* Segmented Control tipo píldora con indicador flotante animado */}
-          <div className="relative inline-flex items-center p-1 rounded-full bg-[#050D08] border border-[#14281B]">
+          {/* Segmented Control tipo píldora */}
+          <div className="relative inline-flex items-center p-1 rounded-full bg-black/50 border border-zinc-800/90">
             <button
               type="button"
               onClick={() => handleTabChange('signup')}
               className={`relative z-10 px-4 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 cursor-pointer ${
                 tab === 'signup'
-                  ? 'text-[#B8F5A0] font-semibold'
+                  ? 'text-white font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               {tab === 'signup' && (
                 <motion.div
                   layoutId="activeAuthTabPill"
-                  className="absolute inset-0 bg-[#122B1A] border border-[#275935] rounded-full shadow-[0_0_12px_rgba(52,211,83,0.25)] -z-10"
+                  className="absolute inset-0 bg-zinc-800/80 border border-zinc-700/60 rounded-full shadow-xs -z-10"
                   transition={{ type: 'spring', stiffness: 450, damping: 32 }}
                 />
               )}
@@ -514,14 +514,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               onClick={() => handleTabChange('signin')}
               className={`relative z-10 px-4 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 cursor-pointer ${
                 tab === 'signin'
-                  ? 'text-[#B8F5A0] font-semibold'
+                  ? 'text-white font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               {tab === 'signin' && (
                 <motion.div
                   layoutId="activeAuthTabPill"
-                  className="absolute inset-0 bg-[#122B1A] border border-[#275935] rounded-full shadow-[0_0_12px_rgba(52,211,83,0.25)] -z-10"
+                  className="absolute inset-0 bg-zinc-800/80 border border-zinc-700/60 rounded-full shadow-xs -z-10"
                   transition={{ type: 'spring', stiffness: 450, damping: 32 }}
                 />
               )}
@@ -529,18 +529,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             </button>
           </div>
 
-          {/* Botón Circular de Cierre con micro-interacción rotatoria */}
+          {/* Botón Circular de Cierre */}
           <button
             type="button"
             onClick={handleQuickAdminDemo}
             title="Acceso Rápido Administrador"
-            className="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-[#122B1A] border border-[#193A24] hover:border-[#34D353]/60 flex items-center justify-center text-zinc-400 hover:text-[#B8F5A0] hover:shadow-[0_0_16px_rgba(52,211,83,0.35)] hover:rotate-90 transition-all duration-300 active:scale-90 cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-all duration-200 active:scale-95 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Título y Subtítulo Dinámicos con Transición Suave de Orientación */}
+        {/* Título y Subtítulo Dinámicos */}
         <div className="relative overflow-hidden mb-4 min-h-[48px]">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
@@ -554,7 +554,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               <h2 className="text-[22px] font-semibold text-white tracking-tight">
                 {tab === 'signup' ? 'Create an account' : 'Welcome back'}
               </h2>
-              <p className="text-xs text-[#6F9A75] mt-0.5 font-normal">
+              <p className="text-xs text-zinc-400 mt-0.5 font-normal">
                 {tab === 'signup'
                   ? 'Registra tu empresa o accede como operador de clientes'
                   : 'Ingresa tus credenciales para acceder a la consola'}
@@ -576,26 +576,26 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               onSubmit={handleSignUpSubmit}
               className="space-y-3"
             >
-              {/* 1. Sub-selector de Rol: Cliente vs Empresa con píldora animada */}
+              {/* 1. Sub-selector de Rol: Cliente vs Empresa */}
               <motion.div variants={inputItemVariants}>
-                <div className="relative flex items-center p-1 rounded-xl bg-[#050D08] border border-[#14281B]">
+                <div className="relative flex items-center p-1 rounded-xl bg-black/40 border border-zinc-800">
                   <button
                     type="button"
                     onClick={() => setAccountType('company')}
                     className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 cursor-pointer ${
                       accountType === 'company'
-                        ? 'text-[#B8F5A0] font-semibold'
+                        ? 'text-white font-semibold'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
                     {accountType === 'company' && (
                       <motion.div
                         layoutId="activeAccountTypePill"
-                        className="absolute inset-0 bg-[#122B1A] border border-[#275935] rounded-lg shadow-xs -z-10"
+                        className="absolute inset-0 bg-zinc-800/80 border border-zinc-700/60 rounded-lg shadow-xs -z-10"
                         transition={{ type: 'spring', stiffness: 450, damping: 32 }}
                       />
                     )}
-                    <Building2 className={`w-3.5 h-3.5 transition-colors ${accountType === 'company' ? 'text-[#34D353]' : 'text-zinc-500'}`} />
+                    <Building2 className={`w-3.5 h-3.5 transition-colors ${accountType === 'company' ? 'text-emerald-400' : 'text-zinc-500'}`} />
                     <span>Cuenta Empresa</span>
                   </button>
                   <button
@@ -603,18 +603,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     onClick={() => setAccountType('client')}
                     className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 cursor-pointer ${
                       accountType === 'client'
-                        ? 'text-[#B8F5A0] font-semibold'
+                        ? 'text-white font-semibold'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
                     {accountType === 'client' && (
                       <motion.div
                         layoutId="activeAccountTypePill"
-                        className="absolute inset-0 bg-[#122B1A] border border-[#275935] rounded-lg shadow-xs -z-10"
+                        className="absolute inset-0 bg-zinc-800/80 border border-zinc-700/60 rounded-lg shadow-xs -z-10"
                         transition={{ type: 'spring', stiffness: 450, damping: 32 }}
                       />
                     )}
-                    <User className={`w-3.5 h-3.5 transition-colors ${accountType === 'client' ? 'text-[#34D353]' : 'text-zinc-500'}`} />
+                    <User className={`w-3.5 h-3.5 transition-colors ${accountType === 'client' ? 'text-emerald-400' : 'text-zinc-500'}`} />
                     <span>Cuenta Cliente</span>
                   </button>
                 </div>
@@ -631,7 +631,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                       onChange={handleFirstNameChange}
                       onBlur={() => markTouched('firstName')}
                       placeholder="John"
-                      className="w-full bg-[#0C1911]/80 border border-[#193A24] rounded-xl px-4 py-3 text-sm text-[#E8FBEA] placeholder:text-[#4B7355] transition-all duration-200 input-rim-focus focus:scale-[1.005]"
+                      className="w-full bg-black/40 border border-zinc-800 focus:border-zinc-600 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all duration-200"
                     />
                   </div>
                   <div className="group relative">
@@ -642,7 +642,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                       onChange={handleLastNameChange}
                       onBlur={() => markTouched('lastName')}
                       placeholder="Last name"
-                      className="w-full bg-[#0C1911]/80 border border-[#193A24] rounded-xl px-4 py-3 text-sm text-[#E8FBEA] placeholder:text-[#4B7355] transition-all duration-200 input-rim-focus focus:scale-[1.005]"
+                      className="w-full bg-black/40 border border-zinc-800 focus:border-zinc-600 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all duration-200"
                     />
                   </div>
                 </div>
@@ -657,7 +657,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               {/* 3. Email */}
               <motion.div variants={inputItemVariants}>
                 <div className="relative group">
-                  <Mail className="w-4 h-4 text-[#4B7355] group-focus-within:text-[#34D353] group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Mail className="w-4 h-4 text-zinc-500 group-focus-within:text-white transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="email"
                     required
@@ -669,7 +669,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         ? 'Enter your corporate email'
                         : 'Enter your email'
                     }
-                    className="w-full bg-[#0C1911]/80 border border-[#193A24] rounded-xl pl-11 pr-4 py-3 text-sm text-[#E8FBEA] placeholder:text-[#4B7355] transition-all duration-200 input-rim-focus focus:scale-[1.005]"
+                    className="w-full bg-black/40 border border-zinc-800 focus:border-zinc-600 rounded-xl pl-11 pr-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all duration-200"
                   />
                 </div>
                 {touched.email && !isValidEmail(email) && (
@@ -681,22 +681,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
               {/* 4. Phone with Country Dropdown */}
               <motion.div variants={inputItemVariants}>
-                <div className="group relative flex items-center bg-[#0C1911]/80 border border-[#193A24] rounded-xl transition-all duration-200 input-rim-focus focus-within:scale-[1.005]">
+                <div className="group relative flex items-center bg-black/40 border border-zinc-800 focus-within:border-zinc-600 rounded-xl transition-all duration-200">
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                      className="flex items-center gap-1.5 px-3.5 py-3 border-r border-[#193A24] text-xs text-zinc-300 hover:text-white transition cursor-pointer"
+                      className="flex items-center gap-1.5 px-3.5 py-3 border-r border-zinc-800 text-xs text-zinc-300 hover:text-white transition cursor-pointer"
                     >
                       <span className="text-sm leading-none">{selectedCountry.flag}</span>
                       <span className="font-mono text-[11px] font-semibold text-zinc-400">
                         {selectedCountry.code}
                       </span>
-                      <ChevronDown className="w-3 h-3 text-[#4B7355] group-hover:text-emerald-400 transition" />
+                      <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-zinc-300 transition" />
                     </button>
 
                     {showCountryDropdown && (
-                      <div className="absolute left-0 top-full mt-1.5 w-48 bg-[#07140B] border border-[#1F4527] rounded-xl shadow-2xl py-1 z-30 backdrop-blur-xl animate-in fade-in duration-150">
+                      <div className="absolute left-0 top-full mt-1.5 w-48 bg-[#0D0F14] border border-zinc-800 rounded-xl shadow-2xl py-1 z-30 backdrop-blur-xl animate-in fade-in duration-150">
                         {COUNTRIES.map((c) => (
                           <button
                             key={c.code}
@@ -705,13 +705,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                               setSelectedCountry(c);
                               setShowCountryDropdown(false);
                             }}
-                            className="w-full flex items-center justify-between px-3.5 py-2 text-xs text-zinc-200 hover:bg-[#122B1A] transition text-left cursor-pointer"
+                            className="w-full flex items-center justify-between px-3.5 py-2 text-xs text-zinc-200 hover:bg-white/[0.06] transition text-left cursor-pointer"
                           >
                             <div className="flex items-center gap-2">
                               <span>{c.flag}</span>
                               <span>{c.name}</span>
                             </div>
-                            <span className="text-[#34D353] font-mono text-[11px]">{c.dialCode}</span>
+                            <span className="text-emerald-400 font-mono text-[11px]">{c.dialCode}</span>
                           </button>
                         ))}
                       </div>
@@ -724,7 +724,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     onChange={handlePhoneChange}
                     onBlur={() => markTouched('phone')}
                     placeholder={selectedCountry.placeholder}
-                    className="w-full bg-transparent px-3.5 py-3 text-sm text-[#E8FBEA] placeholder:text-[#4B7355] outline-none"
+                    className="w-full bg-transparent px-3.5 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none"
                   />
                 </div>
                 {touched.phone && phone && !isValidPhone(phone) && (
@@ -737,7 +737,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               {/* 5. Password */}
               <motion.div variants={inputItemVariants}>
                 <div className="relative group">
-                  <Lock className="w-4 h-4 text-[#4B7355] group-focus-within:text-[#34D353] group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Lock className="w-4 h-4 text-zinc-500 group-focus-within:text-white transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
@@ -745,12 +745,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     onChange={(e) => setPassword(e.target.value)}
                     onBlur={() => markTouched('password')}
                     placeholder="Create a password"
-                    className="w-full bg-[#0C1911]/80 border border-[#193A24] rounded-xl pl-11 pr-11 py-3 text-sm text-[#E8FBEA] placeholder:text-[#4B7355] transition-all duration-200 font-mono input-rim-focus focus:scale-[1.005]"
+                    className="w-full bg-black/40 border border-zinc-800 focus:border-zinc-600 rounded-xl pl-11 pr-11 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all duration-200 font-mono"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#4B7355] hover:text-[#B8F5A0] transition cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200 transition cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -760,15 +760,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 {password && (
                   <div className="mt-1.5 px-1 space-y-1">
                     <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-zinc-400 font-mono">Seguridad:</span>
-                      <span className="text-zinc-300 font-medium">{passwordStrength.text}</span>
+                      <span className="text-zinc-500 font-mono">Seguridad:</span>
+                      <span className="text-zinc-400 font-medium">{passwordStrength.text}</span>
                     </div>
-                    <div className="w-full h-1 bg-[#061009] rounded-full overflow-hidden flex gap-1">
+                    <div className="w-full h-1 bg-zinc-900 rounded-full overflow-hidden flex gap-1">
                       {[1, 2, 3, 4].map((level) => (
                         <div
                           key={level}
                           className={`flex-1 h-full rounded-full transition-all duration-200 ${
-                            level <= passwordStrength.score ? passwordStrength.color : 'bg-[#122217]'
+                            level <= passwordStrength.score ? passwordStrength.color : 'bg-zinc-800'
                           }`}
                         />
                       ))}
@@ -780,7 +780,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               {/* 6. Company Name */}
               <motion.div variants={inputItemVariants}>
                 <div className="relative group">
-                  <Building2 className="w-4 h-4 text-[#4B7355] group-focus-within:text-[#34D353] group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Building2 className="w-4 h-4 text-zinc-500 group-focus-within:text-white transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     required
@@ -792,7 +792,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         ? 'Company name (e.g. Acme Corp)'
                         : 'Empresa u Organización asignada'
                     }
-                    className="w-full bg-[#0C1911]/80 border border-[#193A24] rounded-xl pl-11 pr-4 py-3 text-sm text-[#E8FBEA] placeholder:text-[#4B7355] transition-all duration-200 input-rim-focus focus:scale-[1.005]"
+                    className="w-full bg-black/40 border border-zinc-800 focus:border-zinc-600 rounded-xl pl-11 pr-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all duration-200"
                   />
                 </div>
                 {touched.companyName && !isValidCompany(companyName) && (
@@ -802,7 +802,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 )}
               </motion.div>
 
-              {/* 7. Botón Primario con Shimmer Light Beam */}
+              {/* 7. Botón Primario */}
               <motion.div variants={inputItemVariants} className="pt-1">
                 <button
                   type="submit"
@@ -831,7 +831,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               {/* 1. Email */}
               <motion.div variants={inputItemVariants}>
                 <div className="relative group">
-                  <Mail className="w-4 h-4 text-[#4B7355] group-focus-within:text-[#34D353] group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Mail className="w-4 h-4 text-emerald-500/80 group-focus-within:text-emerald-400 group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="email"
                     required
@@ -839,7 +839,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     onChange={handleEmailChange}
                     onBlur={() => markTouched('email')}
                     placeholder="Enter your email"
-                    className="w-full bg-[#0C1911]/80 border border-[#193A24] rounded-xl pl-11 pr-4 py-3 text-sm text-[#E8FBEA] placeholder:text-[#4B7355] transition-all duration-200 input-rim-focus focus:scale-[1.005]"
+                    className="w-full bg-black/40 border border-zinc-800 focus:border-zinc-600 rounded-xl pl-11 pr-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all duration-200"
                   />
                 </div>
                 {touched.email && !isValidEmail(email) && (
@@ -852,7 +852,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               {/* 2. Password */}
               <motion.div variants={inputItemVariants}>
                 <div className="relative group">
-                  <Lock className="w-4 h-4 text-[#4B7355] group-focus-within:text-[#34D353] group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Lock className="w-4 h-4 text-emerald-500/80 group-focus-within:text-emerald-400 group-focus-within:scale-110 transition-all duration-200 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
@@ -860,12 +860,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     onChange={(e) => setPassword(e.target.value)}
                     onBlur={() => markTouched('password')}
                     placeholder="Enter your password"
-                    className="w-full bg-[#0C1911]/80 border border-[#193A24] rounded-xl pl-11 pr-11 py-3 text-sm text-[#E8FBEA] placeholder:text-[#4B7355] transition-all duration-200 font-mono input-rim-focus focus:scale-[1.005]"
+                    className="w-full bg-black/40 border border-zinc-800 focus:border-zinc-600 rounded-xl pl-11 pr-11 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all duration-200 font-mono"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#4B7355] hover:text-[#B8F5A0] transition cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -898,9 +898,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         {/* ─── 5. Botones Secundarios Inferiores con Micro-interacciones Mint ─── */}
         <div className="relative my-5 flex items-center justify-center">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[#162D1D]" />
+            <div className="w-full border-t border-zinc-800/80" />
           </div>
-          <span className="relative bg-[#0A160F] px-3 text-[10px] tracking-widest text-[#527558] uppercase font-mono">
+          <span className="relative bg-[#07090C] px-3 text-[10px] tracking-widest text-zinc-500 uppercase font-mono">
             O CONTINUAR CON
           </span>
         </div>
@@ -909,7 +909,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           <button
             type="button"
             onClick={handleQuickAdminDemo}
-            className="group bg-[#0C1911]/80 hover:bg-[#12291B] border border-[#193A24] hover:border-[#34D353]/60 hover:shadow-[0_0_18px_rgba(52,211,83,0.2)] rounded-xl py-2.5 px-3 flex items-center justify-center gap-2 text-xs font-medium text-zinc-300 hover:text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+            className="group bg-black/40 hover:bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 rounded-xl py-2.5 px-3 flex items-center justify-center gap-2 text-xs font-medium text-zinc-300 hover:text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer"
           >
             <Zap className="w-3.5 h-3.5 text-[#34D353] group-hover:scale-110 group-hover:rotate-6 transition-transform duration-200" />
             <span>Demo Admin</span>
@@ -917,7 +917,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           <button
             type="button"
             onClick={handleQuickOperatorDemo}
-            className="group bg-[#0C1911]/80 hover:bg-[#12291B] border border-[#193A24] hover:border-[#34D353]/60 hover:shadow-[0_0_18px_rgba(52,211,83,0.2)] rounded-xl py-2.5 px-3 flex items-center justify-center gap-2 text-xs font-medium text-zinc-300 hover:text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+            className="group bg-black/40 hover:bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 rounded-xl py-2.5 px-3 flex items-center justify-center gap-2 text-xs font-medium text-zinc-300 hover:text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer"
           >
             <UserCheck className="w-3.5 h-3.5 text-[#34D353] group-hover:scale-110 group-hover:rotate-6 transition-transform duration-200" />
             <span>Modo Operador</span>
@@ -925,9 +925,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         </div>
 
         {/* Términos y Condiciones */}
-        <p className="text-[11px] text-[#527558] text-center mt-5 leading-relaxed">
+        <p className="text-[11px] text-zinc-500 text-center mt-5 leading-relaxed">
           By {tab === 'signup' ? 'creating an account' : 'signing in'}, you agree to our{' '}
-          <span className="text-[#8EB795] hover:text-[#B8F5A0] underline underline-offset-2 cursor-pointer transition">
+          <span className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2 cursor-pointer transition">
             Terms &amp; Service
           </span>
         </p>

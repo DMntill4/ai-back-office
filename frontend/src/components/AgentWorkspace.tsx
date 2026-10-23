@@ -76,9 +76,19 @@ export default function AgentWorkspace({
     setInput(prefilledPrompt);
     onClearPrefill?.();
   }
+  const activeCompanyId = currentUser?.companyId || 'comp_default';
+  const chatStorageKey = `mint_chat_history_${activeCompanyId}`;
+
   const [skillMenuOpen, setSkillMenuOpen] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<Msg[]>(() => {
+    try {
+      const saved = localStorage.getItem(chatStorageKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [approved, setApproved] = useState(false);
   const timers = useRef<number[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
@@ -88,6 +98,38 @@ export default function AgentWorkspace({
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, agentState]);
+
+  // Sincronizar mensajes en localStorage ante cambios
+  useEffect(() => {
+    try {
+      if (messages.length > 0) {
+        localStorage.setItem(chatStorageKey, JSON.stringify(messages));
+      }
+    } catch {}
+  }, [messages, chatStorageKey]);
+
+  // Si no hay mensajes en local, cargar historial real del servidor
+  useEffect(() => {
+    if (messages.length === 0) {
+      api.getChatHistory(activeCompanyId)
+        .then((res) => {
+          if (res.success && Array.isArray(res.history) && res.history.length > 0) {
+            const restored: Msg[] = res.history.map((h, idx) => ({
+              id: Date.now() + idx,
+              role: h.role,
+              text: h.text,
+              responseText: h.responseText,
+              metrics: {
+                totalCostUsd: h.metrics?.totalCostUsd,
+                totalTokens: h.metrics?.totalTokens,
+              },
+            }));
+            setMessages(restored);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [activeCompanyId]);
 
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)); };
 
@@ -101,8 +143,6 @@ export default function AgentWorkspace({
     setAttachMenuOpen(false);
     setMessages((m) => [...m, { id: Date.now(), role: 'user', text }]);
     setAgentState('thinking');
-
-    const activeCompanyId = currentUser?.companyId || 'comp_default';
 
     try {
       const data = await api.sendChat(text, activeCompanyId);
@@ -121,7 +161,7 @@ export default function AgentWorkspace({
           toolCallsFromText.push({ call: 'evaluar_reglas_gobernanza()', out: '→ Verificación de límite autónomo $10,000 MXN' });
         }
         if (toolCallsFromText.length === 0) {
-          toolCallsFromText.push({ call: 'bucle_react_grok()', out: '→ Análisis de intención e inferencia en xAI' });
+          toolCallsFromText.push({ call: 'consultar_estado_sistema()', out: '→ Verificación de motor PostgreSQL y catálogo' });
         }
 
         setMessages((m) => [
@@ -141,7 +181,7 @@ export default function AgentWorkspace({
           },
         ]);
         setAgentState('responding');
-        later(() => setAgentState('idle'), 1500);
+        later(() => setAgentState('idle'), 1200);
       } else {
         throw new Error('Respuesta no concluyente del agente');
       }
@@ -163,11 +203,14 @@ export default function AgentWorkspace({
       ]);
       setAgentState('idle');
     }
-  }, [agentState, selectedSkillId, currentUser]);
+  }, [agentState, selectedSkillId, activeCompanyId]);
 
   const reset = () => {
     timers.current.forEach(clearTimeout);
     setMessages([]);
+    try {
+      localStorage.removeItem(chatStorageKey);
+    } catch {}
     setAgentState('idle');
     setInput('');
     setSelectedSkillId('auto');
@@ -210,7 +253,7 @@ export default function AgentWorkspace({
                 </div>
 
                 {/* Súper Composer Mint */}
-                <div className="relative w-full rounded-2xl border border-[#162D1D] bg-[#08120B]/95 p-4 shadow-[0_16px_50px_rgba(0,0,0,0.7),0_0_30px_rgba(52,211,83,0.05)] transition-all focus-within:border-[#1F4527] focus-within:shadow-[0_0_25px_rgba(52,211,83,0.12)]">
+                <div className="relative w-full rounded-2xl border border-zinc-800/80 bg-[#0A0D12]/75 p-4 shadow-[0_16px_50px_rgba(0,0,0,0.85)] backdrop-blur-xl transition-all focus-within:border-zinc-700">
                   <textarea
                     rows={2}
                     value={input}
@@ -222,7 +265,7 @@ export default function AgentWorkspace({
                       }
                     }}
                     placeholder="Pregunta a MINT o describe una operación de back-office..."
-                    className="w-full resize-none bg-transparent px-1 pt-1 pb-2 text-sm text-[#E8FBEA] placeholder:text-[#527558] outline-none"
+                    className="w-full resize-none bg-transparent px-1 pt-1 pb-2 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none"
                   />
 
                   {/* Fila Inferior de Controles */}
@@ -234,7 +277,7 @@ export default function AgentWorkspace({
                           type="button"
                           onClick={() => { setAttachMenuOpen((o) => !o); setSkillMenuOpen(false); }}
                           title="Vincular contexto o SKU"
-                          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white"
+                          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-zinc-800 bg-white/[0.03] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white"
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </button>
@@ -244,26 +287,26 @@ export default function AgentWorkspace({
                               initial={{ opacity: 0, y: -4 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -4 }}
-                              className="absolute bottom-9 left-0 w-64 rounded-xl border border-[#162D1D] bg-[#08140B] p-2 shadow-2xl backdrop-blur-xl z-50 text-xs shadow-[0_20px_50px_rgba(0,0,0,0.85)]"
+                              className="absolute bottom-9 left-0 w-64 rounded-xl border border-zinc-800 bg-[#0A0D12]/95 p-2 shadow-2xl backdrop-blur-2xl z-50 text-xs shadow-[0_20px_50px_rgba(0,0,0,0.9)]"
                             >
                               <button
                                 onClick={() => {
                                   setInput((prev) => (prev ? prev + ' ' : '') + '@SKU-ST200');
                                   setAttachMenuOpen(false);
                                 }}
-                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[#8EB795] hover:bg-[#102416] hover:text-[#E8FBEA]"
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-zinc-300 hover:bg-zinc-800/60 hover:text-white"
                               >
-                                <Paperclip className="h-3.5 w-3.5 text-[#527558]" />
-                                <span>Vincular <span className="font-mono text-[#B8F5A0]">@SKU-ST200</span></span>
+                                <Paperclip className="h-3.5 w-3.5 text-zinc-500" />
+                                <span>Vincular <span className="font-mono text-emerald-400">@SKU-ST200</span></span>
                               </button>
                               <button
                                 onClick={() => {
                                   setInput('Ejecuta auditoría de inventario crítico en los 4 almacenes.');
                                   setAttachMenuOpen(false);
                                 }}
-                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[#8EB795] hover:bg-[#102416] hover:text-[#E8FBEA]"
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-zinc-300 hover:bg-zinc-800/60 hover:text-white"
                               >
-                                <Zap className="h-3.5 w-3.5 text-[#34D353]" />
+                                <Zap className="h-3.5 w-3.5 text-emerald-400" />
                                 <span>Playbook: Auditoría Express</span>
                               </button>
                             </motion.div>
@@ -276,11 +319,11 @@ export default function AgentWorkspace({
                         <button
                           type="button"
                           onClick={() => { setSkillMenuOpen((o) => !o); setAttachMenuOpen(false); }}
-                          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#162D1D] bg-[#050D07] px-3 py-1 text-xs text-[#8EB795] transition hover:bg-[#0A170E] hover:text-[#E8FBEA]"
+                          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-800 bg-black/40 px-3 py-1 text-xs text-zinc-300 transition hover:bg-zinc-800/60 hover:text-white"
                         >
-                          <Zap className="h-3 w-3 text-[#34D353]" />
+                          <Zap className="h-3 w-3 text-emerald-400" />
                           <span>{currentSkill.label}</span>
-                          <ChevronDown className="h-3 w-3 text-[#527558]" />
+                          <ChevronDown className="h-3 w-3 text-zinc-500" />
                         </button>
                         <AnimatePresence>
                           {skillMenuOpen && (
@@ -288,7 +331,7 @@ export default function AgentWorkspace({
                               initial={{ opacity: 0, y: -4 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -4 }}
-                              className="absolute bottom-9 left-0 w-64 rounded-xl border border-[#162D1D] bg-[#08140B] p-2 shadow-2xl backdrop-blur-xl z-50 text-xs shadow-[0_20px_50px_rgba(0,0,0,0.85)]"
+                              className="absolute bottom-9 left-0 w-64 rounded-xl border border-zinc-800 bg-[#0A0D12]/95 p-2 shadow-2xl backdrop-blur-2xl z-50 text-xs shadow-[0_20px_50px_rgba(0,0,0,0.9)]"
                             >
                               {SKILLS.map((s) => (
                                 <button
@@ -386,10 +429,10 @@ export default function AgentWorkspace({
                   )}
 
                   {agentState === 'thinking' && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2.5 text-xs text-[#8EB795]">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2.5 text-xs text-zinc-400">
                       <MintInteractiveMascot state="thinking" size={28} className="!h-8 !w-8" />
-                      <span className="text-[#8EB795]">Ejecutando bucle ReAct…</span>
-                      <span className="font-mono text-[#52795F]">superpowers.ts</span>
+                      <span className="text-zinc-300 font-medium">Ejecutando bucle ReAct…</span>
+                      <span className="font-mono text-zinc-500">superpowers.ts</span>
                     </motion.div>
                   )}
                   <div ref={endRef} />
@@ -398,7 +441,7 @@ export default function AgentWorkspace({
 
               {/* Input en modo conversación */}
               <div className="mx-auto w-full max-w-[680px] px-6 pb-6">
-                <div className="relative w-full rounded-xl border border-[#162D1D] bg-[#08120B] p-3 shadow-2xl transition-all focus-within:border-[#1F4527] focus-within:shadow-[0_0_20px_rgba(52,211,83,0.1)]">
+                <div className="relative w-full rounded-2xl border border-zinc-800/80 bg-[#0A0D12]/80 p-3 shadow-2xl backdrop-blur-xl transition-all focus-within:border-zinc-700">
                   <textarea
                     rows={1}
                     value={input}
@@ -554,8 +597,8 @@ const AgentResponse: React.FC<AgentResponseProps> = ({
           </div>
         )}
 
-        {/* Tarjeta de Guardrail HITL si es requerida */}
-        {(requiresHitl || (!responseText && !isRealStock)) && (
+        {/* Tarjeta de Guardrail HITL si es requerida estrictamente */}
+        {requiresHitl && (
           <div
             className={`rounded-2xl border p-4 transition-all shadow-sm ${
               approved

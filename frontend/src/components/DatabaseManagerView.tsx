@@ -55,7 +55,14 @@ interface TableSummary {
   rowCount: number;
 }
 
-export function DatabaseManagerView() {
+import type { UserSession } from './LoginView';
+
+interface DatabaseManagerViewProps {
+  currentUser?: UserSession | null;
+}
+
+export function DatabaseManagerView({ currentUser }: DatabaseManagerViewProps) {
+  const companyId = currentUser?.companyId || 'comp_default';
   const [refreshing, setRefreshing] = useState(false);
   const [status, setStatus] = useState<DbStatusData | null>(null);
   const [tables, setTables] = useState<TableSummary[]>([]);
@@ -75,8 +82,8 @@ export function DatabaseManagerView() {
   const handleApplyTemplate = async (tmpl: EcosystemTemplate) => {
     setApplyingTemplate(true);
     try {
-      const sql = tmpl.getSql('comp_default');
-      const res = await api.uploadSql('comp_default', sql);
+      const sql = tmpl.getSql(companyId);
+      const res = await api.uploadSql(companyId, sql, currentUser?.id);
       if (res.success) {
         toast.success(`Plantilla '${tmpl.name}' aplicada con éxito. ${res.realProductsCount || 5} productos sincronizados en PostgreSQL.`);
         await fetchDbState();
@@ -103,7 +110,7 @@ export function DatabaseManagerView() {
       if (!content) return;
       setApplyingTemplate(true);
       try {
-        const res = await api.uploadSql('comp_default', content);
+        const res = await api.uploadSql(companyId, content, currentUser?.id);
         if (res.success) {
           toast.success(`Base de datos '${file.name}' cargada exitosamente.`);
           await fetchDbState();
