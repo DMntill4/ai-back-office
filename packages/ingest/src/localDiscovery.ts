@@ -33,6 +33,9 @@ const IGNORED_DIRS = new Set([
   ".next",
   "coverage",
   ".turbo",
+  "tests",
+  "fixtures",
+  "test",
 ]);
 
 /**

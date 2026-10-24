@@ -157,9 +157,9 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         console.log(`    ${theme.mintBold(`[${idx + 1}]`)} ${rel} (${d.sourceType.toUpperCase()})`);
       });
       console.log(`    ${theme.cyanBold(`[c]`)} Enter a custom path to your database / spreadsheet`);
-      console.log(`    ${theme.dim(`[s] Skip for now (start with demo fixtures)`)}`);
+      console.log(`    ${theme.dim(`[s] Skip for now (start with a clean, empty catalog)`)}`);
 
-      const choice = await ask(rl, `\n  Select an option`, "1");
+      const choice = await ask(rl, `\n  Select an option`, "s");
 
       if (choice === "1" && discovered[0]) {
         selectedFilePath = discovered[0].path;
@@ -174,15 +174,14 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       console.log(`  No local database found automatically.`);
       const customPath = await ask(
         rl,
-        `  Enter path to your inventory file (.csv, .xlsx, .sqlite) or press Enter for sample data`,
+        `  Enter path to your database/file (.sqlite, .db, .csv, .xlsx) or press Enter to skip`,
         "",
       );
       selectedFilePath = customPath;
     }
 
     if (!selectedFilePath) {
-      const sample = path.resolve(__dirname, "../../../../tests/fixtures/sample_inventory.csv");
-      if (fs.existsSync(sample)) selectedFilePath = sample;
+      console.log(`  ${theme.dim("○ No data source linked. Starting with a clean, empty catalog.")}\n`);
     }
 
     if (selectedFilePath && fs.existsSync(selectedFilePath)) {

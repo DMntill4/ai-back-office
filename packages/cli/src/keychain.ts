@@ -14,8 +14,19 @@ export interface StoredSession {
   savedAt: string;
 }
 
-const CONFIG_DIR = path.join(os.homedir(), ".mint");
-const CREDENTIALS_FILE = path.join(CONFIG_DIR, "session.enc");
+function getConfigDir(): string {
+  if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+    return os.tmpdir();
+  }
+  return path.join(os.homedir(), ".mint");
+}
+
+function getCredentialsFile(): string {
+  if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+    return path.join(os.tmpdir(), "mint_test_session.enc");
+  }
+  return path.join(os.homedir(), ".mint", "session.enc");
+}
 
 // Clave derivada del identificador de la máquina y usuario local
 function getEncryptionKey(): Buffer {
@@ -27,8 +38,11 @@ function getEncryptionKey(): Buffer {
  * Guarda la sesión de forma cifrada (AES-256-GCM) en el almacén seguro del sistema
  */
 export async function saveSession(session: StoredSession): Promise<void> {
-  if (!fs.existsSync(CONFIG_DIR)) {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
+  const configDir = getConfigDir();
+  const credentialsFile = getCredentialsFile();
+
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
   }
 
   const key = getEncryptionKey();
@@ -45,7 +59,7 @@ export async function saveSession(session: StoredSession): Promise<void> {
     data: encrypted.toString("hex"),
   });
 
-  fs.writeFileSync(CREDENTIALS_FILE, payload, { encoding: "utf8", mode: 0o600 });
+  fs.writeFileSync(credentialsFile, payload, { encoding: "utf8", mode: 0o600 });
 }
 
 /**
@@ -66,12 +80,13 @@ export async function getSession(): Promise<StoredSession | null> {
     };
   }
 
-  if (!fs.existsSync(CREDENTIALS_FILE)) {
+  const credentialsFile = getCredentialsFile();
+  if (!fs.existsSync(credentialsFile)) {
     return null;
   }
 
   try {
-    const raw = fs.readFileSync(CREDENTIALS_FILE, "utf8");
+    const raw = fs.readFileSync(credentialsFile, "utf8");
     const { iv, tag, data } = JSON.parse(raw);
 
     const key = getEncryptionKey();
@@ -93,9 +108,10 @@ export async function getSession(): Promise<StoredSession | null> {
  * Elimina la sesión segura activa
  */
 export async function deleteSession(): Promise<boolean> {
-  if (fs.existsSync(CREDENTIALS_FILE)) {
+  const credentialsFile = getCredentialsFile();
+  if (fs.existsSync(credentialsFile)) {
     try {
-      fs.unlinkSync(CREDENTIALS_FILE);
+      fs.unlinkSync(credentialsFile);
       return true;
     } catch {
       return false;

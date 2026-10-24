@@ -83,95 +83,45 @@ export async function dashboardCommand(options: { json?: boolean; noExit?: boole
       return;
     }
 
-    // Render Banner
-    printBanner({
-      companyId,
-      autonomyLevel,
-      daemonRunning: daemon.isRunning,
-      isPaused: daemon.isPaused,
-    });
-
-    // Panel 1: Estado del Sistema
+    // Single, clean, organized status card (No repeated giant banner)
     const daemonStateBadge = daemon.isPaused
-      ? theme.badge("PAUSADO (EMERGENCIA)", "red")
+      ? theme.badge("PAUSED (EMERGENCY)", "red")
       : daemon.isRunning
-        ? theme.badge("EJECUTÁNDOSE (PID: " + daemon.pid + ")", "mint")
-        : theme.badge("STANDBY (DETENIDO)", "gray");
+        ? theme.badge("ONLINE (LISTENING 24/7)", "mint")
+        : theme.badge("STANDBY", "gray");
 
+    const channelNames = channels.length > 0
+      ? channels.map((c) => `${c.type.toUpperCase()}: ${c.name}`).join(", ")
+      : theme.dim("None connected (Runs locally)");
+
+    const companyDisplayName = session?.companyName || companyId;
+
+    const inventoryStatus = totalProducts === 0
+      ? theme.dim("Empty (0 products registered). Drop a database or file to sync.")
+      : `${theme.bold(totalProducts)} products  │  ${outOfStock > 0 ? theme.redBold(`${outOfStock} out of stock`) : theme.success("0 out of stock")}  │  ${lowStock > 0 ? theme.amberBold(`${lowStock} low stock`) : theme.success("0 low")}`;
+
+    const inboxStatus = pendingDecisions.length > 0
+      ? theme.amberBold(`${pendingDecisions.length} purchases waiting for review ($${totalValueAtStake.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN)`)
+      : theme.success("All up to date (0 pending reviews)");
+
+    console.log("");
     console.log(
       drawCard(
         [
-          `${theme.dim("Daemon:")}     ${daemonStateBadge}`,
-          `${theme.dim("Ciclos:")}     ${daemon.stats.ticksCount} ticks ejecutados │ ${daemon.stats.eventsFired} eventos detectados`,
-          `${theme.dim("Autonomía:")}  Modo activo: ${theme.bold(autonomyLevel.toUpperCase())} │ Umbral: $10,000 MXN`,
-          `${theme.dim("Vigilancia:")} Monitoreando desabastos en stock, guías de envío y fuentes de datos.`,
+          `${theme.dim("Organization:")}  ${theme.mintBold(companyDisplayName)} [${theme.dim(companyId)}]`,
+          `${theme.dim("Agent Daemon:")}  ${daemonStateBadge} (PID ${daemon.pid || process.pid})`,
+          `${theme.dim("Autonomy Mode:")} ${theme.badge(autonomyLevel.toUpperCase(), "mint")} (Restocks < $10,000 MXN auto-executed)`,
+          `${theme.dim("Data Catalog:")}  ${inventoryStatus}`,
+          `${theme.dim("Sales Channel:")} ${channelNames}`,
+          `${theme.dim("Operations:")}    ${activeCases.length} active case(s)  │  ${inboxStatus}`,
         ],
         {
-          title: "SISTEMA Y GOBERNANZA AUTÓNOMA",
+          title: "📊 OPERATIONAL STATUS & HEALTH",
           borderColor: theme.mint,
         },
       ),
     );
-
-    console.log("\n" + drawDivider("METRICAS OPERATIVAS EN TIEMPO REAL"));
-
-    // Panel 2 & 3: Métricas de Stock e Inbox
     console.log("");
-    console.log(
-      drawCard(
-        [
-          `${theme.dim("Catálogo:")}   ${totalProducts} productos registrados`,
-          `${theme.dim("Agotados:")}   ${outOfStock > 0 ? theme.redBold(`${outOfStock} SKUs en quiebre total`) : theme.success("0 SKUs")}`,
-          `${theme.dim("Bajo Stock:")} ${lowStock > 0 ? theme.amberBold(`${lowStock} SKUs bajo mínimo`) : theme.success("0 SKUs")}`,
-        ],
-        {
-          title: "ESTADO DE INVENTARIO",
-          borderColor: outOfStock > 0 ? theme.red : theme.cyan,
-        },
-      ),
-    );
-
-    console.log("");
-    console.log(
-      drawCard(
-        [
-          `${theme.dim("Casos:")}      ${activeCases.length} casos logísticos abiertos actualmente`,
-          `${theme.dim("Pendientes:")} ${pendingDecisions.length > 0 ? theme.amberBold(`${pendingDecisions.length} decisiones esperando autorización`) : theme.success("0 decisiones (Al día)")}`,
-          `${theme.dim("En Juego:")}   $${totalValueAtStake.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN esperando firma`,
-        ],
-        {
-          title: "BANDEJA HITL Y COORDINADOR",
-          borderColor: pendingDecisions.length > 0 ? theme.amber : theme.mint,
-        },
-      ),
-    );
-
-    // Panel 4: Notificadores Remotos
-    const channelNames = channels.map((c) => `${c.type.toUpperCase()} (${c.name})`).join(", ") || "Ninguno conectado";
-    console.log("");
-    console.log(
-      drawCard(
-        [
-          `${theme.dim("Activos:")}    ${channels.length} canales configurados`,
-          `${theme.dim("Destinos:")}   ${theme.bold(channelNames)}`,
-          `${theme.dim("Seguridad:")}  Tokens HMAC-SHA256 con firma digital y un solo uso`,
-        ],
-        {
-          title: "NOTIFICACIONES & APROBACIONES REMOTAS",
-          borderColor: theme.gray,
-        },
-      ),
-    );
-
-    // Acciones rápidas
-    console.log("\n" + theme.dim("Comandos rápidos:"));
-    console.log(
-      `  ${theme.mintBold("mint inbox")}        Revisar y firmar decisiones pendientes\n` +
-        `  ${theme.mintBold("mint scan")}         Forzar escaneo proactivo de stock y transporte\n` +
-        `  ${theme.mintBold("mint watch")}        Ver feed en vivo de eventos y decisiones\n` +
-        `  ${theme.mintBold("mint simulate")}     Simular escenario logístico what-if en sandbox\n` +
-        `  ${theme.mintBold("mint pause")}        Interruptor de emergencia para pausar autonomía\n`,
-    );
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
