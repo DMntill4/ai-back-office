@@ -263,14 +263,22 @@ npm run agent
 ```
 **¿Qué hace este comando?**
 - Verifica el entorno (Node >= 22.5.0 para `node:sqlite` nativo y PostgreSQL).
+- **Si es la primera vez que se ejecuta:** Abre de inmediato un **Asistente Conversacional en Inglés (Onboarding Wizard)** de 4 pasos amigables (Perfil, detección y conexión de base de datos/inventario local, vinculación opcional de Telegram/Discord y nivel de autonomía). No requiere comandos largos ni manuales.
+- **Si ya se ejecutó antes:** Detecta la sesión guardada en el Keychain cifrado (AES-256-GCM), saluda al operador (`Welcome back, Dale!`) y **empieza a trabajar de inmediato** en segundo plano.
 - Inicia el servidor Backend Fastify (Webhooks, API y canales remotos) en segundo plano en `http://localhost:3000`.
 - Inicia el Daemon autónomo en segundo plano (vigilancia de archivos, stock y envíos).
 - **Omite 100% el frontend web (cero ventanas de navegador, cero Vite).**
-- Abre la **Consola Interactiva del Agente** lista para operar con comandos slash o lenguaje natural.
 - Al escribir `/exit` o pulsar `Ctrl+C`, realiza un apagado ordenado de todos los subprocesos.
 
-### 2. Experiencia de Usuario Simplificada: Slash Commands y Autocompletado con Tab
-Una vez dentro de `npm start`, el cliente no necesita recordar sintaxis compleja. Puede presionar **`Tab`** para autocompletar:
+### 2. Flujo del Asistente Interactivo Inicial (First-Run Wizard)
+El usuario no tiene que escribir comandos complejos con tokens ni flags (`npx mint notify add ...`). El wizard le pregunta de forma conversacional:
+1. **Operator Profile:** Nombre y empresa (ej: `Dale`, `My Logistics Co.`).
+2. **Data Connection:** Escanea automáticamente el workspace en busca de bases de datos (`.db`, `.sqlite`) o archivos (`.csv`, `.xlsx`) y permite elegir con un número o ingresar una ruta personalizada.
+3. **Sales Channels:** Permite pegar el Bot Token de Telegram o Webhook de Slack/Discord directamente, o presionar Enter para saltar.
+4. **Autonomy Policy:** Elige entre Asistido (compras < $10k MXN automáticas), Full Auto, o Supervisado.
+
+### 3. Comandos Rápidos y Prácticos (Slash Commands con Tab)
+Una vez en operación, el operador puede presionar **`Tab`** para autocompletar:
 
 | Slash Command | Acción | Tiempo |
 |---|---|---|
