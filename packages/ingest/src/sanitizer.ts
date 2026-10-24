@@ -1,23 +1,20 @@
 /**
  * Sanitizador de entradas externas para el motor de ingesta de Mint
- * Protege contra:
- * 1. Caracteres de control, bytes nulos y secuencias de escape ANSI.
- * 2. Intentos de inyección SQL en identificadores de tabla o columnas.
- * 3. Inyecciones de prompt dirigidas a confundir a los agentes LLM.
+ * Principio:
+ * 1. Limpieza de codificación no destructiva (remover BOM, bytes nulos, secuencias de escape ANSI).
+ * 2. Normalización de formato numérico latino (coma decimal a punto decimal).
+ * 3. Identificadores SQL estrictamente validados por whitelist.
+ * 4. Detección y auditoría de inyecciones de prompt SIN corromper el contenido original.
+ *    (La defensa real ante el LLM es el esquema Zod estructurado y el motor de políticas determinista).
  */
 
 const ANSI_REGEX = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
-const PROMPT_INJECTION_PATTERNS = [
-  /ignore\s+(all\s+)?(previous|prior)\s+instructions/i,
-  /disregard\s+(all\s+)?(previous|prior)\s+instructions/i,
-  /you\s+are\s+now\s+a\s+/i,
-  /system\s*:\s*/i,
-  /<\|im_start\|>/i,
-  /<\|im_end\|>/i,
-  /\[INST\]/i,
-  /\[\/INST\]/i,
-  /<<SYS>>/i,
-  /<\/s>/i,
+
+export const KNOWN_INJECTION_PATTERNS: Array<{ name: string; regex: RegExp }> = [
+  { name: "IGNORE_INSTRUCTIONS", regex: /(ignore|disregard)\s+(all\s+)?(previous|prior)\s+instructions/i },
+  { name: "ROLE_OVERRIDE", regex: /you\s+are\s+now\s+(a|the)\s+/i },
+  { name: "SYSTEM_DELIMITER", regex: /(<\|im_start\|>|<\|im_end\|>|\[INST\]|\[\/INST\]|<<SYS>>|<\/s>)/i },
+  { name: "EXPLICIT_SYSTEM_PROMPT", regex: /system\s*:\s*(you|act|execute)/i },
 ];
 
 /**
@@ -42,8 +39,23 @@ export function sanitizeSqlIdentifier(name: string): string {
 }
 
 /**
- * Sanitiza valores de celdas provenientes de fuentes externas (archivos CSV, Excel, DBs externas).
- * Normaliza codificación UTF-8, remueve BOM, caracteres nulos y neutraliza patrones de inyección a LLM.
+ * Inspecciona si un texto contiene patrones sospechosos de inyección de prompt
+ * sin modificar ni corromper el contenido original.
+ */
+export function inspectSuspiciousPatterns(text: string): string[] {
+  const detected: string[] = [];
+  for (const { name, regex } of KNOWN_INJECTION_PATTERNS) {
+    if (regex.test(text)) {
+      detected.push(name);
+    }
+  }
+  return detected;
+}
+
+/**
+ * Sanitiza valores de celdas provenientes de fuentes externas.
+ * Limpia codificaciones (BOM, ANSI, null bytes) y normaliza formato numérico latino con comas.
+ * Conserva el texto legítimo intacto sin mutilarlo.
  */
 export function sanitizeCell(value: unknown): string {
   if (value === null || value === undefined) {
@@ -58,28 +70,45 @@ export function sanitizeCell(value: unknown): string {
   // 2. Eliminar secuencias ANSI de terminal
   str = str.replace(ANSI_REGEX, "");
 
-  // 3. Normalizar saltos de línea y espacios en blanco excesivos
+  // 3. Normalizar saltos de línea
   str = str.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-  // 4. Neutralizar patrones de inyección de prompt
-  for (const pattern of PROMPT_INJECTION_PATTERNS) {
-    if (pattern.test(str)) {
-      str = str.replace(pattern, "[FILTERED_PROMPT_INJECTION]");
-    }
+  const trimmed = str.trim();
+
+  // 4. Normalizar números con coma decimal si corresponde (ej: "12,50" -> "12.50")
+  if (/^-?\d+,\d+$/.test(trimmed)) {
+    return trimmed.replace(",", ".");
   }
 
-  return str.trim();
+  return trimmed;
+}
+
+export interface SanitizedRowResult {
+  row: Record<string, string>;
+  suspiciousWarnings: string[];
 }
 
 /**
- * Sanitiza un registro completo (fila) de datos externos
+ * Sanitiza un registro completo (fila) de datos externos,
+ * reportando advertencias de cuarentena si se detectan patrones anómalos.
  */
-export function sanitizeRow(row: Record<string, any>): Record<string, string> {
+export function sanitizeRow(row: Record<string, any>): SanitizedRowResult {
   const sanitized: Record<string, string> = {};
+  const warnings: string[] = [];
+
   for (const [key, val] of Object.entries(row)) {
-    // Normalizar también el nombre de la clave
     const safeKey = key.replace(/^\uFEFF/, "").trim();
-    sanitized[safeKey] = sanitizeCell(val);
+    const cleanVal = sanitizeCell(val);
+    sanitized[safeKey] = cleanVal;
+
+    const detected = inspectSuspiciousPatterns(cleanVal);
+    if (detected.length > 0) {
+      warnings.push(`Columna '${safeKey}' contiene patrones sospechosos: ${detected.join(", ")}`);
+    }
   }
-  return sanitized;
+
+  return {
+    row: sanitized,
+    suspiciousWarnings: warnings,
+  };
 }

@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import { db } from "@mint/core";
 import { products, inventory, dataSources, importJobs } from "@mint/core";
 import { eq, and } from "drizzle-orm";
@@ -5,7 +6,12 @@ import { randomUUID } from "node:crypto";
 import { proposeColumnMapping, MappingResult } from "./columnMapper";
 import { sanitizeCell, sanitizeRow } from "./sanitizer";
 
-export type SourceStatus = "HEALTHY" | "DRIFTED" | "ERROR" | "PAUSED";
+export type SourceStatus =
+  | "HEALTHY"
+  | "DRIFTED"
+  | "ERROR"
+  | "PAUSED"
+  | "PAUSED_MASS_DELETION";
 
 export interface SyncEngineOptions {
   companyId: string;
@@ -16,6 +22,12 @@ export interface SyncEngineOptions {
   rows: Array<Record<string, any>>;
   explicitMappings?: Record<string, string>;
   forceAcceptDrift?: boolean;
+  maxDeletionRateThreshold?: number; // e.g. 0.20 (20%)
+  allowMassDeletion?: boolean; // Permite override explícito
+  requireTwoPhaseDeletion?: boolean; // Requiere confirmar en 2 lecturas consecutivas (default: true)
+  allowImmediateDeletion?: boolean; // Fuerza borrado en primera lectura si es deliberado
+  originMtime?: Date | string | null; // Fecha de modificación de la fuente de origen
+  maxStalenessHours?: number; // Umbral de frescura personalizado para esta fuente
 }
 
 export interface DriftInfo {
@@ -24,6 +36,15 @@ export interface DriftInfo {
   missingMappedHeaders?: string[];
   newHeaders?: string[];
   proposedMapping?: MappingResult;
+}
+
+export interface MassDeletionAnomalyInfo {
+  detected: boolean;
+  previousCount: number;
+  missingCount: number;
+  deletionRate: number;
+  sampleMissingSkus: string[];
+  reason: string;
 }
 
 export interface SyncResult {
@@ -36,7 +57,10 @@ export interface SyncResult {
   importedRows: number;
   failedRows: number;
   deletedRows: number;
+  pendingDeletionRows: number;
   drift?: DriftInfo;
+  massDeletionAnomaly?: MassDeletionAnomalyInfo;
+  quarantineWarnings?: string[];
   errors: Array<{ row: number; error: string; data: any }>;
   qualityWarning?: string;
 }
@@ -45,9 +69,10 @@ export interface SyncResult {
  * Motor de sincronización resiliente:
  * - Idempotencia por (companyId, uriOrPath)
  * - Detección de Schema Drift y congelamiento de fuente
- * - Detección de registros eliminados en la fuente de origen
- * - Aislamiento de filas corruptas sin abortar lote
- * - Supresión de avalanchas en carga inicial
+ * - Circuito de protección contra borrados masivos (>20% del catálogo)
+ * - Confirmación de borrado en 2 lecturas consecutivas (Two-Phase Deletion)
+ * - Registro de fecha de origen (mtime) y umbral de frescura personalizado
+ * - Detección de contenido sospechoso en cuarentena sin corromper datos legítimos
  */
 export async function syncDataSource(options: SyncEngineOptions): Promise<SyncResult> {
   const {
@@ -59,11 +84,27 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     rows,
     explicitMappings,
     forceAcceptDrift = false,
+    maxDeletionRateThreshold = 0.20,
+    allowMassDeletion = false,
+    requireTwoPhaseDeletion = true,
+    allowImmediateDeletion = false,
   } = options;
 
   const jobId = `job_sync_${randomUUID().slice(0, 8)}`;
 
-  // 1. Buscar o crear la fuente de datos (Garantía de idempotencia)
+  // 1. Extraer mtime de origen si es un archivo local
+  let originMtime: string | null = null;
+  if (options.originMtime) {
+    originMtime = new Date(options.originMtime).toISOString();
+  } else if (fs.existsSync(uriOrPath)) {
+    try {
+      originMtime = fs.statSync(uriOrPath).mtime.toISOString();
+    } catch {
+      // Omitir si no se puede leer stat
+    }
+  }
+
+  // 2. Buscar o crear la fuente de datos (Garantía de idempotencia)
   const existingSources = await db
     .select()
     .from(dataSources)
@@ -83,7 +124,10 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
       headers: currentHeaders,
       mappings: explicitMappings || {},
       activeSkus: [],
+      pendingDeletions: {},
       syncCount: 0,
+      originMtime,
+      maxStalenessHours: options.maxStalenessHours || 24,
     };
 
     await db.insert(dataSources).values({
@@ -100,12 +144,13 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     dataSourceId = dataSource.id;
     activeConfig = (dataSource.config as Record<string, any>) || {};
     isInitialSync = !dataSource.lastSyncedAt;
+    if (originMtime) activeConfig.originMtime = originMtime;
+    if (options.maxStalenessHours) activeConfig.maxStalenessHours = options.maxStalenessHours;
   }
 
-  // 2. Determinar o verificar mapeo de columnas
+  // 3. Determinar o verificar mapeo de columnas
   let mappings = explicitMappings || activeConfig.mappings || {};
 
-  // Si no hay mapeos previos, proponerlos automáticamente
   if (Object.keys(mappings).length === 0) {
     const proposal = proposeColumnMapping(currentHeaders);
     if (proposal.missingRequired.length > 0) {
@@ -131,6 +176,7 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
         importedRows: 0,
         failedRows: rows.length,
         deletedRows: 0,
+        pendingDeletionRows: 0,
         errors: [{ row: 0, error: errorMsg, data: {} }],
         drift: { detected: false },
       };
@@ -138,8 +184,7 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     mappings = proposal.mappings;
   }
 
-  // 3. Verificación de Schema Drift
-  // Comprobar si las columnas mapeadas siguen existiendo en currentHeaders
+  // 4. Verificación de Schema Drift
   const missingHeaders: string[] = [];
   for (const [targetField, sourceHeader] of Object.entries(mappings)) {
     if (sourceHeader && !currentHeaders.includes(sourceHeader as string)) {
@@ -148,7 +193,6 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
   }
 
   if (missingHeaders.length > 0 && !forceAcceptDrift) {
-    // DRIFT DETECTADO: Pausar fuente para proteger datos
     const proposal = proposeColumnMapping(currentHeaders);
     const driftReason = `Encabezados esperados desaparecidos en la fuente: ${missingHeaders.join(", ")}`;
 
@@ -172,7 +216,6 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
       })
       .where(eq(dataSources.id, dataSourceId));
 
-    // Registrar fallo de job por drift
     await db.insert(importJobs).values({
       id: jobId,
       companyId,
@@ -196,18 +239,18 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
       importedRows: 0,
       failedRows: rows.length,
       deletedRows: 0,
+      pendingDeletionRows: 0,
       drift: driftDetails,
       errors: [{ row: 0, error: driftReason, data: driftDetails }],
     };
   }
 
-  // Si se fuerza la aceptación del drift, actualizar los mapeos con la nueva propuesta
   if (missingHeaders.length > 0 && forceAcceptDrift) {
     const proposal = proposeColumnMapping(currentHeaders);
     mappings = proposal.mappings;
   }
 
-  // 4. Iniciar trabajo de importación
+  // 5. Iniciar trabajo de importación
   await db.insert(importJobs).values({
     id: jobId,
     companyId,
@@ -219,14 +262,19 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
   });
 
   const errors: Array<{ row: number; error: string; data: any }> = [];
+  const allQuarantineWarnings: string[] = [];
   let importedCount = 0;
   const currentSyncSkus: string[] = [];
 
-  // 5. Procesamiento fila por fila con sanitización y aislamiento de errores
+  // 6. Procesamiento fila por fila con sanitización y cuarentena de anomalías
   for (let i = 0; i < rows.length; i++) {
     const rawRow = rows[i];
-    const sanitized = sanitizeRow(rawRow);
+    const { row: sanitized, suspiciousWarnings } = sanitizeRow(rawRow);
     const rowNum = i + 1;
+
+    if (suspiciousWarnings.length > 0) {
+      allQuarantineWarnings.push(`Fila #${rowNum}: ${suspiciousWarnings.join("; ")}`);
+    }
 
     try {
       const sku = (sanitized[mappings.sku] || "").trim();
@@ -302,36 +350,112 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     }
   }
 
-  // 6. Detección de elementos eliminados en la fuente de origen
+  // 7. Detección de elementos eliminados con Circuito contra Borrados Masivos y Confirmación en 2 Fases
   const previousSkus: string[] = activeConfig.activeSkus || [];
+  const pendingDeletions: Record<string, number> = activeConfig.pendingDeletions || {};
   let deletedCount = 0;
+  let pendingDeletionCount = 0;
 
   if (previousSkus.length > 0) {
     const currentSkuSet = new Set(currentSyncSkus);
     const removedSkus = previousSkus.filter((sku) => !currentSkuSet.has(sku));
+    const missingRatio = removedSkus.length / previousSkus.length;
+
+    // A. Tope de Borrado Masivo (Circuit Breaker)
+    // Si el catálogo previo tiene al menos 5 ítems y desaparecen más de maxDeletionRate (default 20%),
+    // pausar la fuente sin alterar el inventario de ningún ítem.
+    if (previousSkus.length >= 5 && missingRatio > maxDeletionRateThreshold && !allowMassDeletion) {
+      const anomalyReason = `PROTECCIÓN CONTRA BORRADO MASIVO: Desapareció el ${(missingRatio * 100).toFixed(0)}% del catálogo (${removedSkus.length}/${previousSkus.length}) en la fuente. Posible exportación truncada o filtrada. Sincronización pausada sin alterar stock.`;
+
+      const anomalyInfo: MassDeletionAnomalyInfo = {
+        detected: true,
+        previousCount: previousSkus.length,
+        missingCount: removedSkus.length,
+        deletionRate: missingRatio,
+        sampleMissingSkus: removedSkus.slice(0, 5),
+        reason: anomalyReason,
+      };
+
+      await db
+        .update(dataSources)
+        .set({
+          config: {
+            ...activeConfig,
+            status: "PAUSED_MASS_DELETION",
+            lastMassDeletionAnomaly: anomalyInfo,
+            lastError: anomalyReason,
+          },
+        })
+        .where(eq(dataSources.id, dataSourceId));
+
+      return {
+        success: false,
+        dataSourceId,
+        jobId,
+        status: "PAUSED_MASS_DELETION",
+        isInitialSync,
+        totalRows: rows.length,
+        importedRows: importedCount,
+        failedRows: errors.length,
+        deletedRows: 0,
+        pendingDeletionRows: 0,
+        massDeletionAnomaly: anomalyInfo,
+        errors: [{ row: 0, error: anomalyReason, data: anomalyInfo }],
+        qualityWarning: anomalyReason,
+      };
+    }
+
+    // B. Confirmación de Borrado en 2 Fases (Two-Phase Deletion Confirmation)
+    const effectiveRequireTwoPhase = requireTwoPhaseDeletion && !allowImmediateDeletion;
+    const updatedPendingDeletions: Record<string, number> = { ...pendingDeletions };
 
     for (const removedSku of removedSkus) {
-      deletedCount++;
+      const consecutiveMissing = (updatedPendingDeletions[removedSku] || 0) + 1;
       const prodId = `prod_${removedSku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
-      // Poner en 0 el stock del inventario para reflejar que la fuente ya no lo contiene
-      await db
-        .update(inventory)
-        .set({ stock: 0, updatedAt: new Date() })
-        .where(and(eq(inventory.productId, prodId), eq(inventory.companyId, companyId)));
+
+      if (!effectiveRequireTwoPhase || consecutiveMissing >= 2 || allowMassDeletion) {
+        // Confirmado en 2 lecturas consecutivas o con flag explícito: ejecutar borrado lógico (stock = 0)
+        deletedCount++;
+        delete updatedPendingDeletions[removedSku];
+
+        await db
+          .update(inventory)
+          .set({ stock: 0, updatedAt: new Date() })
+          .where(and(eq(inventory.productId, prodId), eq(inventory.companyId, companyId)));
+      } else {
+        // Primera ausencia: registrar en período de gracia (pending_deletion) sin alterar existencias
+        pendingDeletionCount++;
+        updatedPendingDeletions[removedSku] = consecutiveMissing;
+      }
     }
+
+    // Si algún SKU en pendingDeletions volvió a aparecer en esta sincronización, se cancela su borrado pendiente
+    for (const sku of currentSyncSkus) {
+      delete updatedPendingDeletions[sku];
+    }
+
+    activeConfig.pendingDeletions = updatedPendingDeletions;
   }
 
-  // 7. Evaluar calidad de datos
+  // 8. Evaluar calidad de datos y advertencias
   let qualityWarning: string | undefined;
   const failureRate = rows.length > 0 ? errors.length / rows.length : 0;
   if (failureRate > 0.1) {
     qualityWarning = `Alerta de calidad de datos: ${Math.round(failureRate * 100)}% de filas fallaron validación (${errors.length}/${rows.length}).`;
   }
+  if (allQuarantineWarnings.length > 0) {
+    const qMsg = `${allQuarantineWarnings.length} celda(s) con patrones sospechosos aisladas en auditoría.`;
+    qualityWarning = qualityWarning ? `${qualityWarning} ${qMsg}` : qMsg;
+  }
 
   const isSuccess = importedCount > 0 || (rows.length === 0 && errors.length === 0);
 
-  // 8. Actualizar DataSource y Job
+  // 9. Actualizar DataSource y Job
   const now = new Date();
+  const retainedActiveSkus = Array.from(
+    new Set([...currentSyncSkus, ...Object.keys(activeConfig.pendingDeletions || {})])
+  );
+
   await db
     .update(dataSources)
     .set({
@@ -340,7 +464,7 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
         status: isSuccess ? "HEALTHY" : "ERROR",
         headers: currentHeaders,
         mappings,
-        activeSkus: currentSyncSkus,
+        activeSkus: retainedActiveSkus,
         syncCount: ((activeConfig.syncCount as number) || 0) + 1,
         lastError: errors.length > 0 ? `${errors.length} filas con error` : null,
       },
@@ -369,6 +493,8 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     importedRows: importedCount,
     failedRows: errors.length,
     deletedRows: deletedCount,
+    pendingDeletionRows: pendingDeletionCount,
+    quarantineWarnings: allQuarantineWarnings.length > 0 ? allQuarantineWarnings : undefined,
     errors,
     qualityWarning,
   };
