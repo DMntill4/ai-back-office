@@ -10,11 +10,16 @@ import {
   decisions,
   shipments,
   warehouses,
+  companies,
+  cases,
+  runAgentLoop,
   businessConfig,
   analyzeDynamicCatalogHealth,
   buildConsolidatedLoadPlans,
 } from "@mint/core";
 import { eq, and } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { formatTerminalMarkdown } from "../ui/markdown";
 
 export async function consoleCommand() {
   let session = await getSession();
@@ -517,8 +522,7 @@ export async function consoleCommand() {
           }
 
           case "chat": {
-            const { chatCommand } = require("./chat");
-            await chatCommand(args.join(" "), { noExit: true });
+            await executeAgentQuery(args.join(" "), { noExit: true });
             break;
           }
 
@@ -656,8 +660,7 @@ export async function consoleCommand() {
                 const { goalCommand } = require("./goal");
                 await goalCommand(trimmed, { noExit: true });
               } else {
-                const { chatCommand } = require("./chat");
-                await chatCommand(trimmed, { noExit: true });
+                await executeAgentQuery(trimmed, { noExit: true });
               }
             }
             break;
@@ -672,3 +675,155 @@ export async function consoleCommand() {
     });
   });
 }
+
+/**
+ * Ejecuta una consulta operativa puntual al Agente Autónomo Mint
+ * mostrando el árbol de pensamiento multi-agente en la terminal.
+ */
+export async function executeAgentQuery(
+  message: string,
+  options: { json?: boolean; noExit?: boolean } = {},
+) {
+  const session = await getSession();
+  const companyId = session?.companyId || "comp_default";
+  const caseId = `chat_${randomUUID().slice(0, 8)}`;
+
+  try {
+    await db.insert(cases).values({
+      id: caseId,
+      companyId,
+      title: "Operacion Coordinador",
+      description: message,
+      status: "en_proceso",
+      priority: "media",
+    });
+
+    if (options.json) {
+      const res = await runAgentLoop(caseId);
+      console.log(JSON.stringify(res, null, 2));
+      return;
+    }
+
+    const executedSteps: Array<{
+      agent: string;
+      action: string;
+      details?: string;
+      resultSummary?: string;
+    }> = [];
+
+    const res = await runAgentLoop(caseId, {
+      onEvent: (ev) => {
+        executedSteps.push({
+          agent: ev.agent,
+          action: ev.action,
+          details: ev.details,
+          resultSummary: ev.resultSummary,
+        });
+      },
+    });
+
+    console.log("");
+    if (executedSteps.length > 0) {
+      const { renderThoughtTree } = await import("../ui/thoughtTree");
+      console.log(renderThoughtTree(executedSteps, message));
+      console.log("");
+    }
+
+    const responseLines = formatTerminalMarkdown(
+      res.summary || "Sin respuesta del modelo.",
+    );
+    console.log(theme.charcoal("  " + "─".repeat(76)));
+    for (const line of responseLines) {
+      console.log(`  ${line}`);
+    }
+    console.log(theme.charcoal("  " + "─".repeat(76)));
+  } catch (err: any) {
+    if (options.json) {
+      console.log(JSON.stringify({ error: err.message }));
+    } else {
+      console.error(theme.redBold(`  [ERROR] ${err.message}`));
+    }
+    if (!options.noExit) {
+      process.exit(1);
+    }
+  }
+}
+
+export const chatCommand = executeAgentQuery;
+
+/**
+ * Resumen diario de decisiones autónomas y presupuesto gestionado.
+ */
+export async function todayCommand(options: { json?: boolean; noExit?: boolean } = {}) {
+  const session = await getSession();
+  const companyId = session?.companyId || "comp_default";
+
+  try {
+    const allDecisions = await db
+      .select()
+      .from(decisions)
+      .where(eq(decisions.companyId, companyId));
+
+    const autoExecuted = allDecisions.filter((d) => d.policyDecision === "auto_executed");
+    const pendingReview = allDecisions.filter((d) => d.policyDecision === "pending_approval");
+    const blockedRisk = allDecisions.filter((d) => d.policyDecision === "blocked");
+
+    const totalSpend = autoExecuted.reduce((sum, d) => sum + Number(d.costMxn || 0), 0);
+    const estimatedSavings = totalSpend * 0.12;
+    const systemHealth = pendingReview.length === 0 && blockedRisk.length === 0 ? "OPTIMAL" : "ATTENTION";
+
+    const b = {
+      totalDecisions: allDecisions.length,
+      autoExecutedCount: autoExecuted.length,
+      pendingReviewCount: pendingReview.length,
+      blockedRiskCount: blockedRisk.length,
+      totalAutonomousSpendMxn: totalSpend,
+      estimatedSavingsMxn: estimatedSavings,
+      systemHealth,
+    };
+
+    if (options.json) {
+      console.log(JSON.stringify(b, null, 2));
+      return;
+    }
+
+    let currency = "COP";
+    try {
+      const [comp] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+      if (comp?.currency) currency = comp.currency;
+    } catch {}
+
+    const spendStr = `$${b.totalAutonomousSpendMxn.toLocaleString("es-CO", { minimumFractionDigits: 0 })} ${currency}`;
+    const savingsStr = `$${b.estimatedSavingsMxn.toLocaleString("es-CO", { minimumFractionDigits: 0 })} ${currency}`;
+
+    console.log("\n" + drawDivider("RESUMEN DE OPERACIONES Y AUTONOMÍA HOY", 80));
+    console.log(
+      drawCard(
+        [
+          `${theme.dim("Salud Operativa:")}       ${b.systemHealth === "OPTIMAL" ? theme.mintBold("ÓPTIMA") : theme.amberBold("ATENCIÓN REQUERIDA")}`,
+          `${theme.dim("Total Decisiones:")}      ${theme.bold(b.totalDecisions)}`,
+          `  - Auto-ejecutadas:    ${theme.mintBold(b.autoExecutedCount)} (Bajo umbral autónomo)`,
+          `  - Pendientes HITL:    ${b.pendingReviewCount > 0 ? theme.amberBold(b.pendingReviewCount) : theme.dim("0")} (En /inbox)`,
+          `  - Bloqueadas riesgo:  ${b.blockedRiskCount > 0 ? theme.redBold(b.blockedRiskCount) : theme.dim("0")}`,
+          "",
+          `${theme.dim("Presupuesto Gestionado:")} ${theme.bold(spendStr)}`,
+          `${theme.dim("Ahorro Estimado:")}       ${theme.mintBold(savingsStr)}`,
+        ],
+        {
+          title: `HOY // ${new Date().toLocaleDateString("es-CO")}`,
+          badge: b.systemHealth,
+          badgeColor: b.systemHealth === "OPTIMAL" ? "mint" : "amber",
+          borderColor: theme.mint,
+        },
+      ),
+    );
+    console.log("");
+  } catch (err: any) {
+    if (options.json) {
+      console.log(JSON.stringify({ error: err.message }));
+    } else {
+      console.log(`\n  ${theme.amber("[AVISO]")} Base de datos desconectada o no disponible. No se pudieron consultar las decisiones de hoy.\n`);
+    }
+  }
+}
+

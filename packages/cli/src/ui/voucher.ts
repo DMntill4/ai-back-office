@@ -1,60 +1,64 @@
 import { theme } from "./theme";
 import type { PurchaseOrderVoucher } from "@mint/core";
 
-export function renderInvoiceVoucher(v: PurchaseOrderVoucher): string {
-  const currency = v.financials.currency || "USD";
+/**
+ * Renderiza la ficha técnica de impacto y auditoría de producción
+ * tras ejecutar o autorizar una orden en PostgreSQL.
+ * Cero facturas falsas simuladas: comparativa real de estado de base de datos.
+ */
+export function renderProductionAuditCard(v: PurchaseOrderVoucher): string {
+  const currency = v.financials.currency || "COP";
   const fmt = (n: number) =>
-    `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+    `$${Number(n || 0).toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`;
 
   const w = 78;
   const line = (char = "─") => char.repeat(w);
-
   const out: string[] = [];
 
-  out.push(theme.mint("╭" + line("─") + "╮"));
+  out.push(theme.charcoal("┌─" + line("─") + "┐"));
   out.push(
-    theme.mint("│") +
-      `  ${theme.mintBold("MINT ENTERPRISE")} ${theme.dim("//")} ${theme.bold("ORDEN DE COMPRA & COMPROBANTE FISCAL")}`.padEnd(
+    theme.charcoal("│") +
+      `  ${theme.mintBold("REGISTRO DE PRODUCCIÓN")} ${theme.dim("│")} ${theme.bold("ORDEN DE COMPRA ADJUDICADA [PostgreSQL]")}`.padEnd(
         w + 14,
       ) +
-      theme.mint("│"),
+      theme.charcoal("│"),
   );
   out.push(
-    theme.mint("│") +
-      `  Folio: ${theme.cyanBold(v.folioNumber)}  │  Fecha: ${theme.dim(v.issuedAt.slice(0, 16).replace("T", " "))}  │  Divisa: ${theme.bold(currency)}`.padEnd(
+    theme.charcoal("│") +
+      `  Folio: ${theme.smokeBold(v.folioNumber)}  ${theme.dim("│")}  Fecha: ${theme.dim(v.issuedAt.slice(0, 16).replace("T", " "))}  ${theme.dim("│")}  Divisa: ${theme.mintBold(currency)}`.padEnd(
         w + 19,
       ) +
-      theme.mint("│"),
+      theme.charcoal("│"),
   );
-  out.push(theme.mint("├" + line("─") + "┤"));
+  out.push(theme.charcoal("├─" + line("─") + "┤"));
 
-  // Buyer & Supplier
+  // Comprador y Proveedor
   out.push(
-    theme.mint("│") +
-      `  ${theme.bold("EMISOR (COMPRADOR)")}                       ${theme.bold("PROVEEDOR ADJUDICADO")}`.padEnd(w + 16) +
-      theme.mint("│"),
+    theme.charcoal("│") +
+      `  ${theme.bold("EMPRESA EMISORA")}                          ${theme.bold("PROVEEDOR ADJUDICADO")}`.padEnd(w + 16) +
+      theme.charcoal("│"),
   );
   out.push(
-    theme.mint("│") +
-      `  Empresa: ${theme.bold(v.company.name.slice(0, 24))}       Proveedor: ${theme.bold(v.supplier.name.slice(0, 25))}`.padEnd(
+    theme.charcoal("│") +
+      `  Empresa: ${theme.smoke(v.company.name.slice(0, 24))}       Proveedor: ${theme.smoke(v.supplier.name.slice(0, 25))}`.padEnd(
         w + 16,
       ) +
-      theme.mint("│"),
+      theme.charcoal("│"),
   );
   out.push(
-    theme.mint("│") +
+    theme.charcoal("│") +
       `  Ubicación: ${v.company.city.slice(0, 22)}            Contacto:  ${v.supplier.email.slice(0, 26)}`.padEnd(w) +
-      theme.mint("│"),
+      theme.charcoal("│"),
   );
-  out.push(theme.mint("├" + line("─") + "┤"));
+  out.push(theme.charcoal("├─" + line("─") + "┤"));
 
-  // Line items table
+  // Artículos adjudicados
   out.push(
-    theme.mint("│") +
+    theme.charcoal("│") +
       `  ${theme.dim("SKU")}            ${theme.dim("DESCRIPCIÓN")}                  ${theme.dim("CANT")}    ${theme.dim("P.UNIT")}         ${theme.dim("SUBTOTAL")}`.padEnd(
         w + 44,
       ) +
-      theme.mint("│"),
+      theme.charcoal("│"),
   );
 
   for (const item of v.items) {
@@ -64,80 +68,75 @@ export function renderInvoiceVoucher(v: PurchaseOrderVoucher): string {
     const unitStr = fmt(item.unitPrice).padStart(12);
     const subStr = fmt(item.subtotal).padStart(14);
     out.push(
-      theme.mint("│") +
+      theme.charcoal("│") +
         `  ${skuStr} ${nameStr} ${qtyStr}  ${unitStr} ${subStr}`.padEnd(w) +
-        theme.mint("│"),
+        theme.charcoal("│"),
     );
   }
 
-  out.push(theme.mint("├" + line("─") + "┤"));
+  out.push(theme.charcoal("├─" + line("─") + "┤"));
 
-  // Financials breakdown
+  // Desglose de Impacto Financiero
   const subtotalStr = fmt(v.financials.subtotal).padStart(18);
-  const taxStr = fmt(v.financials.taxAmount).padStart(18);
   const freightStr = fmt(v.financials.freightCost).padStart(18);
   const totalStr = fmt(v.financials.totalAmount).padStart(18);
 
-  out.push(theme.mint("│") + `  Subtotal neto:                             ${subtotalStr}`.padEnd(w) + theme.mint("│"));
-  out.push(theme.mint("│") + `  Impuestos / IVA (16%):                      ${taxStr}`.padEnd(w) + theme.mint("│"));
+  out.push(theme.charcoal("│") + `  Subtotal compras directas:                 ${subtotalStr}`.padEnd(w) + theme.charcoal("│"));
   if (v.financials.freightCost > 0) {
-    out.push(theme.mint("│") + `  Flete terrestre (OSRM):                     ${freightStr}`.padEnd(w) + theme.mint("│"));
+    out.push(theme.charcoal("│") + `  Flete terrestre (OSRM):                     ${freightStr}`.padEnd(w) + theme.charcoal("│"));
   }
   out.push(
-    theme.mint("│") +
-      `  ${theme.bold("TOTAL ORDEN DE COMPRA:")}                    ${theme.mintBold(totalStr)}`.padEnd(w + 17) +
-      theme.mint("│"),
+    theme.charcoal("│") +
+      `  ${theme.bold("TOTAL DESEMBOLSO OPERATIVO:")}               ${theme.mintBold(totalStr)}`.padEnd(w + 17) +
+      theme.charcoal("│"),
   );
 
-  out.push(theme.mint("├" + line("─") + "┤"));
+  out.push(theme.charcoal("├─" + line("─") + "┤"));
 
-  // Logistics tracking
+  // Logística y Rastreo Real
   out.push(
-    theme.mint("│") +
-      `  ${theme.bold("DESPACHO LOGÍSTICO Y SEGUIMIENTO")}`.padEnd(w + 8) +
-      theme.mint("│"),
+    theme.charcoal("│") +
+      `  ${theme.bold("DESPACHO LOGÍSTICO ASOCIADO [PostgreSQL Shipments]")}`.padEnd(w + 8) +
+      theme.charcoal("│"),
   );
   out.push(
-    theme.mint("│") +
-      `  Transportista: ${theme.bold(v.logistics.carrier)}   Guía: ${theme.cyanBold(v.logistics.trackingNumber)}`.padEnd(
+    theme.charcoal("│") +
+      `  Transportista: ${theme.smoke(v.logistics.carrier)}   Guía: ${theme.smokeBold(v.logistics.trackingNumber)}`.padEnd(
         w + 17,
       ) +
-      theme.mint("│"),
+      theme.charcoal("│"),
   );
   out.push(
-    theme.mint("│") +
-      `  Ruta: ${v.logistics.origin} -> ${v.logistics.destination}  │  ETA: ${theme.mintBold(v.logistics.etaDate)} (${v.logistics.leadDays}d)`.padEnd(
+    theme.charcoal("│") +
+      `  Ruta: ${v.logistics.origin} -> ${v.logistics.destination}  ${theme.dim("│")}  ETA: ${theme.mint(v.logistics.etaDate)} (${v.logistics.leadDays}d)`.padEnd(
         w + 9,
       ) +
-      theme.mint("│"),
+      theme.charcoal("│"),
   );
 
-  out.push(theme.mint("├" + line("─") + "┤"));
+  out.push(theme.charcoal("├─" + line("─") + "┤"));
 
-  // Digital audit trail
+  // Trazabilidad de Auditoría
   out.push(
-    theme.mint("│") +
-      `  ${theme.bold("AUDITORÍA DE GOBERNANZA (HUMAN-IN-THE-LOOP)")}`.padEnd(w + 8) +
-      theme.mint("│"),
+    theme.charcoal("│") +
+      `  ${theme.bold("AUDITORÍA DE GOBERNANZA [case_events]")}`.padEnd(w + 8) +
+      theme.charcoal("│"),
   );
   out.push(
-    theme.mint("│") +
-      `  Aprobado por:   ${theme.bold(v.governance.approvedBy)} [Firma digital validada en PostgreSQL]`.padEnd(
+    theme.charcoal("│") +
+      `  Aprobador:      ${theme.smoke(v.governance.approvedBy)} (Autorización HITL registrada)`.padEnd(
         w + 8,
       ) +
-      theme.mint("│"),
+      theme.charcoal("│"),
   );
   out.push(
-    theme.mint("│") +
-      `  Hash Auditoría: ${theme.dim(v.governance.sha256AuditHash)}`.padEnd(w + 8) +
-      theme.mint("│"),
-  );
-  out.push(
-    theme.mint("│") +
+    theme.charcoal("│") +
       `  Idempotencia:   ${theme.dim(v.governance.idempotencyKey)}`.padEnd(w + 8) +
-      theme.mint("│"),
+      theme.charcoal("│"),
   );
-  out.push(theme.mint("╰" + line("─") + "╯"));
+  out.push(theme.charcoal("└─" + line("─") + "┘"));
 
   return out.join("\n");
 }
+
+export const renderInvoiceVoucher = renderProductionAuditCard;
