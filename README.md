@@ -30,7 +30,7 @@
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Telegram_Bot-Interactive-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Bot" />
   <img src="https://img.shields.io/badge/Slack-Block_Kit-4A154B?style=for-the-badge&logo=slack&logoColor=white" alt="Slack" />
-  <img src="https://img.shields.io/badge/Vitest-72_Tests_Passing-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
+  <img src="https://img.shields.io/badge/Vitest-82_Tests_Passing-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
 </p>
 
 ---
@@ -42,10 +42,10 @@ El proyecto está organizado como un **Monorepo limpio** con `npm workspaces`:
 | Paquete | Responsabilidad |
 |---|---|
 | `@mint/core` | Cerebro del sistema: agentes especialistas, tools tipadas (Zod), Drizzle ORM / PostgreSQL, Context Manager y Motor de Políticas Determinista. Cero dependencias de frameworks HTTP. |
-| `@mint/cli` | Interfaz de línea de comandos (`mint login`, `mint inbox`, `mint watch`, `mint source add`, `mint autonomy`, etc.) con sesión cifrada en Keychain local (AES-256-GCM). |
+| `@mint/cli` | Interfaz de línea de comandos (`mint login`, `mint inbox`, `mint watch`, `mint source add`, `mint autonomy`, `mint doctor`, etc.) con sesión cifrada en Keychain local (AES-256-GCM). |
 | `@mint/daemon` | Proceso autónomo en segundo plano. Vigila carpetas de datos con fs.watch nativo, detecta desabastos, evalúa retrasos de camiones y cron del plan diario. |
-| `@mint/notifiers` | Adaptadores remotos para **Telegram** (Bot API con inline buttons), **Slack** (Block Kit) y **Gmail** (HTML responsivo con links firmados HMAC-SHA256). |
-| `@mint/ingest` | Motor de ingesta asistida de CSV/Excel/SQLite/Postgres con mapeo semántico heurístico, detección de schema drift, rastreo de borrados, sanitización contra prompt/SQL injection y marca `origin = 'real'`. |
+| `@mint/notifiers` | Adaptadores remotos para **Telegram** (Bot API con inline buttons), **Slack** (Block Kit), **Gmail** (HTML responsivo con links firmados HMAC-SHA256) y canales de venta (Discord/Telegram/Slack listener). |
+| `@mint/ingest` | Motor de ingesta asistida de CSV/Excel/SQLite/Postgres con mapeo semántico heurístico, detección de schema drift, circuito de borrado masivo (>20%), confirmación en dos fases, sanitización no destructiva y marca `origin = 'real'`. |
 | `frontend` | Consola web interactiva en React 19 + Tailwind CSS v4 + Framer Motion. |
 
 ---
@@ -55,6 +55,9 @@ El proyecto está organizado como un **Monorepo limpio** con `npm workspaces`:
 Ejecuta el CLI mediante `npm run mint -- <comando>` o enlazando el binario global `mint`:
 
 ```bash
+# 0. Diagnóstico de Entorno y Arquitectura
+mint doctor                        # Verifica Node >= 22.5.0 (SQLite nativo) y conectividad PostgreSQL (alias: mint env)
+
 # 1. Autenticación y Almacén Cifrado (Keychain)
 mint login <email> <password>      # Autenticación con sesión cifrada AES-256 en ~/.mint/session.enc
 mint whoami                        # Consulta usuario, rol y companyId extraído del token

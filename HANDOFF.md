@@ -1,8 +1,8 @@
 # 🍃 MINT CLI & AUTONOMOUS AI BACK OFFICE — TECHNICAL HANDOFF DOCUMENT
 
 **Fecha de Entrega:** 23 de Octubre de 2026  
-**Rama:** `develop` (11 commits locales, política de no-push cumplida)  
-**Estado:** Producción / Verificado (64 pruebas en verde, 0 errores de tipado, build limpio)  
+**Rama:** `feature/data-layer-hardening-and-discovery` (Commits locales convencionales, política de no-push cumplida)  
+**Estado:** Producción / Verificado (82 pruebas en verde en 23 suites, 0 errores de tipado, build limpio)  
 
 ---
 
@@ -199,34 +199,38 @@ Todos los comandos soportan `--json` para integración en pipelines de CI/CD o s
 
 ## 7. SUITE DE PRUEBAS AUTOMATIZADAS (100% VERIFICADO)
 
-Se cuenta con **64 pruebas automatizadas en Vitest** distribuidas en 20 archivos de prueba:
+Se cuenta con **82 pruebas automatizadas en Vitest** distribuidas en 23 archivos de prueba:
 
 ```
- ✓ tests/policy_engine.test.ts (5 tests)
- ✓ tests/cli_keychain.test.ts (3 tests)
- ✓ tests/llm_client.test.ts (3 tests)
- ✓ tests/context_manager.test.ts (3 tests)
- ✓ tests/agent_schema.test.ts (3 tests)
- ✓ tests/config.test.ts (2 tests)
- ✓ tests/dummy.test.ts (1 test)
  ✓ tests/immutability.test.ts (3 tests)
  ✓ tests/tools.test.ts (3 tests)
+ ✓ tests/cli_keychain.test.ts (3 tests)
+ ✓ tests/policy_engine.test.ts (5 tests)
  ✓ tests/auth_setup.test.ts (5 tests)
+ ✓ tests/context_manager.test.ts (3 tests)
+ ✓ tests/llm_client.test.ts (3 tests)
+ ✓ tests/config.test.ts (2 tests)
+ ✓ tests/dummy.test.ts (1 test)
+ ✓ tests/sales_channel_execution.test.ts (4 tests)
+ ✓ tests/agent_schema.test.ts (3 tests)
+ ✓ tests/demand_and_shipments.test.ts (5 tests)
  ✓ tests/ingest.test.ts (3 tests)
  ✓ tests/multi_agent_dry_run.test.ts (1 test)
+ ✓ tests/benchmark_agent_vs_baseline.test.ts (5 tests)
  ✓ tests/agent_loop.test.ts (2 tests)
- ✓ tests/demand_and_shipments.test.ts (5 tests)
  ✓ tests/autonomous_harness_and_team.test.ts (3 tests)
- ✓ tests/scenarios.test.ts (3 tests)
  ✓ tests/cli_terminal_autonomous.test.ts (6 tests)
  ✓ tests/telegram_remote_approval.test.ts (3 tests)
+ ✓ tests/scenarios.test.ts (3 tests)
  ✓ tests/e2e_mint_cli.test.ts (4 tests)
  ✓ tests/daemon_watcher.test.ts (3 tests)
+ ✓ tests/data_layer_hardening.test.ts (9 tests)
 
- Total: 64 passed (64) | Tiempo: ~12s | 0 fallos
+ Total: 82 passed (82) | 23 suites | Tiempo: ~16s | 0 fallos
 ```
 
 - **Verificación de Tipos:** `npm run typecheck` (`tsc --noEmit`) -> **0 errores**.
+- **Diagnóstico de Entorno:** `mint doctor` -> **100% Compatible (Node >= 22.5.0, SQLite nativo, PostgreSQL estado interno)**.
 - **Frontend SPA Web:** `npm run build --prefix frontend` -> **Compilación exitosa (React 19 + Vite)**.
 
 ---
