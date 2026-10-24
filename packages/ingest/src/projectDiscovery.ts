@@ -226,6 +226,73 @@ export async function searchProjectDatabase(query: string): Promise<DiscoveredPr
 }
 
 /**
+ * Escanea dinámicamente las carpetas de desarrollo típicas en cualquier máquina
+ * (Windows, macOS, Linux) para detectar proyectos de software reales ya existentes.
+ */
+export function scanLocalWorkspaceProjects(): DiscoveredProject[] {
+  const home = os.homedir();
+  const candidateRoots = [
+    process.cwd(),
+    path.join(home, "OneDrive", "Documents"),
+    path.join(home, "Documents"),
+    path.join(home, "Projects"),
+    path.join(home, "Workspace"),
+    path.join(home, "workspace"),
+    path.join(home, "Desktop"),
+    path.join(home, "src"),
+    path.join(home, "dev"),
+  ];
+
+  const checkedDirs = new Set<string>();
+  const projects: DiscoveredProject[] = [];
+
+  for (const root of candidateRoots) {
+    if (!fs.existsSync(root) || checkedDirs.has(root)) continue;
+    checkedDirs.add(root);
+
+    try {
+      const entries = fs.readdirSync(root, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const nameLower = entry.name.toLowerCase();
+        if (
+          [
+            "node_modules",
+            ".git",
+            ".idea",
+            ".vscode",
+            "appdata",
+            "windows",
+            "temp",
+            "cache",
+            "system32",
+            "program files",
+          ].includes(nameLower)
+        ) {
+          continue;
+        }
+
+        const projectDir = path.join(root, entry.name);
+        const info = inspectProjectDirectory(projectDir);
+        if (
+          info &&
+          (info.framework !== "Generic" ||
+            info.sqlFiles.length > 0 ||
+            info.dbFiles.length > 0 ||
+            info.databaseName)
+        ) {
+          if (!projects.some((p) => p.projectPath.toLowerCase() === info.projectPath.toLowerCase())) {
+            projects.push(info);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return projects;
+}
+
+/**
  * Inspecciona una carpeta de proyecto para detectar Spring Boot, MySQL, PostgreSQL, SQLite y archivos SQL
  */
 export function inspectProjectDirectory(projectDir: string): DiscoveredProject | null {
@@ -360,79 +427,84 @@ export interface ExtractedProductItem {
   minStock: number;
 }
 
+const INVENTORY_TABLE_KEYWORDS = [
+  "tool", "prod", "item", "art", "equip", "part", "mat", "merc", "inv", "cat", "med", "veh", "supply", "asset", "service"
+];
+
+const METADATA_TABLE_SUFFIXES = [
+  "category", "categories", "categoria", "categorias", "type", "types", "group", "groups", "log", "logs", "status", "role", "roles", "user", "users"
+];
+
 /**
- * Extrae herramientas/productos y existencias directamente de archivos SQL (ej: tools, products, inventory)
+ * Extractor Universal de Catálogo / Inventario para cualquier proyecto y sector.
+ * Funciona dinámicamente con cualquier esquema SQL de cualquier industria sin valores fijos.
  */
 export function extractProductsFromSqlFile(filePath: string): ExtractedProductItem[] {
   if (!fs.existsSync(filePath)) return [];
   const content = fs.readFileSync(filePath, "utf-8");
   const items: ExtractedProductItem[] = [];
 
-  // 1. Extraer INSERT INTO `tools` (patrón de opus-rentals)
-  const toolsRegex = /INSERT\s+INTO\s+`?tools`?\s*\(([^)]+)\)\s*VALUES\s*([\s\S]+?);/gi;
+  const insertRegex = /INSERT\s+INTO\s+`?([a-zA-Z0-9_]+)`?\s*\(([^)]+)\)\s*VALUES\s*([\s\S]+?);/gi;
   let match: RegExpExecArray | null;
 
-  while ((match = toolsRegex.exec(content)) !== null) {
-    const columns = match[1].split(",").map((c) => c.replace(/[`'"]/g, "").trim().toLowerCase());
-    const valuesBlock = match[2];
+  while ((match = insertRegex.exec(content)) !== null) {
+    const rawTableName = match[1];
+    const tableNameLower = rawTableName.toLowerCase();
+
+    // Omitir tablas que sean solo categorías, roles, logs o tipos
+    if (METADATA_TABLE_SUFFIXES.some((s) => tableNameLower.endsWith(s) || tableNameLower.endsWith(s + "s"))) {
+      continue;
+    }
+
+    const columns = match[2].split(",").map((c) => c.replace(/[`'"]/g, "").trim().toLowerCase());
+    const valuesBlock = match[3];
+
+    // Detectar si la tabla representa productos, inventario, herramientas, articulos o si tiene columnas clave
+    const isTargetTable = INVENTORY_TABLE_KEYWORDS.some((kw) => tableNameLower.includes(kw));
+    const hasNameCol = columns.some((c) => c.includes("name") || c.includes("nombre") || c.includes("desc") || c.includes("title"));
+    const hasPriceOrStock = columns.some((c) => c.includes("price") || c.includes("cost") || c.includes("precio") || c.includes("stock") || c.includes("qty"));
+
+    if (!isTargetTable && !(hasNameCol && hasPriceOrStock)) {
+      continue;
+    }
 
     const rowMatches = valuesBlock.match(/\(([^)]+)\)/g);
     if (!rowMatches) continue;
 
-    const nameIdx = columns.indexOf("name");
-    const brandIdx = columns.indexOf("brand");
-    const modelIdx = columns.indexOf("model");
-    const priceIdx = columns.findIndex((c) => c.includes("price") || c.includes("daily"));
+    const nameIdx = columns.findIndex((c) => c === "name" || c === "nombre" || c.includes("name") || c.includes("title"));
+    const brandIdx = columns.findIndex((c) => c.includes("brand") || c.includes("marca") || c.includes("fabricante"));
+    const modelIdx = columns.findIndex((c) => c.includes("model") || c.includes("modelo"));
+    const skuIdx = columns.findIndex((c) => c === "sku" || c === "code" || c === "codigo" || c.includes("sku"));
+    const priceIdx = columns.findIndex((c) => c.includes("price") || c.includes("precio") || c.includes("cost") || c.includes("daily") || c.includes("unit") || c.includes("monto"));
+    const stockIdx = columns.findIndex((c) => c.includes("stock") || c.includes("quantity") || c.includes("qty") || c.includes("existenc") || c.includes("cantidad"));
+    const minStockIdx = columns.findIndex((c) => c.includes("min_stock") || c.includes("min_qty") || c.includes("reorder") || c.includes("minimo"));
+    const categoryIdx = columns.findIndex((c) => c === "category" || c === "categoria" || c.includes("category_name"));
+
+    const defaultCategory = rawTableName.charAt(0).toUpperCase() + rawTableName.slice(1);
+    const skuPrefix = rawTableName.slice(0, 4).toUpperCase();
 
     for (let rIdx = 0; rIdx < rowMatches.length; rIdx++) {
       const rowStr = rowMatches[rIdx].replace(/^\(|\)$/g, "");
       const parts = rowStr.split(/,\s*(?=(?:[^']*'[^']*')*[^']*$)/).map((p) => p.replace(/^'|'$/g, "").trim());
 
-      const rawName = nameIdx >= 0 ? parts[nameIdx] : `Tool #${rIdx + 1}`;
+      const rawName = nameIdx >= 0 && parts[nameIdx] ? parts[nameIdx] : `Item #${rIdx + 1}`;
       const brand = brandIdx >= 0 ? parts[brandIdx] : "";
       const model = modelIdx >= 0 ? parts[modelIdx] : "";
-      const priceRaw = priceIdx >= 0 ? parseFloat(parts[priceIdx]) : 50000;
+      const customSku = skuIdx >= 0 && parts[skuIdx] ? parts[skuIdx] : `${skuPrefix}-${rIdx + 1 < 10 ? "0" : ""}${rIdx + 1}`;
+      const priceRaw = priceIdx >= 0 ? parseFloat(parts[priceIdx]) : 100;
+      const stockRaw = stockIdx >= 0 ? parseInt(parts[stockIdx], 10) : 5;
+      const minStockRaw = minStockIdx >= 0 ? parseInt(parts[minStockIdx], 10) : 2;
+      const category = categoryIdx >= 0 && parts[categoryIdx] ? parts[categoryIdx] : defaultCategory;
 
-      const fullName = brand ? `${rawName} (${brand} ${model})`.trim() : rawName;
-      const sku = `TOOL-${rIdx + 1 < 10 ? "0" : ""}${rIdx + 1}`;
+      const fullName = brand ? `${rawName} (${brand}${model ? " " + model : ""})`.trim() : rawName;
 
       items.push({
-        sku,
+        sku: customSku,
         name: fullName,
-        category: "Maquinaria y Herramientas",
-        price: isNaN(priceRaw) ? 50000 : priceRaw,
-        stock: 5,
-        minStock: 2,
-      });
-    }
-  }
-
-  // 2. Extraer INSERT INTO `products` genérico si aplica
-  const genericProdRegex = /INSERT\s+INTO\s+`?products`?\s*\(([^)]+)\)\s*VALUES\s*([\s\S]+?);/gi;
-  while ((match = genericProdRegex.exec(content)) !== null) {
-    const columns = match[1].split(",").map((c) => c.replace(/[`'"]/g, "").trim().toLowerCase());
-    const valuesBlock = match[2];
-    const rowMatches = valuesBlock.match(/\(([^)]+)\)/g);
-    if (!rowMatches) continue;
-
-    const skuIdx = columns.indexOf("sku");
-    const nameIdx = columns.indexOf("name");
-    const minStockIdx = columns.indexOf("min_stock");
-
-    for (let rIdx = 0; rIdx < rowMatches.length; rIdx++) {
-      const rowStr = rowMatches[rIdx].replace(/^\(|\)$/g, "");
-      const parts = rowStr.split(/,\s*(?=(?:[^']*'[^']*')*[^']*$)/).map((p) => p.replace(/^'|'$/g, "").trim());
-      const sku = skuIdx >= 0 ? parts[skuIdx] : `SKU-${Date.now()}-${rIdx}`;
-      const name = nameIdx >= 0 ? parts[nameIdx] : `Producto ${rIdx + 1}`;
-      const minStock = minStockIdx >= 0 ? parseInt(parts[minStockIdx], 10) || 5 : 5;
-
-      items.push({
-        sku,
-        name,
-        category: "General",
-        price: 1500,
-        stock: 10,
-        minStock,
+        category,
+        price: isNaN(priceRaw) || priceRaw <= 0 ? 100 : priceRaw,
+        stock: isNaN(stockRaw) ? 5 : stockRaw,
+        minStock: isNaN(minStockRaw) ? 2 : minStockRaw,
       });
     }
   }

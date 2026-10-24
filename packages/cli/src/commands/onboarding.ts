@@ -18,6 +18,7 @@ import {
   proposeColumnMapping,
   syncDataSource,
   searchProjectDatabase,
+  scanLocalWorkspaceProjects,
   extractProductsFromSqlFile,
   type DiscoveredProject,
   type ExtractedProductItem,
@@ -182,8 +183,31 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     // STEP 2: CONNECT REAL DATA SOURCE (DATABASE / INVENTORY)
     // -------------------------------------------------------------
     console.log(drawDivider("STEP 2 OF 4: DATA SOURCE & INVENTORY CONNECTION", 76));
+
+    // Dynamic pre-scan of current host computer's developer directories
+    const localProjects = scanLocalWorkspaceProjects();
+
+    if (localProjects.length > 0) {
+      console.log(`  ${theme.mintBold("● Detected software project(s) on this computer:")}`);
+      localProjects.slice(0, 5).forEach((proj, idx) => {
+        const dbInfo = proj.databaseName
+          ? ` [DB: ${proj.databaseName} (${proj.dbType.toUpperCase()})]`
+          : proj.sqlFiles.length > 0
+          ? " [SQL Scripts]"
+          : "";
+        console.log(`    ${theme.cyanBold(`[#${idx + 1}]`)} ${theme.bold(proj.projectName)} ${theme.dim(`(${proj.framework})${dbInfo}`)}`);
+      });
+      console.log("");
+    } else {
+      console.log(`  ${theme.dim("○ No software projects detected automatically in standard developer folders.")}\n`);
+    }
+
     console.log(`  How would you like to connect your database or catalog?`);
-    console.log(`    ${theme.mintBold("[1] 🔎 Find database by project name")} (e.g. "opus rentals", "springboot app")`);
+    if (localProjects.length > 0) {
+      console.log(`    ${theme.mintBold("[1] 🔎 Connect a detected project, or search by name / natural language")}`);
+    } else {
+      console.log(`    ${theme.mintBold("[1] 🔎 Search this PC for a project by name or query")}`);
+    }
     console.log(`    ${theme.cyanBold("[2] 📁 Enter file path or database URI")} (.sqlite, .db, .sql, .csv)`);
     console.log(`    ${theme.dim("[3] ⏭  Skip for now (start with a clean, empty catalog)")}`);
 
@@ -192,14 +216,30 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     let selectedSourceLabel = "Empty (0 products)";
 
     if (sourceChoice === "1") {
-      const projectQuery = await ask(
-        rl,
-        `  ${theme.bold("Enter project name or search query")}`,
-        "opus rentals",
-      );
+      let foundProjects: DiscoveredProject[] = [];
 
-      console.log(`\n  Searching your PC with Mint AI Brain for projects matching "${theme.mintBold(projectQuery)}"...`);
-      const foundProjects: DiscoveredProject[] = await searchProjectDatabase(projectQuery);
+      if (localProjects.length > 0) {
+        const queryPrompt = `  ${theme.bold(`Enter project number (1-${localProjects.length}), name, or natural language query`)}`;
+        const projectQuery = await ask(rl, queryPrompt, "1");
+
+        const selectedNum = parseInt(projectQuery, 10);
+        if (!isNaN(selectedNum) && selectedNum >= 1 && selectedNum <= localProjects.length) {
+          foundProjects = [localProjects[selectedNum - 1]];
+        } else {
+          console.log(`\n  Searching your PC with Mint AI Brain for projects matching "${theme.mintBold(projectQuery)}"...`);
+          foundProjects = await searchProjectDatabase(projectQuery);
+        }
+      } else {
+        const projectQuery = await ask(
+          rl,
+          `  ${theme.bold("Enter project name or search query (e.g. 'ecommerce-api', 'inventory-service')")}`,
+          "",
+        );
+        if (projectQuery) {
+          console.log(`\n  Searching your PC with Mint AI Brain for projects matching "${theme.mintBold(projectQuery)}"...`);
+          foundProjects = await searchProjectDatabase(projectQuery);
+        }
+      }
 
       if (foundProjects.length > 0) {
         console.log(`  ${theme.success("✔")} Mint AI identified ${theme.bold(foundProjects.length)} project(s):\n`);
@@ -233,7 +273,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
             if (fs.existsSync(sqlFile)) {
               const fileItems = extractProductsFromSqlFile(sqlFile);
               if (fileItems.length > 0) {
-                console.log(`  Extracting real machinery & equipment catalog from ${theme.bold(path.basename(sqlFile))}... (${fileItems.length} items found)`);
+                console.log(`  Extracting catalog and inventory items from ${theme.bold(path.basename(sqlFile))}... (${fileItems.length} items found)`);
                 extracted.push(...fileItems);
               }
             }
