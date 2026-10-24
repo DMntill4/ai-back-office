@@ -7,6 +7,7 @@ describe("Ejecución Autónoma de Ventas desde Canales Externos (@mint/notifiers
   const companyId = "comp_default";
   const testSku = "MINT-SALES-CHAN-001";
   const testProductId = "prod_sales_chan_001";
+  const authorizedOperatorId = "op_discord_999";
 
   beforeAll(async () => {
     // Aislar producto e inventario para evitar colisiones con tests concurrentes
@@ -69,19 +70,23 @@ describe("Ejecución Autónoma de Ventas desde Canales Externos (@mint/notifiers
     expect(result.details?.renderedEmbed?.fields).toBeDefined();
   });
 
-  it("2. processIncomingSale descuenta stock, detecta desabasto y activa respuesta autónoma", async () => {
+  it("2. processIncomingSale descuenta stock, detecta desabasto y emite comprobante", async () => {
     const quantityToSell = 5;
 
     // Ejecutar venta entrante desde Discord
     const saleResult = await processIncomingSale({
       channel: "discord",
+      senderId: authorizedOperatorId,
+      senderName: "Carlos Operador Discord",
       sku: testSku,
       quantity: quantityToSell,
       customerName: "Taller Mecánico Central",
       companyId,
+      authorizedSenders: [authorizedOperatorId],
     });
 
     expect(saleResult.success).toBe(true);
+    expect(saleResult.isDuplicate).toBe(false);
     expect(saleResult.quantitySold).toBe(quantityToSell);
     expect(saleResult.previousStock).toBe(50);
     expect(saleResult.remainingStock).toBe(45);
@@ -96,5 +101,72 @@ describe("Ejecución Autónoma de Ventas desde Canales Externos (@mint/notifiers
       .limit(1);
 
     expect(invAfter[0].stock).toBe(45);
+  });
+
+  it("3. Idempotencia estricta: reintento de mensaje procesado no descuenta inventario dos veces", async () => {
+    const messageId = "msg_discord_repeat_12345";
+
+    // Primera llamada con messageId
+    const firstSale = await processIncomingSale({
+      channel: "discord",
+      senderId: authorizedOperatorId,
+      messageId,
+      sku: testSku,
+      quantity: 2,
+      companyId,
+      authorizedSenders: [authorizedOperatorId],
+    });
+
+    expect(firstSale.success).toBe(true);
+    expect(firstSale.isDuplicate).toBe(false);
+    expect(firstSale.remainingStock).toBe(43);
+
+    // Segundo intento idéntico (simulando reintento por timeout de red del webhook)
+    const duplicateSale = await processIncomingSale({
+      channel: "discord",
+      senderId: authorizedOperatorId,
+      messageId,
+      sku: testSku,
+      quantity: 2,
+      companyId,
+      authorizedSenders: [authorizedOperatorId],
+    });
+
+    // Retorna comprobante en caché y NO vuelve a restar existencias
+    expect(duplicateSale.isDuplicate).toBe(true);
+    expect(duplicateSale.remainingStock).toBe(43);
+
+    const invCheck = await db
+      .select()
+      .from(inventory)
+      .where(and(eq(inventory.productId, testProductId), eq(inventory.companyId, companyId)))
+      .limit(1);
+
+    expect(invCheck[0].stock).toBe(43); // Sigue en 43, no en 41
+  });
+
+  it("4. Control de acceso: emisor no autorizado es rechazado sin mutar inventario", async () => {
+    const attackerId = "rogue_user_777";
+
+    await expect(
+      processIncomingSale({
+        channel: "telegram",
+        senderId: attackerId,
+        senderName: "Usuario Desconocido",
+        sku: testSku,
+        quantity: 10,
+        companyId,
+        authorizedSenders: [authorizedOperatorId], // Solo authorizedOperatorId tiene permiso
+      })
+    ).rejects.toThrow(/ACCESO DENEGADO/);
+
+    // Confirmar que el stock en BD permanece intacto
+    const invCheck = await db
+      .select()
+      .from(inventory)
+      .where(and(eq(inventory.productId, testProductId), eq(inventory.companyId, companyId)))
+      .limit(1);
+
+    expect(invCheck[0].stock).toBe(43);
   });
 });
