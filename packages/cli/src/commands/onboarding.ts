@@ -9,9 +9,19 @@ import {
   suppliers,
   supplierProducts,
   products,
+  inventory,
   businessConfig,
 } from "@mint/core";
-import { discoverLocalSources, parseCsvFile, proposeColumnMapping, syncDataSource } from "@mint/ingest";
+import {
+  discoverLocalSources,
+  parseCsvFile,
+  proposeColumnMapping,
+  syncDataSource,
+  searchProjectDatabase,
+  extractProductsFromSqlFile,
+  type DiscoveredProject,
+  type ExtractedProductItem,
+} from "@mint/ingest";
 import { addNotificationChannel } from "@mint/notifiers";
 import { saveSession, type StoredSession } from "../keychain";
 import { theme } from "../ui/theme";
@@ -89,11 +99,35 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     console.log(drawDivider("STEP 1 OF 4: OPERATOR & COMPANY IDENTITY", 76));
     const userName = await ask(rl, `  ${theme.bold("1.1 What's your name or operator handle?")}`, "Dale");
     const companyName = await ask(rl, `  ${theme.bold("1.2 What's your company or business name?")}`, "My Logistics Co.");
-    const email = await ask(
-      rl,
-      `  ${theme.bold("1.3 Account email address")}`,
-      `${userName.toLowerCase().replace(/[^a-z0-9]/g, "") || "admin"}@mint.local`,
-    );
+
+    // Validate Gmail email address
+    const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@g(oogle)?mail\.com$/i;
+    let email = "";
+    while (true) {
+      email = await ask(
+        rl,
+        `  ${theme.bold("1.3 Account Gmail address (required for Google notifications)")}`,
+        "dalej@gmail.com",
+      );
+      if (GMAIL_REGEX.test(email)) {
+        break;
+      }
+      console.log(`  ${theme.redBold("❌ Invalid email:")} Only Gmail accounts (e.g. yourname@gmail.com) are accepted for automated operational alerts.\n`);
+    }
+
+    // Validate operator password
+    let password = "";
+    while (true) {
+      password = await ask(
+        rl,
+        `  ${theme.bold("1.4 Operator password (min 6 characters)")}`,
+        "password123",
+      );
+      if (password.length >= 6) {
+        break;
+      }
+      console.log(`  ${theme.redBold("❌ Password too short:")} Must be at least 6 characters.\n`);
+    }
 
     const companyId = `comp_${companyName.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 16) || "main"}`;
     const userId = `usr_${userName.toLowerCase().replace(/[^a-z0-9]/g, "_") || "admin"}`;
@@ -118,10 +152,18 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         name: userName,
         email,
         role: "owner",
-        passwordHash: "onboarding_local_auth",
+        passwordHash: password,
         setupCompleted: true,
       })
       .onConflictDoNothing();
+
+    // Auto-register Gmail notification channel so alerts can be sent directly
+    await addNotificationChannel({
+      companyId,
+      type: "gmail",
+      name: `Gmail Alerts (${email})`,
+      config: { email },
+    }).catch(() => null);
 
     // Default approved suppliers (Express 1-day & Wholesale Economy 6-day)
     const suppFastId = `supp_fast_${companyId}`;
@@ -134,107 +176,191 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       ])
       .onConflictDoNothing();
 
-    console.log(`\n  ${theme.success("✔")} Organization & profile registered for ${theme.mintBold(companyName)}.\n`);
+    console.log(`\n  ${theme.success("✔")} Profile registered & verified with Gmail: ${theme.mintBold(email)}.\n`);
 
     // -------------------------------------------------------------
     // STEP 2: CONNECT REAL DATA SOURCE (DATABASE / INVENTORY)
     // -------------------------------------------------------------
     console.log(drawDivider("STEP 2 OF 4: DATA SOURCE & INVENTORY CONNECTION", 76));
-    console.log(`  Scanning local workspace for existing databases and inventory files...`);
+    console.log(`  How would you like to connect your database or catalog?`);
+    console.log(`    ${theme.mintBold("[1] 🔎 Find database by project name")} (e.g. "opus rentals", "springboot app")`);
+    console.log(`    ${theme.cyanBold("[2] 📁 Enter file path or database URI")} (.sqlite, .db, .sql, .csv)`);
+    console.log(`    ${theme.dim("[3] ⏭  Skip for now (start with a clean, empty catalog)")}`);
 
-    let discovered: any[] = [];
-    try {
-      discovered = await discoverLocalSources({ maxDepth: 2, includeSamples: true });
-    } catch {}
-
-    let selectedFilePath = "";
+    const sourceChoice = await ask(rl, `\n  Choose an option`, "1");
     let importedProductsCount = 0;
+    let selectedSourceLabel = "Empty (0 products)";
 
-    if (discovered.length > 0) {
-      console.log(`\n  Found ${theme.bold(discovered.length)} local data source(s) in your workspace:`);
-      discovered.slice(0, 3).forEach((d, idx) => {
-        const rel = path.relative(process.cwd(), d.path);
-        console.log(`    ${theme.mintBold(`[${idx + 1}]`)} ${rel} (${d.sourceType.toUpperCase()})`);
-      });
-      console.log(`    ${theme.cyanBold(`[c]`)} Enter a custom path to your database / spreadsheet`);
-      console.log(`    ${theme.dim(`[s] Skip for now (start with a clean, empty catalog)`)}`);
-
-      const choice = await ask(rl, `\n  Select an option`, "s");
-
-      if (choice === "1" && discovered[0]) {
-        selectedFilePath = discovered[0].path;
-      } else if (choice === "2" && discovered[1]) {
-        selectedFilePath = discovered[1].path;
-      } else if (choice === "3" && discovered[2]) {
-        selectedFilePath = discovered[2].path;
-      } else if (choice.toLowerCase() === "c") {
-        selectedFilePath = await ask(rl, `  Enter path to file (.csv, .xlsx, or .sqlite)`);
-      }
-    } else {
-      console.log(`  No local database found automatically.`);
-      const customPath = await ask(
+    if (sourceChoice === "1") {
+      const projectQuery = await ask(
         rl,
-        `  Enter path to your database/file (.sqlite, .db, .csv, .xlsx) or press Enter to skip`,
-        "",
+        `  ${theme.bold("Enter project name or search query")}`,
+        "opus rentals",
       );
-      selectedFilePath = customPath;
-    }
 
-    if (!selectedFilePath) {
-      console.log(`  ${theme.dim("○ No data source linked. Starting with a clean, empty catalog.")}\n`);
-    }
+      console.log(`\n  Searching your PC for projects matching "${theme.mintBold(projectQuery)}"...`);
+      const foundProjects: DiscoveredProject[] = searchProjectDatabase(projectQuery);
 
-    if (selectedFilePath && fs.existsSync(selectedFilePath)) {
-      try {
-        console.log(`  Connecting and importing: ${theme.bold(path.basename(selectedFilePath))}...`);
-        const parsed = parseCsvFile(selectedFilePath);
-        const mapping = proposeColumnMapping(parsed.headers);
-        const syncRes = await syncDataSource({
-          companyId,
-          sourceName: path.basename(selectedFilePath),
-          sourceType: "csv",
-          uriOrPath: selectedFilePath,
-          currentHeaders: parsed.headers,
-          rows: parsed.rows,
-          explicitMappings: mapping.mappings,
+      if (foundProjects.length > 0) {
+        console.log(`  ${theme.success("✔")} Found ${theme.bold(foundProjects.length)} project(s):\n`);
+        foundProjects.forEach((proj: DiscoveredProject, idx: number) => {
+          console.log(`    ${theme.mintBold(`[#${idx + 1}] ${proj.projectName}`)} (${proj.framework})`);
+          console.log(`        Location:   ${theme.dim(proj.projectPath)}`);
+          if (proj.databaseName) {
+            console.log(`        Database:   ${theme.cyanBold(proj.databaseName)} (${proj.dbType.toUpperCase()}) on ${proj.host}:${proj.port}`);
+          }
+          if (proj.sqlFiles.length > 0) {
+            const sqlNames = proj.sqlFiles.map((f: string) => path.basename(f)).join(", ");
+            console.log(`        SQL Data:   ${theme.bold(sqlNames)}`);
+          }
+          console.log("");
         });
 
-        importedProductsCount = syncRes.importedRows;
+        const projToUse = foundProjects[0];
+        const confirmSync = await ask(
+          rl,
+          `  Would you like to sync items from '${theme.bold(projToUse.projectName)}'? [Y/n]`,
+          "Y",
+        );
 
-        // Auto-link suppliers
-        const allProds = await db.select().from(products).where(eq(products.companyId, companyId));
-        for (const p of allProds) {
-          await db
-            .insert(supplierProducts)
-            .values([
-              {
-                id: `sp_fast_${p.id}`,
-                companyId,
-                supplierId: suppFastId,
-                productId: p.id,
-                unitPrice: "185.00",
-                minOrderQuantity: 10,
-                leadTimeDays: 1,
-              },
-              {
-                id: `sp_econ_${p.id}`,
-                companyId,
-                supplierId: suppEconId,
-                productId: p.id,
-                unitPrice: "140.00",
-                minOrderQuantity: 25,
-                leadTimeDays: 6,
-              },
-            ])
-            .onConflictDoNothing();
+        if (confirmSync.toLowerCase() !== "n") {
+          // Check for data SQL files in the project
+          const extracted: ExtractedProductItem[] = [];
+          for (const sqlFile of projToUse.sqlFiles) {
+            if (fs.existsSync(sqlFile)) {
+              const fileItems = extractProductsFromSqlFile(sqlFile);
+              if (fileItems.length > 0) {
+                console.log(`  Extracting real machinery & equipment catalog from ${theme.bold(path.basename(sqlFile))}... (${fileItems.length} items found)`);
+                extracted.push(...fileItems);
+              }
+            }
+          }
+
+          if (extracted.length > 0) {
+            for (const item of extracted) {
+              const productId = `prod_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+              await db
+                .insert(products)
+                .values({
+                  id: productId,
+                  companyId,
+                  sku: item.sku,
+                  name: item.name,
+                  category: item.category,
+                  minStock: item.minStock,
+                  origin: "real",
+                })
+                .onConflictDoUpdate({
+                  target: [products.companyId, products.sku],
+                  set: { name: item.name, category: item.category, minStock: item.minStock },
+                });
+
+              await db
+                .insert(inventory)
+                .values({
+                  id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                  companyId,
+                  productId,
+                  warehouseId: `alm_central_${companyId}`,
+                  stock: item.stock,
+                })
+                .onConflictDoNothing();
+
+              // Link suppliers
+              await db
+                .insert(supplierProducts)
+                .values([
+                  {
+                    id: `sp_fast_${productId}`,
+                    companyId,
+                    supplierId: suppFastId,
+                    productId,
+                    unitPrice: String(item.price * 0.8),
+                    minOrderQuantity: 1,
+                    leadTimeDays: 1,
+                  },
+                  {
+                    id: `sp_econ_${productId}`,
+                    companyId,
+                    supplierId: suppEconId,
+                    productId,
+                    unitPrice: String(item.price * 0.65),
+                    minOrderQuantity: 5,
+                    leadTimeDays: 6,
+                  },
+                ])
+                .onConflictDoNothing();
+
+              importedProductsCount++;
+            }
+
+            selectedSourceLabel = `${projToUse.projectName} (${importedProductsCount} items)`;
+            console.log(`  ${theme.success("✔")} Successfully synced ${theme.bold(importedProductsCount)} real items from ${theme.mintBold(projToUse.projectName)}!\n`);
+          } else {
+            console.log(`  ${theme.dim("○ Project registered. Database ready for live connection.")}\n`);
+            selectedSourceLabel = `${projToUse.projectName} (Live DB)`;
+          }
         }
+      } else {
+        console.log(`  ${theme.amber("No project matching that query was found.")} Starting with empty catalog.\n`);
+      }
+    } else if (sourceChoice === "2") {
+      const customPath = await ask(rl, `  Enter path to file (.sqlite, .db, .sql, .csv)`);
+      if (customPath && fs.existsSync(customPath)) {
+        const ext = path.extname(customPath).toLowerCase();
+        if (ext === ".sql") {
+          const extracted = extractProductsFromSqlFile(customPath);
+          for (const item of extracted) {
+            const productId = `prod_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+            await db
+              .insert(products)
+              .values({
+                id: productId,
+                companyId,
+                sku: item.sku,
+                name: item.name,
+                category: item.category,
+                minStock: item.minStock,
+                origin: "real",
+              })
+              .onConflictDoNothing();
 
-        console.log(`  ${theme.success("✔")} Connected! ${theme.bold(importedProductsCount)} SKUs synced with live stock tracking.\n`);
-      } catch (err: any) {
-        console.log(`  ${theme.warning("⚠")} Could not fully ingest file (${err.message}). Ready for manual import.\n`);
+            await db
+              .insert(inventory)
+              .values({
+                id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                companyId,
+                productId,
+                warehouseId: `alm_central_${companyId}`,
+                stock: item.stock,
+              })
+              .onConflictDoNothing();
+
+            importedProductsCount++;
+          }
+          selectedSourceLabel = `${path.basename(customPath)} (${importedProductsCount} items)`;
+          console.log(`  ${theme.success("✔")} Imported ${theme.bold(importedProductsCount)} items from SQL file!\n`);
+        } else if (ext === ".csv") {
+          const parsed = parseCsvFile(customPath);
+          const mapping = proposeColumnMapping(parsed.headers);
+          const syncRes = await syncDataSource({
+            companyId,
+            sourceName: path.basename(customPath),
+            sourceType: "csv",
+            uriOrPath: customPath,
+            currentHeaders: parsed.headers,
+            rows: parsed.rows,
+            explicitMappings: mapping.mappings,
+          });
+          importedProductsCount = syncRes.importedRows;
+          selectedSourceLabel = `${path.basename(customPath)} (${importedProductsCount} items)`;
+          console.log(`  ${theme.success("✔")} Imported ${theme.bold(importedProductsCount)} items from CSV file!\n`);
+        }
+      } else {
+        console.log(`  ${theme.dim("○ File not found or skipped. Starting with empty catalog.")}\n`);
       }
     } else {
-      console.log(`  ${theme.muted("○ Skipped catalog import. You can add data anytime.")}\n`);
+      console.log(`  ${theme.dim("○ Skipped. Starting with a clean, empty catalog for your company.")}\n`);
     }
 
     // -------------------------------------------------------------

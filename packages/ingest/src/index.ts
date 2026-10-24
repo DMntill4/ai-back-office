@@ -7,3 +7,4 @@ export * from "./sqliteSource";
 export * from "./excelParser";
 export * from "./localDiscovery";
 export * from "./syncEngine";
+export * from "./projectDiscovery";
