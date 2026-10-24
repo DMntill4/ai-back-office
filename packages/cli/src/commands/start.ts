@@ -15,6 +15,18 @@ export interface StartOptions {
   json?: boolean;
 }
 
+async function waitForServer(port: string | number, maxAttempts = 15): Promise<boolean> {
+  const url = `http://127.0.0.1:${port}/health`;
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return true;
+    } catch {}
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return false;
+}
+
 /**
  * mint start / npm start
  * Inicia TODO el sistema autónomo (Servidor Backend, Daemon de vigilancia,
@@ -57,6 +69,9 @@ export async function startCommand(options: StartOptions = {}) {
       detached: false,
     }
   );
+
+  // Esperar a que el servidor Fastify esté escuchando activamente en el puerto
+  await waitForServer(port, 15);
 
   // 4. Iniciar estado y bucle del Daemon autónomo
   const daemonState = readDaemonState();
@@ -154,7 +169,7 @@ export async function startCommand(options: StartOptions = {}) {
     )
   );
 
-  if (options.headless) {
+  if (options.headless || !process.stdin.isTTY) {
     console.log(`\n${theme.mintBold("● MINT CORRIENDO EN MODO HEADLESS.")}`);
     console.log(theme.dim("  El agente está vigilando y listo para recibir ventas de Telegram/Slack/Discord."));
     console.log(theme.dim("  Presiona Ctrl+C para detener todos los servicios.\n"));

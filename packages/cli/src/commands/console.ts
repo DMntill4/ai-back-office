@@ -63,13 +63,18 @@ export async function consoleCommand() {
 
   const promptPrefix = `${theme.mintBold(userName)}@${theme.cyan("mint")}:${theme.dim(`[${companyId}]`)} ${theme.mintBold("❯")} `;
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: promptPrefix,
-  });
+  return new Promise<void>((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      prompt: promptPrefix,
+    });
 
-  rl.prompt();
+    rl.on("close", () => {
+      resolve();
+    });
+
+    rl.prompt();
 
   rl.on("line", async (line) => {
     const trimmed = line.trim();
@@ -315,5 +320,6 @@ export async function consoleCommand() {
 
     console.log("");
     rl.prompt();
+  });
   });
 }

@@ -50,6 +50,38 @@ server.register(cors, {
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
 });
 
+// Root health and welcome endpoint
+server.get("/", async (request, reply) => {
+  reply.type("text/html").send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>🍃 Mint Autonomous Agent Engine</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #e2e8f0; padding: 40px; margin: 0; }
+    .card { max-width: 650px; margin: 0 auto; background: #131b2e; border: 1px solid #10b981; border-radius: 12px; padding: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    h1 { color: #10b981; margin-top: 0; display: flex; align-items: center; gap: 10px; font-size: 24px; }
+    .badge { background: #10b981; color: #000; font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 13px; }
+    .meta { margin-top: 20px; line-height: 1.8; color: #94a3b8; }
+    .meta strong { color: #f8fafc; }
+    code { background: #0f172a; padding: 2px 6px; border-radius: 4px; color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🍃 Mint Autonomous Engine <span class="badge">ONLINE</span></h1>
+    <p>El motor logístico autónomo, daemon de vigilancia y receptores de canales (Telegram / Slack / Discord) están 100% operativos.</p>
+    <div class="meta">
+      <div><strong>Modo:</strong> Headless Terminal & Canales Remotos (Cero dependencias de UI web)</div>
+      <div><strong>Estado de Base de Datos:</strong> <a href="/api/db/status" style="color:#10b981;">/api/db/status</a></div>
+      <div><strong>Salud del Servicio:</strong> <a href="/health" style="color:#10b981;">/health</a></div>
+      <div><strong>Consola de Control:</strong> Opera directamente desde tu terminal local (<code>mint console</code> o <code>npm start</code>)</div>
+    </div>
+  </div>
+</body>
+</html>`);
+});
+
 // Health check endpoint
 server.get("/health", async () => {
   return { status: "ok", service: "mint-ai-back-office", timestamp: new Date().toISOString() };
@@ -1002,8 +1034,9 @@ server.get("/api/briefing/today", async (request, reply) => {
 const start = async () => {
   try {
     await ensureDecisionsTables().catch((e) => console.warn("Error en ensureDecisionsTables:", e.message));
-    await server.listen({ port: 3001, host: "0.0.0.0" });
-    console.log("🚀 Servidor HTTP MINT corriendo en http://localhost:3001");
+    const port = parseInt(process.env.PORT || "3000", 10);
+    await server.listen({ port, host: "0.0.0.0" });
+    console.log(`🚀 Servidor HTTP MINT corriendo en http://localhost:${port}`);
     console.log("📡 Conexión a Base de Datos relacional activa (Drizzle ORM & Supabase ready)");
   } catch (err) {
     server.log.error(err);
