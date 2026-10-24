@@ -7,7 +7,7 @@ import { drawCard, drawDivider } from "../ui/box";
 export async function inboxCommand(
   action?: "list" | "approve" | "reject",
   targetId?: string,
-  options: { json?: boolean; interactive?: boolean } = {},
+  options: { json?: boolean; interactive?: boolean; noExit?: boolean } = {},
 ) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
@@ -34,7 +34,10 @@ export async function inboxCommand(
       } else {
         console.error(theme.redBold(`❌ Error al aprobar decisión: ${err.message}`));
       }
-      process.exit(1);
+      if (!options.noExit) {
+        process.exit(1);
+      }
+      return;
     }
   }
 
@@ -54,7 +57,10 @@ export async function inboxCommand(
       } else {
         console.error(theme.redBold(`❌ Error al rechazar decisión: ${err.message}`));
       }
-      process.exit(1);
+      if (!options.noExit) {
+        process.exit(1);
+      }
+      return;
     }
   }
 
@@ -120,6 +126,8 @@ export async function inboxCommand(
     } else {
       console.error(theme.redBold(`❌ Error al consultar inbox: ${err.message}`));
     }
-    process.exit(1);
+    if (!options.noExit) {
+      process.exit(1);
+    }
   }
 }

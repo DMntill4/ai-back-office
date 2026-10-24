@@ -6,7 +6,7 @@ import { theme } from "../ui/theme";
 import { printBanner } from "../ui/banner";
 import { drawCard, drawDivider } from "../ui/box";
 
-export async function dashboardCommand(options: { json?: boolean } = {}) {
+export async function dashboardCommand(options: { json?: boolean; noExit?: boolean } = {}) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
@@ -178,6 +178,8 @@ export async function dashboardCommand(options: { json?: boolean } = {}) {
     } else {
       console.error(theme.redBold(`❌ Error al generar dashboard: ${err.message}`));
     }
-    process.exit(1);
+    if (!options.noExit) {
+      process.exit(1);
+    }
   }
 }

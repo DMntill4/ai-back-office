@@ -4,7 +4,7 @@ import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
 import { withSpinner } from "../ui/spinner";
 
-export async function chatCommand(message: string, options: { json?: boolean } = {}) {
+export async function chatCommand(message: string, options: { json?: boolean; noExit?: boolean } = {}) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
@@ -60,11 +60,13 @@ export async function chatCommand(message: string, options: { json?: boolean } =
     } else {
       console.error(theme.redBold(`❌ Error en chat: ${err.message}`));
     }
-    process.exit(1);
+    if (!options.noExit) {
+      process.exit(1);
+    }
   }
 }
 
-export async function todayCommand(options: { json?: boolean } = {}) {
+export async function todayCommand(options: { json?: boolean; noExit?: boolean } = {}) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
@@ -109,6 +111,8 @@ export async function todayCommand(options: { json?: boolean } = {}) {
     } else {
       console.error(theme.redBold(`❌ Error en briefing: ${err.message}`));
     }
-    process.exit(1);
+    if (!options.noExit) {
+      process.exit(1);
+    }
   }
 }

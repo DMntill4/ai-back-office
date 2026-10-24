@@ -11,6 +11,7 @@ import { consoleCommand } from "./commands/console";
 import { teamCommand } from "./commands/team";
 import { doctorCommand } from "./commands/doctor";
 import { startCommand } from "./commands/start";
+import { setupCommand } from "./commands/setup";
 import { triggerScanApi } from "./client";
 import { getSession } from "./keychain";
 import { theme } from "./ui/theme";
@@ -41,7 +42,15 @@ program
   .option("--json", "Salida en formato JSON")
   .action((options) => startCommand(options));
 
-// 0.1 mint doctor / mint env
+// 0.1 mint setup [file]
+program
+  .command("setup [file]")
+  .description("Configuración ultrarrápida de 1 paso en 2 segundos (empresa, almacén, catálogo, proveedores)")
+  .option("--company <name>", "Nombre personalizado de la empresa")
+  .option("--json", "Salida en formato JSON")
+  .action((file, options) => setupCommand({ file, companyName: options.company, ...options }));
+
+// 0.2 mint doctor / mint env
 program
   .command("doctor")
   .alias("env")

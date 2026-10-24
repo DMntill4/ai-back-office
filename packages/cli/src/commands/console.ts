@@ -64,10 +64,38 @@ export async function consoleCommand() {
   const promptPrefix = `${theme.mintBold(userName)}@${theme.cyan("mint")}:${theme.dim(`[${companyId}]`)} ${theme.mintBold("❯")} `;
 
   return new Promise<void>((resolve) => {
+    const slashCommands = [
+      "/setup",
+      "/status",
+      "/dash",
+      "/today",
+      "/stock",
+      "/inbox",
+      "/approve",
+      "/reject",
+      "/explain",
+      "/simulate",
+      "/scan",
+      "/orders",
+      "/auto",
+      "/pause",
+      "/resume",
+      "/matrix",
+      "/help",
+      "/clear",
+      "/exit",
+    ];
+
+    const completer = (line: string) => {
+      const hits = slashCommands.filter((c) => c.startsWith(line.toLowerCase()));
+      return [hits.length ? hits : slashCommands, line];
+    };
+
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
       prompt: promptPrefix,
+      completer,
     });
 
     rl.on("close", () => {
@@ -76,50 +104,59 @@ export async function consoleCommand() {
 
     rl.prompt();
 
-  rl.on("line", async (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      rl.prompt();
-      return;
-    }
+    rl.on("line", async (line) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        rl.prompt();
+        return;
+      }
 
-    if (trimmed === "exit" || trimmed === "quit" || trimmed === "q") {
-      console.log(theme.dim("\nDesconectando terminal de control autónomo. Hasta luego.\n"));
-      rl.close();
-      return;
-    }
+      const [rawCmd, ...args] = trimmed.split(/\s+/);
+      const cmd = rawCmd.startsWith("/") ? rawCmd.slice(1).toLowerCase() : rawCmd.toLowerCase();
 
-    if (trimmed === "clear" || trimmed === "cls") {
-      console.clear();
-      rl.prompt();
-      return;
-    }
+      if (cmd === "exit" || cmd === "quit" || cmd === "q") {
+        console.log(theme.dim("\nDesconectando terminal de control autónomo. Hasta luego.\n"));
+        rl.close();
+        return;
+      }
 
-    const [cmd, ...args] = trimmed.split(/\s+/);
+      if (cmd === "clear" || cmd === "cls") {
+        console.clear();
+        rl.prompt();
+        return;
+      }
 
-    try {
-      switch (cmd.toLowerCase()) {
-        case "help":
-        case "?": {
-          console.log("\n" + drawDivider("MANUAL DE COMANDOS DEL OPERADOR (CLI HARNESS)", 80));
-          console.log(`  ${theme.mintBold("harness [sku]")}            Ejecutar harness autónomo con árbol de resolución ASCII`);
-          console.log(`  ${theme.mintBold("matrix")}                   Visualizar matriz de especialistas y sus responsabilidades`);
-          console.log(`  ${theme.mintBold("status / dashboard")}       Panel unificado de inventario, casos y canales`);
-          console.log(`  ${theme.mintBold("stock")}                    Existencias en tiempo real y detección de quiebres`);
-          console.log(`  ${theme.mintBold("orders")}                   Órdenes de compra registradas y en tránsito`);
-          console.log(`  ${theme.mintBold("inbox")}                    Bandeja HITL de decisiones pendientes de firma`);
-          console.log(`  ${theme.mintBold("explain <id>")}             Explicación profunda de razonamiento y regla de política`);
-          console.log(`  ${theme.mintBold("simulate [shock]")}         Simular choques what-if (stockout, delay, price-spike)`);
-          console.log(`  ${theme.mintBold("team [list|invite]")}       Gestión de usuarios y permisos RBAC del tenant`);
-          console.log(`  ${theme.mintBold("source [list|discover]")}   Descubrimiento, inspección y estado de fuentes de datos`);
-          console.log(`  ${theme.mintBold("scan")}                     Disparar escaneo proactivo de stock y transporte`);
-          console.log(`  ${theme.mintBold("autonomy [nivel]")}         Consultar o fijar nivel (dry-run, assisted, auto)`);
-          console.log(`  ${theme.mintBold("pause / resume")}           Interruptor de emergencia del daemon`);
-          console.log(`  ${theme.mintBold("chat <mensaje>")}           Conversación directa con el Coordinador ReAct`);
-          console.log(`  ${theme.mintBold("clear")}                    Limpiar pantalla`);
-          console.log(`  ${theme.mintBold("exit")}                     Salir de la consola interactiva\n`);
-          break;
-        }
+      try {
+        switch (cmd) {
+          case "help":
+          case "?": {
+            console.log("\n" + drawDivider("⚡ COMANDOS RÁPIDOS DEL AGENTE (SLASH COMMANDS)", 84));
+            console.log(`  ${theme.mintBold("/setup")}                   Setup automático en 2 segundos (crea almacén, stock y proveedores)`);
+            console.log(`  ${theme.mintBold("/status")} o ${theme.mintBold("/dash")}        Panel unificado de inventario, casos y alertas`);
+            console.log(`  ${theme.mintBold("/today")}                    Resumen diario (Daily Briefing) de decisiones y gasto`);
+            console.log(`  ${theme.mintBold("/stock")}                    Existencias en tiempo real de tu catálogo`);
+            console.log(`  ${theme.mintBold("/inbox")}                    Bandeja de compras que esperan tu autorización`);
+            console.log(`  ${theme.mintBold("/approve <id>")}            Aprobar una orden de compra pendiente`);
+            console.log(`  ${theme.mintBold("/reject <id>")}             Rechazar una propuesta de compra`);
+            console.log(`  ${theme.mintBold("/explain <id>")}            Explicación y árbol de deliberación del agente`);
+            console.log(`  ${theme.mintBold("/simulate [shock]")}        Simular quiebre de stock en sandbox (what-if)`);
+            console.log(`  ${theme.mintBold("/scan")}                    Disparar escaneo proactivo de stock y transporte ahora`);
+            console.log(`  ${theme.mintBold("/orders")}                  Órdenes de compra registradas y en camino`);
+            console.log(`  ${theme.mintBold("/auto [dry-run|assisted|auto]")} Cambiar nivel de autonomía`);
+            console.log(`  ${theme.mintBold("/matrix")}                  Ver especialistas que deliberan en paralelo`);
+            console.log(`  ${theme.mintBold("/clear")}                   Limpiar pantalla`);
+            console.log(`  ${theme.mintBold("/exit")}                    Salir de la consola`);
+            console.log(`\n  ${theme.cyanBold("💡 Tip:")} También puedes escribir directamente en lenguaje natural`);
+            console.log(`     (ej: ${theme.dim('"¿hay stock bajo?"')}, ${theme.dim('"revisa los proveedores"')}) y el agente te responderá.\n`);
+            break;
+          }
+
+          case "setup":
+          case "init": {
+            const { setupCommand } = require("./setup");
+            await setupCommand({ file: args[0] });
+            break;
+          }
 
         case "matrix": {
           console.log("\n" + drawDivider("MATRIZ DE AGENTES ESPECIALISTAS Y CONTROLLERS", 84));
@@ -214,27 +251,55 @@ export async function consoleCommand() {
         }
 
         case "status":
+        case "dash":
         case "dashboard": {
           const { dashboardCommand } = require("./dashboard");
-          await dashboardCommand();
+          await dashboardCommand({ noExit: true });
+          break;
+        }
+
+        case "today":
+        case "briefing": {
+          const { todayCommand } = require("./chat");
+          await todayCommand({ noExit: true });
           break;
         }
 
         case "stock": {
           const { stockCommand } = require("./stock");
-          await stockCommand();
+          await stockCommand({ noExit: true });
           break;
         }
 
         case "orders": {
           const { ordersCommand } = require("./stock");
-          await ordersCommand();
+          await ordersCommand({ noExit: true });
           break;
         }
 
         case "inbox": {
           const { inboxCommand } = require("./inbox");
-          await inboxCommand(args[0] as any, args[1]);
+          await inboxCommand(args[0] as any, args[1], { noExit: true });
+          break;
+        }
+
+        case "approve": {
+          if (!args[0]) {
+            console.log(theme.amber("Debes especificar el ID de la decisión a aprobar. Ej: /approve dec_123"));
+          } else {
+            const { inboxCommand } = require("./inbox");
+            await inboxCommand("approve", args[0], { noExit: true });
+          }
+          break;
+        }
+
+        case "reject": {
+          if (!args[0]) {
+            console.log(theme.amber("Debes especificar el ID de la decisión a rechazar. Ej: /reject dec_123"));
+          } else {
+            const { inboxCommand } = require("./inbox");
+            await inboxCommand("reject", args[0], { noExit: true });
+          }
           break;
         }
 
@@ -283,6 +348,7 @@ export async function consoleCommand() {
           break;
         }
 
+        case "auto":
         case "autonomy": {
           const { autonomyGetCommand, autonomySetCommand } = require("./autonomy");
           if (args[0]) {
@@ -307,12 +373,20 @@ export async function consoleCommand() {
 
         case "chat": {
           const { chatCommand } = require("./chat");
-          await chatCommand(args.join(" "));
+          await chatCommand(args.join(" "), { noExit: true });
           break;
         }
 
-        default:
-          console.log(theme.amber(`Comando '${cmd}' no reconocido. Escribe 'help' para ver los comandos disponibles.`));
+        default: {
+          if (rawCmd.startsWith("/")) {
+            console.log(theme.amber(`Comando '${rawCmd}' no reconocido. Escribe ${theme.mintBold("/help")} para ver los comandos disponibles.`));
+          } else {
+            // Conversación directa con el agente en lenguaje natural sin requerir escribir 'chat'
+            const { chatCommand } = require("./chat");
+            await chatCommand(trimmed, { noExit: true });
+          }
+          break;
+        }
       }
     } catch (err: any) {
       console.error(theme.redBold(`❌ Error ejecutando '${cmd}': ${err.message}`));

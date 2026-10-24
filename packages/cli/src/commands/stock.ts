@@ -4,7 +4,7 @@ import { theme } from "../ui/theme";
 import { renderTable } from "../ui/table";
 import { drawDivider } from "../ui/box";
 
-export async function stockCommand(options: { json?: boolean } = {}) {
+export async function stockCommand(options: { json?: boolean; noExit?: boolean } = {}) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
@@ -58,11 +58,13 @@ export async function stockCommand(options: { json?: boolean } = {}) {
     } else {
       console.error(theme.redBold(`❌ Error al consultar stock: ${err.message}`));
     }
-    process.exit(1);
+    if (!options.noExit) {
+      process.exit(1);
+    }
   }
 }
 
-export async function ordersCommand(options: { json?: boolean } = {}) {
+export async function ordersCommand(options: { json?: boolean; noExit?: boolean } = {}) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
@@ -117,6 +119,8 @@ export async function ordersCommand(options: { json?: boolean } = {}) {
     } else {
       console.error(theme.redBold(`❌ Error al consultar órdenes: ${err.message}`));
     }
-    process.exit(1);
+    if (!options.noExit) {
+      process.exit(1);
+    }
   }
 }
