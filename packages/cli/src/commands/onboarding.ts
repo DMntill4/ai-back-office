@@ -198,11 +198,11 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         "opus rentals",
       );
 
-      console.log(`\n  Searching your PC for projects matching "${theme.mintBold(projectQuery)}"...`);
-      const foundProjects: DiscoveredProject[] = searchProjectDatabase(projectQuery);
+      console.log(`\n  Searching your PC with Mint AI Brain for projects matching "${theme.mintBold(projectQuery)}"...`);
+      const foundProjects: DiscoveredProject[] = await searchProjectDatabase(projectQuery);
 
       if (foundProjects.length > 0) {
-        console.log(`  ${theme.success("✔")} Found ${theme.bold(foundProjects.length)} project(s):\n`);
+        console.log(`  ${theme.success("✔")} Mint AI identified ${theme.bold(foundProjects.length)} project(s):\n`);
         foundProjects.forEach((proj: DiscoveredProject, idx: number) => {
           console.log(`    ${theme.mintBold(`[#${idx + 1}] ${proj.projectName}`)} (${proj.framework})`);
           console.log(`        Location:   ${theme.dim(proj.projectPath)}`);
@@ -212,6 +212,9 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           if (proj.sqlFiles.length > 0) {
             const sqlNames = proj.sqlFiles.map((f: string) => path.basename(f)).join(", ");
             console.log(`        SQL Data:   ${theme.bold(sqlNames)}`);
+          }
+          if (proj.aiReasoning) {
+            console.log(`        AI Decision: ${theme.mint(proj.aiReasoning)}`);
           }
           console.log("");
         });

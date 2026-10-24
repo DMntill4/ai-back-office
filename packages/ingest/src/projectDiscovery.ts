@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { GrokClient, getLlmApiKey } from "@mint/core";
 
 export interface DiscoveredProject {
   projectName: string;
@@ -16,43 +17,166 @@ export interface DiscoveredProject {
   sqlFiles: string[];
   dbFiles: string[];
   entitiesFound?: string[];
+  aiReasoning?: string;
+  confidence?: number;
 }
 
-const STOP_WORDS = new Set([
-  "buscame", "busca", "buscar", "encuentra", "encontrar",
-  "la", "el", "los", "las", "un", "una",
-  "base", "bases", "de", "del", "datos", "dato",
-  "mi", "mis", "tu", "tus",
-  "proyecto", "proyectos", "app", "aplicacion",
-  "find", "search", "my", "the", "database", "db", "project", "for", "in"
-]);
+export interface AIProjectQueryAnalysis {
+  projectName: string;
+  searchTerms: string[];
+  expectedFramework: string | null;
+  expectedDbType: string | null;
+  reasoning: string;
+}
 
 /**
- * Normaliza y extrae palabras clave de la frase natural del usuario
- * ej: "Buscame la base de datos de mi proyecto springboot opus rentals" -> ["springboot", "opus", "rentals"]
+ * Cerebro AI: Utiliza el modelo LLM conectado (vía RETO_KEY / GROK_API_KEY)
+ * para comprender la intención, extraer los nombres de proyectos y tecnologías
+ * a partir de cualquier consulta en lenguaje natural (Español o Inglés).
  */
-export function extractKeywords(query: string): string[] {
-  return query
+export async function interpretQueryWithAI(query: string): Promise<AIProjectQueryAnalysis> {
+  const apiKey = getLlmApiKey();
+  if (apiKey) {
+    try {
+      const client = new GrokClient();
+      const response = await client.chatCompletion({
+        messages: [
+          {
+            role: "system",
+            content: `You are Mint's Autonomous Project & Database Discovery AI.
+Analyze the user's natural language request (in Spanish, English, or any language) to find their project database or inventory.
+Extract the target project name, directory search tokens, expected tech framework (e.g. Spring Boot, Node.js), and database engine.
+Return strictly a valid JSON object without markdown fences:
+{
+  "projectName": string,
+  "searchTerms": string[],
+  "expectedFramework": string or null,
+  "expectedDbType": string or null,
+  "reasoning": string
+}`,
+          },
+          {
+            role: "user",
+            content: query,
+          },
+        ],
+        temperature: 0.1,
+      });
+
+      const raw = response.content?.replace(/```json|```/g, "").trim();
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.searchTerms && Array.isArray(parsed.searchTerms) && parsed.searchTerms.length > 0) {
+          return {
+            projectName: parsed.projectName || query,
+            searchTerms: parsed.searchTerms.map((t: string) => t.toLowerCase().trim()),
+            expectedFramework: parsed.expectedFramework || null,
+            expectedDbType: parsed.expectedDbType || null,
+            reasoning: parsed.reasoning || "Interpreted via Grok AI",
+          };
+        }
+      }
+    } catch {
+      // Continuar con fallback si la llamada remota falla
+    }
+  }
+
+  // Fallback resiliente si no hay API key o hay fallo de red (entorno de pruebas offline)
+  const tokens = query
     .toLowerCase()
-    .replace(/[^a-z0-9\s_-]/g, " ")
+    .replace(/[^a-z0-9_-]/g, " ")
     .split(/\s+/)
-    .map((w) => w.trim())
-    .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
+    .filter((w) => w.length >= 3);
+
+  return {
+    projectName: tokens.join("-") || query,
+    searchTerms: tokens,
+    expectedFramework: null,
+    expectedDbType: null,
+    reasoning: "Local tokenizer fallback",
+  };
+}
+
+/**
+ * Cerebro AI: Evalúa los proyectos encontrados en el disco contra la consulta original
+ * del usuario y selecciona el mejor candidato con razonamiento explícito.
+ */
+export async function rankAndReasonWithAI(
+  userQuery: string,
+  candidates: DiscoveredProject[],
+): Promise<DiscoveredProject[]> {
+  if (candidates.length === 0) return [];
+  if (candidates.length === 1 && !getLlmApiKey()) return candidates;
+
+  const apiKey = getLlmApiKey();
+  if (apiKey) {
+    try {
+      const client = new GrokClient();
+      const prompt = {
+        userQuery,
+        candidateProjects: candidates.map((c, idx) => ({
+          index: idx,
+          name: c.projectName,
+          path: c.projectPath,
+          framework: c.framework,
+          dbType: c.dbType,
+          databaseName: c.databaseName,
+          sqlFiles: c.sqlFiles.map((f) => path.basename(f)),
+        })),
+      };
+
+      const response = await client.chatCompletion({
+        messages: [
+          {
+            role: "system",
+            content: `You are Mint's Autonomous AI Back-Office decision brain.
+Evaluate the candidate projects found on the user's filesystem against their query.
+Identify the best match and provide concise reasoning explaining why it matches.
+Return strictly a valid JSON object without markdown fences:
+{
+  "bestMatchIndex": number,
+  "confidence": number,
+  "reasoning": string
+}`,
+          },
+          {
+            role: "user",
+            content: JSON.stringify(prompt),
+          },
+        ],
+        temperature: 0.1,
+      });
+
+      const raw = response.content?.replace(/```json|```/g, "").trim();
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const bestIdx = typeof parsed.bestMatchIndex === "number" ? parsed.bestMatchIndex : 0;
+        if (candidates[bestIdx]) {
+          candidates[bestIdx].aiReasoning = parsed.reasoning;
+          candidates[bestIdx].confidence = parsed.confidence ?? 0.95;
+          const best = candidates.splice(bestIdx, 1)[0];
+          candidates.unshift(best);
+        }
+      }
+    } catch {
+      // Mantener orden detectado si el LLM no responde
+    }
+  }
+
+  return candidates;
 }
 
 /**
  * Busca proyectos en carpetas estándar del usuario (Documents, OneDrive, Desktop, Projects, CWD)
+ * guiado por el Cerebro AI de Mint.
  */
-export function searchProjectDatabase(query: string): DiscoveredProject[] {
-  const keywords = extractKeywords(query);
-  if (keywords.length === 0) return [];
+export async function searchProjectDatabase(query: string): Promise<DiscoveredProject[]> {
+  // 1. El LLM interpreta la consulta en lenguaje natural y extrae términos de búsqueda inteligentes
+  const aiAnalysis = await interpretQueryWithAI(query);
+  const searchTerms = aiAnalysis.searchTerms;
 
-  // Filtrar palabras que indiquen tecnología vs nombre del proyecto
-  const techKeywords = new Set(["springboot", "spring", "node", "nodejs", "django", "python", "fastapi"]);
-  const projectKeywords = keywords.filter((k) => !techKeywords.has(k));
-  const searchTerms = projectKeywords.length > 0 ? projectKeywords : keywords;
+  if (searchTerms.length === 0) return [];
 
-  // Lugares típicos donde los desarrolladores guardan proyectos
   const home = os.homedir();
   const candidateRoots = [
     process.cwd(),
@@ -65,7 +189,7 @@ export function searchProjectDatabase(query: string): DiscoveredProject[] {
   ];
 
   const checkedDirs = new Set<string>();
-  const results: DiscoveredProject[] = [];
+  const candidates: DiscoveredProject[] = [];
 
   for (const root of candidateRoots) {
     if (!fs.existsSync(root) || checkedDirs.has(root)) continue;
@@ -77,13 +201,18 @@ export function searchProjectDatabase(query: string): DiscoveredProject[] {
         if (!entry.isDirectory()) continue;
         const entryNameLower = entry.name.toLowerCase();
 
-        // Verificar si el nombre de la carpeta coincide con alguno de los términos buscados
-        const matchesTerm = searchTerms.some((term) => entryNameLower.includes(term));
+        // Comparar con los términos de búsqueda extraídos por la IA
+        const matchesTerm = searchTerms.some((term) => {
+          const cleanTerm = term.replace(/[^a-z0-9]/g, "");
+          const cleanEntry = entryNameLower.replace(/[^a-z0-9]/g, "");
+          return cleanEntry.includes(cleanTerm) || cleanTerm.includes(cleanEntry);
+        });
+
         if (matchesTerm) {
           const projectDir = path.join(root, entry.name);
           const projectInfo = inspectProjectDirectory(projectDir);
           if (projectInfo) {
-            results.push(projectInfo);
+            candidates.push(projectInfo);
           }
         }
       }
@@ -92,7 +221,8 @@ export function searchProjectDatabase(query: string): DiscoveredProject[] {
     }
   }
 
-  return results;
+  // 2. El LLM analiza los candidatos encontrados y emite su veredicto y razonamiento
+  return await rankAndReasonWithAI(query, candidates);
 }
 
 /**
@@ -132,7 +262,6 @@ export function inspectProjectDirectory(projectDir: string): DiscoveredProject |
     for (const resPath of resourceCandidates) {
       if (fs.existsSync(resPath)) {
         const content = fs.readFileSync(resPath, "utf-8");
-        // Extraer spring.datasource.url
         const urlMatch = content.match(/spring\.datasource\.url\s*=\s*(.+)/i);
         if (urlMatch) {
           connectionUrl = urlMatch[1].trim();
@@ -141,7 +270,6 @@ export function inspectProjectDirectory(projectDir: string): DiscoveredProject |
           else if (connectionUrl.includes("sqlite")) dbType = "sqlite";
           else if (connectionUrl.includes("h2")) dbType = "h2";
 
-          // Extraer dbName si está en URL
           const dbNameMatch = connectionUrl.match(/\/([a-zA-Z0-9_-]+)(?:\?|$)/);
           if (dbNameMatch) databaseName = dbNameMatch[1];
         }
@@ -155,7 +283,7 @@ export function inspectProjectDirectory(projectDir: string): DiscoveredProject |
       }
     }
 
-    // 3. Buscar variables en .env si no se encontraron en application.properties
+    // 3. Buscar variables en .env
     const envPath = fs.existsSync(path.join(projectDir, ".env"))
       ? path.join(projectDir, ".env")
       : fs.existsSync(path.join(projectDir, "backend", ".env"))
@@ -241,7 +369,6 @@ export function extractProductsFromSqlFile(filePath: string): ExtractedProductIt
   const items: ExtractedProductItem[] = [];
 
   // 1. Extraer INSERT INTO `tools` (patrón de opus-rentals)
-  // Formato: INSERT INTO `tools` (...) VALUES (id, provider_id, category_id, 'name', 'brand', 'model', daily_price, deposit, 'status')
   const toolsRegex = /INSERT\s+INTO\s+`?tools`?\s*\(([^)]+)\)\s*VALUES\s*([\s\S]+?);/gi;
   let match: RegExpExecArray | null;
 
@@ -249,7 +376,6 @@ export function extractProductsFromSqlFile(filePath: string): ExtractedProductIt
     const columns = match[1].split(",").map((c) => c.replace(/[`'"]/g, "").trim().toLowerCase());
     const valuesBlock = match[2];
 
-    // Dividir filas: (1, 1, ...), (2, 2, ...)
     const rowMatches = valuesBlock.match(/\(([^)]+)\)/g);
     if (!rowMatches) continue;
 
@@ -260,7 +386,6 @@ export function extractProductsFromSqlFile(filePath: string): ExtractedProductIt
 
     for (let rIdx = 0; rIdx < rowMatches.length; rIdx++) {
       const rowStr = rowMatches[rIdx].replace(/^\(|\)$/g, "");
-      // Parsear valores respetando comillas
       const parts = rowStr.split(/,\s*(?=(?:[^']*'[^']*')*[^']*$)/).map((p) => p.replace(/^'|'$/g, "").trim());
 
       const rawName = nameIdx >= 0 ? parts[nameIdx] : `Tool #${rIdx + 1}`;
@@ -276,7 +401,7 @@ export function extractProductsFromSqlFile(filePath: string): ExtractedProductIt
         name: fullName,
         category: "Maquinaria y Herramientas",
         price: isNaN(priceRaw) ? 50000 : priceRaw,
-        stock: 5, // Cantidad por defecto asignada en opus-rentals
+        stock: 5,
         minStock: 2,
       });
     }
