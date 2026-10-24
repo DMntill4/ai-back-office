@@ -1,5 +1,6 @@
 import {
   db,
+  companies,
   products,
   inventory,
   suppliers,
@@ -144,18 +145,23 @@ export async function importUniversalCatalogFile(
     return { importedProducts: 0, importedSuppliers: 0 };
   }
 
-  // Asegurar almacén central con coordenadas GPS reales
-  const defaultGeo = await geocodeAddressOrCity("Ciudad de México").catch(() => null);
+  // Asegurar almacén central con coordenadas GPS reales basadas en la empresa
+  const [companyRow] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+  const companyCity = companyRow?.city || companyRow?.streetAddress || "Sede Principal";
+  const defaultGeo = companyRow?.city ? await geocodeAddressOrCity(companyRow.city).catch(() => null) : null;
+
   await db
     .insert(warehouses)
     .values({
       id: `alm_central_${companyId}`,
       companyId,
-      name: "Central Operations Warehouse",
-      location: "Ciudad de México",
-      city: defaultGeo?.city || "Ciudad de México",
-      latitude: defaultGeo ? String(defaultGeo.latitude) : "19.4326",
-      longitude: defaultGeo ? String(defaultGeo.longitude) : "-99.1332",
+      name: "Almacén Central Operativo",
+      location: companyCity,
+      city: defaultGeo?.city || companyCity,
+      state: defaultGeo?.state || null,
+      country: defaultGeo?.country || companyRow?.country || null,
+      latitude: defaultGeo ? String(defaultGeo.latitude) : null,
+      longitude: defaultGeo ? String(defaultGeo.longitude) : null,
     })
     .onConflictDoNothing();
 
@@ -172,10 +178,12 @@ export async function importUniversalCatalogFile(
         companyId,
         name: s.name,
         email: s.email || `ventas@${suppSlug}.com`,
-        streetAddress: s.city || "Centro Industrial",
-        city: suppGeo?.city || s.city || "Monterrey",
-        latitude: suppGeo ? String(suppGeo.latitude) : "25.6866",
-        longitude: suppGeo ? String(suppGeo.longitude) : "-100.3161",
+        streetAddress: s.city || "Parque Industrial",
+        city: suppGeo?.city || s.city || "Centro de Distribución",
+        state: suppGeo?.state || null,
+        country: suppGeo?.country || null,
+        latitude: suppGeo ? String(suppGeo.latitude) : null,
+        longitude: suppGeo ? String(suppGeo.longitude) : null,
         origin: "real",
       })
       .onConflictDoNothing();
@@ -191,10 +199,8 @@ export async function importUniversalCatalogFile(
         companyId,
         name: "Compra Directa / Licitación Abierta (RFQ)",
         email: "compras@proveedor-directo.local",
-        streetAddress: "Centro de Abasto Nacional",
-        city: "Querétaro",
-        latitude: "20.5888",
-        longitude: "-100.3899",
+        streetAddress: "Parque Industrial de Suministros",
+        city: companyCity,
         origin: "real",
       })
       .onConflictDoNothing();

@@ -134,8 +134,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
 
     const warehouseCity = await ask(
       rl,
-      `  ${theme.bold("1.5 Main warehouse city or location (for GPS & freight routing)")}`,
-      "Ciudad de México",
+      `  ${theme.bold("1.5 Main warehouse city or country (e.g. Bogotá, Medellín, Miami, Madrid)")}`,
+      "Bogotá",
     );
 
     const companyId = `comp_${companyName.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 16) || "main"}`;
@@ -145,7 +145,14 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     const whGeo = await geocodeAddressOrCity(warehouseCity).catch(() => null);
 
     // Register Company, Central Warehouse with real GPS coordinates, and User in DB
-    await db.insert(companies).values({ id: companyId, name: companyName }).onConflictDoNothing();
+    await db.insert(companies).values({
+      id: companyId,
+      name: companyName,
+      city: whGeo?.city || warehouseCity,
+      country: whGeo?.country || null,
+      latitude: whGeo ? String(whGeo.latitude) : null,
+      longitude: whGeo ? String(whGeo.longitude) : null,
+    }).onConflictDoNothing();
     await db
       .insert(warehouses)
       .values({
@@ -155,9 +162,9 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         location: warehouseCity,
         city: whGeo?.city || warehouseCity,
         state: whGeo?.state || null,
-        country: whGeo?.country || "MX",
-        latitude: whGeo ? String(whGeo.latitude) : "19.4326",
-        longitude: whGeo ? String(whGeo.longitude) : "-99.1332",
+        country: whGeo?.country || null,
+        latitude: whGeo ? String(whGeo.latitude) : null,
+        longitude: whGeo ? String(whGeo.longitude) : null,
       })
       .onConflictDoNothing();
 

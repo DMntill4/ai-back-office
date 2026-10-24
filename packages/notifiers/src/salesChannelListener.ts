@@ -159,19 +159,19 @@ export async function processIncomingSale(event: IncomingSaleEvent): Promise<Sal
 
   // 6. Formatear comprobante de venta para el canal
   const replenishmentText = replenishmentDecision
-    ? `\n🤖 *ACCIÓN AUTÓNOMA DE REABASTECIMIENTO:*` +
-      `\n   • Estado: ${replenishmentDecision.policyDecision === "auto_executed" ? "✅ Orden de compra emitida automáticamente" : "⏳ Escalado a bandeja HITL para firma"}` +
+    ? `\n*[ACCIÓN AUTÓNOMA DE REABASTECIMIENTO]*` +
+      `\n   • Estado: ${replenishmentDecision.policyDecision === "auto_executed" ? "[OK] Orden de compra emitida automáticamente" : "[PENDIENTE] Escalado a bandeja HITL para firma"}` +
       `\n   • Costo reposición: $${replenishmentDecision.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN` +
       `\n   • Detalle: ${replenishmentDecision.reason}`
-    : `\n📦 *Estado de existencias:* Seguro (> ${minStock} u).`;
+    : `\n*Estado de existencias:* Seguro (> ${minStock} u).`;
 
   const receipt = `
-🛒 *VENTA EJECUTADA EN SISTEMA [Canal: ${event.channel.toUpperCase()}]*
+*[VENTA EJECUTADA EN SISTEMA [Canal: ${event.channel.toUpperCase()}]]*
 • ID Venta: \`${saleId}\`
 • Operador: *${event.senderName || event.senderId}*
 • Producto: *${product.name}* (SKU: \`${product.sku}\`)
 • Cantidad Vendida: *${event.quantity} u*
-• Stock Anterior: ${previousStock} u ➔ *Stock Restante: ${newStock} u*
+• Stock Anterior: ${previousStock} u -> *Stock Restante: ${newStock} u*
 ${replenishmentText}
 `.trim();
 

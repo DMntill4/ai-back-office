@@ -8,7 +8,7 @@ export class DiscordAdapter implements NotifierAdapter {
     const severityColor = payload.severity === "CRITICAL" ? 0xef4444 : payload.severity === "WARNING" ? 0xf59e0b : 0x10b981;
 
     const embed = {
-      title: `🍃 MINT DECISION ALERT: ${payload.title}`,
+      title: `[MINT] DECISION ALERT: ${payload.title}`,
       description: payload.evidenceSummary,
       color: severityColor,
       fields: [

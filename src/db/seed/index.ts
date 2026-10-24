@@ -20,7 +20,7 @@ import {
 } from "../schema";
 
 export async function runSeed() {
-  console.log("🚀 Iniciando siembra masiva de datos logísticos e industriales...");
+  console.log("[SEED] Iniciando siembra masiva de datos logísticos de herramientas y maquinaria industrial...");
 
   // 0. Empresa Base (Multi-tenant)
   await db
@@ -60,8 +60,8 @@ export async function runSeed() {
       },
       {
         id: "alm_refrig",
-        name: "Almacén Refrigerado (Cámara Fría)",
-        location: "Sector B - Cadena de Frío",
+        name: "Almacén de Maquinaria y Herramientas Pesadas",
+        location: "Sector B - Bahía de Maquinaria",
       },
       {
         id: "alm_norte",
@@ -154,50 +154,50 @@ export async function runSeed() {
         minStock: 15,
         origin: "real",
       },
-      // Alimentos y Perecederos (Cadena de Frío)
+      // Herramientas, Maquinaria y Equipos Industriales
       {
-        id: "food_app01",
-        name: "Caja de Manzanas Orgánicas (20kg)",
-        description: "Manzanas rojas cosecha nacional para exportación",
-        category: "food",
-        sku: "SKU-APP01",
-        minStock: 50,
-        origin: "real",
-      },
-      {
-        id: "food_mil04",
-        name: "Leche Entera 1L (Pack x12)",
-        description: "Leche pasteurizada en envase tetrapack",
-        category: "food",
-        sku: "SKU-MIL04",
-        minStock: 200,
-        origin: "real",
-      },
-      {
-        id: "food_queso05",
-        name: "Queso Manchego Artesanal 500g",
-        description: "Queso madurado de leche entera",
-        category: "food",
-        sku: "SKU-QMA05",
-        minStock: 60,
-        origin: "real",
-      },
-      {
-        id: "food_carne01",
-        name: "Corte Res Vacío Premium (5kg)",
-        description: "Carne fresca empacada al alto vacío",
-        category: "food",
-        sku: "SKU-CRV01",
+        id: "tool_tld_850",
+        name: "Taladro Percutor Industrial 850W",
+        description: "Taladro percutor reversible de alto torque con mandril de 1/2 pulgada",
+        category: "herramientas",
+        sku: "SKU-TLD-850",
         minStock: 25,
         origin: "real",
       },
       {
-        id: "food_pan02",
-        name: "Harina de Trigo Industrial 25kg",
-        description: "Saco de harina para panificación y alimentos",
-        category: "food",
-        sku: "SKU-HAR25",
-        minStock: 40,
+        id: "tool_esm_450",
+        name: "Esmeriladora Angular 4-1/2 Pulgadas",
+        description: "Amoladora angular profesional 11000 RPM para corte y desbaste de metales",
+        category: "herramientas",
+        sku: "SKU-ESM-450",
+        minStock: 20,
+        origin: "real",
+      },
+      {
+        id: "tool_llv_24p",
+        name: "Juego de Llaves Combinadas Cromo-Vanadio 24pz",
+        description: "Set completo métrico y estándar forjado en acero cromo-vanadio",
+        category: "herramientas",
+        sku: "SKU-LLV-24P",
+        minStock: 15,
+        origin: "real",
+      },
+      {
+        id: "tool_rtm_sds",
+        name: "Rotomartillo Electro-Neumático SDS Plus",
+        description: "Martillo perforador y demoledor 3.2 Joules para concreto y mampostería",
+        category: "maquinaria",
+        sku: "SKU-RTM-SDS",
+        minStock: 10,
+        origin: "real",
+      },
+      {
+        id: "tool_cmp_50l",
+        name: "Compresor de Aire Lubricado 50L 2.5HP",
+        description: "Compresor de tanque horizontal para herramientas neumáticas de taller",
+        category: "maquinaria",
+        sku: "SKU-CMP-50L",
+        minStock: 8,
         origin: "real",
       },
       // Herramientas y Consumibles Operativos
@@ -248,61 +248,57 @@ export async function runSeed() {
       { id: "inv_001", productId: "prod_st200", warehouseId: "alm_central", stock: 2, salesCount: 450 },
       // Válvula V-500: Saludable (15 de 5)
       { id: "inv_002", productId: "prod_v500", warehouseId: "alm_central", stock: 15, salesCount: 1250 },
-      // Microcontrolador MCU-32: ¡COMPLETAMENTE AGOTADO (0 de 25)!
+      // Microcontrolador MCU-32: COMPLETAMENTE AGOTADO (0 de 25)
       { id: "inv_003", productId: "prod_mc32", warehouseId: "alm_central", stock: 0, salesCount: 890 },
       // PLC-10: Carencia crítica (1 de 8)
       { id: "inv_004", productId: "prod_plc10", warehouseId: "alm_central", stock: 1, salesCount: 120 },
-      // Válvula VS-100: ¡COMPLETAMENTE AGOTADO (0 de 12)!
+      // Válvula VS-100: COMPLETAMENTE AGOTADO (0 de 12)
       { id: "inv_005", productId: "prod_val99", warehouseId: "alm_central", stock: 0, salesCount: 310 },
       // Bomba Centrífuga: Saludable (3 de 4)
       { id: "inv_006", productId: "prod_bomba_h20", warehouseId: "alm_central", stock: 3, salesCount: 45 },
-      // Relevador SSR-12: ¡COMPLETAMENTE AGOTADO (0 de 30)!
+      // Relevador SSR-12: COMPLETAMENTE AGOTADO (0 de 30)
       { id: "inv_007", productId: "prod_rele_r12", warehouseId: "alm_central", stock: 0, salesCount: 680 },
       // Bobina Cable: Stock abundante (40 de 15)
       { id: "inv_008", productId: "prod_cables_c5", warehouseId: "alm_central", stock: 40, salesCount: 210 },
-      // Manzanas: Carencia (45 de 50) - Caduca en 6 días
+      // Taladro Percutor: Carencia crítica (3 de 25)
       {
         id: "inv_009",
-        productId: "food_app01",
+        productId: "tool_tld_850",
         warehouseId: "alm_refrig",
-        stock: 45,
+        stock: 3,
         salesCount: 650,
-        expirationDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
       },
-      // Leche: Carencia (180 de 200) - ¡Caduca en 2 días (Crítica)!
+      // Esmeriladora Angular: Carencia severa (4 de 20)
       {
         id: "inv_010",
-        productId: "food_mil04",
+        productId: "tool_esm_450",
         warehouseId: "alm_refrig",
-        stock: 180,
-        salesCount: 1980,
-        expirationDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+        stock: 4,
+        salesCount: 880,
       },
-      // Queso Manchego: ¡COMPLETAMENTE AGOTADO (0 de 60)!
+      // Juego de Llaves: COMPLETAMENTE AGOTADO (0 de 15)
       {
         id: "inv_011",
-        productId: "food_queso05",
+        productId: "tool_llv_24p",
         warehouseId: "alm_refrig",
         stock: 0,
         salesCount: 520,
-        expirationDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
       },
-      // Carne Res: Carencia urgente (8 de 25) - Caduca en 3 días
+      // Rotomartillo: Carencia urgente (1 de 10)
       {
         id: "inv_012",
-        productId: "food_carne01",
+        productId: "tool_rtm_sds",
         warehouseId: "alm_refrig",
-        stock: 8,
-        salesCount: 780,
-        expirationDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        stock: 1,
+        salesCount: 380,
       },
-      // Harina de Trigo: Saludable (150 de 40)
-      { id: "inv_013", productId: "food_pan02", warehouseId: "alm_central", stock: 150, salesCount: 340 },
-      // Guantes de Nitrilo: ¡TOP GANADOR EN VENTAS (2,450 ventas)! Stock saludable (350 de 100)
+      // Compresor de Aire 50L: Saludable (12 de 8)
+      { id: "inv_013", productId: "tool_cmp_50l", warehouseId: "alm_central", stock: 12, salesCount: 140 },
+      // Guantes de Nitrilo: TOP GANADOR EN VENTAS (2,450 ventas) - Stock saludable (350 de 100)
       { id: "inv_014", productId: "tool_guantes_g1", warehouseId: "alm_central", stock: 350, salesCount: 2450 },
       // Lubricante Alimenticio: Carencia (4 de 15)
       { id: "inv_015", productId: "tool_lub_02", warehouseId: "alm_central", stock: 4, salesCount: 95 },
-      // Filtro HEPA: ¡COMPLETAMENTE AGOTADO (0 de 20)!
+      // Filtro HEPA: COMPLETAMENTE AGOTADO (0 de 20)
       { id: "inv_016", productId: "prod_filtro_f10", warehouseId: "alm_norte", stock: 0, salesCount: 140 },
     ])
     .onConflictDoUpdate({
@@ -314,43 +310,43 @@ export async function runSeed() {
       },
     });
 
-  // 4. Proveedores Industriales y Comerciales
+  // 4. Proveedores Industriales y de Herramientas
   await db
     .insert(suppliers)
     .values([
       {
         id: "prov_grainger",
-        name: "Grainger Industrial México",
-        email: "ordenes@grainger.com.mx",
-        phone: "+52 55 5804 5000",
+        name: "Grainger Industrial Supply",
+        email: "ordenes@grainger-supply.com",
+        phone: "+1 800 472 4643",
         origin: "real",
       },
       {
         id: "prov_uline",
         name: "Uline Supply Co.",
-        email: "ventas@uline.mx",
-        phone: "+52 800 295 5510",
+        email: "ventas@uline-supply.com",
+        phone: "+1 800 295 5510",
         origin: "real",
       },
       {
         id: "prov_mouser",
-        name: "Mouser Electronics México",
-        email: "soporte@mouser.com",
-        phone: "+52 33 3612 9000",
+        name: "Mouser Electronics Global",
+        email: "soporte@mouser-global.com",
+        phone: "+1 800 346 6873",
         origin: "real",
       },
       {
-        id: "prov_sysco",
-        name: "Sysco Alimentos & Abasto",
-        email: "pedidos@sysco.com.mx",
-        phone: "+52 55 9010 4000",
+        id: "prov_dewalt",
+        name: "Distribuidora Mayorista de Herramientas & Maquinaria",
+        email: "pedidos@distribuidora-herramientas.com",
+        phone: "+1 800 442 8890",
         origin: "real",
       },
       {
         id: "prov_festo",
-        name: "Festo Automatización S.A.",
-        email: "ventas@festo.com.mx",
-        phone: "+52 55 5321 6600",
+        name: "Festo Automatización Industrial",
+        email: "ventas@festo-industrial.com",
+        phone: "+1 800 993 3786",
         origin: "real",
       },
     ])
@@ -382,15 +378,18 @@ export async function runSeed() {
       { id: "sp_008", supplierId: "prov_grainger", productId: "prod_val99", unitPrice: "890.00", minOrderQuantity: 5, leadTimeDays: 2 },
       // Relevador SSR-12 (Agotado)
       { id: "sp_009", supplierId: "prov_mouser", productId: "prod_rele_r12", unitPrice: "120.00", minOrderQuantity: 10, leadTimeDays: 1 },
-      // Manzanas
-      { id: "sp_010", supplierId: "prov_sysco", productId: "food_app01", unitPrice: "280.00", minOrderQuantity: 10, leadTimeDays: 1 },
-      // Leche
-      { id: "sp_011", supplierId: "prov_sysco", productId: "food_mil04", unitPrice: "220.00", minOrderQuantity: 20, leadTimeDays: 1 },
-      // Queso Manchego (Agotado)
-      { id: "sp_012", supplierId: "prov_sysco", productId: "food_queso05", unitPrice: "75.00", minOrderQuantity: 30, leadTimeDays: 2 },
+      // Taladro Percutor
+      { id: "sp_010", supplierId: "prov_dewalt", productId: "tool_tld_850", unitPrice: "1280.00", minOrderQuantity: 5, leadTimeDays: 2 },
+      { id: "sp_011", supplierId: "prov_grainger", productId: "tool_tld_850", unitPrice: "1340.00", minOrderQuantity: 2, leadTimeDays: 1 },
+      // Esmeriladora Angular
+      { id: "sp_012", supplierId: "prov_dewalt", productId: "tool_esm_450", unitPrice: "980.00", minOrderQuantity: 5, leadTimeDays: 2 },
+      // Juego de Llaves Combinadas
+      { id: "sp_013", supplierId: "prov_dewalt", productId: "tool_llv_24p", unitPrice: "750.00", minOrderQuantity: 3, leadTimeDays: 2 },
+      // Rotomartillo
+      { id: "sp_014", supplierId: "prov_dewalt", productId: "tool_rtm_sds", unitPrice: "3450.00", minOrderQuantity: 2, leadTimeDays: 3 },
       // Guantes de Nitrilo (Top Ventas)
-      { id: "sp_013", supplierId: "prov_uline", productId: "tool_guantes_g1", unitPrice: "140.00", minOrderQuantity: 20, leadTimeDays: 2 },
-      { id: "sp_014", supplierId: "prov_grainger", productId: "tool_guantes_g1", unitPrice: "155.00", minOrderQuantity: 10, leadTimeDays: 1 },
+      { id: "sp_015", supplierId: "prov_uline", productId: "tool_guantes_g1", unitPrice: "140.00", minOrderQuantity: 20, leadTimeDays: 2 },
+      { id: "sp_016", supplierId: "prov_grainger", productId: "tool_guantes_g1", unitPrice: "155.00", minOrderQuantity: 10, leadTimeDays: 1 },
     ])
     .onConflictDoNothing();
 
@@ -481,7 +480,7 @@ export async function runSeed() {
     ])
     .onConflictDoNothing();
 
-  console.log("✅ Datos logísticos de prueba sembrados exitosamente en Supabase.");
+  console.log("[SEED] Datos logísticos de prueba sembrados exitosamente en Supabase.");
 }
 
 if (require.main === module) {

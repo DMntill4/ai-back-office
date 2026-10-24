@@ -36,7 +36,7 @@ export async function sourceDiscoverCommand(
       return;
     }
 
-    console.log(`\n${theme.mintBold("🔍 DESCUBRIMIENTO DE FUENTES LOCALES")} [${basePath}]`);
+    console.log(`\n${theme.mintBold("[DESCUBRIMIENTO] FUENTES LOCALES")} [${basePath}]`);
     console.log(`─`.repeat(85));
     console.log(
       `NOMBRE`.padEnd(28) +
@@ -70,13 +70,13 @@ export async function sourceDiscoverCommand(
       );
     }
     console.log(`─`.repeat(85));
-    console.log(theme.dim(`💡 Para inspeccionar una fuente: mint source inspect <ruta>`));
-    console.log(theme.dim(`💡 Para agregar e importar:     mint source add <ruta>\n`));
+    console.log(theme.dim(`  Para inspeccionar una fuente: mint source inspect <ruta>`));
+    console.log(theme.dim(`  Para agregar e importar:     mint source add <ruta>\n`));
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.error(`\n❌ Error al descubrir fuentes: ${err.message}\n`));
+      console.error(theme.error(`\n[ERROR] Error al descubrir fuentes: ${err.message}\n`));
     }
     process.exit(1);
   }
@@ -105,7 +105,7 @@ export async function sourceInspectCommand(
           console.log(JSON.stringify({ sourceType, tables }));
           return;
         }
-        console.log(`\n🐘 TABLAS DISPONIBLES EN POSTGRESQL EXTERNA:`);
+        console.log(`\n[POSTGRESQL] TABLAS DISPONIBLES:`);
         tables.forEach((t) => console.log(`   • ${t}`));
         console.log(`\nUsa: mint source inspect "${targetPath}" --table <nombre_tabla>\n`);
         return;
@@ -140,7 +140,7 @@ export async function sourceInspectCommand(
             console.log(JSON.stringify({ sourceType, tables }));
             return;
           }
-          console.log(`\n🗄️ TABLAS DISPONIBLES EN ARCHIVO SQLITE:`);
+          console.log(`\n[SQLITE] TABLAS DISPONIBLES:`);
           tables.forEach((t) => console.log(`   • ${t}`));
           console.log(`\nUsa: mint source inspect "${fullPath}" --table <nombre_tabla>\n`);
           return;
@@ -170,26 +170,26 @@ export async function sourceInspectCommand(
       return;
     }
 
-    console.log(`\n${theme.mintBold("🔬 INSPECCIÓN DE FUENTE DE DATOS")} [${sourceType.toUpperCase()}]`);
+    console.log(`\n${theme.mintBold("[INSPECCIÓN] FUENTE DE DATOS")} [${sourceType.toUpperCase()}]`);
     console.log(`   Ruta/URI: ${theme.bold(targetPath)}`);
     console.log(`   Encabezados detectados (${headers.length}): ${theme.dim(headers.join(", "))}`);
 
-    console.log(`\n🤖 PROPUESTA DE MAPEO AUTOMÁTICO (Confianza: ${(mappingProposal.confidence * 100).toFixed(0)}%):`);
+    console.log(`\n[MAPEO] PROPUESTA DE MAPEO AUTOMÁTICO (Confianza: ${(mappingProposal.confidence * 100).toFixed(0)}%):`);
     for (const [target, source] of Object.entries(mappingProposal.mappings)) {
       console.log(`   • ${theme.cyan(target.padEnd(12))} <- "${source}"`);
     }
 
     if (mappingProposal.missingRequired.length > 0) {
-      console.log(theme.error(`\n⚠️ Faltan campos requeridos: ${mappingProposal.missingRequired.join(", ")}`));
+      console.log(theme.error(`\n[AVISO] Faltan campos requeridos: ${mappingProposal.missingRequired.join(", ")}`));
     } else {
-      console.log(theme.mint(`\n✅ Mapeo completo y válido para importar.`));
+      console.log(theme.mint(`\n[OK] Mapeo completo y válido para importar.`));
     }
     console.log("");
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.error(`\n❌ Error al inspeccionar fuente: ${err.message}\n`));
+      console.error(theme.error(`\n[ERROR] Error al inspeccionar fuente: ${err.message}\n`));
     }
     process.exit(1);
   }
@@ -259,7 +259,7 @@ export async function sourceAddCommand(
     }
 
     if (!options.json) {
-      console.log(`\n${theme.mintBold("📂 SINCRONIZANDO FUENTE DE DATOS:")} ${sourceName}`);
+      console.log(`\n${theme.mintBold("[SYNC] SINCRONIZANDO FUENTE DE DATOS:")} ${sourceName}`);
       console.log(`   Ruta/URI: ${fullPath}`);
       console.log(`   Tipo:     ${sourceType.toUpperCase()}`);
     }
@@ -280,14 +280,14 @@ export async function sourceAddCommand(
     }
 
     if (summary.status === "DRIFTED") {
-      console.log(theme.warning(`\n⚠️ CAMBIO DE ESQUEMA DETECTADO (SCHEMA DRIFT):`));
+      console.log(theme.warning(`\n[ALERTA] CAMBIO DE ESQUEMA DETECTADO (SCHEMA DRIFT):`));
       console.log(`   ${summary.drift?.reason}`);
       console.log(`   La fuente ha sido congelada (DRIFTED) para evitar datos inconsistentes.`);
       console.log(`   Use '--force' para aceptar el nuevo esquema propuesto si es deliberado.\n`);
       return;
     }
 
-    console.log(`\n${theme.mint("✅ SINCRONIZACIÓN EXITOSA:")}`);
+    console.log(`\n${theme.mint("[OK] SINCRONIZACIÓN EXITOSA:")}`);
     console.log(`   ID Fuente:        ${summary.dataSourceId}`);
     console.log(`   ID Trabajo:       ${summary.jobId}`);
     console.log(`   Filas Leídas:     ${summary.totalRows}`);
@@ -298,7 +298,7 @@ export async function sourceAddCommand(
     }
 
     if (summary.qualityWarning) {
-      console.log(theme.warning(`\n⚠️ ${summary.qualityWarning}`));
+      console.log(theme.warning(`\n[AVISO] ${summary.qualityWarning}`));
     }
 
     if (summary.errors.length > 0) {
@@ -312,7 +312,7 @@ export async function sourceAddCommand(
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
     } else {
-      console.error(theme.error(`\n❌ Error al agregar fuente de datos: ${err.message}\n`));
+      console.error(theme.error(`\n[ERROR] Error al agregar fuente de datos: ${err.message}\n`));
     }
     process.exit(1);
   }
@@ -334,7 +334,7 @@ export async function sourceStatusCommand(options: { json?: boolean } = {}) {
       return;
     }
 
-    console.log(`\n${theme.mintBold("⏱️ AUDITORÍA DE FRESCURA DE DATOS")} [Empresa: ${companyId}]`);
+    console.log(`\n${theme.mintBold("[FRESCURA] AUDITORÍA DE FRESCURA DE DATOS")} [Empresa: ${companyId}]`);
     console.log(`─`.repeat(70));
     console.log(`   Estado General:         ${freshness.isFresh ? theme.mint("VIGENTE (AL DÍA)") : theme.error(freshness.status)}`);
     console.log(`   Fuentes Registradas:    ${freshness.totalSources}`);
@@ -346,16 +346,16 @@ export async function sourceStatusCommand(options: { json?: boolean } = {}) {
     console.log(`─`.repeat(70));
 
     if (!freshness.isFresh) {
-      console.log(theme.warning(`⚠️ Guardrail activo: El agente se negará a auto-ejecutar órdenes sobre datos desactualizados.`));
+      console.log(theme.warning(`[GUARDRAIL] Guardrail activo: El agente se negará a auto-ejecutar órdenes sobre datos desactualizados.`));
     } else {
-      console.log(theme.mint(`✅ Los datos están al día. Decisiones autónomas habilitadas.`));
+      console.log(theme.mint(`[OK] Los datos están al día. Decisiones autónomas habilitadas.`));
     }
     console.log("");
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.error(`\n❌ Error al consultar estado de fuentes: ${err.message}\n`));
+      console.error(theme.error(`\n[ERROR] Error al consultar estado de fuentes: ${err.message}\n`));
     }
     process.exit(1);
   }
@@ -381,7 +381,7 @@ export async function sourceListCommand(options: { json?: boolean } = {}) {
       return;
     }
 
-    console.log(`\n${theme.mintBold("🗄️ FUENTES DE DATOS CONECTADAS")} [Empresa: ${companyId}]`);
+    console.log(`\n${theme.mintBold("[FUENTES] FUENTES DE DATOS CONECTADAS")} [Empresa: ${companyId}]`);
     console.log(`─`.repeat(85));
     console.log(
       `ID`.padEnd(16) +
@@ -420,7 +420,7 @@ export async function sourceListCommand(options: { json?: boolean } = {}) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.error(`❌ Error al listar fuentes: ${err.message}`));
+      console.error(theme.error(`[ERROR] Error al listar fuentes: ${err.message}`));
     }
     process.exit(1);
   }

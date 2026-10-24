@@ -229,10 +229,8 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
           companyId: effectiveCompanyId,
           name: "Compra Directa / Licitación Abierta (RFQ)",
           email: "compras@proveedor-directo.local",
-          streetAddress: "Centro de Abasto Nacional",
-          city: "Ciudad de México",
-          latitude: "19.4326",
-          longitude: "-99.1332",
+          streetAddress: "Parque Industrial de Suministros",
+          city: "Centro de Distribución Homologado",
         })
         .onConflictDoNothing();
     } catch {

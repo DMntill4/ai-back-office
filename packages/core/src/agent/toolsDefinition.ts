@@ -825,8 +825,8 @@ export async function dispatchToolCall(
             tipo: target.type,
             resultado: testRes,
             mensaje: testRes.success
-              ? `✔ Mensaje de prueba entregado exitosamente al canal ${target.name}.`
-              : `❌ Fallo al enviar mensaje: ${testRes.error || "error de conexión"}`,
+              ? `[OK] Mensaje de prueba entregado exitosamente al canal ${target.name}.`
+              : `[ERROR] Fallo al enviar mensaje: ${testRes.error || "error de conexión"}`,
           },
           isClosingAction: false,
         };
@@ -836,7 +836,7 @@ export async function dispatchToolCall(
             isSuccess: false,
             canal: target.name,
             tipo: target.type,
-            mensaje: `❌ Error al probar canal: ${err.message}`,
+            mensaje: `[ERROR] Error al probar canal: ${err.message}`,
           },
           isClosingAction: false,
         };

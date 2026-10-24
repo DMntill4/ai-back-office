@@ -52,13 +52,13 @@ export async function daemonStartCommand(options: { json?: boolean } = {}) {
     // Ejecutar un ciclo inicial
     const initialTick = await tickOnce(companyId);
     console.log(
-      `  ${theme.success("✔")} Ciclo inicial: ${initialTick.stockDeficitsTriggered} desabastos detectados, ${initialTick.shipmentDelaysTriggered} retrasos evaluados.\n`,
+      `  ${theme.success("[OK]")} Ciclo inicial: ${initialTick.stockDeficitsTriggered} desabastos detectados, ${initialTick.shipmentDelaysTriggered} retrasos evaluados.\n`,
     );
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error al iniciar daemon: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error al iniciar daemon: ${err.message}`));
     }
     process.exit(1);
   }
@@ -76,13 +76,13 @@ export async function daemonStopCommand(options: { json?: boolean } = {}) {
       return;
     }
 
-    console.log(`\n${theme.warning("🛑")} ${theme.bold("DAEMON MINT DETENIDO")}`);
+    console.log(`\n${theme.warning("[DETENIDO]")} ${theme.bold("DAEMON MINT DETENIDO")}`);
     console.log(`   El proceso autónomo en segundo plano ha finalizado correctamente.\n`);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error al detener daemon: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error al detener daemon: ${err.message}`));
     }
     process.exit(1);
   }
@@ -127,7 +127,7 @@ export async function daemonStatusCommand(options: { json?: boolean } = {}) {
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error al consultar daemon: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error al consultar daemon: ${err.message}`));
     }
     process.exit(1);
   }
@@ -144,7 +144,7 @@ export async function pauseCommand(options: { json?: boolean } = {}) {
     console.log(`   ${theme.redBold("La autonomía del daemon ha sido PAUSADA.")}`);
     console.log(`   ${theme.muted("Ningún agente ejecutará ni evaluará nuevas propuestas hasta reanudar con 'mint resume'.")}\n`);
   } catch (err: any) {
-    console.error(theme.redBold(`❌ Error al pausar: ${err.message}`));
+    console.error(theme.redBold(`[ERROR] Error al pausar: ${err.message}`));
     process.exit(1);
   }
 }
@@ -159,7 +159,7 @@ export async function resumeCommand(options: { json?: boolean } = {}) {
     console.log(`\n${theme.badge("AUTONOMÍA REANUDADA", "mint")}`);
     console.log(`   ${theme.mintBold("El daemon ha retomado la vigilancia y coordinación autónoma.")}\n`);
   } catch (err: any) {
-    console.error(theme.redBold(`❌ Error al reanudar: ${err.message}`));
+    console.error(theme.redBold(`[ERROR] Error al reanudar: ${err.message}`));
     process.exit(1);
   }
 }
@@ -194,7 +194,7 @@ export async function planTodayCommand(options: { json?: boolean } = {}) {
     );
 
     if (plan.decisions.length > 0) {
-      console.log(`\n${theme.amberBold("📋 DECISIONES ESPERANDO APROBACIÓN:")}`);
+      console.log(`\n${theme.amberBold("[DECISIONES] ESPERANDO APROBACIÓN:")}`);
       for (const d of plan.decisions) {
         console.log(
           `   ${theme.amber("•")} [${theme.bold(d.id)}] ${d.title} (${theme.mintBold(`$${Number(d.costMxn).toLocaleString("es-MX")} MXN`)}) - Por ${theme.cyanBold(d.proposingAgent)}`,
@@ -202,11 +202,11 @@ export async function planTodayCommand(options: { json?: boolean } = {}) {
       }
       console.log(`\n${theme.dim("Para autorizar:")} ${theme.mintBold("mint inbox approve <id>")} │ ${theme.dim("Para auditar:")} ${theme.cyanBold("mint explain <id>")}`);
     } else {
-      console.log(`\n  ${theme.success("✨ No hay decisiones pendientes de aprobación en este momento.")}`);
+      console.log(`\n  ${theme.success("[OK] No hay decisiones pendientes de aprobación en este momento.")}`);
     }
     console.log("");
   } catch (err: any) {
-    console.error(theme.redBold(`❌ Error al consultar plan diario: ${err.message}`));
+    console.error(theme.redBold(`[ERROR] Error al consultar plan diario: ${err.message}`));
     process.exit(1);
   }
 }
@@ -255,6 +255,6 @@ export async function watchCommand(options: { json?: boolean } = {}) {
       );
     }
   } catch (err: any) {
-    console.error(theme.redBold(`❌ Error en feed en vivo: ${err.message}`));
+    console.error(theme.redBold(`[ERROR] Error en feed en vivo: ${err.message}`));
   }
 }

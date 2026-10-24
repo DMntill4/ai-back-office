@@ -18,11 +18,11 @@ export async function withSpinner<T>(message: string, fn: () => Promise<T>): Pro
   try {
     const result = await fn();
     clearInterval(interval);
-    process.stdout.write(`\r${theme.success("✔")} ${theme.bold(message)}\n`);
+    process.stdout.write(`\r${theme.success("[OK]")} ${theme.bold(message)}\n`);
     return result;
   } catch (err) {
     clearInterval(interval);
-    process.stdout.write(`\r${theme.danger("✖")} ${theme.redBold(message)}\n`);
+    process.stdout.write(`\r${theme.danger("[ERROR]")} ${theme.redBold(message)}\n`);
     throw err;
   }
 }

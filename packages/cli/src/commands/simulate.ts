@@ -16,14 +16,14 @@ export async function simulateCommand(
   if (!validScenarios.includes(scenarioType.toLowerCase())) {
     console.error(
       theme.redBold(
-        `❌ Escenario '${scenarioType}' no válido. Escenarios disponibles: ${validScenarios.join(", ")}`,
+        `[ERROR] Escenario '${scenarioType}' no válido. Escenarios disponibles: ${validScenarios.join(", ")}`,
       ),
     );
     process.exit(1);
   }
 
   if (!options.json) {
-    console.log("\n" + theme.mintBold("🔬 MINT AUTONOMOUS SIMULATOR // WHAT-IF LOGISTICS"));
+    console.log("\n" + theme.mintBold("MINT AUTONOMOUS SIMULATOR // WHAT-IF LOGISTICS"));
     console.log(theme.muted(`   Empresa: ${companyId} │ Escenario: ${scenarioType.toUpperCase()} │ Modo: Sandbox Dry-Run\n`));
   }
 
@@ -77,7 +77,7 @@ export async function simulateCommand(
     }
 
     if (!result.success || !result.proposal) {
-      console.log(`\n${theme.warning("⚠")} Simulación completada con advertencia:`);
+      console.log(`\n${theme.warning("[AVISO]")} Simulación completada con advertencia:`);
       console.log(`   ${result.summary}\n`);
       return;
     }
@@ -135,7 +135,7 @@ export async function simulateCommand(
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error en simulación: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error en simulación: ${err.message}`));
     }
     process.exit(1);
   }

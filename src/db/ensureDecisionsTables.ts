@@ -156,9 +156,9 @@ export async function ensureDecisionsTables(): Promise<void> {
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 6);
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 6);
     `);
-    console.log("✅ Tablas e infraestructura física/geográfica verificadas en PostgreSQL.");
+    console.log("[DB] Tablas e infraestructura física/geográfica verificadas en PostgreSQL.");
   } catch (err) {
-    console.warn("⚠️ Aviso al asegurar tablas de decisiones:", (err as Error).message);
+    console.warn("[WARN] Aviso al asegurar tablas de decisiones:", (err as Error).message);
   } finally {
     client.release();
   }

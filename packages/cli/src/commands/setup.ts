@@ -155,7 +155,7 @@ export async function setupCommand(options: SetupOptions = {}) {
         `${theme.dim("Vigilancia:")}     Daemon y sensores de desabasto activos 24/7`,
       ],
       {
-        title: "⚡ SETUP RÁPIDO COMPLETADO (ZERO-CONFIG)",
+        title: "SETUP RÁPIDO COMPLETADO (ZERO-CONFIG)",
         badge: "LISTO PARA OPERAR",
         badgeColor: "mint",
         borderColor: theme.mint,
@@ -164,7 +164,7 @@ export async function setupCommand(options: SetupOptions = {}) {
   );
 
   console.log(
-    `\n${theme.mintBold("✔ Tu Back Office ya está 100% operativo.")}\n` +
+    `\n${theme.mintBold("[OK] Tu Back Office ya está 100% operativo.")}\n` +
       `  • Escribe ${theme.cyanBold("/status")} para ver tu panel en vivo.\n` +
       `  • Escribe ${theme.cyanBold("/stock")} para revisar tus existencias.\n` +
       `  • O simplemente escribe tu consulta (ej: ${theme.dim('"¿hay algún desabasto?"')}).\n`

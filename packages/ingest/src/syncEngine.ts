@@ -412,10 +412,10 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
               companyId,
               name: effectiveSupplierName,
               email: `contacto@${suppSlug || "proveedor"}.com`,
-              streetAddress: rawSupplierCity || "Centro de Distribución",
-              city: geo?.city || rawSupplierCity || "Ciudad de México",
-              latitude: geo ? String(geo.latitude) : "19.4326",
-              longitude: geo ? String(geo.longitude) : "-99.1332",
+              streetAddress: rawSupplierCity || "Parque Industrial",
+              city: geo?.city || rawSupplierCity || "Centro de Distribución Homologado",
+              latitude: geo ? String(geo.latitude) : null,
+              longitude: geo ? String(geo.longitude) : null,
             })
             .onConflictDoNothing();
 

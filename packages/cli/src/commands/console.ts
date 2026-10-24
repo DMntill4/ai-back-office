@@ -59,13 +59,13 @@ export async function consoleCommand() {
 
     const activeShips = ships.filter((s) => s.status === "en_transito" || s.status === "retrasado");
     const ropAlerts = health.filter((h) => h.needsReorder);
-    const whCity = whs[0]?.city || whs[0]?.location || "Ciudad de México";
+    const whCity = whs[0]?.city || whs[0]?.location || "Sede Principal";
 
     console.log(
       `  ${theme.dim("Catalogo:")} ${theme.bold(String(prods.length))} SKUs  │  ${theme.dim("Bodega:")} ${whCity}  │  ${theme.dim("Bajo ROP:")} ${ropAlerts.length > 0 ? theme.amberBold(String(ropAlerts.length)) : theme.mint("0")}  │  ${theme.dim("Guias:")} ${activeShips.length}  │  ${theme.dim("Cargas:")} ${loads.length}  │  ${theme.dim("Inbox:")} ${pendingDecs.length}`,
     );
     console.log(
-      `  ${theme.dim("Comandos:")} ${theme.mint("/logistics")}  ${theme.mint("/dispatch")}  ${theme.mint("/consolidate")}  ${theme.mint("/stock")}  ${theme.mint("/inbox")}  ${theme.mint("/db")}  ${theme.mint("/app")}  ${theme.mint("/logout")}  ${theme.mint("/help")}`,
+      `  ${theme.dim("Comandos:")} ${theme.mintBold("/goal")}  ${theme.mint("/logistics")}  ${theme.mint("/dispatch")}  ${theme.mint("/stock")}  ${theme.mint("/inbox")}  ${theme.mint("/approve")}  ${theme.mint("/invoice")}  ${theme.mint("/daemon")}  ${theme.mint("/help")}`,
     );
     console.log(theme.dim("  " + "─".repeat(78)));
   } catch {
@@ -78,6 +78,7 @@ export async function consoleCommand() {
 
   return new Promise<void>((resolve) => {
     const slashCommands = [
+      "/goal",
       "/logistics",
       "/dispatch",
       "/receive",
@@ -96,6 +97,10 @@ export async function consoleCommand() {
       "/inbox",
       "/approve",
       "/reject",
+      "/invoice",
+      "/vouchers",
+      "/daemon",
+      "/agent",
       "/explain",
       "/simulate",
       "/scan",
@@ -190,15 +195,18 @@ export async function consoleCommand() {
         switch (cmd) {
           case "help":
           case "?": {
-            console.log("\n" + drawDivider("COMANDOS DEL COORDINADOR LOGISTICO", 80));
+            console.log("\n" + drawDivider("COMANDOS DEL COORDINADOR LOGISTICO", 84));
+            console.log(`  ${theme.mintBold("/goal <objetivo>")}          Formular plan cuantitativo de ahorro (-30%) y encolar propuestas`);
             console.log(`  ${theme.mintBold("/logistics")}                Estado de bodegas GPS, embarques y ROP`);
             console.log(`  ${theme.mintBold("/dispatch")}                 Despachar envio a cliente (ruta OSRM + guia)`);
             console.log(`  ${theme.mintBold("/receive <guia|po>")}        Recibir mercancia en almacen y sumar stock`);
             console.log(`  ${theme.mintBold("/consolidate")}              Consolidacion multi-SKU y Landed Cost`);
             console.log(`  ${theme.mintBold("/rebalance")}                Transferencias entre almacenes (Cross-Docking)`);
             console.log(`  ${theme.mintBold("/stock")}                    Tabla de existencias en tiempo real`);
-            console.log(`  ${theme.mintBold("/inbox")}                    Propuestas pendientes de aprobacion`);
-            console.log(`  ${theme.mintBold("/approve <id>")}             Aprobar propuesta y emitir orden + guia`);
+            console.log(`  ${theme.mintBold("/inbox")}                    Propuestas pendientes de aprobacion (HITL)`);
+            console.log(`  ${theme.mintBold("/approve <id>")}             Aprobar propuesta, emitir orden y factura electronica`);
+            console.log(`  ${theme.mintBold("/invoice [id]")}             Visualizar factura electronica y comprobante fiscal`);
+            console.log(`  ${theme.mintBold("/daemon | /agent")}          Explicacion y estado del agente autonomo 24/7`);
             console.log(`  ${theme.mintBold("/db [status|sync|switch]")}  Conectar o sincronizar base de datos`);
             console.log(`  ${theme.mintBold("/channels")}                 Gestionar canales Discord / Telegram / Slack`);
             console.log(`  ${theme.mintBold("/app")}                      Abrir aplicacion de escritorio (Control Tower)`);
@@ -498,14 +506,145 @@ export async function consoleCommand() {
             return;
           }
 
+          case "goal":
+          case "meta":
+          case "objetivo": {
+            const { goalCommand } = require("./goal");
+            await goalCommand(args.join(" ") || "bajar gastos en un 30%", { noExit: true });
+            break;
+          }
+
+          case "agent":
+          case "daemon":
+          case "autonomo": {
+            console.log("\n" + drawDivider("ARQUITECTURA Y ESTADO DEL AGENTE AUTÓNOMO MINT", 82));
+            console.log(
+              drawCard(
+                [
+                  `${theme.bold("Mint NO es un simple chatbot de preguntas y respuestas.")}`,
+                  `${theme.dim("Es un agente back-office autónomo que vigila las operaciones de tu empresa 24/7.")}`,
+                  "",
+                  `${theme.mintBold("1. Daemon Proactivo de Fondo:")}`,
+                  `   Escanea permanentemente PostgreSQL y canales externos en ciclos automáticos.`,
+                  `   Audita el punto de reorden (ROP), stock bajo umbral y retrasos en despachos.`,
+                  "",
+                  `${theme.mintBold("2. Deliberación Multi-Agente Especializada:")}`,
+                  `   - Coordinador: Orquesta eventos y sintetiza el árbol de decisión.`,
+                  `   - Inventario: Calcula tasa de consumo diario (burn rate) y cobertura de días.`,
+                  `   - Compras: Cotiza proveedores y calcula Landed Cost con flete OSRM.`,
+                  `   - Transporte: Geocodifica bodegas y calcula rutas óptimas multi-parada.`,
+                  `   - Auditor de Riesgo: Bloquea compras duplicadas o sobrecostos anormales.`,
+                  "",
+                  `${theme.mintBold("3. Gobernanza Human-in-the-Loop (HITL):")}`,
+                  `   CERO compras unilaterales a ciegas. El agente formula la propuesta óptima,`,
+                  `   la documenta con evidencia y la deja en /inbox para tu autorización con /approve.`,
+                  "",
+                  `${theme.mintBold("4. Motor de Objetivos Estratégicos (/goal):")}`,
+                  `   Calcula planes cuantitativos (ej: -30% en gastos) y encola las acciones necesarias.`,
+                  "",
+                  `${theme.mintBold("5. Facturación y Auditoría Criptográfica:")}`,
+                  `   Al aprobar una compra, emite la Factura Electrónica con sello SHA-256 en /receipts.`,
+                ],
+                {
+                  title: "SISTEMA OPERATIVO AUTÓNOMO",
+                  badge: "AUTONOMOUS BACK-OFFICE",
+                  badgeColor: "mint",
+                  borderColor: theme.mint,
+                },
+              ),
+            );
+            break;
+          }
+
+          case "invoice":
+          case "factura":
+          case "voucher":
+          case "vouchers":
+          case "receipt":
+          case "receipts": {
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const receiptsDir = path.join(process.cwd(), "receipts");
+            if (!fs.existsSync(receiptsDir)) {
+              console.log(theme.amber("\n  [AVISO] No hay comprobantes generados aún en ./receipts. Aprueba una orden con /approve.\n"));
+              break;
+            }
+
+            const files = fs.readdirSync(receiptsDir).filter((f: string) => f.endsWith(".json"));
+            if (files.length === 0) {
+              console.log(theme.amber("\n  [AVISO] No hay facturas en ./receipts. Aprueba una decisión con /approve para generar una.\n"));
+              break;
+            }
+
+            let targetFile = "";
+            if (args[0]) {
+              const direct = path.join(receiptsDir, args[0].endsWith(".json") ? args[0] : `${args[0]}.json`);
+              if (fs.existsSync(direct)) {
+                targetFile = direct;
+              } else {
+                const match = files.find((f: string) => f.toLowerCase().includes(args[0].toLowerCase()));
+                if (match) targetFile = path.join(receiptsDir, match);
+              }
+            }
+
+            if (!targetFile) {
+              targetFile = path.join(receiptsDir, files[files.length - 1]);
+            }
+
+            try {
+              const voucherData = JSON.parse(fs.readFileSync(targetFile, "utf-8"));
+              const { renderInvoiceVoucher } = require("../ui/voucher");
+              console.log("\n" + renderInvoiceVoucher(voucherData) + "\n");
+              if (files.length > 1) {
+                console.log(theme.dim(`  Comprobantes disponibles en disco (${files.length}):`));
+                for (const f of files.slice(-5)) {
+                  console.log(`    ${theme.cyan("/invoice " + f.replace(".json", ""))}`);
+                }
+                console.log("");
+              }
+            } catch (err: any) {
+              console.error(theme.redBold(`  [ERROR] No se pudo leer la factura: ${err.message}`));
+            }
+            break;
+          }
+
           default: {
             if (rawCmd.startsWith("/")) {
               console.log(
                 theme.amber(`Comando '${rawCmd}' no reconocido. Escribe ${theme.mintBold("/help")} para ver la lista.`),
               );
             } else {
-              const { chatCommand } = require("./chat");
-              await chatCommand(trimmed, { noExit: true });
+              const lower = trimmed.toLowerCase();
+              if (/bajar gastos|reducir gastos|reducir costos|ahorrar|objetivo|meta/i.test(lower)) {
+                const { goalCommand } = require("./goal");
+                await goalCommand(trimmed, { noExit: true });
+              } else if (/c[oó]mo funciona el agente|qu[eé] hace el agente|eres un chatbot|qu[eé] haces|qui[eé]n eres/i.test(lower)) {
+                console.log("\n" + drawDivider("ARQUITECTURA Y ESTADO DEL AGENTE AUTÓNOMO MINT", 82));
+                console.log(
+                  drawCard(
+                    [
+                      `${theme.bold("Mint NO es un chatbot tradicional de charla.")}`,
+                      `${theme.dim("Es un agente logístico y operativo autónomo de back-office.")}`,
+                      "",
+                      `${theme.mintBold("¿Qué hace automáticamente en segundo plano?")}`,
+                      `  1. ${theme.bold("Vigilancia Continua:")} Monitorea stock, calcula ROP dinámico y detecta retrasos GPS.`,
+                      `  2. ${theme.bold("Deliberación Multi-Agente:")} 5 especialistas (Inventario, Compras, Transporte, Riesgo, Coordinador).`,
+                      `  3. ${theme.bold("Gobernanza HITL:")} Formula propuestas completas con cálculo de Landed Cost y las coloca en /inbox.`,
+                      `  4. ${theme.bold("Ejecución y Facturación:")} Al aprobarse (/approve), genera órdenes de compra, guías de envío y factura electrónica formal con sello criptográfico.`,
+                      `  5. ${theme.bold("Metas de Ahorro:")} Ejecuta planes estratégicos (/goal bajar gastos en un 30%).`,
+                    ],
+                    {
+                      title: "AGENTE AUTÓNOMO DE BACK-OFFICE",
+                      badge: "SISTEMA OPERATIVO",
+                      badgeColor: "mint",
+                      borderColor: theme.mint,
+                    },
+                  ),
+                );
+              } else {
+                const { chatCommand } = require("./chat");
+                await chatCommand(trimmed, { noExit: true });
+              }
             }
             break;
           }

@@ -20,8 +20,16 @@ export async function inboxCommand(
         console.log(JSON.stringify(res));
       } else {
         if (res.success) {
-          console.log(`\n  [OK] Decision ${theme.bold(targetId)} ${theme.mintBold("APROBADA")}.`);
-          console.log(`  ${res.message}\n`);
+          console.log(`\n  ${theme.mintBold("[OK] DECISIÓN APROBADA Y EJECUTADA CON ÉXITO")}`);
+          if (res.voucher) {
+            const { renderInvoiceVoucher } = require("../ui/voucher");
+            console.log("\n" + renderInvoiceVoucher(res.voucher) + "\n");
+            if (res.voucher.receiptPath) {
+              console.log(`  ${theme.dim("Comprobante digital exportado:")} ${theme.cyan(res.voucher.receiptPath)}\n`);
+            }
+          } else {
+            console.log(`  ${res.message}\n`);
+          }
         } else {
           console.error(theme.redBold(`  [ERROR] Fallo la aprobacion: ${res.message}`));
         }
@@ -127,7 +135,7 @@ export async function inboxCommand(
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error al consultar inbox: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error al consultar inbox: ${err.message}`));
     }
     if (!options.noExit) {
       process.exit(1);

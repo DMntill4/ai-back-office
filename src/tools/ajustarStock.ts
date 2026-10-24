@@ -123,7 +123,7 @@ export async function executeAjustarStock(
 
     return {
       isSuccess: true,
-      message: `Stock actualizado con éxito para '${product.name}' (SKU: ${product.sku}). Stock anterior: ${previousStock} u ➔ Nuevo stock: ${newStock} u.${isCritical ? " ⚠️ ATENCIÓN: El stock quedó por debajo del mínimo de seguridad (" + product.minStock + " u). Se generó una alerta de reposición." : ""}`,
+      message: `Stock actualizado con éxito para '${product.name}' (SKU: ${product.sku}). Stock anterior: ${previousStock} u -> Nuevo stock: ${newStock} u.${isCritical ? " [AVISO] ATENCIÓN: El stock quedó por debajo del mínimo de seguridad (" + product.minStock + " u). Se generó una alerta de reposición." : ""}`,
       data: {
         productId: product.id,
         productName: product.name,

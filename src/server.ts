@@ -56,7 +56,7 @@ server.get("/", async (request, reply) => {
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>🍃 Mint Autonomous Agent Engine</title>
+  <title>Mint Autonomous Agent Engine</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #e2e8f0; padding: 40px; margin: 0; }
     .card { max-width: 650px; margin: 0 auto; background: #131b2e; border: 1px solid #10b981; border-radius: 12px; padding: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
@@ -69,7 +69,7 @@ server.get("/", async (request, reply) => {
 </head>
 <body>
   <div class="card">
-    <h1>🍃 Mint Autonomous Engine <span class="badge">ONLINE</span></h1>
+    <h1>[MINT] Autonomous Engine <span class="badge">ONLINE</span></h1>
     <p>El motor logístico autónomo, daemon de vigilancia y receptores de canales (Telegram / Slack / Discord) están 100% operativos.</p>
     <div class="meta">
       <div><strong>Modo:</strong> Headless Terminal & Canales Remotos (Cero dependencias de UI web)</div>
@@ -1046,8 +1046,8 @@ const start = async () => {
     await ensureDecisionsTables().catch((e) => console.warn("Error en ensureDecisionsTables:", e.message));
     const port = parseInt(process.env.PORT || "3000", 10);
     await server.listen({ port, host: "0.0.0.0" });
-    console.log(`🚀 Servidor HTTP MINT corriendo en http://localhost:${port}`);
-    console.log("📡 Conexión a Base de Datos relacional activa (Drizzle ORM & Supabase ready)");
+    console.log(`[HTTP] Servidor MINT corriendo en http://localhost:${port}`);
+    console.log("[DB] Conexión a Base de Datos relacional activa (Drizzle ORM & Supabase ready)");
   } catch (err) {
     server.log.error(err);
     process.exit(1);

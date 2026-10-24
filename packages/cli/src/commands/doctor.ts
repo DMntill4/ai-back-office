@@ -10,7 +10,7 @@ export async function doctorCommand(options: { json?: boolean } = {}) {
       process.exit(report.compatible ? 0 : 1);
     }
 
-    console.log(`\n${theme.mintBold("🩺 DIAGNÓSTICO DE ENTORNO Y ARQUITECTURA DE DATOS")} [Mint Doctor]`);
+    console.log(`\n${theme.mintBold("DIAGNÓSTICO DE ENTORNO Y ARQUITECTURA DE DATOS")} [Mint Doctor]`);
     console.log("─".repeat(80));
 
     // 1. Verificación de Node.js
@@ -65,10 +65,10 @@ export async function doctorCommand(options: { json?: boolean } = {}) {
 
     console.log("─".repeat(80));
     if (report.compatible) {
-      console.log(`${theme.mintBold("✔ Sistema 100% operativo y listo para ejecución autónoma.")}\n`);
+      console.log(`${theme.mintBold("[OK] Sistema 100% operativo y listo para ejecución autónoma.")}\n`);
       process.exit(0);
     } else {
-      console.log(`${theme.redBold("✖ Se detectaron problemas en el entorno. Revisa los avisos anteriores.")}\n`);
+      console.log(`${theme.redBold("[ERROR] Se detectaron problemas en el entorno. Revisa los avisos anteriores.")}\n`);
       process.exit(1);
     }
   } catch (err: any) {

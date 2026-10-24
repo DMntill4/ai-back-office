@@ -20,7 +20,7 @@ export async function autonomyGetCommand(options: { json?: boolean } = {}) {
       return;
     }
 
-    console.log(`\n🛡️ NIVEL DE AUTONOMÍA ACTIVO [Empresa: ${companyId}]`);
+    console.log(`\n[AUTONOMÍA] NIVEL DE AUTONOMÍA ACTIVO [Empresa: ${companyId}]`);
     console.log(`   Modo actual:  ${level.toUpperCase()}`);
     if (level === "dry-run") {
       console.log(`   Descripción:  Modo seguro. Las propuestas se generan con evidencia completa pero NUNCA se ejecutan solas.`);
@@ -34,7 +34,7 @@ export async function autonomyGetCommand(options: { json?: boolean } = {}) {
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
     } else {
-      console.error(`❌ Error al consultar nivel de autonomía: ${err.message}`);
+      console.error(`[ERROR] Error al consultar nivel de autonomía: ${err.message}`);
     }
     process.exit(1);
   }
@@ -48,7 +48,7 @@ export async function autonomySetCommand(
   const normalizedLevel = level.toLowerCase().trim();
 
   if (!validLevels.includes(normalizedLevel)) {
-    console.error(`❌ Nivel inválido: "${level}". Opciones válidas: ${validLevels.join(", ")}`);
+    console.error(`[ERROR] Nivel inválido: "${level}". Opciones válidas: ${validLevels.join(", ")}`);
     process.exit(1);
   }
 
@@ -77,13 +77,13 @@ export async function autonomySetCommand(
       return;
     }
 
-    console.log(`\n✅ NIVEL DE AUTONOMÍA ACTUALIZADO [Empresa: ${companyId}]`);
+    console.log(`\n[OK] NIVEL DE AUTONOMÍA ACTUALIZADO [Empresa: ${companyId}]`);
     console.log(`   Nuevo modo: ${normalizedLevel.toUpperCase()}\n`);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
     } else {
-      console.error(`❌ Error al actualizar nivel de autonomía: ${err.message}`);
+      console.error(`[ERROR] Error al actualizar nivel de autonomía: ${err.message}`);
     }
     process.exit(1);
   }

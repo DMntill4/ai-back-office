@@ -26,7 +26,7 @@ export async function notifyAddCommand(
   const normalizedType = type.toLowerCase() as ChannelType;
 
   if (!validTypes.includes(normalizedType)) {
-    console.error(`❌ Tipo de canal no soportado: "${type}". Válidos: ${validTypes.join(", ")}`);
+    console.error(`[ERROR] Tipo de canal no soportado: "${type}". Válidos: ${validTypes.join(", ")}`);
     process.exit(1);
   }
 
@@ -57,7 +57,7 @@ export async function notifyAddCommand(
       return;
     }
 
-    console.log(`\n✅ CANAL DE NOTIFICACIÓN CONFIGURADO:`);
+    console.log(`\n[OK] CANAL DE NOTIFICACIÓN CONFIGURADO:`);
     console.log(`   ID:           ${channel.channelId}`);
     console.log(`   Tipo:         ${channel.type.toUpperCase()}`);
     console.log(`   Nombre:       ${channel.name}`);
@@ -70,7 +70,7 @@ export async function notifyAddCommand(
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
     } else {
-      console.error(`❌ Error al agregar canal: ${err.message}`);
+      console.error(`[ERROR] Error al agregar canal: ${err.message}`);
     }
     process.exit(1);
   }
@@ -89,7 +89,7 @@ export async function notifyTestCommand(
       return;
     }
 
-    console.log(`\n🔔 PRUEBA DE CONECTIVIDAD EXITOSA:`);
+    console.log(`\n[OK] PRUEBA DE CONECTIVIDAD EXITOSA:`);
     console.log(`   Canal:      ${res.channelType.toUpperCase()}`);
     console.log(`   Message ID: ${res.messageId}`);
     console.log(`   Entregado:  ${res.deliveredAt ? new Date(res.deliveredAt).toLocaleTimeString("es-MX") : "Inmediato"}`);
@@ -104,7 +104,7 @@ export async function notifyTestCommand(
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
     } else {
-      console.error(`❌ Error al probar canal: ${err.message}`);
+      console.error(`[ERROR] Error al probar canal: ${err.message}`);
     }
     process.exit(1);
   }
@@ -122,7 +122,7 @@ export async function notifyListCommand(options: { json?: boolean } = {}) {
       return;
     }
 
-    console.log(`\n📡 CANALES DE NOTIFICACIÓN ACTIVOS [Empresa: ${companyId}]`);
+    console.log(`\n[CANALES] CANALES DE NOTIFICACIÓN ACTIVOS [Empresa: ${companyId}]`);
     console.log(`───────────────────────────────────────────────────────────────────────────`);
     console.log(
       `${"ID".padEnd(20)} ${"TIPO".padEnd(12)} ${"NOMBRE".padEnd(25)} ${"ESTADO".padEnd(10)}`,
@@ -131,12 +131,12 @@ export async function notifyListCommand(options: { json?: boolean } = {}) {
 
     for (const c of channels) {
       console.log(
-        `${c.id.padEnd(20)} ${c.type.padEnd(12)} ${c.name.slice(0, 24).padEnd(25)} ${(c.isActive ? "✅ ACTIVO" : "⚪ INACTIVO").padEnd(10)}`,
+        `${c.id.padEnd(20)} ${c.type.padEnd(12)} ${c.name.slice(0, 24).padEnd(25)} ${(c.isActive ? "[ACTIVO]" : "[INACTIVO]").padEnd(10)}`,
       );
     }
     console.log(`───────────────────────────────────────────────────────────────────────────\n`);
   } catch (err: any) {
-    console.error(`❌ Error al listar canales: ${err.message}`);
+    console.error(`[ERROR] Error al listar canales: ${err.message}`);
     process.exit(1);
   }
 }

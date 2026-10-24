@@ -15,6 +15,7 @@ import { setupCommand } from "./commands/setup";
 import { databaseCommand } from "./commands/database";
 import { appCommand } from "./commands/app";
 import { channelsCommand, settingsCommand } from "./commands/channels";
+import { goalCommand } from "./commands/goal";
 import { triggerScanApi } from "./client";
 import { getSession } from "./keychain";
 import { theme } from "./ui/theme";
@@ -82,7 +83,12 @@ program
   .description("Simula un escenario logístico what-if en sandbox (stockout, delay, price-spike)")
   .option("--sku <sku>", "SKU específico para la simulación")
   .option("--json", "Salida en formato JSON")
-  .action((scenario, options) => simulateCommand(scenario || "stockout", options));
+// 3.1 mint goal <objective>
+program
+  .command("goal <objective...>")
+  .description("Motor estratégico de objetivos: analiza línea base, formula 4 palancas operativas y prepara plan en 3 fases")
+  .option("--json", "Salida en formato JSON")
+  .action((objectiveWords, options) => goalCommand(objectiveWords.join(" "), options));
 
 // 4. mint console / mint repl
 program

@@ -623,7 +623,7 @@ export async function dispatchOutboundShipment(params: {
   });
 
   const manifestSummary = [
-    `📦 MANIFIESTO DE DESPACHO #${trackingNumber}`,
+    `[MANIFIESTO] DESPACHO #${trackingNumber}`,
     `• Producto: ${prod.name} (SKU: ${prod.sku}) × ${quantity} unidades`,
     `• Nodo Origen: ${originLabel} [GPS: ${bestCandidate.originGeo.latitude.toFixed(4)}, ${bestCandidate.originGeo.longitude.toFixed(4)}]`,
     `• Destino Final: ${destLabel} [GPS: ${destGeoPoint.latitude.toFixed(4)}, ${destGeoPoint.longitude.toFixed(4)}]`,
@@ -807,7 +807,7 @@ export async function receiveInboundShipment(params: {
     .where(eq(shipments.id, shp.id));
 
   const stockMsg = productUpdated
-    ? ` Se ingresaron +${productUpdated.quantityAdded}u de "${productUpdated.name}" (${productUpdated.sku}) al inventario (Stock: ${productUpdated.previousStock}u ➔ ${productUpdated.newStock}u).`
+    ? ` Se ingresaron +${productUpdated.quantityAdded}u de "${productUpdated.name}" (${productUpdated.sku}) al inventario (Stock: ${productUpdated.previousStock}u -> ${productUpdated.newStock}u).`
     : "";
 
   return {
@@ -816,7 +816,7 @@ export async function receiveInboundShipment(params: {
     shipmentId: shp.id,
     orderId: shp.purchaseOrderId,
     productUpdated,
-    message: `✔ Recepción confirmada para guía ${shp.trackingNumber}.${stockMsg}`,
+    message: `[OK] Recepción confirmada para guía ${shp.trackingNumber}.${stockMsg}`,
   };
 }
 
