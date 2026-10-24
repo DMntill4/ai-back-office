@@ -117,3 +117,20 @@ export function drawDivider(title?: string, width?: number): string {
   const side = Math.max(2, Math.floor((targetWidth - titleLen) / 2));
   return theme.dim("─".repeat(side)) + cleanTitle + theme.dim("─".repeat(Math.max(0, targetWidth - side - titleLen)));
 }
+
+export function drawTable(headers: string[], rows: string[][], widths: number[]): string {
+  const padCell = (val: string, width: number) => {
+    const clean = theme.stripAnsi(val);
+    if (clean.length > width) return val.slice(0, width);
+    return val + " ".repeat(Math.max(0, width - clean.length));
+  };
+
+  const headerLine = "  " + headers.map((h, idx) => theme.bold(padCell(h, widths[idx] || 12))).join("  ");
+  const sepLine = "  " + widths.map((w) => theme.dim("─".repeat(w))).join("  ");
+  const bodyLines = rows.map(
+    (row) => "  " + row.map((cell, idx) => padCell(String(cell ?? ""), widths[idx] || 12)).join("  "),
+  );
+
+  return [headerLine, sepLine, ...bodyLines].join("\n");
+}
+

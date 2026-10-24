@@ -10,9 +10,9 @@ export async function logoutCommand(options: { json?: boolean } = {}) {
     console.log(JSON.stringify({ success: true, loggedOut: deleted }));
   } else {
     if (session) {
-      console.log(`\n${theme.success("🚪")} Sesión cerrada para ${theme.bold(session.email)} (${session.companyName}). Token eliminado del keychain.\n`);
+      console.log(`\n  [OK] Sesion cerrada para ${theme.bold(session.email)} (${session.companyName}). Token eliminado del keychain.\n`);
     } else {
-      console.log(`\n${theme.dim("ℹ No había una sesión activa guardada.")}\n`);
+      console.log(`\n  ${theme.dim("No habia una sesion activa guardada.")}\n`);
     }
   }
 }
@@ -24,7 +24,7 @@ export async function whoamiCommand(options: { json?: boolean } = {}) {
     if (options.json) {
       console.log(JSON.stringify({ authenticated: false }));
     } else {
-      console.log(`\n${theme.warning("⚠")} No has iniciado sesión. Ejecuta ${theme.mintBold("mint login")} para autenticarte.\n`);
+      console.log(`\n  [AVISO] No has iniciado sesion. Ejecuta ${theme.mintBold("npm start")} o ${theme.mintBold("mint login")} para autenticarte.\n`);
     }
     return;
   }

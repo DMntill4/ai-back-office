@@ -214,8 +214,8 @@ function renderShipmentsTable(ships) {
         <td class="text-center">
           ${
             !isDelivered
-              ? `<button class="btn btn-mint btn-xs" onclick="receiveShipment('${s.trackingNumber}')">📥 Recibir y Sumar Stock</button>`
-              : `<span style="color:var(--text-dim); font-size:12px;">✔ Recibido</span>`
+              ? `<button class="btn btn-mint btn-xs" onclick="receiveShipment('${s.trackingNumber}')">Recibir y Sumar Stock</button>`
+              : `<span style="color:var(--text-dim); font-size:12px;">Recibido</span>`
           }
         </td>
       </tr>
@@ -248,7 +248,7 @@ function renderConsolidatedLoads(loads) {
   const box = document.getElementById("consolidatedLoadsBox");
   if (!box) return;
   if (!loads.length) {
-    box.innerHTML = `<div style="padding:12px; color:var(--mint);">✔ Todos los SKUs están sobre su Punto de Reorden Dinámico. Cero camiones pendientes por consolidar.</div>`;
+    box.innerHTML = `<div style="padding:12px; color:var(--mint);">Todos los SKUs estan sobre su Punto de Reorden Dinamico. Cero camiones pendientes por consolidar.</div>`;
     return;
   }
 
@@ -257,14 +257,14 @@ function renderConsolidatedLoads(loads) {
       (l) => `
     <div style="border:1px solid var(--border-subtle); border-radius:8px; padding:12px; margin-bottom:10px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <strong>🏢 ${l.supplierName} (${l.supplierCity})</strong>
+        <strong>${l.supplierName} (${l.supplierCity})</strong>
         <span class="badge badge-mint">LANDED COST: $${l.totalLandedCostMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</span>
       </div>
       <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
-        Ruta OSRM: ${l.distanceKm} km (${l.durationFormatted}) │ Productos: $${l.productsCostMxn.toLocaleString("es-MX")} │ Flete: $${l.freightCostMxn.toLocaleString("es-MX")} (Ahorro consolidado: $${l.consolidationSavingsMxn.toFixed(2)})
+        Ruta OSRM: ${l.distanceKm} km (${l.durationFormatted}) | Productos: $${l.productsCostMxn.toLocaleString("es-MX")} | Flete: $${l.freightCostMxn.toLocaleString("es-MX")} (Ahorro consolidado: $${l.consolidationSavingsMxn.toFixed(2)})
       </div>
       <div style="margin-top:8px; font-size:12px;">
-        ${l.items.map((i) => `<div>• <code>${i.sku}</code> ${i.productName}: <strong>${i.quantity}u</strong> ($${i.lineCostMxn.toLocaleString("es-MX")} MXN)</div>`).join("")}
+        ${l.items.map((i) => `<div>- <code>${i.sku}</code> ${i.productName}: <strong>${i.quantity}u</strong> ($${i.lineCostMxn.toLocaleString("es-MX")} MXN)</div>`).join("")}
       </div>
     </div>
   `,
@@ -280,7 +280,7 @@ function renderLogisticsNodes(warehouses, suppliers) {
     .map(
       (w) => `
     <div style="padding:6px 0; border-bottom:1px solid var(--border-subtle); font-size:13px;">
-      🏭 <strong>${w.name}</strong> — ${w.city || w.location || "N/A"}
+      [BODEGA] <strong>${w.name}</strong> — ${w.city || w.location || "N/A"}
       <span style="float:right; font-family:monospace; color:var(--mint);">
         ${w.latitude && w.longitude ? `${Number(w.latitude).toFixed(4)}, ${Number(w.longitude).toFixed(4)}` : "Sin GPS"}
       </span>
@@ -294,7 +294,7 @@ function renderLogisticsNodes(warehouses, suppliers) {
     .map(
       (s) => `
     <div style="padding:6px 0; border-bottom:1px solid var(--border-subtle); font-size:13px;">
-      🏢 <strong>${s.name}</strong> — ${s.city || s.streetAddress || s.location || "N/A"}
+      [PROVEEDOR] <strong>${s.name}</strong> — ${s.city || s.streetAddress || s.location || "N/A"}
       <span style="float:right; font-family:monospace; color:var(--text-muted);">
         ${s.latitude && s.longitude ? `${Number(s.latitude).toFixed(4)}, ${Number(s.longitude).toFixed(4)}` : "Auto-GPS"}
       </span>
@@ -317,7 +317,7 @@ function initLogisticsForms() {
       const customerName = document.getElementById("dispCustomer").value;
       const outBox = document.getElementById("dispatchResultBox");
 
-      outBox.textContent = "⏳ Seleccionando almacén más cercano con stock y calculando ruta vial OSRM...";
+      outBox.textContent = "Seleccionando almacen mas cercano con stock y calculando ruta vial OSRM...";
       try {
         const res = await fetch("/api/logistics/dispatch", {
           method: "POST",
@@ -326,16 +326,16 @@ function initLogisticsForms() {
         });
         const data = await res.json();
         if (data.success) {
-          outBox.textContent = `✔ ${data.message}`;
-          showToast(`Guía ${data.trackingNumber} despachada (${data.distanceKm} km)`);
+          outBox.textContent = `[OK] ${data.message}`;
+          showToast(`Guia ${data.trackingNumber} despachada (${data.distanceKm} km)`);
           loadAllData();
           appendTelemetryLog("Despacho Outbound", data.message);
         } else {
-          outBox.textContent = `❌ ${data.message}`;
+          outBox.textContent = `[ERROR] ${data.message}`;
           showToast(data.message, "error");
         }
       } catch (err) {
-        outBox.textContent = "❌ Error al procesar despacho.";
+        outBox.textContent = "[ERROR] Error al procesar despacho.";
       }
     });
   }
@@ -359,7 +359,7 @@ function initLogisticsForms() {
         loadLogisticsOverview();
         appendTelemetryLog("Nodo GPS", data.message);
       } else {
-        showToast(data.message || "Error geocodificando ubicación", "error");
+        showToast(data.message || "Error geocodificando ubicacion", "error");
       }
     });
   }
@@ -380,9 +380,9 @@ function initLogisticsForms() {
       });
       const data = await res.json();
       if (data.success) {
-        box.innerHTML = `✔ <strong>${data.route.distanceKm} km</strong> (${data.route.durationFormatted}) │ Flete estimado: <strong>${data.route.costoFleteFormatted}</strong> [${data.route.motorUtilizado}]`;
+        box.innerHTML = `[OK] <strong>${data.route.distanceKm} km</strong> (${data.route.durationFormatted}) | Flete estimado: <strong>${data.route.costoFleteFormatted}</strong> [${data.route.motorUtilizado}]`;
       } else {
-        box.textContent = `❌ ${data.message}`;
+        box.textContent = `[ERROR] ${data.message}`;
       }
     });
   }
@@ -414,10 +414,10 @@ async function executeAgentMission(message) {
   const outputBox = document.getElementById("agentResponseOutput");
 
   btn.disabled = true;
-  btn.textContent = "⏳ Ejecutando...";
+  btn.textContent = "Ejecutando...";
   statusBadge.textContent = "DELIBERANDO EN VIVO";
   timelineBox.innerHTML = "";
-  outputBox.textContent = "Ejecutando herramientas del Coordinador Logístico sobre PostgreSQL y OSRM...";
+  outputBox.textContent = "Ejecutando herramientas del Coordinador Logistico sobre PostgreSQL y OSRM...";
 
   try {
     const res = await fetch("/api/chat", {
@@ -430,14 +430,14 @@ async function executeAgentMission(message) {
       statusBadge.textContent = (data.status || "RESUELTO").toUpperCase();
       if (data.multiAgentEvents && data.multiAgentEvents.length) {
         timelineBox.innerHTML = data.multiAgentEvents
-          .map((ev) => `<span class="badge badge-mint">⚙ ${ev.action} (${ev.agent})</span>`)
+          .map((ev) => `<span class="badge badge-mint">${ev.action} (${ev.agent})</span>`)
           .join("");
       }
-      outputBox.textContent = data.response || "Operación completada.";
+      outputBox.textContent = data.response || "Operacion completada.";
       loadAllData();
-      appendTelemetryLog("Coordinador IA", `Misión completada (${data.multiAgentEvents?.length || 0} tools ejecutadas).`);
+      appendTelemetryLog("Coordinador IA", `Mision completada (${data.multiAgentEvents?.length || 0} tools ejecutadas).`);
     } else {
-      outputBox.textContent = "Error al ejecutar misión.";
+      outputBox.textContent = "Error al ejecutar mision.";
     }
   } catch (err) {
     outputBox.textContent = `Error de red: ${err.message}`;
@@ -464,7 +464,7 @@ async function loadProducts() {
 function renderInventoryTable(items) {
   const tbody = document.getElementById("inventoryTableBody");
   if (!items.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">No hay productos registrados en el catálogo de esta empresa.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">No hay productos registrados en el catalogo de esta empresa.</td></tr>`;
     return;
   }
 
@@ -481,7 +481,7 @@ function renderInventoryTable(items) {
         <td><span style="color:var(--text-dim); font-size:12px;">${p.category || "General"}</span></td>
         <td class="text-right" style="font-weight:700; font-size:14px;" id="stock-val-${p.id}">${p.stock}u</td>
         <td class="text-right" style="color:var(--text-muted);">${p.minStock}u / ROP: ${p.dynamicRop ?? p.minStock}u</td>
-        <td class="text-center"><span class="badge ${badgeClass}">${p.status || "ÓPTIMO"}</span></td>
+        <td class="text-center"><span class="badge ${badgeClass}">${p.status || "OPTIMO"}</span></td>
         <td class="text-center">
           <div class="stock-adjust-group">
             <button class="btn-icon" title="Restar 1 unidad" onclick="adjustStock('${p.id}', -1)">-</button>
@@ -515,7 +515,7 @@ async function adjustStock(productId, delta) {
       showToast(data.error || "Error al ajustar stock", "error");
     }
   } catch (err) {
-    showToast("Error de conexión", "error");
+    showToast("Error de conexion", "error");
   }
 }
 
@@ -553,9 +553,9 @@ function renderChannelsGrid(channels) {
   if (!channels.length) {
     grid.innerHTML = `
       <div style="grid-column: 1 / -1; background:var(--bg-card); border:1px dashed var(--border-mint); border-radius:var(--radius-md); padding:36px; text-align:center;">
-        <h3 style="font-size:18px; margin-bottom:8px;">No tienes canales de notificación vinculados</h3>
+        <h3 style="font-size:18px; margin-bottom:8px;">No tienes canales de notificacion vinculados</h3>
         <p style="color:var(--text-muted); font-size:13px; max-width:480px; margin:0 auto 18px auto;">
-          Conecta un Webhook de Discord, Slack o tu Bot de Telegram para que Mint te avise inmediatamente ante desabastos o compras de reposición.
+          Conecta un Webhook de Discord, Slack o tu Bot de Telegram para que Mint te avise inmediatamente ante desabastos o compras de reposicion.
         </p>
         <button class="btn btn-mint" onclick="document.getElementById('btnOpenAddChannelModal').click()">+ Conectar Mi Primer Canal</button>
       </div>`;
@@ -566,10 +566,10 @@ function renderChannelsGrid(channels) {
     .map((c) => {
       const topics = (c.config && c.config.topics) || ["logs", "stock", "logistics", "critical"];
       const topicLabels = {
-        logs: "📜 Logs",
-        stock: "📦 Stock Updates",
-        logistics: "🚚 Logística & Pedidos",
-        critical: "⚠️ Alertas Críticas",
+        logs: "Logs",
+        stock: "Stock Updates",
+        logistics: "Logistica & Pedidos",
+        critical: "Alertas Criticas",
       };
 
       return `
@@ -579,7 +579,7 @@ function renderChannelsGrid(channels) {
             <span class="platform-badge platform-${c.type}">${c.type}</span>
             <span class="channel-name">${c.name}</span>
           </div>
-          <span class="channel-status">● ACTIVO</span>
+          <span class="channel-status">ACTIVO</span>
         </div>
 
         <div class="channel-topics-list">
@@ -589,7 +589,7 @@ function renderChannelsGrid(channels) {
         <div class="channel-actions">
           <span style="font-size:11px; color:var(--text-dim);">Registrado con persistencia</span>
           <button class="btn btn-outline btn-xs" onclick="sendTestNotice('${c.type}', '${c.id}')">
-            ⚡ Probar Envío
+            Probar Envio
           </button>
         </div>
       </div>

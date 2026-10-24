@@ -6,7 +6,6 @@ import { verifyRuntimeEnvironment } from "@mint/core";
 import { readDaemonState, writeDaemonState, tickOnce } from "@mint/daemon";
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
-import { drawCard } from "../ui/box";
 import { consoleCommand } from "./console";
 
 export interface StartOptions {
@@ -27,16 +26,10 @@ async function waitForServer(port: string | number, maxAttempts = 15): Promise<b
   return false;
 }
 
-/**
- * mint start / npm start
- * Inicia TODO el sistema autónomo (Servidor Backend, Daemon de vigilancia,
- * Canales de venta y Consola Interactiva) con CERO frontend web.
- */
 export async function startCommand(options: StartOptions = {}) {
-  // 1. Diagnóstico previo de entorno y compatibilidad
   const report = await verifyRuntimeEnvironment();
   if (!report.compatible) {
-    console.error(theme.redBold("\n❌ No se puede iniciar Mint Back Office. Diagnóstico fallido:"));
+    console.error(theme.redBold("\n[ERROR] No se puede iniciar Mint Back Office. Diagnostico fallido:"));
     for (const diag of report.diagnostics) {
       console.error(`  ${diag}`);
     }
@@ -45,7 +38,6 @@ export async function startCommand(options: StartOptions = {}) {
 
   let session = await getSession();
 
-  // First-time execution: Friendly interactive onboarding wizard in English
   if (!session && !options.headless && process.stdin.isTTY) {
     const { runOnboardingWizard } = require("./onboarding");
     session = await runOnboardingWizard();
@@ -54,7 +46,6 @@ export async function startCommand(options: StartOptions = {}) {
   const companyId = session?.companyId || "comp_default";
   const port = options.port || process.env.PORT || "3000";
 
-  // 2. Directorio de logs para procesos de fondo
   const logDir = path.join(os.homedir(), ".mint", "logs");
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true });
@@ -62,7 +53,6 @@ export async function startCommand(options: StartOptions = {}) {
   const serverLogPath = path.join(logDir, "server.log");
   const serverLogStream = fs.openSync(serverLogPath, "a");
 
-  // 3. Levantar Servidor Fastify (Transporte HTTP, Webhooks, Canales remotos)
   const serverScript = path.resolve(__dirname, "../../../../src/server.ts");
   const tsxCli = require.resolve("tsx/cli");
 
@@ -77,10 +67,8 @@ export async function startCommand(options: StartOptions = {}) {
     }
   );
 
-  // Esperar a que el servidor Fastify esté escuchando activamente en el puerto
   await waitForServer(port, 15);
 
-  // 4. Iniciar estado y bucle del Daemon autónomo
   const daemonState = readDaemonState();
   daemonState.isRunning = true;
   daemonState.pid = process.pid;
@@ -88,21 +76,16 @@ export async function startCommand(options: StartOptions = {}) {
   daemonState.startedAt = new Date().toISOString();
   writeDaemonState(daemonState);
 
-  // Ticker periódico de vigilancia (cada 30s)
   const tickerInterval = setInterval(async () => {
     try {
       await tickOnce(companyId);
-    } catch {
-      // Ignorar fallos de tick individuales para no interrumpir el proceso
-    }
+    } catch {}
   }, 30000);
 
-  // Ejecutar un ciclo inicial
   try {
     await tickOnce(companyId);
   } catch {}
 
-  // Limpieza al cerrar (Graceful Shutdown)
   let cleanedUp = false;
   const cleanup = () => {
     if (cleanedUp) return;
@@ -156,36 +139,11 @@ export async function startCommand(options: StartOptions = {}) {
     }
   }
 
-  // 5. Presentación visual en consola
-  console.log("");
-  console.log(
-    drawCard(
-      [
-        `${theme.dim("Servidor API:")}      ${theme.mintBold(`http://localhost:${port}`)} (Webhooks, Canales y REST)`,
-        `${theme.dim("Daemon Autónomo:")}   ${theme.badge("ACTIVO", "mint")} Vigilando stock, retrasos y fuentes locales`,
-        `${theme.dim("Base de Datos:")}     ${theme.bold(report.postgres.provider || "PostgreSQL Cloud")}`,
-        `${theme.dim("Dashboard Visual:")}  ${theme.cyan("Disponible en cualquier momento vía /web o 'mint web'")}`,
-        `${theme.dim("Logs de Servicio:")}  ${theme.dim(serverLogPath)}`,
-      ],
-      {
-        title: "🍃 MINT AUTONOMOUS AGENT SYSTEM INICIADO",
-        badge: "ONLINE 24/7",
-        badgeColor: "mint",
-        borderColor: theme.mint,
-      }
-    )
-  );
-
   if (options.headless || !process.stdin.isTTY) {
-    console.log(`\n${theme.mintBold("● MINT CORRIENDO EN MODO HEADLESS.")}`);
-    console.log(theme.dim("  El agente está vigilando y listo para recibir ventas de Telegram/Slack/Discord."));
-    console.log(theme.dim("  Presiona Ctrl+C para detener todos los servicios.\n"));
-
-    // Mantener proceso vivo
+    console.log(`\n${theme.mintBold("[MINT HEADLESS]")} API: http://localhost:${port} | Empresa: ${companyId}`);
+    console.log(theme.dim("  Presiona Ctrl+C para detener los servicios.\n"));
     await new Promise(() => {});
   } else {
-    // Modo interactivo: Entrar directamente a la consola REPL de Mint
-    console.log(theme.dim("\nIniciando consola interactiva de operaciones...\n"));
     try {
       await consoleCommand();
     } finally {

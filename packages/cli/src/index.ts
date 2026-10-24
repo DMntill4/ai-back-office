@@ -24,7 +24,7 @@ export const program = new Command();
 
 program
   .name("mint")
-  .description("🍃 Mint CLI - Coordinador Logístico Autónomo y Operaciones Back Office")
+  .description("Mint CLI - Coordinador Logistico Autonomo y Operaciones Back Office")
   .version("2.5.0");
 
 // Banner hook on empty invocation
@@ -245,14 +245,14 @@ program
       if (options.json) {
         console.log(JSON.stringify(res, null, 2));
       } else {
-        console.log(`\n${theme.mintBold("🔍 ESCANEO PROACTIVO COMPLETADO")} [${companyId}]`);
+        console.log(`\n${theme.mintBold("ESCANEO PROACTIVO COMPLETADO")} [${companyId}]`);
         console.log(`   ${theme.dim("Desabastos encontrados:")} ${theme.bold(res.stockDeficitsFound)}`);
-        console.log(`   ${theme.dim("Envíos retrasados:")}      ${theme.bold(res.delayedShipmentsFound)}`);
+        console.log(`   ${theme.dim("Envios retrasados:")}      ${theme.bold(res.delayedShipmentsFound)}`);
         console.log(`   ${theme.dim("Eventos disparados:")}     ${theme.bold(res.eventsTriggered)}`);
         console.log(`   ${theme.dim("Decisiones evaluadas:")}   ${theme.bold(res.processedDecisions.length)}\n`);
       }
     } catch (err: any) {
-      console.error(theme.redBold(`❌ Error en escaneo: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error en escaneo: ${err.message}`));
     }
   });
 

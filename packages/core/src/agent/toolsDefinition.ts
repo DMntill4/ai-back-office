@@ -23,6 +23,8 @@ import {
   analyzeDynamicCatalogHealth,
 } from "../services/logisticsCoordinatorService";
 import { updateLogisticsNodeLocation } from "../services/geocodingService";
+import { db } from "../db/client";
+import { decisions } from "../db/schema";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -729,37 +731,47 @@ export async function dispatchToolCall(
           result: {
             isSuccess: false,
             mensaje:
-              "No hay canales de notificación activos (Discord/Telegram/Slack) para esta empresa. Configúralos con '/channels' o desde la Desktop App.",
+              "No hay canales de notificacion activos (Discord/Telegram/Slack) para esta empresa. Configuralos con '/channels' o desde la Desktop App.",
           },
           isClosingAction: false,
         };
       }
-      const dispatchSummary = await dispatchDecisionNotification({
-        id: `op_${Date.now().toString(36)}`,
-        companyId: effectiveCompanyId,
-        caseId: context?.caseId || "case_operativo",
-        title: parsedArgs.titulo || "Reporte Operativo de Torre Logística",
-        actionType: "reporte_operativo",
-        proposingAgent: "logistics_coordinator",
-        costMxn: 0,
-        riskScore: parsedArgs.severidad === "critica" ? 0.85 : 0.1,
-        policyDecision: "auto_executed",
-        policyReason: parsedArgs.mensaje,
-        evidence: {
-          reporte: parsedArgs.mensaje,
-          severidad: parsedArgs.severidad || "info",
-        },
-        risk: { riskScore: 0.1, redFlags: [] },
-      });
+      const opDecId = `op_${Date.now().toString(36)}`;
+      await db
+        .insert(decisions)
+        .values({
+          id: opDecId,
+          companyId: effectiveCompanyId,
+          caseId: context?.caseId || "case_operativo",
+          actionType: "ajustar_stock",
+          proposingAgent: "coordinador",
+          title: parsedArgs.titulo || "Reporte Operativo de Torre Logistica",
+          costMxn: "0",
+          riskScore: parsedArgs.severidad === "critica" ? "0.85" : "0.10",
+          reversible: true,
+          evidencePayload: {
+            reporte: parsedArgs.mensaje,
+            severidad: parsedArgs.severidad || "info",
+          },
+          riskPayload: { riskScore: 0.1, redFlags: [] },
+          policyDecision: "auto_executed",
+          policyReason: parsedArgs.mensaje,
+          decidedAt: new Date(),
+        })
+        .onConflictDoNothing();
+
+      const results = await dispatchDecisionNotification(opDecId, effectiveCompanyId);
+      const sentCount = results.filter((r) => r.success).length;
+      const errors = results.filter((r) => !r.success && r.error).map((r) => r.error!);
       return {
         result: {
-          isSuccess: dispatchSummary.sentCount > 0,
-          canalesEnviados: dispatchSummary.sentCount,
-          errores: dispatchSummary.errors,
+          isSuccess: sentCount > 0,
+          canalesEnviados: sentCount,
+          errores: errors,
           mensaje:
-            dispatchSummary.sentCount > 0
-              ? `✔ Notificación operativa enviada en tiempo real a ${dispatchSummary.sentCount} canal(es) activo(s) (Discord/Telegram).`
-              : `❌ No se pudo entregar la notificación: ${dispatchSummary.errors.join(", ")}`,
+            sentCount > 0
+              ? `[OK] Notificacion operativa enviada en tiempo real a ${sentCount} canal(es) activo(s) (Discord/Telegram).`
+              : `[ERROR] No se pudo entregar la notificacion: ${errors.join(", ")}`,
         },
         isClosingAction: false,
       };

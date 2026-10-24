@@ -16,48 +16,34 @@ import {
 import { eq, and } from "drizzle-orm";
 
 export async function consoleCommand() {
-  const session = await getSession();
+  let session = await getSession();
+
+  // Si no hay sesión activa y estamos en una terminal interactiva, iniciar el asistente de bienvenida automáticamente
+  if (!session && process.stdin.isTTY) {
+    const { runOnboardingWizard } = require("./onboarding");
+    session = await runOnboardingWizard();
+  }
+
   const companyId = session?.companyId || "comp_default";
   const userName = session?.name || "operator";
+  const companyDisplayName = session?.companyName || companyId;
 
   console.clear();
 
-  // Kali / Cyberpunk & Claude Code / Antigravity Terminal Banner
-  const logo = [
-    "  ███╗   ███╗██╗███╗   ██╗████████╗     ██████╗██╗     ██╗",
-    "  ████╗ ████║██║████╗  ██║╚══██╔══╝    ██╔════╝██║     ██║",
-    "  ██╔████╔██║██║██╔██╗ ██║   ██║       ██║     ██║     ██║",
-    "  ██║╚██╔╝██║██║██║╚██╗██║   ██║       ██║     ██║     ██║",
-    "  ██║ ╚═╝ ██║██║██║ ╚████║   ██║       ╚██████╗███████╗██║",
-    "  ╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝        ╚═════╝╚══════╝╚═╝",
-  ];
-
-  console.log("");
-  for (const line of logo) {
-    console.log(theme.mintBold(line));
-  }
-  console.log(
-    theme.dim("  ┌─ ") +
-      theme.cyanBold("AUTONOMOUS LOGISTICS CONTROL TOWER") +
-      theme.dim(" // ") +
-      theme.muted("MULTI-AGENT SUPPLY CHAIN & GPS COORDINATOR") +
-      theme.dim(" ─┐"),
-  );
-
   const daemon = getDaemonStatus();
   const daemonBadge = daemon.isPaused
-    ? theme.badge("PAUSED (EMERGENCY)", "red")
+    ? theme.badge("PAUSED", "red")
     : daemon.isRunning
       ? theme.badge(`ONLINE (PID ${daemon.pid || process.pid})`, "mint")
       : theme.badge("STANDBY", "gray");
 
-  const companyDisplayName = session?.companyName || companyId;
   console.log("");
   console.log(
-    `  ${theme.mintBold("● MINT AI")} ${theme.dim("v2.5.0")} │ ${theme.bold(companyDisplayName)} [${theme.dim(companyId)}] │ ${daemonBadge} │ ${theme.cyan("AUTONOMOUS 24/7")}`,
+    `  ${theme.mintBold("MINT")} ${theme.dim("v2.5.0")}  │  ${theme.bold(companyDisplayName)} [${theme.dim(companyId)}]  │  ${daemonBadge}`,
   );
+  console.log(theme.dim("  " + "─".repeat(78)));
 
-  // Flight-Deck Startup Snapshot (Live Telemetry)
+  // Resumen compacto de 2 líneas al inicio (sin cajas gigantes ni emojis)
   try {
     const [prods, whs, ships, pendingDecs, health, loads] = await Promise.all([
       db.select().from(products).where(eq(products.companyId, companyId)),
@@ -66,7 +52,7 @@ export async function consoleCommand() {
       db
         .select()
         .from(decisions)
-        .where(and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "escalated_to_human"))),
+        .where(and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval"))),
       analyzeDynamicCatalogHealth(companyId).catch(() => []),
       buildConsolidatedLoadPlans(companyId).catch(() => []),
     ]);
@@ -74,41 +60,21 @@ export async function consoleCommand() {
     const activeShips = ships.filter((s) => s.status === "en_transito" || s.status === "retrasado");
     const ropAlerts = health.filter((h) => h.needsReorder);
     const whCity = whs[0]?.city || whs[0]?.location || "Ciudad de México";
-    const whCoords =
-      whs[0]?.latitude && whs[0]?.longitude
-        ? `${Number(whs[0].latitude).toFixed(2)}, ${Number(whs[0].longitude).toFixed(2)}`
-        : "GPS Activo";
 
     console.log(
-      "\n" +
-        drawCard(
-          [
-            `📦 ${theme.bold("Catálogo Auditado:")} ${theme.mintBold(String(prods.length))} SKUs reales │ 📍 ${theme.bold("Almacén:")} ${whCity} (${whCoords})`,
-            `🚨 ${theme.bold("Alertas ROP Dinámico:")} ${ropAlerts.length > 0 ? theme.amberBold(`${ropAlerts.length} SKU(s) bajo punto de reorden`) : theme.mint("0 déficits")} │ 📥 ${theme.bold("Bandeja HITL (/inbox):")} ${pendingDecs.length} propuestas`,
-            `🚚 ${theme.bold("Embarques en Tránsito:")} ${activeShips.length} guía(s) activas │ 📦 ${theme.bold("Cargas Consolidadas:")} ${loads.length} camión(es) sugeridos`,
-            theme.dim("─".repeat(82)),
-            `${theme.bold("ACCIONES RÁPIDAS (Escribe el número 1-6, un comando /slash o habla con el coordinador):")}`,
-            `  ${theme.mintBold("[1] /logistics")}   Torre Logística, GPS, Rutas OSRM y Embarques Inbound/Outbound`,
-            `  ${theme.cyanBold("[2] /dispatch")}    Despachar pedido de cliente desde la bodega más cercana con stock`,
-            `  ${theme.mintBold("[3] /consolidate")} Consolidar cargas multi-SKU por proveedor y ver Landed Cost`,
-            `  ${theme.amberBold("[4] /inbox")}       Revisar y aprobar propuestas de compra (${pendingDecs.length} pendientes)`,
-            `  ${theme.cyanBold("[5] /app")}         Abrir Torre de Control Visual (Desktop App en http://localhost:4321)`,
-            `  ${theme.dim("[6] /db")}          Conectar o sincronizar otra base de datos / archivo (.sql, .csv, .sqlite)`,
-          ],
-          {
-            title: "🛫 FLIGHT DECK // CENTRO DE MANDO LOGÍSTICO",
-            borderColor: theme.mint,
-            width: 90,
-          },
-        ),
+      `  ${theme.dim("Catalogo:")} ${theme.bold(String(prods.length))} SKUs  │  ${theme.dim("Bodega:")} ${whCity}  │  ${theme.dim("Bajo ROP:")} ${ropAlerts.length > 0 ? theme.amberBold(String(ropAlerts.length)) : theme.mint("0")}  │  ${theme.dim("Guias:")} ${activeShips.length}  │  ${theme.dim("Cargas:")} ${loads.length}  │  ${theme.dim("Inbox:")} ${pendingDecs.length}`,
     );
+    console.log(
+      `  ${theme.dim("Comandos:")} ${theme.mint("/logistics")}  ${theme.mint("/dispatch")}  ${theme.mint("/consolidate")}  ${theme.mint("/stock")}  ${theme.mint("/inbox")}  ${theme.mint("/db")}  ${theme.mint("/app")}  ${theme.mint("/logout")}  ${theme.mint("/help")}`,
+    );
+    console.log(theme.dim("  " + "─".repeat(78)));
   } catch {
     // Continuar si la BD aún no tiene tablas inicializadas
   }
 
   console.log("");
 
-  const promptPrefix = `${theme.mintBold(userName)}@${theme.cyan("mint")}:${theme.dim(`[${companyId}]`)} ${theme.mintBold("❯")} `;
+  const promptPrefix = `${theme.mintBold(userName)}@${theme.cyan("mint")}:${theme.dim(`[${companyId}]`)} > `;
 
   return new Promise<void>((resolve) => {
     const slashCommands = [
@@ -158,25 +124,19 @@ export async function consoleCommand() {
       completer,
     });
 
-    // Autonomous Live Pulse & Event Heartbeat
+    // Pulso silencioso en segundo plano (solo imprime si hay alerta nueva)
     let isScanning = false;
     const runAutonomousHeartbeat = async (isStartup = false) => {
       if (isScanning) return;
       isScanning = true;
       try {
         const { runFullOperationalEventScan } = await import("@mint/core");
-        const prods = await db.select().from(products).where(eq(products.companyId, companyId));
         const scan = await runFullOperationalEventScan(companyId);
         const timeStr = new Date().toLocaleTimeString();
 
-        if (isStartup) {
+        if (!isStartup && (scan.stockDeficitsFound > 0 || scan.delayedShipmentsFound > 0)) {
           console.log(
-            `  ${theme.mint("⚡ [Autonomous Coordinator]")} ${theme.dim(timeStr)} Escaneo inicial: ${prods.length} SKUs auditados en tiempo real, ${scan.stockDeficitsFound} desabastos detectados. Escuchando eventos 24/7...`,
-          );
-          rl.prompt(true);
-        } else if (scan.stockDeficitsFound > 0 || scan.delayedShipmentsFound > 0) {
-          console.log(
-            `\n  ${theme.amberBold("⚠️  [Autonomous Alert]")} ${theme.dim(timeStr)} Desabasto o incidencia logística detectada. ${scan.processedDecisions.length} propuesta(s) generadas en /inbox y notificadas a canales activos.`,
+            `\n  ${theme.amberBold("[ALERTA]")} ${theme.dim(timeStr)} ${scan.stockDeficitsFound} desabasto(s) / ${scan.delayedShipmentsFound} retraso(s). ${scan.processedDecisions.length} propuesta(s) en /inbox.`,
           );
           rl.prompt(true);
         }
@@ -204,7 +164,6 @@ export async function consoleCommand() {
         return;
       }
 
-      // Atajos numéricos del Flight Deck [1] a [6]
       if (trimmed === "1") trimmed = "/logistics";
       else if (trimmed === "2") trimmed = "/dispatch";
       else if (trimmed === "3") trimmed = "/consolidate";
@@ -216,7 +175,7 @@ export async function consoleCommand() {
       const cmd = rawCmd.startsWith("/") ? rawCmd.slice(1).toLowerCase() : rawCmd.toLowerCase();
 
       if (cmd === "exit" || cmd === "quit" || cmd === "q") {
-        console.log(theme.dim("\nDesconectando terminal de control autónomo. Hasta luego.\n"));
+        console.log(theme.dim("\nDesconectando terminal de control. Hasta luego.\n"));
         rl.close();
         return;
       }
@@ -231,54 +190,19 @@ export async function consoleCommand() {
         switch (cmd) {
           case "help":
           case "?": {
-            console.log("\n" + drawDivider("⚡ MINT AUTONOMOUS LOGISTICS CONTROL TOWER // GUÍA DEL SISTEMA", 88));
-            console.log(
-              drawCard(
-                [
-                  `${theme.bold("¿QUÉ HACE EL COORDINADOR LOGÍSTICO MINT?")}`,
-                  `Mint no es un chatbot pasivo: es una Torre de Control Logística multi-agente que calcula`,
-                  `Puntos de Reorden Dinámicos (ROP), evalúa Rebalanceo Inter-Almacén (Cross-Docking),`,
-                  `consolida cargas multi-SKU con Landed Cost (Producto + Flete OSRM) y despacha guías GPS.`,
-                  ``,
-                  `${theme.bold("18 HERRAMIENTAS DEL COORDINADOR (REACT + OSRM GPS):")}`,
-                  `  • consultar_stock                 • despachar_envio_cliente (Outbound + OSRM)`,
-                  `  • recibir_mercancia_envio         • consolidar_cargas_y_rebalancear`,
-                  `  • configurar_nodo_logistico_gps   • calcular_ruta_logistica (OSRM + Geocoding)`,
-                  `  • enviar_notificacion_operativa   • evaluar_proveedores (con fallback RFQ)`,
-                  `  • crear_orden_compra (+ Guía IN)  • consultar_envios / ajustar_stock`,
-                  `  • pronosticar_demanda             • simular_escenario / auditar_anomalias`,
-                ],
-                {
-                  title: "🍃 ARQUITECTURA DE TORRE LOGÍSTICA",
-                  borderColor: theme.mint,
-                },
-              ),
-            );
-
-            console.log(
-              drawCard(
-                [
-                  `  ${theme.mintBold("/logistics")}                Panel de Torre Logística, Nodos GPS y Embarques`,
-                  `  ${theme.mintBold("/dispatch")}                 Despachar pedido a cliente (bodega óptima + ruta OSRM + guía)`,
-                  `  ${theme.mintBold("/receive <guía|po>")}        Recibir embarque en almacén y sumar stock físico`,
-                  `  ${theme.mintBold("/consolidate")}              Planes de consolidación multi-SKU y Landed Cost`,
-                  `  ${theme.mintBold("/rebalance")}                Evaluar/ejecutar transferencias entre almacenes (Cross-Docking)`,
-                  `  ${theme.mintBold("/stock")}                    Existencias en tiempo real de tu catálogo`,
-                  `  ${theme.mintBold("/db [status|sync|switch]")}  Conectar o sincronizar cualquier base de datos (.sql, .csv, .sqlite)`,
-                  `  ${theme.mintBold("/app")}                      Abrir Mint Desktop App (Torre de Control Visual)`,
-                  `  ${theme.mintBold("/channels")}                 Ver, agregar y probar webhooks (Discord / Telegram / Slack)`,
-                  `  ${theme.mintBold("/inbox")}                    Bandeja de propuestas esperando autorización (HITL)`,
-                  `  ${theme.mintBold("/approve <id>")}             Aprobar propuesta (crea Orden + Embarque Inbound con ETA)`,
-                  `  ${theme.mintBold("/scan")}                     Ejecutar escaneo proactivo y notificar a Discord/Telegram`,
-                  `  ${theme.mintBold("/whoami | /logout")}         Ver usuario/empresa activa o cerrar sesión para cambiar de cuenta`,
-                ],
-                {
-                  title: "⚡ COMANDOS DE OPERACIÓN",
-                  borderColor: theme.cyan,
-                },
-              ),
-            );
-            console.log("");
+            console.log("\n" + drawDivider("COMANDOS DEL COORDINADOR LOGISTICO", 80));
+            console.log(`  ${theme.mintBold("/logistics")}                Estado de bodegas GPS, embarques y ROP`);
+            console.log(`  ${theme.mintBold("/dispatch")}                 Despachar envio a cliente (ruta OSRM + guia)`);
+            console.log(`  ${theme.mintBold("/receive <guia|po>")}        Recibir mercancia en almacen y sumar stock`);
+            console.log(`  ${theme.mintBold("/consolidate")}              Consolidacion multi-SKU y Landed Cost`);
+            console.log(`  ${theme.mintBold("/rebalance")}                Transferencias entre almacenes (Cross-Docking)`);
+            console.log(`  ${theme.mintBold("/stock")}                    Tabla de existencias en tiempo real`);
+            console.log(`  ${theme.mintBold("/inbox")}                    Propuestas pendientes de aprobacion`);
+            console.log(`  ${theme.mintBold("/approve <id>")}             Aprobar propuesta y emitir orden + guia`);
+            console.log(`  ${theme.mintBold("/db [status|sync|switch]")}  Conectar o sincronizar base de datos`);
+            console.log(`  ${theme.mintBold("/channels")}                 Gestionar canales Discord / Telegram / Slack`);
+            console.log(`  ${theme.mintBold("/app")}                      Abrir aplicacion de escritorio (Control Tower)`);
+            console.log(`  ${theme.mintBold("/whoami | /logout")}         Ver sesion activa o cerrar sesion\n`);
             break;
           }
 
@@ -362,40 +286,18 @@ export async function consoleCommand() {
           }
 
           case "matrix": {
-            console.log("\n" + drawDivider("MATRIZ DE AGENTES ESPECIALISTAS Y CONTROLLERS", 84));
-            console.log(
-              drawCard(
-                [
-                  `${theme.mintBold("1. AGENTE COORDINADOR (Harness Dispatcher):")}`,
-                  `   Recibe eventos de inventario, despacho y telemetría; evalúa Cross-Docking y Compras.`,
-                  ``,
-                  `${theme.cyanBold("2. ESPECIALISTA EN INVENTARIO Y ROP DINÁMICO:")}`,
-                  `   Calcula tasa de consumo (burn rate), días de cobertura, ROP dinámico y EOQ.`,
-                  ``,
-                  `${theme.violet("3. ESPECIALISTA EN COMPRAS Y LANDED COST:")}`,
-                  `   Evalúa proveedores homologados o RFQ directo, consolidando carga + flete OSRM.`,
-                  ``,
-                  `${theme.mintBold("4. ESPECIALISTA EN TRANSPORTE, GPS Y DESPACHOS:")}`,
-                  `   Geocodifica ubicaciones, traza rutas viales OSRM y gestiona guías Inbound/Outbound.`,
-                  ``,
-                  `${theme.amberBold("5. ESPECIALISTA EN RIESGO Y AUDITORÍA (Adversarial):")}`,
-                  `   Abogado del diablo: audita duplicados en 72h, solvencia y sobreprecios.`,
-                  ``,
-                  `${theme.redBold("6. MOTOR DE POLÍTICAS DETERMINISTA (Gatekeeper):")}`,
-                  `   Código matemático puro que autoejecuta, bloquea o escala a HITL + Discord/Telegram.`,
-                ],
-                {
-                  title: "TOPOLOGÍA DE CONTROLADORES MINT",
-                  borderColor: theme.cyan,
-                },
-              ),
-            );
-            console.log("");
+            console.log("\n" + drawDivider("ARQUITECTURA DE AGENTES ESPECIALISTAS", 80));
+            console.log(`  1. Coordinador Central      Orquesta eventos de inventario, despacho y compras.`);
+            console.log(`  2. Especialista Inventario  Calcula burn rate, cobertura y ROP dinamico.`);
+            console.log(`  3. Especialista Compras     Evalua proveedores o RFQ con Landed Cost (OSRM).`);
+            console.log(`  4. Especialista Transporte  Geocodifica nodos GPS y gestiona guias Inbound/Outbound.`);
+            console.log(`  5. Auditor de Riesgo        Verifica duplicados, sobrecostos y solvencia.`);
+            console.log(`  6. Motor de Politicas       Autoejecuta bajo umbral o escala a HITL.\n`);
             break;
           }
 
           case "harness": {
-            console.log(theme.dim("\nEjecutando Harness Multi-Agente en paralelo..."));
+            console.log(theme.dim("\nEjecutando Harness Multi-Agente..."));
             let targetProductId = "";
             if (args[0]) {
               const found = await db.select().from(products).where(eq(products.sku, args[0])).limit(1);
@@ -418,7 +320,7 @@ export async function consoleCommand() {
               severity: "CRITICAL",
             });
 
-            console.log("\n" + drawDivider(`ÁRBOL DE RAZONAMIENTO MULTI-AGENTE [${hResult.harnessId}]`, 84));
+            console.log("\n" + drawDivider(`DELIBERACION MULTI-AGENTE [${hResult.harnessId}]`, 80));
             console.log("\n" + theme.mintBold(hResult.asciiReasoningTree) + "\n");
 
             if (hResult.recommendedScenario) {
@@ -427,22 +329,18 @@ export async function consoleCommand() {
                 drawCard(
                   [
                     `${theme.dim("Estrategia:")}  ${theme.bold(sc.title)}`,
-                    `${theme.dim("Proveedor:")}   ${theme.cyanBold(sc.supplierName)} (Entrega en ${sc.deliveryDays} días)`,
+                    `${theme.dim("Proveedor:")}   ${theme.cyanBold(sc.supplierName)} (${sc.deliveryDays} dias)`,
                     `${theme.dim("Monto:")}       $${sc.totalCostMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`,
-                    `${theme.dim("Riesgo:")}      ${theme.badge(`${(sc.riskScore * 100).toFixed(0)}%`, sc.riskScore > 0.4 ? "red" : "mint")}`,
+                    `${theme.dim("Riesgo:")}      ${(sc.riskScore * 100).toFixed(0)}%`,
                     `${theme.dim("Veredicto:")}   ${theme.bold(sc.policyDecision.toUpperCase())}`,
-                    `${theme.dim("Firma:")}       ${theme.dim(hResult.auditSignature)}`,
                   ],
                   {
-                    title: "PROPUESTA FINAL SINTETIZADA",
-                    badge: sc.policyDecision.toUpperCase(),
-                    badgeColor: sc.policyDecision === "auto_executed" ? "mint" : "amber",
+                    title: "PROPUESTA SINTETIZADA",
                     borderColor: theme.mint,
                   },
                 ),
               );
             }
-            console.log("");
             break;
           }
 
@@ -487,7 +385,7 @@ export async function consoleCommand() {
 
           case "approve": {
             if (!args[0]) {
-              console.log(theme.amber("Debes especificar el ID de la decisión a aprobar. Ej: /approve dec_123"));
+              console.log(theme.amber("Especifica el ID de la decision. Ej: /approve dec_123"));
             } else {
               const { inboxCommand } = require("./inbox");
               await inboxCommand("approve", args[0], { noExit: true });
@@ -497,7 +395,7 @@ export async function consoleCommand() {
 
           case "reject": {
             if (!args[0]) {
-              console.log(theme.amber("Debes especificar el ID de la decisión a rechazar. Ej: /reject dec_123"));
+              console.log(theme.amber("Especifica el ID de la decision. Ej: /reject dec_123"));
             } else {
               const { inboxCommand } = require("./inbox");
               await inboxCommand("reject", args[0], { noExit: true });
@@ -519,10 +417,10 @@ export async function consoleCommand() {
 
           case "scan": {
             const { runFullOperationalEventScan } = require("@mint/core");
-            console.log(theme.muted("🔍 Ejecutando escaneo proactivo de stock, ROP y transporte en base de datos..."));
+            console.log(theme.muted("Ejecutando escaneo de stock, ROP y transporte..."));
             const res = await runFullOperationalEventScan(companyId);
             console.log(
-              `\n${theme.success("✔")} Escaneo completado: ${theme.bold(res.stockDeficitsFound)} desabastos detectados, ${theme.bold(res.delayedShipmentsFound)} retrasos de transporte, ${theme.bold(res.processedDecisions.length)} propuestas enviadas a /inbox y notificadas a canales activos.\n`,
+              `  [OK] ${res.stockDeficitsFound} desabastos, ${res.delayedShipmentsFound} retrasos, ${res.processedDecisions.length} propuestas en /inbox.`,
             );
             break;
           }
@@ -588,7 +486,7 @@ export async function consoleCommand() {
           case "logout": {
             const { logoutCommand } = require("./whoami");
             await logoutCommand();
-            console.log(theme.dim("  Cerrando consola actual. Ejecuta 'mint' o 'mint login' para iniciar sesión con otra cuenta.\n"));
+            console.log(theme.dim("  Sesion cerrada. Ejecuta 'npm start' para registrar o iniciar otra cuenta.\n"));
             rl.close();
             return;
           }
@@ -603,10 +501,9 @@ export async function consoleCommand() {
           default: {
             if (rawCmd.startsWith("/")) {
               console.log(
-                theme.amber(`Comando '${rawCmd}' no reconocido. Escribe ${theme.mintBold("/help")} para ver los comandos disponibles.`),
+                theme.amber(`Comando '${rawCmd}' no reconocido. Escribe ${theme.mintBold("/help")} para ver la lista.`),
               );
             } else {
-              // Conversación directa con el Coordinador Logístico en lenguaje natural
               const { chatCommand } = require("./chat");
               await chatCommand(trimmed, { noExit: true });
             }
@@ -614,7 +511,7 @@ export async function consoleCommand() {
           }
         }
       } catch (err: any) {
-        console.error(theme.redBold(`❌ Error ejecutando '${cmd}': ${err.message}`));
+        console.error(theme.redBold(`[ERROR] '${cmd}': ${err.message}`));
       }
 
       console.log("");

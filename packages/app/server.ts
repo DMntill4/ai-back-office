@@ -372,9 +372,7 @@ app.get("/api/dashboard", async (req) => {
 
   const outOfStock = inventoryMapped.filter((p) => p.stock === 0).length;
   const lowStock = inventoryMapped.filter((p) => p.stock > 0 && p.stock <= p.minStock).length;
-  const pendingDecisions = decs.filter(
-    (d) => d.policyDecision === "escalated_to_human" || d.policyDecision === "pending_approval",
-  ).length;
+  const pendingDecisions = decs.filter((d) => d.policyDecision === "pending_approval").length;
   const activeShipmentsCount = ships.filter((s) => s.status === "en_transito" || s.status === "retrasado").length;
 
   const totalSpend = decs
@@ -426,9 +424,7 @@ app.get("/api/approvals", async () => {
 
   return {
     success: true,
-    data: allDecs.filter(
-      (d) => d.policyDecision === "escalated_to_human" || d.policyDecision === "pending_approval",
-    ),
+    data: allDecs.filter((d) => d.policyDecision === "pending_approval"),
   };
 });
 

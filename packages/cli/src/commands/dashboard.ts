@@ -152,7 +152,7 @@ export async function dashboardCommand(options: { json?: boolean; noExit?: boole
           `${theme.dim("Operations:")}    ${activeCases.length} active case(s)  │  ${inboxStatus}`,
         ],
         {
-          title: "📊 OPERATIONAL STATUS & HEALTH",
+          title: "OPERATIONAL STATUS & HEALTH",
           borderColor: theme.mint,
         },
       ),
@@ -162,7 +162,7 @@ export async function dashboardCommand(options: { json?: boolean; noExit?: boole
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error al generar dashboard: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] ${err.message}`));
     }
     if (!options.noExit) {
       process.exit(1);

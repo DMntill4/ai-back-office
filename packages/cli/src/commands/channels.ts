@@ -33,7 +33,7 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
             `  ${theme.bold("/app")}                                Configurar y probar canales con 1 clic en la App`,
           ],
           {
-            title: "📡 CANALES DE NOTIFICACIÓN",
+            title: "CANALES DE NOTIFICACION",
             borderColor: theme.amber,
           },
         ),
@@ -99,7 +99,7 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
 
     if (type === "discord" || type === "slack") {
       if (!targetUrl.startsWith("http")) {
-        console.log(theme.redBold("❌ La URL del webhook debe iniciar con https://..."));
+        console.log(theme.redBold("[ERROR] La URL del webhook debe iniciar con https://..."));
         return;
       }
       config.webhookUrl = targetUrl;
@@ -117,18 +117,18 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
       config,
     });
 
-    console.log(`\n  ${theme.success("✔")} Canal registrado con éxito en base de datos.`);
+    console.log(`\n  ${theme.success("[OK]")} Canal registrado con exito en base de datos.`);
     console.log(`  ${theme.dim("Enviando mensaje de prueba de conectividad...")}`);
 
     try {
       const pingRes = await testNotificationChannel(type, config);
       if (pingRes.success) {
-        console.log(`  ${theme.success("✔")} ${theme.mintBold("¡Mensaje entregado con éxito al canal!")} (Status: 200/204)`);
+        console.log(`  ${theme.success("[OK]")} ${theme.mintBold("Mensaje entregado con exito al canal")} (Status: 200/204)`);
       } else {
-        console.log(`  ${theme.amberBold("⚠️  El canal se guardó, pero el ping devolvió:")} ${pingRes.error || "No se pudo verificar"}`);
+        console.log(`  ${theme.amberBold("[AVISO] El canal se guardo, pero el ping devolvio:")} ${pingRes.error || "No se pudo verificar"}`);
       }
     } catch (err: any) {
-      console.log(`  ${theme.redBold("❌ Error al probar entrega:")} ${err.message}`);
+      console.log(`  ${theme.redBold("[ERROR] Error al probar entrega:")} ${err.message}`);
     }
     console.log("");
     return;
@@ -149,14 +149,14 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
     try {
       const res = await testNotificationChannel(channel.type as any, (channel.config as any) || {});
       if (res.success) {
-        console.log(`\n  ${theme.success("✔")} ${theme.mintBold("¡Prueba exitosa! Mensaje recibido en tu canal.")}`);
+        console.log(`\n  ${theme.success("[OK]")} ${theme.mintBold("Prueba exitosa. Mensaje recibido en tu canal.")}`);
         console.log(`  ${theme.dim("ID de entrega:")} ${res.messageId}`);
         if (res.details) console.log(`  ${theme.dim("Detalles:")} ${JSON.stringify(res.details)}`);
       } else {
-        console.log(`\n  ${theme.redBold("❌ Error de entrega:")} ${res.error}`);
+        console.log(`\n  ${theme.redBold("[ERROR] Error de entrega:")} ${res.error}`);
       }
     } catch (err: any) {
-      console.log(`\n  ${theme.redBold("❌ Error de red:")} ${err.message}`);
+      console.log(`\n  ${theme.redBold("[ERROR] Error de red:")} ${err.message}`);
     }
     console.log("");
     return;
@@ -168,7 +168,7 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
       return;
     }
     await db.delete(notificationChannels).where(eq(notificationChannels.id, arg1));
-    console.log(`\n  ${theme.success("✔")} Canal '${arg1}' eliminado de PostgreSQL.\n`);
+    console.log(`\n  ${theme.success("[OK]")} Canal '${arg1}' eliminado de PostgreSQL.\n`);
     return;
   }
 
@@ -192,25 +192,25 @@ export async function settingsCommand() {
     drawCard(
       [
         `${theme.bold("EMPRESA Y USUARIO ACTIVO:")}`,
-        `  • Organización:   ${theme.mintBold(session?.companyName || companyId)} [${companyId}]`,
-        `  • Operador:       ${theme.bold(session?.name || "Dale")} <${session?.email || "dalej@gmail.com"}> (Rol: ${session?.role || "owner"})`,
+        `  - Organizacion:   ${theme.mintBold(session?.companyName || companyId)} [${companyId}]`,
+        `  - Operador:       ${theme.bold(session?.name || "Dale")} <${session?.email || "dalej@gmail.com"}> (Rol: ${session?.role || "owner"})`,
         ``,
-        `${theme.bold("GOBERNANZA FINANCIERA Y AUTONOMÍA (PRODUCCIÓN):")}`,
-        `  • Modo de Operación:  ${theme.badge("HUMAN-IN-THE-LOOP 100%", "mint")} (CERO compras automáticas)`,
-        `  • Política de Compras: Toda orden de reposición requiere autorización humana en ${theme.mintBold("/inbox")}.`,
-        `  • Presupuesto Máximo:  Definido por orden en cada propuesta evaluada por el equipo multi-agente.`,
+        `${theme.bold("GOBERNANZA FINANCIERA Y AUTONOMIA (PRODUCCION):")}`,
+        `  - Modo de Operacion:  ${theme.badge("HUMAN-IN-THE-LOOP 100%", "mint")} (CERO compras automaticas)`,
+        `  - Politica de Compras: Toda orden de reposicion requiere autorizacion humana en ${theme.mintBold("/inbox")}.`,
+        `  - Presupuesto Maximo:  Definido por orden en cada propuesta evaluada por el equipo multi-agente.`,
         ``,
-        `${theme.bold("CANALES DE COMUNICACIÓN CONECTADOS:")}`,
+        `${theme.bold("CANALES DE COMUNICACION CONECTADOS:")}`,
         channels.length > 0
-          ? channels.map((c) => `  • ${c.type.toUpperCase()}: ${theme.bold(c.name)} (${c.isActive ? theme.mint("Activo") : theme.amber("Pausado")})`).join("\n")
-          : `  • ${theme.amber("Ningún canal remoto conectado. Agrega uno con /channels add discord <url>")}`,
+          ? channels.map((c) => `  - ${c.type.toUpperCase()}: ${theme.bold(c.name)} (${c.isActive ? theme.mint("Activo") : theme.amber("Pausado")})`).join("\n")
+          : `  - ${theme.amber("Ningun canal remoto conectado. Agrega uno con /channels add discord <url>")}`,
         ``,
-        `${theme.bold("BASE DE DATOS Y CATÁLOGO:")}`,
-        `  • Motor:          PostgreSQL 15 (Supabase AWS Pooler)`,
-        `  • Catálogo Real:  25 herramientas auditadas en tiempo real (0 datos ficticios)`,
+        `${theme.bold("BASE DE DATOS Y CATALOGO:")}`,
+        `  - Motor:          PostgreSQL 15 (Supabase AWS Pooler)`,
+        `  - Catalogo Real:  Sincronizado en tiempo real (0 datos ficticios)`,
       ],
       {
-        title: "⚙️ AJUSTES Y GOBERNANZA MINT",
+        title: "AJUSTES Y GOBERNANZA MINT",
         borderColor: theme.cyan,
       },
     ),

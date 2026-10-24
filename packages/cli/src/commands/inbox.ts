@@ -20,11 +20,10 @@ export async function inboxCommand(
         console.log(JSON.stringify(res));
       } else {
         if (res.success) {
-          console.log(`\n${theme.success("✔")} Decisión ${theme.bold(targetId)} ${theme.mintBold("APROBADA")}.`);
-          console.log(`   ${res.message}`);
-          console.log(`   ${theme.muted("Post-verificación en base de datos relacional confirmada.")}\n`);
+          console.log(`\n  [OK] Decision ${theme.bold(targetId)} ${theme.mintBold("APROBADA")}.`);
+          console.log(`  ${res.message}\n`);
         } else {
-          console.error(theme.redBold(`❌ Falló la aprobación: ${res.message}`));
+          console.error(theme.redBold(`  [ERROR] Fallo la aprobacion: ${res.message}`));
         }
       }
       return;
@@ -32,7 +31,7 @@ export async function inboxCommand(
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: err.message }));
       } else {
-        console.error(theme.redBold(`❌ Error al aprobar decisión: ${err.message}`));
+        console.error(theme.redBold(`  [ERROR] ${err.message}`));
       }
       if (!options.noExit) {
         process.exit(1);
@@ -52,14 +51,14 @@ export async function inboxCommand(
       if (options.json) {
         console.log(JSON.stringify({ success: true, message: `Decisión ${targetId} rechazada.` }));
       } else {
-        console.log(`\n${theme.warning("⚠")} Decisión ${theme.bold(targetId)} ${theme.amberBold("RECHAZADA")} y archivada en bitácora.\n`);
+        console.log(`\n  [OK] Decision ${theme.bold(targetId)} ${theme.amberBold("RECHAZADA")} y archivada.\n`);
       }
       return;
     } catch (err: any) {
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: err.message }));
       } else {
-        console.error(theme.redBold(`❌ Error al rechazar decisión: ${err.message}`));
+        console.error(theme.redBold(`  [ERROR] ${err.message}`));
       }
       if (!options.noExit) {
         process.exit(1);
@@ -81,11 +80,10 @@ export async function inboxCommand(
       return;
     }
 
-    console.log("\n" + drawDivider(`BANDEJA DE DECISIONES PENDIENTES (HITL) [${companyId}]`, 86));
+    console.log("\n" + drawDivider(`BANDEJA DE DECISIONES PENDIENTES (HITL) [${companyId}]`, 84));
 
     if (pending.length === 0) {
-      console.log(`\n  ${theme.success("✨ No hay decisiones pendientes de supervisión humana.")}`);
-      console.log(`  ${theme.muted("El agente autónomo mantiene todas las operaciones y alertas al día.")}\n`);
+      console.log(`\n  ${theme.mint("[OK] No hay decisiones pendientes de supervision humana.")}\n`);
       return;
     }
 

@@ -18,8 +18,8 @@ export async function loginCommand(email?: string, password?: string, options: {
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: "Usuario no encontrado" }));
       } else {
-        console.error(theme.redBold(`❌ Error de autenticación: Usuario '${targetEmail}' no encontrado.`));
-        console.log(`  ${theme.dim("Ejecuta 'mint' para iniciar el asistente de bienvenida y registrar tu perfil.")}\n`);
+        console.error(theme.redBold(`[ERROR] Error de autenticacion: Usuario '${targetEmail}' no encontrado.`));
+        console.log(`  ${theme.dim("Ejecuta 'npm start' para iniciar el asistente de bienvenida y registrar tu perfil.")}\n`);
       }
       process.exit(1);
     }
@@ -57,7 +57,7 @@ export async function loginCommand(email?: string, password?: string, options: {
             `${theme.dim("Keychain:")}  Token cifrado con AES-256-GCM y guardado localmente.`,
           ],
           {
-            title: "AUTENTICACIÓN EXITOSA",
+            title: "AUTENTICACION EXITOSA",
             badge: "CONECTADO",
             badgeColor: "mint",
             borderColor: theme.mint,
@@ -70,7 +70,7 @@ export async function loginCommand(email?: string, password?: string, options: {
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error al conectar con base de datos: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error al conectar con base de datos: ${err.message}`));
     }
     process.exit(1);
   }

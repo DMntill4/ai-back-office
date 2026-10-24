@@ -30,7 +30,7 @@
 
       <div class="titlebar-actions">
         <button id="btnForceScan" class="btn btn-mint btn-sm" title="Ejecutar auditoría inmediata de stock, ROP y transporte">
-          ⚡ Escanear & Notificar
+          Escanear & Notificar
         </button>
         <span class="badge badge-outline" id="daemonStatusBadge">DAEMON 24/7 ONLINE</span>
       </div>
@@ -42,36 +42,29 @@
       <aside class="app-sidebar">
         <nav class="nav-menu">
           <button class="nav-item active" data-tab="dashboard">
-            <span class="nav-icon">📊</span>
             <span class="nav-label">Dashboard Operativo</span>
           </button>
           <button class="nav-item" data-tab="logistics">
-            <span class="nav-icon">🚚</span>
-            <span class="nav-label">Torre Logística & GPS</span>
+            <span class="nav-label">Torre Logistica & GPS</span>
             <span class="nav-pill" id="shipmentsCountPill">0</span>
           </button>
           <button class="nav-item" data-tab="agent">
-            <span class="nav-icon">🤖</span>
             <span class="nav-label">Coordinador IA</span>
           </button>
           <button class="nav-item" data-tab="inventory">
-            <span class="nav-icon">📦</span>
             <span class="nav-label">Inventario & ROP</span>
             <span class="nav-pill" id="productsCountPill">0</span>
           </button>
           <button class="nav-item" data-tab="decisions">
-            <span class="nav-icon">⚖️</span>
             <span class="nav-label">Bandeja HITL</span>
             <span class="nav-pill pill-amber" id="pendingDecisionsPill">0</span>
           </button>
           <button class="nav-item" data-tab="channels">
-            <span class="nav-icon">📡</span>
             <span class="nav-label">Canales Discord/TG</span>
             <span class="nav-pill" id="channelsCountPill">0</span>
           </button>
           <button class="nav-item" data-tab="logs">
-            <span class="nav-icon">📜</span>
-            <span class="nav-label">Auditoría & Logs</span>
+            <span class="nav-label">Auditoria & Logs</span>
           </button>
         </nav>
 
@@ -95,8 +88,8 @@
         <section id="view-dashboard" class="view-pane active">
           <div class="view-header">
             <div>
-              <h1 class="view-title">Torre de Control Logístico y Abastecimiento</h1>
-              <p class="view-subtitle">Supervisión autónoma 24/7 de existencias, rutas OSRM, consolidación de cargas y canales Discord/Telegram.</p>
+              <h1 class="view-title">Torre de Control Logistico y Abastecimiento</h1>
+              <p class="view-subtitle">Supervision autonoma 24/7 de existencias, rutas OSRM, consolidacion de cargas y canales Discord/Telegram.</p>
             </div>
             <div class="header-metric">
               <span class="metric-label">Presupuesto Compras Aprobadas</span>
@@ -107,24 +100,24 @@
           <!-- KPI Cards -->
           <div class="kpi-grid">
             <div class="kpi-card">
-              <span class="kpi-title">Catálogo Auditado</span>
+              <span class="kpi-title">Catalogo Auditado</span>
               <span class="kpi-num text-mint" id="kpiTotalProducts">0</span>
               <span class="kpi-foot">SKUs reales sincronizados</span>
             </div>
             <div class="kpi-card">
-              <span class="kpi-title">En Nivel Óptimo</span>
+              <span class="kpi-title">En Nivel Optimo</span>
               <span class="kpi-num text-mint" id="kpiHealthy">0</span>
               <span class="kpi-foot">Sobre Punto de Reorden (ROP)</span>
             </div>
             <div class="kpi-card">
               <span class="kpi-title">Stock Bajo / ROP</span>
               <span class="kpi-num text-amber" id="kpiLowStock">0</span>
-              <span class="kpi-foot">Requieren consolidación o compra</span>
+              <span class="kpi-foot">Requieren consolidacion o compra</span>
             </div>
             <div class="kpi-card">
               <span class="kpi-title">Agotados (Quiebre)</span>
               <span class="kpi-num text-red" id="kpiOutOfStock">0</span>
-              <span class="kpi-foot">Prioridad crítica de reposición</span>
+              <span class="kpi-foot">Prioridad critica de reposicion</span>
             </div>
           </div>
 
@@ -132,22 +125,22 @@
           <div class="dashboard-grid">
             <div class="card card-hero">
               <div class="card-header">
-                <h2>🚚 Coordinador Logístico Autónomo (No Chatbot)</h2>
+                <h2>Coordinador Logistico Autonomo</h2>
                 <span class="badge badge-mint">REACT + OSRM GPS</span>
               </div>
               <p class="card-desc">
-                Mint evalúa en tiempo real tu catálogo, calcula <strong>Puntos de Reorden Dinámicos (ROP)</strong>, verifica primero si otra bodega tiene excedente (<strong>Cross-Docking</strong>), consolida cargas multi-SKU con <strong>Landed Cost</strong> (Producto + Flete Carretero OSRM) y despacha guías Inbound/Outbound con coordenadas GPS reales.
+                Mint evalua en tiempo real tu catalogo, calcula <strong>Puntos de Reorden Dinamicos (ROP)</strong>, verifica primero si otra bodega tiene excedente (<strong>Cross-Docking</strong>), consolida cargas multi-SKU con <strong>Landed Cost</strong> (Producto + Flete Carretero OSRM) y despacha guias Inbound/Outbound con coordenadas GPS reales.
               </p>
               <div class="hero-actions">
-                <button class="btn btn-mint" onclick="switchTab('logistics')">Abrir Torre Logística & Despachos GPS</button>
-                <button class="btn btn-secondary" onclick="switchTab('agent')">Ejecutar Misión con Coordinador IA</button>
+                <button class="btn btn-mint" onclick="switchTab('logistics')">Abrir Torre Logistica & Despachos GPS</button>
+                <button class="btn btn-secondary" onclick="switchTab('agent')">Ejecutar Mision con Coordinador IA</button>
                 <button class="btn btn-outline" onclick="switchTab('channels')">Vincular Discord / Telegram</button>
               </div>
             </div>
 
             <div class="card card-channels-summary">
               <div class="card-header">
-                <h2>📡 Canales de Alerta Activos</h2>
+                <h2>Canales de Alerta Activos</h2>
                 <button class="btn btn-outline btn-xs" onclick="switchTab('channels')">+ Agregar Canal</button>
               </div>
               <div id="dashboardChannelsList" class="mini-channels-list">
@@ -161,45 +154,45 @@
         <section id="view-logistics" class="view-pane">
           <div class="view-header">
             <div>
-              <h1 class="view-title">🚚 Torre Logística, GPS, Rutas OSRM & Despachos</h1>
-              <p class="view-subtitle">Despacha pedidos a clientes desde la bodega más cercana, recibe mercancía en tránsito y consolida cargas con Landed Cost.</p>
+              <h1 class="view-title">Torre Logistica, GPS, Rutas OSRM & Despachos</h1>
+              <p class="view-subtitle">Despacha pedidos a clientes desde la bodega mas cercana, recibe mercancia en transito y consolida cargas con Landed Cost.</p>
             </div>
-            <button class="btn btn-outline btn-sm" onclick="loadLogisticsOverview()">🔄 Actualizar Telemetría GPS</button>
+            <button class="btn btn-outline btn-sm" onclick="loadLogisticsOverview()">Actualizar Telemetria GPS</button>
           </div>
 
           <!-- Action Forms Row: Outbound Dispatch + Route Calculator + Node GPS Geocoder -->
           <div class="dashboard-grid" style="margin-bottom: 20px;">
             <div class="card">
               <div class="card-header">
-                <h2>📤 Despachar Envío a Cliente (Outbound + OSRM)</h2>
+                <h2>Despachar Envio a Cliente (Outbound + OSRM)</h2>
                 <span class="badge badge-mint">AUTO-BODEGA</span>
               </div>
               <form id="dispatchForm" style="display:grid; gap:10px; margin-top:10px;">
                 <input type="text" id="dispProduct" class="form-input" placeholder="SKU, ID o Nombre del Producto" required>
                 <div style="display:grid; grid-template-columns: 1fr 2fr; gap:10px;">
                   <input type="number" id="dispQty" class="form-input" placeholder="Cantidad" value="5" min="1" required>
-                  <input type="text" id="dispDest" class="form-input" placeholder="Ciudad o Dirección Destino (ej: Monterrey, NL)" required>
+                  <input type="text" id="dispDest" class="form-input" placeholder="Ciudad o Direccion Destino (ej: Monterrey, NL)" required>
                 </div>
                 <input type="text" id="dispCustomer" class="form-input" placeholder="Cliente o Sucursal Receptora (ej: Planta Norte)">
-                <button type="submit" class="btn btn-mint">🚚 Calcular Ruta OSRM, Descontar Stock y Emitir Guía</button>
+                <button type="submit" class="btn btn-mint">Calcular Ruta OSRM, Descontar Stock y Emitir Guia</button>
               </form>
               <div id="dispatchResultBox" style="margin-top:10px; font-size:13px; color:var(--mint);"></div>
             </div>
 
             <div class="card">
               <div class="card-header">
-                <h2>📍 Geocodificar Nodo GPS y Calcular Flete OSRM</h2>
+                <h2>Geocodificar Nodo GPS y Calcular Flete OSRM</h2>
               </div>
               <form id="nodeGpsForm" style="display:grid; gap:8px; margin-top:10px;">
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                   <select id="nodeTypeSelect" class="form-input">
-                    <option value="warehouse">🏭 Almacén / Bodega</option>
-                    <option value="supplier">🏢 Proveedor</option>
+                    <option value="warehouse">Almacen / Bodega</option>
+                    <option value="supplier">Proveedor</option>
                   </select>
                   <input type="text" id="nodeNameInput" class="form-input" placeholder="Nombre (ej: Central)" value="Central" required>
                 </div>
                 <div style="display:grid; grid-template-columns: 2fr 1fr; gap:8px;">
-                  <input type="text" id="nodeCityInput" class="form-input" placeholder="Ciudad o Dirección (ej: Querétaro, MX)" required>
+                  <input type="text" id="nodeCityInput" class="form-input" placeholder="Ciudad o Direccion (ej: Queretaro, MX)" required>
                   <button type="submit" class="btn btn-outline">Guardar GPS</button>
                 </div>
               </form>
@@ -220,20 +213,20 @@
           <!-- Active Shipments Table -->
           <div class="card" style="margin-bottom: 20px;">
             <div class="card-header">
-              <h2>📦 Embarques y Guías Activas (Inbound & Outbound)</h2>
+              <h2>Embarques y Guias Activas (Inbound & Outbound)</h2>
               <span class="badge badge-outline">RECEPCIONA EN 1 CLIC</span>
             </div>
             <div class="table-container" style="margin-top:12px;">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>GUÍA</th>
+                    <th>GUIA</th>
                     <th>ORIGEN</th>
                     <th>DESTINO</th>
                     <th>TRANSPORTISTA</th>
                     <th>ETA</th>
                     <th>ESTADO</th>
-                    <th class="text-center">ACCIÓN</th>
+                    <th class="text-center">ACCION</th>
                   </tr>
                 </thead>
                 <tbody id="shipmentsTableBody">
@@ -247,16 +240,16 @@
           <div class="dashboard-grid">
             <div class="card">
               <div class="card-header">
-                <h2>🚛 Consolidación de Cargas Multi-SKU (Landed Cost)</h2>
+                <h2>Consolidacion de Cargas Multi-SKU (Landed Cost)</h2>
               </div>
               <div id="consolidatedLoadsBox" style="margin-top:10px;">
-                <div class="empty-hint">Calculando consolidación de cargas...</div>
+                <div class="empty-hint">Calculando consolidacion de cargas...</div>
               </div>
             </div>
 
             <div class="card">
               <div class="card-header">
-                <h2>🗺️ Nodos Logísticos con Coordenadas GPS</h2>
+                <h2>Nodos Logisticos con Coordenadas GPS</h2>
               </div>
               <div id="logisticsNodesBox" style="margin-top:10px;">
                 <div class="empty-hint">Cargando almacenes y proveedores...</div>
@@ -269,17 +262,17 @@
         <section id="view-agent" class="view-pane">
           <div class="view-header">
             <div>
-              <h1 class="view-title">🤖 Consola del Coordinador Logístico IA (18 Herramientas Reales)</h1>
-              <p class="view-subtitle">Ordena despachos, consolidaciones, auditorías de stock, rutas OSRM o envío de reportes a Discord/Telegram.</p>
+              <h1 class="view-title">Consola del Coordinador Logistico IA (18 Herramientas Reales)</h1>
+              <p class="view-subtitle">Ordena despachos, consolidaciones, auditorias de stock, rutas OSRM o envio de reportes a Discord/Telegram.</p>
             </div>
           </div>
 
           <div class="card" style="margin-bottom: 16px;">
             <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Ejecuta consolidar_cargas_y_rebalancear y dime el plan de compras con Landed Cost.')">📦 Consolidar Cargas & ROP</button>
-              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Calcula la ruta logística y costo de flete OSRM entre Querétaro y Monterrey.')">🗺️ Calcular Flete OSRM</button>
-              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Audita anomalías de inventario y dime qué productos están bajo el mínimo.')">🔍 Auditar Desabastos</button>
-              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Envía una notificación operativa a nuestros canales de Discord/Telegram con el resumen de stock.')">📡 Enviar Reporte a Discord/TG</button>
+              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Ejecuta consolidar_cargas_y_rebalancear y dime el plan de compras con Landed Cost.')">Consolidar Cargas & ROP</button>
+              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Calcula la ruta logistica y costo de flete OSRM entre Queretaro y Monterrey.')">Calcular Flete OSRM</button>
+              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Audita anomalias de inventario y dime que productos estan bajo el minimo.')">Auditar Desabastos</button>
+              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Envia una notificacion operativa a nuestros canales de Discord/Telegram con el resumen de stock.')">Enviar Reporte a Discord/TG</button>
             </div>
             <form id="agentChatForm" style="display:grid; grid-template-columns: 1fr auto; gap:10px;">
               <input type="text" id="agentChatInput" class="form-input" placeholder="Ej: Despacha 3 unidades del primer producto hacia Monterrey, NL o consolida las cargas..." required>
@@ -391,19 +384,19 @@
         </div>
         <form id="channelForm" class="modal-body">
           <div class="form-group">
-            <label>Plataforma de Notificación</label>
+            <label>Plataforma de Notificacion</label>
             <div class="platform-selector">
               <label class="platform-option">
                 <input type="radio" name="channelPlatform" value="discord" checked>
-                <span class="platform-pill">🎮 Discord</span>
+                <span class="platform-pill">Discord</span>
               </label>
               <label class="platform-option">
                 <input type="radio" name="channelPlatform" value="slack">
-                <span class="platform-pill">💬 Slack</span>
+                <span class="platform-pill">Slack</span>
               </label>
               <label class="platform-option">
                 <input type="radio" name="channelPlatform" value="telegram">
-                <span class="platform-pill">✈️ Telegram</span>
+                <span class="platform-pill">Telegram</span>
               </label>
             </div>
           </div>
@@ -435,19 +428,19 @@
             <div class="checkbox-grid">
               <label class="checkbox-label">
                 <input type="checkbox" name="channelTopics" value="stock" checked>
-                <span>📦 Actualizaciones y Quiebres de Stock</span>
+                <span>Actualizaciones y Quiebres de Stock</span>
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" name="channelTopics" value="critical" checked>
-                <span>⚠️ Alertas Críticas de Inventario</span>
+                <span>Alertas Criticas de Inventario</span>
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" name="channelTopics" value="logistics" checked>
-                <span>🚚 Pedidos, Envíos y Compras HITL</span>
+                <span>Pedidos, Envios y Compras HITL</span>
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" name="channelTopics" value="logs" checked>
-                <span>📜 Telemetría y Logs del Daemon</span>
+                <span>Telemetria y Logs del Daemon</span>
               </label>
             </div>
           </div>

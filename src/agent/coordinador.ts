@@ -219,20 +219,7 @@ export async function coordinateOperationalEvent(params: {
   // 10.1 Despachar notificación proactiva a Discord / Telegram / Slack si hay canales activos
   try {
     const { dispatchDecisionNotification } = await import("@mint/notifiers");
-    await dispatchDecisionNotification({
-      id: decisionId,
-      companyId,
-      caseId,
-      title: proposal.title,
-      actionType: proposal.actionType,
-      proposingAgent: proposal.proposingAgent,
-      costMxn: proposal.costMxn,
-      riskScore: proposal.riskAssessment.riskScore,
-      policyDecision: policyResult.policyDecision,
-      policyReason: policyResult.reason,
-      evidence: proposal.evidence,
-      risk: proposal.riskAssessment,
-    });
+    await dispatchDecisionNotification(decisionId, companyId);
   } catch {
     // Continuar silenciosamente si no hay canales activos o en entorno de test aislado
   }

@@ -115,7 +115,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       if (GMAIL_REGEX.test(email)) {
         break;
       }
-      console.log(`  ${theme.redBold("❌ Invalid email:")} Only Gmail accounts (e.g. yourname@gmail.com) are accepted for automated operational alerts.\n`);
+      console.log(`  ${theme.redBold("[ERROR] Invalid email:")} Only Gmail accounts (e.g. yourname@gmail.com) are accepted for automated operational alerts.\n`);
     }
 
     // Validate operator password
@@ -129,7 +129,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       if (password.length >= 6) {
         break;
       }
-      console.log(`  ${theme.redBold("❌ Password too short:")} Must be at least 6 characters.\n`);
+      console.log(`  ${theme.redBold("[ERROR] Password too short:")} Must be at least 6 characters.\n`);
     }
 
     const warehouseCity = await ask(
@@ -184,7 +184,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     }).catch(() => null);
 
     // Real suppliers are populated from database/project SQL schemas in Step 2 without fabricating fake vendors
-    console.log(`\n  ${theme.success("✔")} Profile registered & verified with Gmail: ${theme.mintBold(email)}.\n`);
+    console.log(`\n  [OK] Profile registered & verified with Gmail: ${theme.mintBold(email)}.\n`);
 
     // -------------------------------------------------------------
     // STEP 2: CONNECT REAL DATA SOURCE (DATABASE / INVENTORY)
@@ -211,14 +211,14 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
 
     console.log(`  How would you like to connect your database or catalog?`);
     if (localProjects.length > 0) {
-      console.log(`    ${theme.mintBold(`[1] ⚡ Quick connect a detected project (select 1-${localProjects.length})`)}`);
-      console.log(`    ${theme.cyanBold(`[2] 💬 Chat with AI to find anywhere (e.g. "busca en downloads mi proyecto...", "está en D:\\repos")`)}`);
-      console.log(`    ${theme.dim("[3] 📁 Enter file path or database URI (.sqlite, .db, .sql, .csv)")}`);
-      console.log(`    ${theme.dim("[4] ⏭  Skip for now (start with a clean, empty catalog)")}`);
+      console.log(`    ${theme.mintBold(`[1] Quick connect a detected project (select 1-${localProjects.length})`)}`);
+      console.log(`    ${theme.cyanBold(`[2] Chat with AI to find anywhere (e.g. "busca en downloads mi proyecto...", "está en D:\\repos")`)}`);
+      console.log(`    ${theme.dim("[3] Enter file path or database URI (.sqlite, .db, .sql, .csv)")}`);
+      console.log(`    ${theme.dim("[4] Skip for now (start with a clean, empty catalog)")}`);
     } else {
-      console.log(`    ${theme.cyanBold(`[1] 💬 Chat with AI to find your project (e.g. "busca en downloads mi proyecto...", "está en C:\\work")`)}`);
-      console.log(`    ${theme.dim("[2] 📁 Enter file path or database URI (.sqlite, .db, .sql, .csv)")}`);
-      console.log(`    ${theme.dim("[3] ⏭  Skip for now (start with a clean, empty catalog)")}`);
+      console.log(`    ${theme.cyanBold(`[1] Chat with AI to find your project (e.g. "busca en downloads mi proyecto...", "está en C:\\work")`)}`);
+      console.log(`    ${theme.dim("[2] Enter file path or database URI (.sqlite, .db, .sql, .csv)")}`);
+      console.log(`    ${theme.dim("[3] Skip for now (start with a clean, empty catalog)")}`);
     }
 
     const sourceChoice = await ask(rl, `\n  Choose an option`, "1");
@@ -241,7 +241,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         foundProjects = await searchProjectDatabase(selected);
       }
     } else if (isChatAiSearch) {
-      console.log(`\n  ${theme.cyanBold("💬 Mint AI Location & Project Discovery:")}`);
+      console.log(`\n  ${theme.cyanBold("Mint AI Location & Project Discovery:")}`);
       console.log(`  You can name any project and give location hints (e.g. "busca en downloads mi proyecto...", "está en D:\\repos\\app")`);
       const chatQuery = await ask(
         rl,
@@ -256,7 +256,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     }
 
     if (foundProjects.length > 0) {
-      console.log(`\n  ${theme.success("✔")} Mint AI identified ${theme.bold(foundProjects.length)} project(s):\n`);
+      console.log(`\n  [OK] Mint AI identified ${theme.bold(foundProjects.length)} project(s):\n`);
       foundProjects.forEach((proj: DiscoveredProject, idx: number) => {
         console.log(`    ${theme.mintBold(`[#${idx + 1}] ${proj.projectName}`)} (${proj.framework})`);
         console.log(`        Location:   ${theme.dim(proj.projectPath)}`);
@@ -392,9 +392,9 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
 
 
           selectedSourceLabel = `${projToUse.projectName} (${importedProductsCount} items)`;
-          console.log(`  ${theme.success("✔")} Successfully synced ${theme.bold(importedProductsCount)} real items from ${theme.mintBold(projToUse.projectName)}!\n`);
+          console.log(`  [OK] Successfully synced ${theme.bold(importedProductsCount)} real items from ${theme.mintBold(projToUse.projectName)}.\n`);
         } else {
-          console.log(`  ${theme.dim("○ Project registered. Database ready for live connection.")}\n`);
+          console.log(`  ${theme.dim("Project registered. Database ready for live connection.")}\n`);
           selectedSourceLabel = `${projToUse.projectName} (Live DB)`;
         }
       }
@@ -439,7 +439,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
             importedProductsCount++;
           }
           selectedSourceLabel = `${path.basename(customPath)} (${importedProductsCount} items)`;
-          console.log(`  ${theme.success("✔")} Imported ${theme.bold(importedProductsCount)} items from SQL file!\n`);
+          console.log(`  [OK] Imported ${theme.bold(importedProductsCount)} items from SQL file.\n`);
         } else if (ext === ".csv") {
           const parsed = parseCsvFile(customPath);
           const mapping = proposeColumnMapping(parsed.headers);
@@ -454,25 +454,25 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           });
           importedProductsCount = syncRes.importedRows;
           selectedSourceLabel = `${path.basename(customPath)} (${importedProductsCount} items)`;
-          console.log(`  ${theme.success("✔")} Imported ${theme.bold(importedProductsCount)} items from CSV file!\n`);
+          console.log(`  [OK] Imported ${theme.bold(importedProductsCount)} items from CSV file.\n`);
         }
       } else {
-        console.log(`  ${theme.dim("○ File not found or skipped. Starting with empty catalog.")}\n`);
+        console.log(`  ${theme.dim("File not found or skipped. Starting with empty catalog.")}\n`);
       }
     } else {
-      console.log(`  ${theme.dim("○ Skipped. Starting with a clean, empty catalog for your company.")}\n`);
+      console.log(`  ${theme.dim("Skipped. Starting with a clean, empty catalog for your company.")}\n`);
     }
 
     // -------------------------------------------------------------
     // STEP 3: CANAL DE COMUNICACIÓN Y ALERTAS
     // -------------------------------------------------------------
-    console.log(drawDivider("STEP 3 OF 4: CANAL DE COMUNICACIÓN Y ALERTAS", 76));
-    console.log(`  Elige la plataforma donde tu equipo recibirá las notificaciones autónomas:`);
-    console.log(`    ${theme.mintBold("[1] 🎮 Discord")} (Webhooks para canal de texto o categorías)`);
-    console.log(`    ${theme.cyanBold("[2] 💬 Slack")} (Webhooks para canal #operaciones / #logística)`);
-    console.log(`    ${theme.violet("[3] ✈️ Telegram")} (Bot con aprobación interactiva de compras)`);
-    console.log(`    ${theme.amberBold(`[4] 📧 Gmail`)} (Alertas directas a ${email})`);
-    console.log(`    ${theme.bold("[5] 🖥️ Mint Desktop App")} (Configurar y probar canales visualmente en la App)`);
+    console.log(drawDivider("STEP 3 OF 4: CANAL DE COMUNICACION Y ALERTAS", 76));
+    console.log(`  Elige la plataforma donde tu equipo recibira las notificaciones autonomas:`);
+    console.log(`    ${theme.mintBold("[1] Discord")} (Webhooks para canal de texto o categorias)`);
+    console.log(`    ${theme.cyanBold("[2] Slack")} (Webhooks para canal #operaciones / #logistica)`);
+    console.log(`    ${theme.violet("[3] Telegram")} (Bot con aprobacion interactiva de compras)`);
+    console.log(`    ${theme.amberBold(`[4] Gmail`)} (Alertas directas a ${email})`);
+    console.log(`    ${theme.bold("[5] Mint Desktop App")} (Configurar y probar canales visualmente en la App)`);
 
     let channelDescription = "None";
     const chanChoice = await ask(rl, `\n  Selecciona tu plataforma (1-5)`, "1");
@@ -482,18 +482,18 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       const platformName = isDiscord ? "Discord" : "Slack";
       const platformType = isDiscord ? "discord" : "slack";
 
-      console.log(`\n  ¿Cómo deseas organizar los canales de ${platformName}?`);
+      console.log(`\n  Como deseas organizar los canales de ${platformName}?`);
       console.log(`    ${theme.mintBold("[1]")} Webhook unificado (un solo canal para logs, stock, pedidos y alertas)`);
-      console.log(`    ${theme.cyanBold("[2]")} Canales dedicados por categoría (logs, stock, pedidos, alertas críticas)`);
+      console.log(`    ${theme.cyanBold("[2]")} Canales dedicados por categoria (logs, stock, pedidos, alertas criticas)`);
 
       const modeChoice = await ask(rl, `  Elige estructura`, "1");
 
       if (modeChoice === "2") {
         console.log(`\n  ${theme.dim("Configura las URLs de los canales de " + platformName + " (presiona Enter para omitir alguno):")}`);
-        const logHook = await ask(rl, `    • Webhook para Logs y Auditoría`);
-        const stockHook = await ask(rl, `    • Webhook para Stock y Updates`);
-        const orderHook = await ask(rl, `    • Webhook para Logística y Pedidos`);
-        const critHook = await ask(rl, `    • Webhook para Alertas Críticas`);
+        const logHook = await ask(rl, `    - Webhook para Logs y Auditoria`);
+        const stockHook = await ask(rl, `    - Webhook para Stock y Updates`);
+        const orderHook = await ask(rl, `    - Webhook para Logistica y Pedidos`);
+        const critHook = await ask(rl, `    - Webhook para Alertas Criticas`);
 
         if (logHook) {
           await addNotificationChannel({
@@ -529,7 +529,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         }
 
         channelDescription = `${platformName} (Canales Dedicados)`;
-        console.log(`\n  ${theme.success("✔")} Canales dedicados de ${platformName} registrados con éxito.\n`);
+        console.log(`\n  [OK] Canales dedicados de ${platformName} registrados con exito.\n`);
       } else {
         const webhook = await ask(rl, `  Ingresa la URL del Webhook de ${platformName}`);
         if (webhook && webhook.startsWith("http")) {
@@ -540,15 +540,15 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
             config: { webhookUrl: webhook, topics: ["logs", "stock", "logistics", "critical"] },
           });
           channelDescription = `${platformName} Webhook`;
-          console.log(`  ${theme.success("✔")} Webhook de ${platformName} configurado y activo.\n`);
+          console.log(`  [OK] Webhook de ${platformName} configurado y activo.\n`);
         } else {
-          console.log(`  ${theme.amber("○ URL omitida. Podrás agregarla más adelante desde la Desktop App.")}\n`);
+          console.log(`  ${theme.amber("URL omitida. Podras agregarla mas adelante desde la Desktop App.")}\n`);
         }
       }
     } else if (chanChoice === "3") {
-      console.log(`\n  ${theme.cyanBold("Configuración de Telegram Bot:")}`);
+      console.log(`\n  ${theme.cyanBold("Configuracion de Telegram Bot:")}`);
       console.log(`  1. Habla con @BotFather en Telegram y crea un bot para obtener el Bot Token.`);
-      console.log(`  2. Añade el bot a tu grupo/canal y obtén el Chat ID (ej: -100123456789 o @tu_canal).`);
+      console.log(`  2. Anade el bot a tu grupo/canal y obten el Chat ID (ej: -100123456789 o @tu_canal).`);
 
       const token = await ask(rl, `  Ingresa el Bot Token`);
       const chatId = await ask(rl, `  Ingresa el Chat ID`);
@@ -561,9 +561,9 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           config: { botToken: token, chatId, topics: ["logs", "stock", "logistics", "critical"] },
         });
         channelDescription = `Telegram Bot (@${chatId})`;
-        console.log(`  ${theme.success("✔")} Bot de Telegram vinculado y listo para aprobación de compras.\n`);
+        console.log(`  [OK] Bot de Telegram vinculado y listo para aprobacion de compras.\n`);
       } else {
-        console.log(`  ${theme.amber("○ Credenciales de Telegram omitidas por ahora.")}\n`);
+        console.log(`  ${theme.amber("Credenciales de Telegram omitidas por ahora.")}\n`);
       }
     } else if (chanChoice === "4") {
       await addNotificationChannel({
@@ -573,11 +573,11 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         config: { email, topics: ["logs", "stock", "logistics", "critical"] },
       });
       channelDescription = `Gmail Alerts (${email})`;
-      console.log(`  ${theme.success("✔")} Notificaciones por correo electrónico vinculadas a ${theme.bold(email)}.\n`);
+      console.log(`  [OK] Notificaciones por correo electronico vinculadas a ${theme.bold(email)}.\n`);
     } else {
-      channelDescription = "Mint Desktop App (Gestión Visual)";
-      console.log(`  ${theme.success("✔")} Configuración de canales diferida a la Mint Desktop App.`);
-      console.log(`  ${theme.dim("Ejecuta 'mint app' o '/app' en la consola para conectar y probar canales con un clic.")}\n`);
+      channelDescription = "Mint Desktop App (Gestion Visual)";
+      console.log(`  [OK] Configuracion de canales diferida a la Mint Desktop App.`);
+      console.log(`  ${theme.dim("Ejecuta 'mint app' o '/app' en la consola para conectar y probar canales.")}\n`);
     }
 
     // -------------------------------------------------------------
@@ -613,7 +613,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         set: { value: autonomyLevel, updatedAt: new Date() },
       });
 
-    console.log(`  ${theme.success("✔")} Autonomy policy set to ${theme.mintBold(autonomyLevel.toUpperCase())}.\n`);
+    console.log(`  [OK] Autonomy policy set to ${theme.mintBold(autonomyLevel.toUpperCase())}.\n`);
 
     // -------------------------------------------------------------
     // FINALIZE & SAVE SESSION IN SECURE KEYCHAIN
@@ -644,7 +644,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           `${theme.dim("Background:")}   ${theme.mintBold("DAEMON ONLINE")} — Listening for sales & watching stock 24/7`,
         ],
         {
-          title: "🎉 SETUP COMPLETE — AGENT IS READY TO OPERATE",
+          title: "SETUP COMPLETE — AGENT IS READY TO OPERATE",
           badge: "ONLINE",
           badgeColor: "mint",
           borderColor: theme.mint,

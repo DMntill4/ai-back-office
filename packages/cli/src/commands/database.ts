@@ -55,16 +55,16 @@ export async function databaseCommand(args: string[] = []) {
   }
 
   // Interactive menu
-  console.log("\n" + drawDivider(`GESTIÓN DE BASE DE DATOS Y CATÁLOGO [${companyId}]`, 84));
-  console.log(`  ${theme.bold("Selecciona una opción:")}`);
-  console.log(`    ${theme.mintBold("[1] 🔄 Re-sincronizar catálogo actual")} (Usa tu fuente activa o auto-descubrimiento IA)`);
-  console.log(`    ${theme.cyanBold("[2] 🔀 Cambiar / Conectar otra base de datos o archivo")} (.sql, .csv, .xlsx, .sqlite, Postgres)`);
-  console.log(`    ${theme.dim("[3] 📊 Ver estado de conexión y métricas de tablas")}`);
-  console.log(`    ${theme.dim("[4] ↩  Volver")}\n`);
+  console.log("\n" + drawDivider(`GESTION DE BASE DE DATOS Y CATALOGO [${companyId}]`, 84));
+  console.log(`  ${theme.bold("Selecciona una opcion:")}`);
+  console.log(`    ${theme.mintBold("[1] Re-sincronizar catalogo actual")} (Usa tu fuente activa o auto-descubrimiento IA)`);
+  console.log(`    ${theme.cyanBold("[2] Cambiar / Conectar otra base de datos o archivo")} (.sql, .csv, .xlsx, .sqlite, Postgres)`);
+  console.log(`    ${theme.dim("[3] Ver estado de conexion y metricas de tablas")}`);
+  console.log(`    ${theme.dim("[4] Volver")}\n`);
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const choice = await ask(rl, "  Opción", "1");
+    const choice = await ask(rl, "  Opcion", "1");
     if (choice === "1") {
       rl.close();
       await resyncCurrentProject(companyId);
@@ -79,7 +79,7 @@ export async function databaseCommand(args: string[] = []) {
     }
   } catch (err: any) {
     rl.close();
-    console.error(theme.redBold(`❌ Error en gestión de base de datos: ${err.message}`));
+    console.error(theme.redBold(`[ERROR] ${err.message}`));
   }
 }
 
@@ -285,7 +285,7 @@ export async function importUniversalCatalogFile(
 }
 
 export async function resyncCurrentProject(companyId: string) {
-  console.log(`\n${theme.mint("🔄 Iniciando sincronización inteligente de catálogo (Cero Hardcodes)...")}`);
+  console.log(`\n${theme.mint("Iniciando sincronizacion inteligente de catalogo...")}`);
 
   // 1. Buscar la fuente registrada en dataSources para esta empresa
   let targetFile = "";
@@ -315,7 +315,7 @@ export async function resyncCurrentProject(companyId: string) {
   }
 
   if (!targetFile) {
-    console.log(theme.amber("  No se encontró una fuente previa registrada para esta empresa."));
+    console.log(theme.amber("  No se encontro una fuente previa registrada para esta empresa."));
     console.log(theme.dim("  Abriendo selector interactivo de proyectos y bases de datos...\n"));
     await switchDatabaseMenu(companyId);
     return;
@@ -325,18 +325,18 @@ export async function resyncCurrentProject(companyId: string) {
   const { importedProducts, importedSuppliers } = await importUniversalCatalogFile(companyId, targetFile);
 
   if (importedProducts === 0) {
-    console.log(theme.redBold("❌ No se pudieron extraer productos válidos del archivo."));
+    console.log(theme.redBold("  [ERROR] No se pudieron extraer productos validos del archivo."));
     return;
   }
 
   console.log(
-    `  ${theme.success("✔")} Catálogo sincronizado con éxito: ${theme.bold(importedProducts)} productos y ${theme.bold(importedSuppliers)} proveedores vinculados.`,
+    `  [OK] Catalogo sincronizado: ${theme.bold(importedProducts)} productos y ${theme.bold(importedSuppliers)} proveedores vinculados.`,
   );
   console.log(`  ${theme.dim("Ejecuta /stock o /logistics para ver tu torre de control actualizada.")}\n`);
 }
 
 async function switchDatabaseMenu(companyId: string) {
-  console.log(`\n${theme.cyanBold("🔍 Escaneando proyectos y bases de datos en tu equipo...")}`);
+  console.log(`\n${theme.cyanBold("Escaneando proyectos y bases de datos en tu equipo...")}`);
   const localProjects = scanLocalWorkspaceProjects();
 
   console.log("\n" + drawDivider("CONECTAR OTRA BASE DE DATOS O PROYECTO", 84));
@@ -350,14 +350,14 @@ async function switchDatabaseMenu(companyId: string) {
     });
     console.log(`    ${theme.dim(`[#${localProjects.length + 1}] Ingresar ruta manual de archivo (.sql, .csv, .db, .sqlite)`)}`);
   } else {
-    console.log(`  ${theme.dim("No se encontraron proyectos automáticamente.")}`);
+    console.log(`  ${theme.dim("No se encontraron proyectos automaticamente.")}`);
     console.log(`    ${theme.mintBold("[#1]")} Ingresar ruta manual de archivo (.sql, .csv, .db, .sqlite)`);
   }
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
     const defaultOpt = "1";
-    const selected = await ask(rl, "\n  Selecciona número de proyecto o ruta", defaultOpt);
+    const selected = await ask(rl, "\n  Selecciona numero de proyecto o ruta", defaultOpt);
     const num = parseInt(selected, 10);
 
     let targetFile = "";
@@ -381,23 +381,23 @@ async function switchDatabaseMenu(companyId: string) {
     rl.close();
 
     if (targetFile && fs.existsSync(targetFile)) {
-      console.log(`\n  Extrayendo catálogo e hidratando precios/logística desde ${theme.mintBold(path.basename(targetFile))}...`);
+      console.log(`\n  Extrayendo catalogo e hidratando precios/logistica desde ${theme.mintBold(path.basename(targetFile))}...`);
       await db.delete(inventory).where(eq(inventory.companyId, companyId));
       await db.delete(products).where(eq(products.companyId, companyId));
 
       const { importedProducts, importedSuppliers } = await importUniversalCatalogFile(companyId, targetFile);
       if (importedProducts > 0) {
         console.log(
-          `  ${theme.success("✔")} Conexión actualizada: ${theme.bold(importedProducts)} productos y ${theme.bold(importedSuppliers)} proveedores cargados para ${companyId}.\n`,
+          `  [OK] Conexion actualizada: ${theme.bold(importedProducts)} productos y ${theme.bold(importedSuppliers)} proveedores cargados para ${companyId}.\n`,
         );
       } else {
-        console.log(theme.amber("No se encontraron tablas de inventario válidas en el archivo seleccionado.\n"));
+        console.log(theme.amber("No se encontraron tablas de inventario validas en el archivo seleccionado.\n"));
       }
     } else {
-      console.log(theme.dim("Operación cancelada o ruta no válida.\n"));
+      console.log(theme.dim("Operacion cancelada o ruta no valida.\n"));
     }
   } catch (err: any) {
     rl.close();
-    console.error(theme.redBold(`❌ Error al cambiar base de datos: ${err.message}`));
+    console.error(theme.redBold(`[ERROR] ${err.message}`));
   }
 }

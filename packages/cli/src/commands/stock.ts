@@ -76,7 +76,7 @@ export async function stockCommand(options: { json?: boolean; noExit?: boolean }
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error al consultar stock: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error al consultar stock: ${err.message}`));
     }
     if (!options.noExit) {
       process.exit(1);
@@ -118,8 +118,8 @@ export async function ordersCommand(options: { json?: boolean; noExit?: boolean 
     console.log("\n" + drawDivider(`ÓRDENES DE COMPRA REGISTRADAS [${companyId}]`, 86));
 
     if (data.length === 0) {
-      console.log(`\n  ${theme.dim("○ No hay órdenes de compra emitidas todavía.")}`);
-      console.log(`  ${theme.dim("Cualquier propuesta generada por el agente requerirá tu aprobación en '/inbox'.")}\n`);
+      console.log(`\n  ${theme.dim("- No hay ordenes de compra emitidas todavia.")}`);
+      console.log(`  ${theme.dim("Cualquier propuesta generada por el agente requerira tu aprobacion en '/inbox'.")}\n`);
       return;
     }
 
@@ -154,12 +154,12 @@ export async function ordersCommand(options: { json?: boolean; noExit?: boolean 
       ),
     );
 
-    console.log(`\n${theme.dim("Total órdenes:")} ${theme.bold(data.length)}\n`);
+    console.log(`\n${theme.dim("Total ordenes:")} ${theme.bold(data.length)}\n`);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error al consultar órdenes: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error al consultar ordenes: ${err.message}`));
     }
     if (!options.noExit) {
       process.exit(1);
