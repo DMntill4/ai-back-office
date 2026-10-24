@@ -255,35 +255,52 @@ Siguiendo la instrucción explícita de **no hacer `git push`**, los siguientes 
 
 ## 9. GUÍA RÁPIDA DE ARRANQUE Y OPERACIÓN (100% TERMINAL / CERO FRONTEND WEB)
 
-### 1. Iniciar TODO el Sistema Autónomo (Comando Único)
+### 1. Iniciar TODO el Sistema Autónomo (1 Solo Comando)
 ```bash
 npm start
 # o alternativamente:
 npm run agent
-# o desde el CLI:
-mint start
 ```
 **¿Qué hace este comando?**
-- Verifica el entorno (Node >= 22.5.0 para `node:sqlite` nativo y conectividad a PostgreSQL).
-- Inicia el servidor Backend Fastify (Webhooks de canales, REST y salud) en segundo plano en `http://localhost:3000`.
-- Inicia el Daemon autónomo en segundo plano (vigilancia de archivos y stock).
-- **Omite y desactiva 100% el frontend web.**
-- Abre de inmediato la **Consola Interactiva Kali-grade** en la misma terminal para operar directamente.
-- Al escribir `exit` o presionar `Ctrl+C`, apaga de forma limpia todos los subprocesos.
+- Verifica el entorno (Node >= 22.5.0 para `node:sqlite` nativo y PostgreSQL).
+- Inicia el servidor Backend Fastify (Webhooks, API y canales remotos) en segundo plano en `http://localhost:3000`.
+- Inicia el Daemon autónomo en segundo plano (vigilancia de archivos, stock y envíos).
+- **Omite 100% el frontend web (cero ventanas de navegador, cero Vite).**
+- Abre la **Consola Interactiva del Agente** lista para operar con comandos slash o lenguaje natural.
+- Al escribir `/exit` o pulsar `Ctrl+C`, realiza un apagado ordenado de todos los subprocesos.
 
-### 2. Modo Headless (Para servidores o ejecución silenciosa sin consola)
+### 2. Experiencia de Usuario Simplificada: Slash Commands y Autocompletado con Tab
+Una vez dentro de `npm start`, el cliente no necesita recordar sintaxis compleja. Puede presionar **`Tab`** para autocompletar:
+
+| Slash Command | Acción | Tiempo |
+|---|---|---|
+| **`/setup`** | **Setup Zero-Config:** Configura empresa, almacén central, 2 proveedores homologados, catálogo de prueba y gobernanza asistida. | **< 2 segundos** |
+| **`/setup <archivo.csv>`** | Configura tu empresa directamente con tu archivo de inventario local. | **< 3 segundos** |
+| **`/status`** o **`/dash`** | Dashboard unificado de inventario, casos abiertos, estado del daemon y canales. | Instantáneo |
+| **`/stock`** | Existencias en tiempo real, niveles mínimos y estado (Óptimo / Bajo / Agotado). | Instantáneo |
+| **`/today`** | Briefing diario: decisiones autónomas tomadas, ahorro en compras y gasto gestionado. | Instantáneo |
+| **`/inbox`** | Bandeja de órdenes de compra pendientes de autorización humana (HITL). | Instantáneo |
+| **`/approve <id>`** | Autoriza una orden de compra pendiente y emite la orden al proveedor. | Instantáneo |
+| **`/reject <id>`** | Rechaza una propuesta de compra y la archiva con bitácora de auditoría. | Instantáneo |
+| **`/scan`** | Fuerza un escaneo proactivo de stock y transporte en este instante. | Instantáneo |
+| **`/orders`** | Historial de órdenes de compra colocadas a proveedores y su estado. | Instantáneo |
+| **`/simulate`** | Simula un escenario what-if en sandbox (quiebre de stock, retraso de transporte). | Instantáneo |
+| **`/auto [dry-run\|assisted\|auto]`** | Cambia el nivel de autonomía del agente. | Instantáneo |
+| **`/matrix`** | Visualiza la topología de los 5 agentes especialistas que deliberan en paralelo. | Instantáneo |
+| **`/clear`** | Limpia la pantalla de la consola. | Instantáneo |
+| **`/exit`** | Cierra la consola y apaga los servicios de fondo de forma segura. | Instantáneo |
+
+### 3. Modo Lenguaje Natural (Direct Conversational Fallback)
+Si el usuario no escribe un comando slash y simplemente escribe una consulta como:
+- `¿cuánto stock queda de válvulas?`
+- `revisa si hay algún pedido retrasado`
+- `¿cuáles son los proveedores más rápidos?`
+
+La consola lo detecta automáticamente y lo envía al **Agente ReAct** para que delibere, consulte las herramientas y responda de inmediato con tarjetas visuales.
+
+### 4. Modo Headless (Para Servidores en Producción)
 ```bash
 npm run agent:headless
 ```
-
-### 3. Diagnóstico de Salud y Arquitectura
-```bash
-npm run mint -- doctor
-```
-
-### 4. Ejecutar el Conjunto de Pruebas
-```bash
-npm test
-npm run typecheck
-```
+Corre el backend y el daemon vigilante en segundo plano sin consola interactiva, ideal para Docker o instancias EC2/VPS.
 
