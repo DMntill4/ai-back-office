@@ -135,7 +135,7 @@ async function main() {
     type: "gmail",
     name: `Alertas Gmail (${userEmail})`,
     config: { email: userEmail, topics: ["logs", "stock", "logistics", "critical"] },
-    active: true,
+    isActive: true,
   });
 
   // 5. Guardar sesión activa en Keychain del CLI

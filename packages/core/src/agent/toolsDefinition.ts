@@ -335,6 +335,45 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "consultar_canales_notificacion",
+      description:
+        "Consulta los canales de comunicación y alertas configurados en PostgreSQL (Discord, Slack, Telegram, Gmail), indicando sus URLs/IDs y si están activos.",
+      parameters: {
+        type: "object",
+        properties: {
+          empresa_id: {
+            type: "string",
+            description: "ID opcional de la empresa a consultar",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "probar_canal_notificacion",
+      description:
+        "Envía un mensaje o alerta de prueba en tiempo real al webhook o bot configurado (Discord, Slack, Telegram).",
+      parameters: {
+        type: "object",
+        properties: {
+          tipo: {
+            type: "string",
+            enum: ["discord", "slack", "telegram", "gmail"],
+            description: "Tipo de canal a probar",
+          },
+          canal_id: {
+            type: "string",
+            description: "ID del canal específico a probar (opcional)",
+          },
+        },
+      },
+    },
+  },
 ];
 
 export async function dispatchToolCall(
@@ -440,6 +479,73 @@ export async function dispatchToolCall(
         result: await executeAuditarAnomalias(parsedArgs),
         isClosingAction: false,
       };
+
+    case "consultar_canales_notificacion": {
+      const { listNotificationChannels } = await import("@mint/notifiers");
+      const companyId = parsedArgs.empresa_id || context?.companyId || "comp_default";
+      const chans = await listNotificationChannels(companyId);
+      return {
+        result: {
+          isSuccess: true,
+          empresaId: companyId,
+          totalCanales: chans.length,
+          canales: chans.map((c) => ({
+            id: c.id,
+            tipo: c.type,
+            nombre: c.name,
+            activo: c.isActive,
+            webhookUrl: (c.config as any)?.webhookUrl ? `${(c.config as any).webhookUrl.slice(0, 35)}...` : undefined,
+            temas: (c.config as any)?.topics || [],
+          })),
+          mensaje:
+            chans.length > 0
+              ? `Se encontraron ${chans.length} canal(es) de alerta configurado(s): ${chans.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`
+              : `No tienes canales de notificación remotos configurados actualmente en PostgreSQL para esta empresa. Puedes vincular Discord o Slack con '/channels add discord <url>' o desde la Desktop App.`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "probar_canal_notificacion": {
+      const { testNotificationChannel, listNotificationChannels } = await import("@mint/notifiers");
+      const companyId = context?.companyId || "comp_default";
+      const chans = await listNotificationChannels(companyId);
+      const target = chans.find((c) => c.type === parsedArgs.tipo || c.id === parsedArgs.canal_id) || chans[0];
+      if (!target) {
+        return {
+          result: {
+            isSuccess: false,
+            mensaje: "No hay ningún canal configurado en PostgreSQL para probar. Agrega uno con '/channels add discord <webhook_url>'.",
+          },
+          isClosingAction: false,
+        };
+      }
+      try {
+        const testRes = await testNotificationChannel(target.type as any, (target.config as any) || {});
+        return {
+          result: {
+            isSuccess: testRes.success,
+            canal: target.name,
+            tipo: target.type,
+            resultado: testRes,
+            mensaje: testRes.success
+              ? `✔ Mensaje de prueba entregado exitosamente al canal ${target.name}.`
+              : `❌ Fallo al enviar mensaje: ${testRes.error || "error de conexión"}`,
+          },
+          isClosingAction: false,
+        };
+      } catch (err: any) {
+        return {
+          result: {
+            isSuccess: false,
+            canal: target.name,
+            tipo: target.type,
+            mensaje: `❌ Error al probar canal: ${err.message}`,
+          },
+          isClosingAction: false,
+        };
+      }
+    }
 
     case "resolver_caso":
       return {

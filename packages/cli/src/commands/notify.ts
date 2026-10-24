@@ -92,7 +92,7 @@ export async function notifyTestCommand(
     console.log(`\n🔔 PRUEBA DE CONECTIVIDAD EXITOSA:`);
     console.log(`   Canal:      ${res.channelType.toUpperCase()}`);
     console.log(`   Message ID: ${res.messageId}`);
-    console.log(`   Entregado:  ${new Date(res.deliveredAt).toLocaleTimeString("es-MX")}`);
+    console.log(`   Entregado:  ${res.deliveredAt ? new Date(res.deliveredAt).toLocaleTimeString("es-MX") : "Inmediato"}`);
     if (res.details?.buttons) {
       console.log(`   Botones Interactivos Adjuntos:`);
       for (const btn of res.details.buttons) {

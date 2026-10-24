@@ -193,6 +193,8 @@ export async function consoleCommand() {
                   `  ${theme.mintBold("/db [status|sync|switch]")} Gestión, sincronización y cambio de base de datos`,
                   `  ${theme.mintBold("/resync")}                  Re-extraer catálogo real desde SQL sin datos de prueba`,
                   `  ${theme.mintBold("/app")}                     Abrir Mint Desktop App (Dashboard, Canales y Stock)`,
+                  `  ${theme.mintBold("/channels")}                 Ver, agregar y probar webhooks (Discord / Slack / Telegram)`,
+                  `  ${theme.mintBold("/settings")}                Configuración del sistema, canales y gobernanza HITL`,
                   `  ${theme.mintBold("/status")} o ${theme.mintBold("/dash")}        Panel unificado de inventario, salud del daemon y canales`,
                   `  ${theme.mintBold("/today")}                    Resumen diario (Daily Briefing) de decisiones y ahorro`,
                   `  ${theme.mintBold("/inbox")}                    Bandeja de propuestas de compra esperando autorización`,
@@ -219,6 +221,21 @@ export async function consoleCommand() {
               ),
             );
             console.log("");
+            break;
+          }
+
+          case "channels":
+          case "channel":
+          case "webhook": {
+            const { channelsCommand } = require("./channels");
+            await channelsCommand(args[0], args[1], args[2]);
+            break;
+          }
+
+          case "settings":
+          case "config": {
+            const { settingsCommand } = require("./channels");
+            await settingsCommand();
             break;
           }
 

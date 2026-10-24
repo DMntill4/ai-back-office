@@ -14,6 +14,7 @@ import { startCommand } from "./commands/start";
 import { setupCommand } from "./commands/setup";
 import { databaseCommand } from "./commands/database";
 import { appCommand } from "./commands/app";
+import { channelsCommand, settingsCommand } from "./commands/channels";
 import { triggerScanApi } from "./client";
 import { getSession } from "./keychain";
 import { theme } from "./ui/theme";
@@ -145,6 +146,21 @@ program
   .description("Abre la Mint Desktop App (Dashboard, Canales de Notificación, Inventario en Tiempo Real y HITL)")
   .option("--no-open", "No abrir la ventana de la aplicación automáticamente")
   .action((options) => appCommand(options));
+
+// 8.3 mint channels
+program
+  .command("channels [action] [arg1] [arg2]")
+  .alias("channel")
+  .alias("webhooks")
+  .description("Administra y prueba canales y webhooks (Discord / Slack / Telegram): mint channels [list|add|test|remove]")
+  .action((action, arg1, arg2) => channelsCommand(action, arg1, arg2));
+
+// 8.4 mint settings / mint config
+program
+  .command("settings")
+  .alias("config")
+  .description("Muestra y audita la configuración operativa, canales de alerta y gobernanza HITL")
+  .action(() => settingsCommand());
 
 // 9. mint orders
 program

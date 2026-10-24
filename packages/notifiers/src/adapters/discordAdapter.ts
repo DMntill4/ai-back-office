@@ -41,40 +41,53 @@ export class DiscordAdapter implements NotifierAdapter {
 
     const messageId = `discord_msg_${Date.now()}`;
 
-    if (webhookUrl && !webhookUrl.startsWith("simulated_")) {
-      try {
-        const response = await fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: "Mint Autonomous Agent",
-            embeds: [embed],
-          }),
-        });
-
-        if (response.ok) {
-          return {
-            success: true,
-            channelType: "discord" as any,
-            messageId,
-            deliveredAt: new Date().toISOString(),
-            details: { webhookUrl, realDelivery: true },
-          };
-        }
-      } catch (err: any) {
-        console.warn(`[DISCORD ADAPTER] Webhook no disponible, operando en modo simulado: ${err.message}`);
-      }
+    if (!webhookUrl) {
+      return {
+        success: false,
+        channelType: "discord" as any,
+        messageId,
+        error: "No se encontró Webhook URL de Discord configurada.",
+        details: { realDelivery: false },
+      };
     }
 
-    return {
-      success: true,
-      channelType: "discord" as any,
-      messageId,
-      deliveredAt: new Date().toISOString(),
-      details: {
-        simulated: true,
-        renderedEmbed: embed,
-      },
-    };
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "Mint Autonomous Logistics",
+          avatar_url: "https://raw.githubusercontent.com/DMntill4/ai-back-office/main/frontend/src/assets/mint-mascot.webp",
+          embeds: [embed],
+        }),
+      });
+
+      if (response.ok || response.status === 204) {
+        return {
+          success: true,
+          channelType: "discord" as any,
+          messageId,
+          deliveredAt: new Date().toISOString(),
+          details: { webhookUrl: webhookUrl.slice(0, 40) + "...", status: response.status, realDelivery: true },
+        };
+      }
+
+      const errText = await response.text();
+      return {
+        success: false,
+        channelType: "discord" as any,
+        messageId,
+        error: `Discord HTTP ${response.status}: ${errText || "Error en webhook"}`,
+        details: { status: response.status, realDelivery: false },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        channelType: "discord" as any,
+        messageId,
+        error: `Error de red al contactar Discord: ${err.message}`,
+        details: { realDelivery: false },
+      };
+    }
   }
 }

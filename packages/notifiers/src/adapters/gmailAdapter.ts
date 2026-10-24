@@ -39,7 +39,7 @@ export class GmailAdapter implements NotifierAdapter {
       details: {
         to: recipientEmail,
         subject: `[Mint ${payload.severity}] ${payload.title}`,
-        htmlPreview: htmlBody.slice(0, 150) + "...",
+        note: "Para despacho remoto directo a buzón de Google se requiere configurar SMTP/App Password en .env (SMTP_USER / SMTP_PASS). Se recomienda Discord/Slack para entrega inmediata sin fricción.",
       },
     };
   }

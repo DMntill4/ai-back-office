@@ -23,23 +23,31 @@ export async function chatCommand(message: string, options: { json?: boolean; no
       priority: "media",
     });
 
-    // 2. Ejecutar bucle ReAct autónomo in-process con herramientas y Grok
+    // 2. Ejecutar bucle ReAct autónomo multi-agente in-process con herramientas y Grok
     let res: any;
     if (options.json) {
       res = await runAgentLoop(caseId);
-    } else {
-      res = await withSpinner("Agente Autónomo Mint deliberando y consultando herramientas...", async () => {
-        return await runAgentLoop(caseId);
-      });
-    }
-
-    if (options.json) {
       console.log(JSON.stringify(res, null, 2));
       return;
     }
 
+    console.log(`\n  ${theme.mintBold("🤖 COORDINADOR MULTI-AGENTE MINT")} ${theme.dim("// Deliberando caso")} ${theme.cyan(caseId)}...`);
+    res = await runAgentLoop(caseId, {
+      onEvent: (ev) => {
+        console.log(`    ${theme.dim(`[Paso ${ev.step}]`)} ${theme.mintBold(ev.agent)} ➔ ${theme.cyan(ev.action)}`);
+      },
+    });
+
     console.log("");
     const responseLines = formatTerminalMarkdown(res.summary || "Sin respuesta del modelo.");
+
+    // Tarjeta con los agentes especialistas que participaron
+    if (res.multiAgentEvents && res.multiAgentEvents.length > 0) {
+      const uniqueAgents = Array.from(new Set(res.multiAgentEvents.map((e: any) => e.agent)));
+      responseLines.push("");
+      responseLines.push(theme.dim("─────────────────────────────────────────────────────────────────"));
+      responseLines.push(`${theme.bold("👥 EQUIPO MULTI-AGENTE DELIBERADOR:")} ${uniqueAgents.join(" • ")}`);
+    }
 
     const statusBadge =
       res.status === "resuelto"

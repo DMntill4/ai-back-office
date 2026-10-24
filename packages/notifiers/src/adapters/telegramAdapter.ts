@@ -36,49 +36,56 @@ _Por favor confirme o rechace esta operación antes de que expire el token._
 
     const messageId = `tg_msg_${Date.now()}`;
 
-    // Si hay botToken real configurado y no es simulado, hacer fetch a la Bot API
-    if (botToken && !botToken.startsWith("simulated_")) {
-      try {
-        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: messageText,
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: inlineKeyboard,
-            },
-          }),
-        });
-
-        const data: any = await response.json();
-        if (data.ok) {
-          return {
-            success: true,
-            channelType: this.type,
-            messageId: String(data.result?.message_id || messageId),
-            deliveredAt: new Date().toISOString(),
-            details: { chatId, realDelivery: true },
-          };
-        }
-      } catch (err: any) {
-        console.warn(`[TELEGRAM ADAPTER] Bot API no disponible, operando en modo simulado: ${err.message}`);
-      }
+    if (!botToken || !chatId) {
+      return {
+        success: false,
+        channelType: this.type,
+        messageId,
+        error: "Se requiere Bot Token y Chat ID de Telegram configurados.",
+        details: { realDelivery: false },
+      };
     }
 
-    // Modo simulado / sandbox probado
-    return {
-      success: true,
-      channelType: this.type,
-      messageId,
-      deliveredAt: new Date().toISOString(),
-      details: {
-        chatId,
-        simulated: true,
-        renderedText: messageText,
-        buttons: inlineKeyboard[0].map((b) => ({ text: b.text, callback_data: b.callback_data })),
-      },
-    };
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: messageText,
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: inlineKeyboard,
+          },
+        }),
+      });
+
+      const data: any = await response.json();
+      if (data.ok) {
+        return {
+          success: true,
+          channelType: this.type,
+          messageId: String(data.result?.message_id || messageId),
+          deliveredAt: new Date().toISOString(),
+          details: { chatId, realDelivery: true },
+        };
+      }
+
+      return {
+        success: false,
+        channelType: this.type,
+        messageId,
+        error: `Telegram Bot API Error ${data.error_code}: ${data.description}`,
+        details: { realDelivery: false },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        channelType: this.type,
+        messageId,
+        error: `Error de red al contactar Telegram: ${err.message}`,
+        details: { realDelivery: false },
+      };
+    }
   }
 }

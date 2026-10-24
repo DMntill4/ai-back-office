@@ -18,7 +18,8 @@ export interface SendResult {
   success: boolean;
   channelType: ChannelType;
   messageId: string;
-  deliveredAt: string;
+  deliveredAt?: string;
+  error?: string;
   details?: Record<string, any>;
 }
 

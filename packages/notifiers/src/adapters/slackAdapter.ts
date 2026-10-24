@@ -75,38 +75,49 @@ export class SlackAdapter implements NotifierAdapter {
 
     const messageId = `slack_msg_${Date.now()}`;
 
-    if (webhookUrl && !webhookUrl.startsWith("simulated_")) {
-      try {
-        const response = await fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel, blocks }),
-        });
-
-        if (response.ok) {
-          return {
-            success: true,
-            channelType: this.type,
-            messageId,
-            deliveredAt: new Date().toISOString(),
-            details: { channel, realDelivery: true },
-          };
-        }
-      } catch (err: any) {
-        console.warn(`[SLACK ADAPTER] Webhook no disponible: ${err.message}`);
-      }
+    if (!webhookUrl) {
+      return {
+        success: false,
+        channelType: this.type,
+        messageId,
+        error: "No se encontró Webhook URL de Slack configurada.",
+        details: { realDelivery: false },
+      };
     }
 
-    return {
-      success: true,
-      channelType: this.type,
-      messageId,
-      deliveredAt: new Date().toISOString(),
-      details: {
-        channel,
-        simulated: true,
-        blocks,
-      },
-    };
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel, blocks }),
+      });
+
+      if (response.ok) {
+        return {
+          success: true,
+          channelType: this.type,
+          messageId,
+          deliveredAt: new Date().toISOString(),
+          details: { channel, realDelivery: true },
+        };
+      }
+
+      const errText = await response.text();
+      return {
+        success: false,
+        channelType: this.type,
+        messageId,
+        error: `Slack HTTP ${response.status}: ${errText || "Error en webhook"}`,
+        details: { realDelivery: false },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        channelType: this.type,
+        messageId,
+        error: `Error de red al contactar Slack: ${err.message}`,
+        details: { realDelivery: false },
+      };
+    }
   }
 }
