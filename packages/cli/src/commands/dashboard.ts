@@ -6,9 +6,9 @@ import { theme } from "../ui/theme";
 import { printBanner } from "../ui/banner";
 import { drawCard, drawDivider } from "../ui/box";
 
-export async function dashboardCommand(options: { json?: boolean; noExit?: boolean } = {}) {
+export async function dashboardCommand(options: { json?: boolean; noExit?: boolean; companyId?: string } = {}) {
   const session = await getSession();
-  const companyId = session?.companyId || "comp_default";
+  const companyId = options.companyId || session?.companyId || "comp_default";
 
   try {
     const daemon = getDaemonStatus();

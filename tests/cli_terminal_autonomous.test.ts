@@ -5,7 +5,7 @@ import { renderTable } from "../packages/cli/src/ui/table";
 import { explainCommand } from "../packages/cli/src/commands/explain";
 import { dashboardCommand } from "../packages/cli/src/commands/dashboard";
 import { simulateCommand } from "../packages/cli/src/commands/simulate";
-import { db, companies, users, products, suppliers, supplierProducts, inventory, cases, decisions } from "@mint/core";
+import { db, companies, users, products, suppliers, supplierProducts, inventory, warehouses, cases, decisions } from "@mint/core";
 import { eq } from "drizzle-orm";
 
 describe("Mejoras de Experiencia en Terminal y Coordinador Autónomo (CLI TUI & Agent Upgrades)", () => {
@@ -30,6 +30,13 @@ describe("Mejoras de Experiencia en Terminal y Coordinador Autónomo (CLI TUI & 
       passwordHash: "dummy",
       name: "Operator Terminal",
       role: "owner",
+    }).onConflictDoNothing();
+
+    await db.insert(warehouses).values({
+      id: "alm_central",
+      companyId,
+      name: "Almacén Central Test",
+      location: "Principal",
     }).onConflictDoNothing();
 
     await db.insert(suppliers).values({
@@ -190,7 +197,7 @@ describe("Mejoras de Experiencia en Terminal y Coordinador Autónomo (CLI TUI & 
     };
 
     try {
-      await dashboardCommand({ json: true });
+      await dashboardCommand({ json: true, companyId });
     } finally {
       console.log = originalLog;
     }
