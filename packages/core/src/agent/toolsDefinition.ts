@@ -1,5 +1,7 @@
-import OpenAI from "openai";
-import { executeConsultarStock } from "../tools/consultarStock";
+import { OpenAI } from "openai";
+import {
+  executeConsultarStock,
+} from "../tools/consultarStock";
 import { executeVerOrdenesAbiertas } from "../tools/verOrdenesAbiertas";
 import { executeCrearOrdenCompra } from "../tools/crearOrdenCompra";
 import { executeReporteGeneral } from "../tools/reportesGenerales";
@@ -13,6 +15,14 @@ import { executeAjustarStock } from "../tools/ajustarStock";
 import { executeConsultarEstadoSistema } from "../tools/consultarEstadoSistema";
 import { executeVerificarFrescuraDatos } from "../tools/verificarFrescuraDatos";
 import { executeCalcularRutaLogistica } from "../tools/calcularRutaLogistica";
+import {
+  dispatchOutboundShipment,
+  receiveInboundShipment,
+  buildConsolidatedLoadPlans,
+  evaluateWarehouseRebalancing,
+  analyzeDynamicCatalogHealth,
+} from "../services/logisticsCoordinatorService";
+import { updateLogisticsNodeLocation } from "../services/geocodingService";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -44,7 +54,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           producto_id: {
             type: "string",
             description:
-              "Identificador del producto (ej: 'prod_st200', 'prod_v500')",
+              "Identificador, SKU o nombre del producto (ej: 'prod_st200', 'SKU-MAN-SM400')",
           },
         },
         required: ["producto_id"],
@@ -79,7 +89,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
         properties: {
           producto_id: {
             type: "string",
-            description: "ID del producto a cotizar (ej. 'prod_st200')",
+            description: "ID, SKU o nombre del producto a cotizar (ej. 'prod_st200')",
           },
           criterio: {
             type: "string",
@@ -166,7 +176,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "crear_orden_compra",
       description:
-        "Crea una orden de compra para abastecer inventario. Requiere clave de idempotencia única. Si el total supera $10,000 MXN, se suspende para aprobación.",
+        "Crea una orden de compra y su guía de embarque para abastecer inventario. Requiere clave de idempotencia única. Si el total supera el umbral, se suspende para aprobación.",
       parameters: {
         type: "object",
         properties: {
@@ -176,12 +186,12 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
           producto_id: {
             type: "string",
-            description: "ID del producto a comprar",
+            description: "ID o SKU del producto a comprar",
           },
           proveedor_id: {
             type: "string",
             description:
-              "ID del proveedor seleccionado (ej: 'prov_acme', 'prov_global')",
+              "ID del proveedor seleccionado (ej: 'prov_acme', 'compra_directa')",
           },
           cantidad: {
             type: "number",
@@ -378,21 +388,147 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "enviar_notificacion_operativa",
+      description:
+        "Envía un reporte logístico, manifiesto de embarque o alerta real personalizada a todos los canales activos de Discord y Telegram de la empresa.",
+      parameters: {
+        type: "object",
+        properties: {
+          titulo: {
+            type: "string",
+            description: "Título del reporte o alerta operativa",
+          },
+          mensaje: {
+            type: "string",
+            description: "Cuerpo detallado del reporte o notificación a enviar",
+          },
+          severidad: {
+            type: "string",
+            enum: ["info", "alta", "critica"],
+            description: "Nivel de prioridad de la alerta",
+          },
+        },
+        required: ["titulo", "mensaje"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "calcular_ruta_logistica",
       description:
-        "Calcula la distancia vial real en kilómetros, tiempo de conducción por carretera y costo estimado de flete entre el almacén y un proveedor con base en coordenadas GPS y cartografía OSRM.",
+        "Calcula la distancia vial real en kilómetros, tiempo de conducción por carretera y costo estimado de flete entre dos ciudades, direcciones, almacenes o proveedores con cartografía OSRM y geocodificación GPS automática.",
       parameters: {
         type: "object",
         properties: {
           proveedor_id: {
             type: "string",
-            description: "ID o nombre del proveedor de origen (ej. 'prov_acme', 'Bosch', 'Komatsu')",
+            description: "ID, nombre o ciudad del proveedor de origen (ej. 'prov_acme', 'Bosch', 'Monterrey')",
           },
           almacen_id: {
             type: "string",
-            description: "ID opcional del almacén de destino (por defecto toma el almacén principal)",
+            description: "ID, nombre o ciudad del almacén de destino",
+          },
+          origen_direccion: {
+            type: "string",
+            description: "Ciudad o dirección libre de origen (ej. 'Querétaro', 'Guadalajara')",
+          },
+          destino_direccion: {
+            type: "string",
+            description: "Ciudad o dirección libre de destino (ej. 'Monterrey', 'CDMX')",
           },
         },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "despachar_envio_cliente",
+      description:
+        "Despacha un envío de salida (Outbound Shipment) hacia la dirección o ciudad de un cliente, seleccionando automáticamente la bodega más cercana con stock disponible, descontando el inventario físico y generando guía con ruta OSRM y ETA.",
+      parameters: {
+        type: "object",
+        properties: {
+          producto_id: {
+            type: "string",
+            description: "ID, SKU o nombre del producto a despachar",
+          },
+          cantidad: {
+            type: "number",
+            description: "Cantidad de unidades a enviar",
+          },
+          destino_direccion: {
+            type: "string",
+            description: "Ciudad o dirección de entrega del cliente (ej. 'Monterrey, NL', 'Av. Reforma 222, CDMX')",
+          },
+          cliente_nombre: {
+            type: "string",
+            description: "Nombre del cliente o sucursal receptora",
+          },
+          transportista: {
+            type: "string",
+            description: "Transportista asignado (por defecto 'Mint Logistics Express')",
+          },
+        },
+        required: ["producto_id", "cantidad", "destino_direccion"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "recibir_mercancia_envio",
+      description:
+        "Registra la recepción física en almacén de un envío en tránsito (Inbound Shipment) o de una orden de compra, marcando la guía como 'entregado' y sumando automáticamente las unidades al inventario real.",
+      parameters: {
+        type: "object",
+        properties: {
+          identificador: {
+            type: "string",
+            description: "Número de guía (ej. 'TRK-IN-...') o ID de la orden de compra (ej. 'po_...')",
+          },
+        },
+        required: ["identificador"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "consolidar_cargas_y_rebalancear",
+      description:
+        "Ejecuta el motor de Torre de Control Logística: calcula Punto de Reorden Dinámico (ROP), evalúa Rebalanceo Inter-Almacenes (Cross-Docking) para ahorrar compras innecesarias y consolida múltiples SKUs por proveedor calculando el Landed Cost (Producto + Flete OSRM).",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "configurar_nodo_logistico_gps",
+      description:
+        "Geocodifica cualquier ciudad o dirección y actualiza las coordenadas GPS reales (latitud y longitud) de un almacén o proveedor en la base de datos.",
+      parameters: {
+        type: "object",
+        properties: {
+          tipo_nodo: {
+            type: "string",
+            enum: ["warehouse", "supplier"],
+            description: "'warehouse' para almacén/bodega o 'supplier' para proveedor",
+          },
+          identificador_o_nombre: {
+            type: "string",
+            description: "ID o nombre del almacén o proveedor a actualizar",
+          },
+          ciudad_o_direccion: {
+            type: "string",
+            description: "Ciudad o dirección física para geocodificar sus coordenadas GPS (ej. 'Querétaro, México')",
+          },
+        },
+        required: ["tipo_nodo", "identificador_o_nombre", "ciudad_o_direccion"],
       },
     },
   },
@@ -420,10 +556,12 @@ export async function dispatchToolCall(
     };
   }
 
+  const effectiveCompanyId = context?.companyId || "comp_default";
+
   switch (name) {
     case "consultar_stock":
       return {
-        result: await executeConsultarStock(parsedArgs),
+        result: await executeConsultarStock(parsedArgs, context),
         isClosingAction: false,
       };
 
@@ -435,10 +573,13 @@ export async function dispatchToolCall(
 
     case "crear_orden_compra":
       return {
-        result: await executeCrearOrdenCompra({
-          ...parsedArgs,
-          case_id: parsedArgs.case_id || context?.caseId,
-        }),
+        result: await executeCrearOrdenCompra(
+          {
+            ...parsedArgs,
+            case_id: parsedArgs.case_id || context?.caseId || `case_${Date.now()}`,
+          },
+          context,
+        ),
         isClosingAction: false,
       };
 
@@ -468,7 +609,7 @@ export async function dispatchToolCall(
 
     case "verificar_frescura_datos":
       return {
-        result: await executeVerificarFrescuraDatos(parsedArgs, context?.companyId || "comp_default"),
+        result: await executeVerificarFrescuraDatos(parsedArgs, effectiveCompanyId),
         isClosingAction: false,
       };
 
@@ -480,7 +621,7 @@ export async function dispatchToolCall(
 
     case "evaluar_proveedores":
       return {
-        result: await executeEvaluarProveedores(parsedArgs),
+        result: await executeEvaluarProveedores(parsedArgs, context),
         isClosingAction: false,
       };
 
@@ -508,9 +649,125 @@ export async function dispatchToolCall(
         isClosingAction: false,
       };
 
+    case "despachar_envio_cliente": {
+      const dispatchRes = await dispatchOutboundShipment({
+        companyId: effectiveCompanyId,
+        productQuery: parsedArgs.producto_id,
+        quantity: Number(parsedArgs.cantidad || 1),
+        destinationAddressOrCity: parsedArgs.destino_direccion,
+        customerName: parsedArgs.cliente_nombre,
+        carrier: parsedArgs.transportista,
+      });
+      return {
+        result: {
+          isSuccess: dispatchRes.success,
+          ...dispatchRes,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "recibir_mercancia_envio": {
+      const recvRes = await receiveInboundShipment({
+        companyId: effectiveCompanyId,
+        trackingOrOrderId: parsedArgs.identificador,
+      });
+      return {
+        result: {
+          isSuccess: recvRes.success,
+          ...recvRes,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "consolidar_cargas_y_rebalancear": {
+      const [health, rebalancing, consolidatedLoads] = await Promise.all([
+        analyzeDynamicCatalogHealth(effectiveCompanyId),
+        evaluateWarehouseRebalancing(effectiveCompanyId),
+        buildConsolidatedLoadPlans(effectiveCompanyId),
+      ]);
+      const criticalOrReorder = health.filter((h) => h.needsReorder);
+      return {
+        result: {
+          isSuccess: true,
+          resumenCatalogo: {
+            totalSkus: health.length,
+            skusBajoPuntoReordenDinamico: criticalOrReorder.length,
+            alertasRop: criticalOrReorder.slice(0, 12),
+          },
+          oportunidadesCrossDocking: rebalancing,
+          planesConsolidacionCarga: consolidatedLoads,
+          mensaje: `Torre Logística ejecutada: ${criticalOrReorder.length} SKU(s) bajo ROP dinámico, ${rebalancing.length} oportunidad(es) de transferencia inter-almacén y ${consolidatedLoads.length} plan(es) de carga consolidada con Landed Cost calculado.`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "configurar_nodo_logistico_gps": {
+      const updRes = await updateLogisticsNodeLocation({
+        companyId: effectiveCompanyId,
+        nodeType: parsedArgs.tipo_nodo || "warehouse",
+        nodeIdOrName: parsedArgs.identificador_o_nombre,
+        addressOrCity: parsedArgs.ciudad_o_direccion,
+      });
+      return {
+        result: {
+          isSuccess: updRes.success,
+          ...updRes,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "enviar_notificacion_operativa": {
+      const { dispatchDecisionNotification, listNotificationChannels } = await import("@mint/notifiers");
+      const chans = await listNotificationChannels(effectiveCompanyId);
+      const activeChans = chans.filter((c) => c.isActive);
+      if (activeChans.length === 0) {
+        return {
+          result: {
+            isSuccess: false,
+            mensaje:
+              "No hay canales de notificación activos (Discord/Telegram/Slack) para esta empresa. Configúralos con '/channels' o desde la Desktop App.",
+          },
+          isClosingAction: false,
+        };
+      }
+      const dispatchSummary = await dispatchDecisionNotification({
+        id: `op_${Date.now().toString(36)}`,
+        companyId: effectiveCompanyId,
+        caseId: context?.caseId || "case_operativo",
+        title: parsedArgs.titulo || "Reporte Operativo de Torre Logística",
+        actionType: "reporte_operativo",
+        proposingAgent: "logistics_coordinator",
+        costMxn: 0,
+        riskScore: parsedArgs.severidad === "critica" ? 0.85 : 0.1,
+        policyDecision: "auto_executed",
+        policyReason: parsedArgs.mensaje,
+        evidence: {
+          reporte: parsedArgs.mensaje,
+          severidad: parsedArgs.severidad || "info",
+        },
+        risk: { riskScore: 0.1, redFlags: [] },
+      });
+      return {
+        result: {
+          isSuccess: dispatchSummary.sentCount > 0,
+          canalesEnviados: dispatchSummary.sentCount,
+          errores: dispatchSummary.errors,
+          mensaje:
+            dispatchSummary.sentCount > 0
+              ? `✔ Notificación operativa enviada en tiempo real a ${dispatchSummary.sentCount} canal(es) activo(s) (Discord/Telegram).`
+              : `❌ No se pudo entregar la notificación: ${dispatchSummary.errors.join(", ")}`,
+        },
+        isClosingAction: false,
+      };
+    }
+
     case "consultar_canales_notificacion": {
       const { listNotificationChannels } = await import("@mint/notifiers");
-      const companyId = parsedArgs.empresa_id || context?.companyId || "comp_default";
+      const companyId = parsedArgs.empresa_id || effectiveCompanyId;
       const chans = await listNotificationChannels(companyId);
       return {
         result: {
@@ -528,7 +785,7 @@ export async function dispatchToolCall(
           mensaje:
             chans.length > 0
               ? `Se encontraron ${chans.length} canal(es) de alerta configurado(s): ${chans.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`
-              : `No tienes canales de notificación remotos configurados actualmente en PostgreSQL para esta empresa. Puedes vincular Discord o Slack con '/channels add discord <url>' o desde la Desktop App.`,
+              : `No tienes canales de notificación remotos configurados actualmente en PostgreSQL para esta empresa. Puedes vincular Discord o Telegram con '/channels' o desde la Desktop App.`,
         },
         isClosingAction: false,
       };
@@ -536,8 +793,7 @@ export async function dispatchToolCall(
 
     case "probar_canal_notificacion": {
       const { testNotificationChannel, listNotificationChannels } = await import("@mint/notifiers");
-      const companyId = context?.companyId || "comp_default";
-      const chans = await listNotificationChannels(companyId);
+      const chans = await listNotificationChannels(effectiveCompanyId);
       const target = chans.find((c) => c.type === parsedArgs.tipo || c.id === parsedArgs.canal_id) || chans[0];
       if (!target) {
         return {

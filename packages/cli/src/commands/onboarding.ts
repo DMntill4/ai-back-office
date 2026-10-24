@@ -132,10 +132,19 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       console.log(`  ${theme.redBold("❌ Password too short:")} Must be at least 6 characters.\n`);
     }
 
+    const warehouseCity = await ask(
+      rl,
+      `  ${theme.bold("1.5 Main warehouse city or location (for GPS & freight routing)")}`,
+      "Ciudad de México",
+    );
+
     const companyId = `comp_${companyName.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 16) || "main"}`;
     const userId = `usr_${userName.toLowerCase().replace(/[^a-z0-9]/g, "_") || "admin"}`;
 
-    // Register Company, Central Warehouse, and User in DB
+    const { geocodeAddressOrCity } = await import("@mint/core");
+    const whGeo = await geocodeAddressOrCity(warehouseCity).catch(() => null);
+
+    // Register Company, Central Warehouse with real GPS coordinates, and User in DB
     await db.insert(companies).values({ id: companyId, name: companyName }).onConflictDoNothing();
     await db
       .insert(warehouses)
@@ -143,9 +152,15 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         id: `alm_central_${companyId}`,
         companyId,
         name: "Central Operations Warehouse",
-        location: "Main Facility",
+        location: warehouseCity,
+        city: whGeo?.city || warehouseCity,
+        state: whGeo?.state || null,
+        country: whGeo?.country || "MX",
+        latitude: whGeo ? String(whGeo.latitude) : "19.4326",
+        longitude: whGeo ? String(whGeo.longitude) : "-99.1332",
       })
       .onConflictDoNothing();
+
 
     await db
       .insert(users)
@@ -286,7 +301,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           }
         }
 
-        // Insert real suppliers from the project (if present)
+        // Insert real suppliers from the project (if present) or register Open RFQ fallback
+        const registeredSuppIds: string[] = [];
         for (const s of extractedSuppliers) {
           const suppId = `supp_${s.name.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 30)}_${companyId}`;
           await db
@@ -295,13 +311,35 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
               id: suppId,
               companyId,
               name: s.name,
+              city: s.city || "Monterrey",
+              latitude: "25.6866",
+              longitude: "-100.3161",
               origin: "real",
             })
             .onConflictDoNothing();
+          registeredSuppIds.push(suppId);
+        }
+
+        if (registeredSuppIds.length === 0) {
+          const fallbackSuppId = `supp_direct_${companyId}`;
+          await db
+            .insert(suppliers)
+            .values({
+              id: fallbackSuppId,
+              companyId,
+              name: "Compra Directa / Licitación Abierta (RFQ)",
+              city: "Querétaro",
+              latitude: "20.5888",
+              longitude: "-100.3899",
+              origin: "real",
+            })
+            .onConflictDoNothing();
+          registeredSuppIds.push(fallbackSuppId);
         }
 
         if (extracted.length > 0) {
-          for (const item of extracted) {
+          for (let i = 0; i < extracted.length; i++) {
+            const item = extracted[i];
             const productId = `prod_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
             await db
               .insert(products)
@@ -334,8 +372,24 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
                 set: { stock: item.stock, updatedAt: new Date() },
               });
 
+            const assignedSuppId = registeredSuppIds[i % registeredSuppIds.length];
+            const spId = `sp_${productId}_${assignedSuppId}`.slice(0, 60);
+            await db
+              .insert(supplierProducts)
+              .values({
+                id: spId,
+                companyId,
+                supplierId: assignedSuppId,
+                productId,
+                unitPrice: (item.price || 150).toFixed(2),
+                leadTimeDays: 3,
+                minOrderQuantity: Math.max(2, item.minStock),
+              })
+              .onConflictDoNothing();
+
             importedProductsCount++;
           }
+
 
           selectedSourceLabel = `${projToUse.projectName} (${importedProductsCount} items)`;
           console.log(`  ${theme.success("✔")} Successfully synced ${theme.bold(importedProductsCount)} real items from ${theme.mintBold(projToUse.projectName)}!\n`);

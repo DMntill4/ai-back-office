@@ -9,6 +9,7 @@ import { auditProposalRisk } from "./especialistas/riesgoSpecialist";
 import { evaluatePolicy, type ActionProposal, type PolicyEvaluation } from "../policy/policyEngine";
 import { executeAndVerifyDecision } from "../services/decisionExecutionService";
 import { checkDataFreshness } from "../services/dataFreshnessService";
+import { evaluateWarehouseRebalancing } from "../services/logisticsCoordinatorService";
 
 export interface CoordinatorResult {
   success: boolean;
@@ -21,8 +22,10 @@ export interface CoordinatorResult {
 
 /**
  * Agente Coordinador (Orchestrator):
- * Recibe eventos reales, delega en paralelo a los especialistas, unifica el plan,
- * somete a auditoría adversarial y pasa por el motor determinista de políticas.
+ * Recibe eventos reales, delega en paralelo a los especialistas, evalúa
+ * primero si existe excedente en otra bodega propia (Rebalanceo Cross-Docking)
+ * antes de comprar a proveedor externo, somete a auditoría adversarial,
+ * pasa por el motor determinista de políticas y despacha alertas a Discord/Telegram.
  */
 export async function coordinateOperationalEvent(params: {
   eventId?: string;
@@ -67,10 +70,11 @@ export async function coordinateOperationalEvent(params: {
     };
   }
 
-  // 2. Ejecutar análisis en paralelo: Inventario y Transporte
-  const [invAnalysis, transportAnalysis] = await Promise.all([
+  // 2. Ejecutar análisis en paralelo: Inventario, Transporte y Rebalanceo Inter-Almacén
+  const [invAnalysis, transportAnalysis, rebalancingProposals] = await Promise.all([
     analyzeInventoryForProduct(targetProductId, companyId),
     analyzeShipmentsForProduct(targetProductId, companyId),
+    evaluateWarehouseRebalancing(companyId).catch(() => []),
   ]);
 
   if (!invAnalysis) {
@@ -81,11 +85,13 @@ export async function coordinateOperationalEvent(params: {
     };
   }
 
+  const matchingRebalance = rebalancingProposals.find((r) => r.productId === targetProductId);
+
   // 3. Determinar necesidad de aprovisionamiento
   const isUrgent = invAnalysis.daysCoverage < 3 || transportAnalysis.hasDelayedShipment;
   const targetQuantity = Math.max(invAnalysis.deficit, 10);
 
-  // 4. Especialista en Compras: Buscar la mejor cotización real
+  // 4. Especialista en Compras: Buscar la mejor cotización real (con fallback resiliente)
   const purchasingAnalysis = await analyzePurchasingOptions(
     targetProductId,
     targetQuantity,
@@ -97,7 +103,7 @@ export async function coordinateOperationalEvent(params: {
     return {
       success: false,
       caseId,
-      summary: `No existen proveedores homologados para abastecer el producto "${invAnalysis.productName}". Se requiere alta manual de proveedor.`,
+      summary: `No existen opciones de abastecimiento para el producto "${invAnalysis.productName}".`,
     };
   }
 
@@ -140,14 +146,28 @@ export async function coordinateOperationalEvent(params: {
       supplierId: recommendedOption.supplierId,
       supplierName: recommendedOption.supplierName,
       unitPrice: recommendedOption.unitPrice,
+      leadTimeDays: recommendedOption.leadTimeDays,
+      freightCostMxn: recommendedOption.freightCostMxn || 0,
+      landedCostMxn: recommendedOption.landedCostMxn || finalCostMxn,
       quantity: purchasingAnalysis.recommendedQuantity,
-      dataFreshness: freshnessResult ? {
-        isFresh: freshnessResult.isFresh,
-        lastSyncedAt: freshnessResult.newestSyncAt ? freshnessResult.newestSyncAt.toISOString() : null,
-        hoursSinceLastSync: freshnessResult.hoursSinceLastSync,
-        sourceStatus: freshnessResult.status,
-        reason: freshnessResult.reason,
-      } : undefined,
+      rebalancingAlternative: matchingRebalance
+        ? {
+            fromWarehouse: matchingRebalance.fromWarehouseName,
+            toWarehouse: matchingRebalance.toWarehouseName,
+            transferQuantity: matchingRebalance.transferQuantity,
+            transferFreightMxn: matchingRebalance.transferFreightCostMxn,
+            netSavingsMxn: matchingRebalance.netSavingsMxn,
+          }
+        : undefined,
+      dataFreshness: freshnessResult
+        ? {
+            isFresh: freshnessResult.isFresh,
+            lastSyncedAt: freshnessResult.newestSyncAt ? freshnessResult.newestSyncAt.toISOString() : null,
+            hoursSinceLastSync: freshnessResult.hoursSinceLastSync,
+            sourceStatus: freshnessResult.status,
+            reason: freshnessResult.reason,
+          }
+        : undefined,
       delayedShipmentNotice: transportAnalysis.hasDelayedShipment
         ? `Envío anterior con demora detectada en guía(s): ${transportAnalysis.delayedTrackingNumbers.join(", ")}`
         : undefined,
@@ -161,7 +181,7 @@ export async function coordinateOperationalEvent(params: {
     },
   };
 
-  // 7. Consultar configuración de la empresa (umbral monetario y nivel de autonomía)
+  // 8. Consultar configuración de la empresa (umbral monetario y nivel de autonomía)
   const configs = await db
     .select()
     .from(businessConfig)
@@ -172,13 +192,13 @@ export async function coordinateOperationalEvent(params: {
   const autonomyLevelRaw = configs.find((c) => c.key === "autonomy_level")?.value as any;
   const autonomyLevel = params.autonomyLevel || autonomyLevelRaw || "dry-run";
 
-  // 8. Pasar por el Motor de Políticas Determinista
+  // 9. Pasar por el Motor de Políticas Determinista
   const policyResult = evaluatePolicy(proposal, {
     approvalLimitAmount: approvalLimit,
     autonomyLevel,
   });
 
-  // 9. Persistir la decisión en la tabla decisions
+  // 10. Persistir la decisión en la tabla decisions
   await db.insert(decisions).values({
     id: decisionId,
     companyId,
@@ -196,7 +216,28 @@ export async function coordinateOperationalEvent(params: {
     decidedAt: new Date(),
   });
 
-  // 10. Si el motor dictamina AUTO_EXECUTED, ejecutar y verificar de inmediato
+  // 10.1 Despachar notificación proactiva a Discord / Telegram / Slack si hay canales activos
+  try {
+    const { dispatchDecisionNotification } = await import("@mint/notifiers");
+    await dispatchDecisionNotification({
+      id: decisionId,
+      companyId,
+      caseId,
+      title: proposal.title,
+      actionType: proposal.actionType,
+      proposingAgent: proposal.proposingAgent,
+      costMxn: proposal.costMxn,
+      riskScore: proposal.riskAssessment.riskScore,
+      policyDecision: policyResult.policyDecision,
+      policyReason: policyResult.reason,
+      evidence: proposal.evidence,
+      risk: proposal.riskAssessment,
+    });
+  } catch {
+    // Continuar silenciosamente si no hay canales activos o en entorno de test aislado
+  }
+
+  // 11. Si el motor dictamina AUTO_EXECUTED, ejecutar y verificar de inmediato
   if (policyResult.policyDecision === "auto_executed") {
     const execution = await executeAndVerifyDecision(decisionId, "SISTEMA_AUTONOMO");
     if (params.eventId) {
@@ -212,11 +253,11 @@ export async function coordinateOperationalEvent(params: {
       decisionId,
       policyResult,
       proposal,
-      summary: `[DECISIÓN AUTO-EJECUTADA]: ${proposal.title}. ${policyResult.reason} Orden de compra confirmada en base de datos.`,
+      summary: `[DECISIÓN AUTO-EJECUTADA]: ${proposal.title}. ${policyResult.reason} ${execution.message}`,
     };
   }
 
-  // 11. Si requiere aprobación humana (HITL), queda lista en la Bandeja de Decisiones
+  // 12. Si requiere aprobación humana (HITL), queda lista en la Bandeja de Decisiones
   if (params.eventId) {
     await db
       .update(operationalEvents)

@@ -1,15 +1,24 @@
 import { z } from "zod";
 import { calculateRealRoute, GeoPoint } from "../services/routeCalculator";
+import { geocodeAddressOrCity, resolveNodeGeoPoint } from "../services/geocodingService";
 
 export const calcularRutaLogisticaSchema = z.object({
   proveedor_id: z
     .string()
     .optional()
-    .describe("ID o nombre del proveedor de origen (ej. 'prov_acme', 'Bosch', 'Grainger')"),
+    .describe("ID, nombre o ciudad del proveedor de origen (ej. 'prov_acme', 'Bosch', 'Monterrey')"),
   almacen_id: z
     .string()
     .optional()
-    .describe("ID del almacén de destino (por defecto toma el almacén principal de la empresa)"),
+    .describe("ID, nombre o ciudad del almacén de destino (por defecto toma el almacén principal de la empresa)"),
+  origen_direccion: z
+    .string()
+    .optional()
+    .describe("Ciudad o dirección libre de origen (ej. 'Guadalajara, Jalisco', 'Querétaro')"),
+  destino_direccion: z
+    .string()
+    .optional()
+    .describe("Ciudad o dirección libre de destino (ej. 'Monterrey, NL', 'CDMX')"),
 });
 
 export type CalcularRutaLogisticaInput = z.infer<typeof calcularRutaLogisticaSchema>;
@@ -49,18 +58,23 @@ export async function executeCalcularRutaLogistica(
       if (conf?.currency) currency = conf.currency;
     }
 
-    // 1. Obtener almacén de destino
+    // 1. Obtener o geocodificar almacén/destino
     let targetWarehouse: any = null;
     if (args.almacen_id) {
       const found = await db
         .select()
         .from(warehouses)
-        .where(eq(warehouses.id, args.almacen_id))
+        .where(
+          or(
+            eq(warehouses.id, args.almacen_id),
+            ilike(warehouses.name, `%${args.almacen_id}%`),
+          ),
+        )
         .limit(1);
       if (found.length > 0) targetWarehouse = found[0];
     }
 
-    if (!targetWarehouse) {
+    if (!targetWarehouse && !args.destino_direccion) {
       const defaultAlm = await db
         .select()
         .from(warehouses)
@@ -69,14 +83,35 @@ export async function executeCalcularRutaLogistica(
       if (defaultAlm.length > 0) targetWarehouse = defaultAlm[0];
     }
 
-    if (!targetWarehouse || !targetWarehouse.latitude || !targetWarehouse.longitude) {
+    let destination: GeoPoint | null = null;
+    if (args.destino_direccion) {
+      destination = await geocodeAddressOrCity(args.destino_direccion);
+    } else if (targetWarehouse) {
+      destination = await resolveNodeGeoPoint(targetWarehouse);
+      // Persistir coordenadas si el almacén no las tenía aún
+      if (destination && (!targetWarehouse.latitude || !targetWarehouse.longitude)) {
+        await db
+          .update(warehouses)
+          .set({
+            latitude: String(destination.latitude),
+            longitude: String(destination.longitude),
+            city: targetWarehouse.city || destination.city,
+          })
+          .where(eq(warehouses.id, targetWarehouse.id))
+          .catch(() => {});
+      }
+    } else if (args.almacen_id) {
+      destination = await geocodeAddressOrCity(args.almacen_id);
+    }
+
+    if (!destination) {
       return {
         isSuccess: false,
         message: "No se encontró un almacén con coordenadas GPS registradas en la empresa.",
       };
     }
 
-    // 2. Obtener proveedor de origen
+    // 2. Obtener o geocodificar proveedor/origen
     let targetSupplier: any = null;
     if (args.proveedor_id) {
       const found = await db
@@ -92,7 +127,7 @@ export async function executeCalcularRutaLogistica(
       if (found.length > 0) targetSupplier = found[0];
     }
 
-    if (!targetSupplier) {
+    if (!targetSupplier && !args.origen_direccion) {
       const defaultSupp = await db
         .select()
         .from(suppliers)
@@ -101,32 +136,32 @@ export async function executeCalcularRutaLogistica(
       if (defaultSupp.length > 0) targetSupplier = defaultSupp[0];
     }
 
-    if (!targetSupplier || !targetSupplier.latitude || !targetSupplier.longitude) {
+    let origin: GeoPoint | null = null;
+    if (args.origen_direccion) {
+      origin = await geocodeAddressOrCity(args.origen_direccion);
+    } else if (targetSupplier) {
+      origin = await resolveNodeGeoPoint(targetSupplier);
+      if (origin && (!targetSupplier.latitude || !targetSupplier.longitude)) {
+        await db
+          .update(suppliers)
+          .set({
+            latitude: String(origin.latitude),
+            longitude: String(origin.longitude),
+            city: targetSupplier.city || origin.city,
+          })
+          .where(eq(suppliers.id, targetSupplier.id))
+          .catch(() => {});
+      }
+    } else if (args.proveedor_id) {
+      origin = await geocodeAddressOrCity(args.proveedor_id);
+    }
+
+    if (!origin) {
       return {
         isSuccess: false,
         message: "No se encontró un proveedor con ubicación física o coordenadas GPS registradas.",
       };
     }
-
-    const origin: GeoPoint = {
-      latitude: Number(targetSupplier.latitude),
-      longitude: Number(targetSupplier.longitude),
-      name: targetSupplier.name,
-      address: targetSupplier.streetAddress || undefined,
-      city: targetSupplier.city || undefined,
-      state: targetSupplier.state || undefined,
-      country: targetSupplier.country || undefined,
-    };
-
-    const destination: GeoPoint = {
-      latitude: Number(targetWarehouse.latitude),
-      longitude: Number(targetWarehouse.longitude),
-      name: targetWarehouse.name,
-      address: targetWarehouse.streetAddress || undefined,
-      city: targetWarehouse.city || undefined,
-      state: targetWarehouse.state || undefined,
-      country: targetWarehouse.country || undefined,
-    };
 
     const route = await calculateRealRoute(origin, destination, { currency });
 
@@ -137,16 +172,16 @@ export async function executeCalcularRutaLogistica(
       isSuccess: true,
       rutaLogistica: {
         origen: {
-          proveedor: targetSupplier.name,
-          direccion: targetSupplier.streetAddress || "Dirección no especificada",
-          ubicacion: `${targetSupplier.city || "N/A"}${targetSupplier.state ? `, ${targetSupplier.state}` : ""}${targetSupplier.country ? ` (${targetSupplier.country})` : ""}`,
-          coordenadas: `${targetSupplier.latitude}, ${targetSupplier.longitude}`,
+          proveedor: targetSupplier?.name || origin.name || args.origen_direccion || "Origen",
+          direccion: targetSupplier?.streetAddress || origin.address || "Dirección geocodificada",
+          ubicacion: `${targetSupplier?.city || origin.city || "N/A"}${targetSupplier?.state || origin.state ? `, ${targetSupplier?.state || origin.state}` : ""}${targetSupplier?.country || origin.country ? ` (${targetSupplier?.country || origin.country})` : ""}`,
+          coordenadas: `${origin.latitude}, ${origin.longitude}`,
         },
         destino: {
-          almacen: targetWarehouse.name,
-          direccion: targetWarehouse.streetAddress || "Dirección no especificada",
-          ubicacion: `${targetWarehouse.city || "N/A"}${targetWarehouse.state ? `, ${targetWarehouse.state}` : ""}${targetWarehouse.country ? ` (${targetWarehouse.country})` : ""}`,
-          coordenadas: `${targetWarehouse.latitude}, ${targetWarehouse.longitude}`,
+          almacen: targetWarehouse?.name || destination.name || args.destino_direccion || "Destino",
+          direccion: targetWarehouse?.streetAddress || destination.address || "Dirección geocodificada",
+          ubicacion: `${targetWarehouse?.city || destination.city || "N/A"}${targetWarehouse?.state || destination.state ? `, ${targetWarehouse?.state || destination.state}` : ""}${targetWarehouse?.country || destination.country ? ` (${targetWarehouse?.country || destination.country})` : ""}`,
+          coordenadas: `${destination.latitude}, ${destination.longitude}`,
         },
         distanciaVialRealKm: route.distanceKm,
         tiempoEstimadoTransito: route.durationFormatted,

@@ -1,15 +1,15 @@
 import { z } from "zod";
-import { createPurchaseOrder } from "../services/inventoryService";
+import { createPurchaseOrder, getStockByProduct } from "../services/inventoryService";
 
 // Esquema Zod para crear orden de compra
 export const crearOrdenCompraSchema = z.object({
   case_id: z.string().describe("ID del caso atendido por el agente"),
   producto_id: z
     .string()
-    .describe("ID del producto a comprar (ej. 'prod_st200')"),
+    .describe("ID o SKU del producto a comprar (ej. 'prod_st200')"),
   proveedor_id: z
     .string()
-    .describe("ID del proveedor elegido (ej. 'prov_acme')"),
+    .describe("ID del proveedor elegido (ej. 'prov_acme' o 'compra_directa')"),
   cantidad: z
     .number()
     .int()
@@ -22,11 +22,26 @@ export const crearOrdenCompraSchema = z.object({
 
 export type CrearOrdenCompraInput = z.infer<typeof crearOrdenCompraSchema>;
 
-export async function executeCrearOrdenCompra(args: CrearOrdenCompraInput) {
+export async function executeCrearOrdenCompra(
+  args: CrearOrdenCompraInput,
+  context?: { companyId?: string },
+) {
   try {
+    // Resolver producto si pasaron SKU o nombre parcial
+    let resolvedProductId = args.producto_id;
+    try {
+      const stockInfo = await getStockByProduct(args.producto_id, context?.companyId);
+      if (stockInfo && !("isFuzzyMatch" in stockInfo) && stockInfo.productId) {
+        resolvedProductId = stockInfo.productId;
+      }
+    } catch {
+      // Mantener args.producto_id
+    }
+
     const result = await createPurchaseOrder({
       caseId: args.case_id,
-      productId: args.producto_id,
+      companyId: context?.companyId,
+      productId: resolvedProductId,
       supplierId: args.proveedor_id,
       quantity: args.cantidad,
       idempotencyKey: args.idempotency_key,
@@ -48,6 +63,7 @@ export async function executeCrearOrdenCompra(args: CrearOrdenCompraInput) {
       requiresApproval: result.requiresApproval ?? false,
       verified: resAny.verified ?? true,
       duplicate: resAny.duplicate ?? false,
+      trackingNumber: resAny.trackingNumber,
       message: result.message,
       data: resAny.order ?? null,
     };

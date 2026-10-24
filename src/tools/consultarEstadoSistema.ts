@@ -28,10 +28,12 @@ export interface ConsultarEstadoSistemaResult {
     minimo: number;
     origen: string;
   }>;
+  canalesNotificacion?: Array<{ tipo: string; nombre: string; activo: boolean }>;
   configuracionBot: {
     nombre: string;
     tono: string;
-    umbralAutonomo: string;
+    gobernanza?: string;
+    umbralAutonomo?: string;
     moneda: string;
   };
   resumenEjecutivo: string;
@@ -91,7 +93,20 @@ export async function executeConsultarEstadoSistema(
       };
     });
 
-    // 4. Obtener configuración del bot
+    // 4. Obtener canales de notificación configurados
+    const { notificationChannels } = await import("../db/schema");
+    const channels = await db
+      .select()
+      .from(notificationChannels)
+      .where(eq(notificationChannels.companyId, companyId));
+
+    const canalesInfo = channels.map((c) => ({
+      tipo: c.type,
+      nombre: c.name,
+      activo: c.isActive,
+    }));
+
+    // 5. Obtener configuración del bot
     const configs = await db
       .select()
       .from(businessConfig)
@@ -99,10 +114,13 @@ export async function executeConsultarEstadoSistema(
 
     const botName = configs.find((c) => c.key === "bot_name")?.value || "MINT";
     const botTone = configs.find((c) => c.key === "bot_tone")?.value || "ejecutivo";
-    const umbral = configs.find((c) => c.key === "approval_limit_amount")?.value || "10000.00";
-    const moneda = configs.find((c) => c.key === "currency")?.value || "MXN";
+    const moneda = configs.find((c) => c.key === "currency")?.value || (companyRes[0] as any)?.currency || "USD";
 
-    const resumen = `Estoy conectado en tiempo real a PostgreSQL en Supabase Cloud. Tienes cargadas ${tablenames.length} tablas en el esquema relacional (${tablenames.join(", ")}). Para la empresa '${companyName}' (${companyId}), tienes ${prods.length} productos registrados en catálogo con un total de ${totalUnidades} unidades en almacén. Tu umbral de gobernanza autónoma está fijado en $${Number(umbral).toLocaleString('es-MX')} ${moneda}.`;
+    const canalesTexto = channels.length > 0
+      ? `Canales de alerta conectados: ${channels.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`
+      : `No hay canales remotos conectados actualmente. Puedes vincular Discord o Slack con '/channels add discord <url>'.`;
+
+    const resumen = `Estoy conectado en tiempo real a PostgreSQL en Supabase Cloud. Tienes cargadas ${tablenames.length} tablas en el esquema relacional. Para la empresa '${companyName}' (${companyId}), tienes ${prods.length} productos registrados en catálogo con un total de ${totalUnidades} unidades físicas en almacén. ${canalesTexto} Política de gobernanza: HUMAN-IN-THE-LOOP 100% (Cero compras automáticas; toda propuesta requiere tu aprobación explícita).`;
 
     return {
       isSuccess: true,
@@ -118,10 +136,11 @@ export async function executeConsultarEstadoSistema(
       totalProductosRegistrados: prods.length,
       totalUnidadesStock: totalUnidades,
       catalogoMuestras: muestras,
+      canalesNotificacion: canalesInfo,
       configuracionBot: {
         nombre: botName,
         tono: botTone,
-        umbralAutonomo: `$${umbral} ${moneda}`,
+        gobernanza: "HUMAN-IN-THE-LOOP 100% (0 compras automáticas - Aprobación requerida)",
         moneda,
       },
       resumenEjecutivo: resumen,
@@ -136,11 +155,12 @@ export async function executeConsultarEstadoSistema(
       totalProductosRegistrados: 0,
       totalUnidadesStock: 0,
       catalogoMuestras: [],
+      canalesNotificacion: [],
       configuracionBot: {
         nombre: "MINT",
         tono: "ejecutivo",
-        umbralAutonomo: "$10,000 MXN",
-        moneda: "MXN",
+        gobernanza: "HUMAN-IN-THE-LOOP 100%",
+        moneda: "USD",
       },
       resumenEjecutivo: `Fallo al verificar el estado de la base de datos: ${error.message}`,
     };

@@ -7,8 +7,7 @@
     "mint": "./packages/cli/bin/mint.js"
   },
   "workspaces": [
-    "packages/*",
-    "frontend"
+    "packages/*"
   ],
   "scripts": {
     "test": "vitest run tests",
@@ -25,9 +24,8 @@
     "agent": "tsx packages/cli/src/index.ts start",
     "agent:headless": "tsx packages/cli/src/index.ts start --headless",
     "dev": "tsx packages/cli/src/index.ts start",
-    "dev:all-with-frontend": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"tsx src/server.ts\" \"npm run dev --prefix frontend\"",
     "dev:backend": "tsx src/server.ts",
-    "dev:frontend": "npm run dev --prefix frontend",
+    "app": "tsx packages/app/server.ts",
     "server": "tsx src/server.ts",
     "mint": "tsx packages/cli/src/index.ts"
   },

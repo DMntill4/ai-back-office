@@ -1,10 +1,10 @@
 /* ==========================================================================
-   Mint Desktop App - Reactive Client Logic
+   Mint Desktop App - Autonomous Logistics Control Tower Client
    Zero-dependency Vanilla JS connecting directly to Mint Core & Notifiers
    ========================================================================== */
 
 let activeTab = "dashboard";
-let currentCompanyId = "comp_my_logistics_co_";
+let currentCompanyId = "comp_default";
 let productsCache = [];
 let channelsCache = [];
 let decisionsCache = [];
@@ -16,16 +16,19 @@ document.addEventListener("DOMContentLoaded", () => {
   initChannelModal();
   initForceScan();
   initSearch();
+  initLogisticsForms();
+  initAgentConsole();
   initLogs();
 
   // Initial load
-  loadSession();
-  loadAllData();
+  loadSession().then(() => {
+    loadAllData();
+  });
 
   // Background Live Pulse every 25 seconds
   setInterval(() => {
     loadDashboardMetrics();
-    appendTelemetryLog("Daemon 24/7", "Auditoría periódica completada. Inventario y transportistas en balance.");
+    appendTelemetryLog("Coordinator 24/7", "Pulso periódico completado. Catálogo, ROP dinámico y guías en monitoreo.");
   }, 25000);
 });
 
@@ -65,6 +68,7 @@ function switchTab(tabId) {
   if (activeView) activeView.classList.add("active");
 
   if (tabId === "inventory") loadProducts();
+  if (tabId === "logistics") loadLogisticsOverview();
   if (tabId === "channels") loadChannels();
   if (tabId === "decisions") loadDecisions();
   if (tabId === "dashboard") loadDashboardMetrics();
@@ -112,6 +116,7 @@ function initCompanySelector() {
 function loadAllData() {
   loadDashboardMetrics();
   loadProducts();
+  loadLogisticsOverview();
   loadChannels();
   loadDecisions();
 }
@@ -132,6 +137,8 @@ async function loadDashboardMetrics() {
       document.getElementById("productsCountPill").textContent = m.totalProducts;
       document.getElementById("channelsCountPill").textContent = m.activeChannels;
       document.getElementById("pendingDecisionsPill").textContent = m.pendingDecisions;
+      const shipPill = document.getElementById("shipmentsCountPill");
+      if (shipPill) shipPill.textContent = m.activeShipments || 0;
 
       renderMiniChannelsList();
     }
@@ -151,7 +158,9 @@ function renderMiniChannelsList() {
     return;
   }
 
-  container.innerHTML = channelsCache.map((c) => `
+  container.innerHTML = channelsCache
+    .map(
+      (c) => `
     <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-subtle);">
       <div style="display:flex; align-items:center; gap:8px;">
         <span class="platform-badge platform-${c.type}">${c.type}</span>
@@ -159,10 +168,286 @@ function renderMiniChannelsList() {
       </div>
       <button class="btn btn-outline btn-xs" onclick="sendTestNotice('${c.type}', '${c.id}')">Probar</button>
     </div>
-  `).join("");
+  `,
+    )
+    .join("");
 }
 
-// 2. Inventory / Catalog
+// 2. Logistics Control Tower & GPS
+async function loadLogisticsOverview() {
+  try {
+    const res = await fetch("/api/logistics/overview");
+    const data = await res.json();
+    if (!data.success) return;
+
+    renderShipmentsTable(data.shipments || []);
+    renderConsolidatedLoads(data.consolidatedLoads || []);
+    renderLogisticsNodes(data.warehouses || [], data.suppliers || []);
+  } catch (err) {
+    console.error("Error loading logistics overview:", err);
+  }
+}
+
+function renderShipmentsTable(ships) {
+  const tbody = document.getElementById("shipmentsTableBody");
+  if (!tbody) return;
+  if (!ships.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:18px; color:var(--text-dim);">No hay embarques en curso. Despacha un envío arriba o aprueba una orden de compra en la Bandeja HITL.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = ships
+    .map((s) => {
+      const isDelivered = s.status === "entregado";
+      const badgeClass = isDelivered ? "badge-mint" : s.status === "retrasado" ? "badge-red" : "badge-amber";
+      const eta = s.estimatedDelivery ? new Date(s.estimatedDelivery).toLocaleDateString() : "N/A";
+      const orig = s.originLocation || s.origin || "Origen";
+      const dest = s.destinationLocation || s.destination || "Destino";
+      return `
+      <tr>
+        <td><code>${s.trackingNumber}</code></td>
+        <td>${orig}</td>
+        <td>${dest}</td>
+        <td>${s.carrier}</td>
+        <td>${eta}</td>
+        <td><span class="badge ${badgeClass}">${s.status.toUpperCase()}</span></td>
+        <td class="text-center">
+          ${
+            !isDelivered
+              ? `<button class="btn btn-mint btn-xs" onclick="receiveShipment('${s.trackingNumber}')">📥 Recibir y Sumar Stock</button>`
+              : `<span style="color:var(--text-dim); font-size:12px;">✔ Recibido</span>`
+          }
+        </td>
+      </tr>
+    `;
+    })
+    .join("");
+}
+
+async function receiveShipment(trackingNumber) {
+  try {
+    const res = await fetch("/api/logistics/receive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trackingOrOrderId: trackingNumber }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message);
+      loadAllData();
+      appendTelemetryLog("Recepción Embarque", data.message);
+    } else {
+      showToast(data.message || "Error al recibir guía", "error");
+    }
+  } catch (err) {
+    showToast("Error de conexión", "error");
+  }
+}
+
+function renderConsolidatedLoads(loads) {
+  const box = document.getElementById("consolidatedLoadsBox");
+  if (!box) return;
+  if (!loads.length) {
+    box.innerHTML = `<div style="padding:12px; color:var(--mint);">✔ Todos los SKUs están sobre su Punto de Reorden Dinámico. Cero camiones pendientes por consolidar.</div>`;
+    return;
+  }
+
+  box.innerHTML = loads
+    .map(
+      (l) => `
+    <div style="border:1px solid var(--border-subtle); border-radius:8px; padding:12px; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <strong>🏢 ${l.supplierName} (${l.supplierCity})</strong>
+        <span class="badge badge-mint">LANDED COST: $${l.totalLandedCostMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</span>
+      </div>
+      <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+        Ruta OSRM: ${l.distanceKm} km (${l.durationFormatted}) │ Productos: $${l.productsCostMxn.toLocaleString("es-MX")} │ Flete: $${l.freightCostMxn.toLocaleString("es-MX")} (Ahorro consolidado: $${l.consolidationSavingsMxn.toFixed(2)})
+      </div>
+      <div style="margin-top:8px; font-size:12px;">
+        ${l.items.map((i) => `<div>• <code>${i.sku}</code> ${i.productName}: <strong>${i.quantity}u</strong> ($${i.lineCostMxn.toLocaleString("es-MX")} MXN)</div>`).join("")}
+      </div>
+    </div>
+  `,
+    )
+    .join("");
+}
+
+function renderLogisticsNodes(warehouses, suppliers) {
+  const box = document.getElementById("logisticsNodesBox");
+  if (!box) return;
+
+  const whHtml = warehouses
+    .map(
+      (w) => `
+    <div style="padding:6px 0; border-bottom:1px solid var(--border-subtle); font-size:13px;">
+      🏭 <strong>${w.name}</strong> — ${w.city || w.location || "N/A"}
+      <span style="float:right; font-family:monospace; color:var(--mint);">
+        ${w.latitude && w.longitude ? `${Number(w.latitude).toFixed(4)}, ${Number(w.longitude).toFixed(4)}` : "Sin GPS"}
+      </span>
+    </div>
+  `,
+    )
+    .join("");
+
+  const suppHtml = suppliers
+    .slice(0, 6)
+    .map(
+      (s) => `
+    <div style="padding:6px 0; border-bottom:1px solid var(--border-subtle); font-size:13px;">
+      🏢 <strong>${s.name}</strong> — ${s.city || s.streetAddress || s.location || "N/A"}
+      <span style="float:right; font-family:monospace; color:var(--text-muted);">
+        ${s.latitude && s.longitude ? `${Number(s.latitude).toFixed(4)}, ${Number(s.longitude).toFixed(4)}` : "Auto-GPS"}
+      </span>
+    </div>
+  `,
+    )
+    .join("");
+
+  box.innerHTML = whHtml + (suppHtml || `<div style="padding:8px 0; font-size:12px; color:var(--text-dim);">Modalidad Compra Directa / RFQ activa para cualquier SKU sin proveedor fijo.</div>`);
+}
+
+function initLogisticsForms() {
+  const dispForm = document.getElementById("dispatchForm");
+  if (dispForm) {
+    dispForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const productQuery = document.getElementById("dispProduct").value;
+      const quantity = Number(document.getElementById("dispQty").value || 1);
+      const destinationAddressOrCity = document.getElementById("dispDest").value;
+      const customerName = document.getElementById("dispCustomer").value;
+      const outBox = document.getElementById("dispatchResultBox");
+
+      outBox.textContent = "⏳ Seleccionando almacén más cercano con stock y calculando ruta vial OSRM...";
+      try {
+        const res = await fetch("/api/logistics/dispatch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productQuery, quantity, destinationAddressOrCity, customerName }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          outBox.textContent = `✔ ${data.message}`;
+          showToast(`Guía ${data.trackingNumber} despachada (${data.distanceKm} km)`);
+          loadAllData();
+          appendTelemetryLog("Despacho Outbound", data.message);
+        } else {
+          outBox.textContent = `❌ ${data.message}`;
+          showToast(data.message, "error");
+        }
+      } catch (err) {
+        outBox.textContent = "❌ Error al procesar despacho.";
+      }
+    });
+  }
+
+  const gpsForm = document.getElementById("nodeGpsForm");
+  if (gpsForm) {
+    gpsForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const nodeType = document.getElementById("nodeTypeSelect").value;
+      const nodeIdOrName = document.getElementById("nodeNameInput").value;
+      const addressOrCity = document.getElementById("nodeCityInput").value;
+
+      const res = await fetch("/api/logistics/node-location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodeType, nodeIdOrName, addressOrCity }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message);
+        loadLogisticsOverview();
+        appendTelemetryLog("Nodo GPS", data.message);
+      } else {
+        showToast(data.message || "Error geocodificando ubicación", "error");
+      }
+    });
+  }
+
+  const routeForm = document.getElementById("routeCalcForm");
+  if (routeForm) {
+    routeForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const origin = document.getElementById("routeOrigin").value;
+      const destination = document.getElementById("routeDest").value;
+      const box = document.getElementById("routeCalcResult");
+      box.textContent = "Calculando ruta OSRM...";
+
+      const res = await fetch("/api/logistics/route-calc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origin, destination }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        box.innerHTML = `✔ <strong>${data.route.distanceKm} km</strong> (${data.route.durationFormatted}) │ Flete estimado: <strong>${data.route.costoFleteFormatted}</strong> [${data.route.motorUtilizado}]`;
+      } else {
+        box.textContent = `❌ ${data.message}`;
+      }
+    });
+  }
+}
+
+// 3. Coordinator AI Console
+function initAgentConsole() {
+  const form = document.getElementById("agentChatForm");
+  if (!form) return;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("agentChatInput");
+    const msg = input.value.trim();
+    if (!msg) return;
+    await executeAgentMission(msg);
+  });
+}
+
+function runQuickAgentPrompt(promptText) {
+  const input = document.getElementById("agentChatInput");
+  if (input) input.value = promptText;
+  executeAgentMission(promptText);
+}
+
+async function executeAgentMission(message) {
+  const btn = document.getElementById("btnSendAgentChat");
+  const statusBadge = document.getElementById("agentStatusBadge");
+  const timelineBox = document.getElementById("agentToolsTimeline");
+  const outputBox = document.getElementById("agentResponseOutput");
+
+  btn.disabled = true;
+  btn.textContent = "⏳ Ejecutando...";
+  statusBadge.textContent = "DELIBERANDO EN VIVO";
+  timelineBox.innerHTML = "";
+  outputBox.textContent = "Ejecutando herramientas del Coordinador Logístico sobre PostgreSQL y OSRM...";
+
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, companyId: currentCompanyId }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      statusBadge.textContent = (data.status || "RESUELTO").toUpperCase();
+      if (data.multiAgentEvents && data.multiAgentEvents.length) {
+        timelineBox.innerHTML = data.multiAgentEvents
+          .map((ev) => `<span class="badge badge-mint">⚙ ${ev.action} (${ev.agent})</span>`)
+          .join("");
+      }
+      outputBox.textContent = data.response || "Operación completada.";
+      loadAllData();
+      appendTelemetryLog("Coordinador IA", `Misión completada (${data.multiAgentEvents?.length || 0} tools ejecutadas).`);
+    } else {
+      outputBox.textContent = "Error al ejecutar misión.";
+    }
+  } catch (err) {
+    outputBox.textContent = `Error de red: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Ejecutar Orden IA";
+  }
+}
+
+// 4. Inventory / Catalog
 async function loadProducts() {
   try {
     const res = await fetch("/api/products");
@@ -183,19 +468,20 @@ function renderInventoryTable(items) {
     return;
   }
 
-  tbody.innerHTML = items.map((p) => {
-    let badgeClass = "badge-mint";
-    if (p.status === "AGOTADO") badgeClass = "badge-red";
-    else if (p.status === "BAJO") badgeClass = "badge-amber";
+  tbody.innerHTML = items
+    .map((p) => {
+      let badgeClass = "badge-mint";
+      if (p.status === "AGOTADO") badgeClass = "badge-red";
+      else if (p.status === "BAJO") badgeClass = "badge-amber";
 
-    return `
+      return `
       <tr>
         <td><code>${p.sku}</code></td>
         <td style="font-weight:600;">${p.name}</td>
         <td><span style="color:var(--text-dim); font-size:12px;">${p.category || "General"}</span></td>
         <td class="text-right" style="font-weight:700; font-size:14px;" id="stock-val-${p.id}">${p.stock}u</td>
-        <td class="text-right" style="color:var(--text-muted);">${p.minStock}u</td>
-        <td class="text-center"><span class="badge ${badgeClass}">${p.status}</span></td>
+        <td class="text-right" style="color:var(--text-muted);">${p.minStock}u / ROP: ${p.dynamicRop ?? p.minStock}u</td>
+        <td class="text-center"><span class="badge ${badgeClass}">${p.status || "ÓPTIMO"}</span></td>
         <td class="text-center">
           <div class="stock-adjust-group">
             <button class="btn-icon" title="Restar 1 unidad" onclick="adjustStock('${p.id}', -1)">-</button>
@@ -204,7 +490,8 @@ function renderInventoryTable(items) {
         </td>
       </tr>
     `;
-  }).join("");
+    })
+    .join("");
 }
 
 async function adjustStock(productId, delta) {
@@ -219,7 +506,11 @@ async function adjustStock(productId, delta) {
       showToast(`Stock actualizado: ${data.newStock}u`);
       loadProducts();
       loadDashboardMetrics();
-      appendTelemetryLog("Ajuste Stock", `Producto ${productId} ajustado en ${delta > 0 ? "+" + delta : delta} unidades. Stock final: ${data.newStock}u.`);
+      loadLogisticsOverview();
+      appendTelemetryLog(
+        "Ajuste Stock",
+        `Producto ${productId} ajustado en ${delta > 0 ? "+" + delta : delta} unidades. Stock final: ${data.newStock}u.`,
+      );
     } else {
       showToast(data.error || "Error al ajustar stock", "error");
     }
@@ -242,7 +533,7 @@ function initSearch() {
   });
 }
 
-// 3. Channels Management
+// 5. Channels Management
 async function loadChannels() {
   try {
     const res = await fetch("/api/channels");
@@ -271,16 +562,17 @@ function renderChannelsGrid(channels) {
     return;
   }
 
-  grid.innerHTML = channels.map((c) => {
-    const topics = (c.config && c.config.topics) || ["logs", "stock", "logistics", "critical"];
-    const topicLabels = {
-      logs: "📜 Logs",
-      stock: "📦 Stock Updates",
-      logistics: "🚚 Logística & Pedidos",
-      critical: "⚠️ Alertas Críticas",
-    };
+  grid.innerHTML = channels
+    .map((c) => {
+      const topics = (c.config && c.config.topics) || ["logs", "stock", "logistics", "critical"];
+      const topicLabels = {
+        logs: "📜 Logs",
+        stock: "📦 Stock Updates",
+        logistics: "🚚 Logística & Pedidos",
+        critical: "⚠️ Alertas Críticas",
+      };
 
-    return `
+      return `
       <div class="channel-card">
         <div class="channel-header">
           <div class="channel-identity">
@@ -302,7 +594,8 @@ function renderChannelsGrid(channels) {
         </div>
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 }
 
 async function sendTestNotice(type, channelId) {
@@ -319,7 +612,10 @@ async function sendTestNotice(type, channelId) {
     const data = await res.json();
     if (data.success && data.result.success) {
       showToast(`¡Aviso enviado exitosamente a ${type.toUpperCase()}!`);
-      appendTelemetryLog("Test Canal", `Aviso interactivo despachado exitosamente a canal ${type.toUpperCase()} (Message ID: ${data.result.messageId || "OK"}).`);
+      appendTelemetryLog(
+        "Test Canal",
+        `Aviso interactivo despachado exitosamente a canal ${type.toUpperCase()} (Message ID: ${data.result.messageId || "OK"}).`,
+      );
     } else {
       showToast(`Error al enviar: ${data.result?.error || data.error || "Fallo en webhook/bot"}`, "error");
     }
@@ -342,7 +638,6 @@ function initChannelModal() {
   btnClose.addEventListener("click", closeModal);
   btnCancel.addEventListener("click", closeModal);
 
-  // Platform radio toggle
   const platformRadios = document.querySelectorAll('input[name="channelPlatform"]');
   const webhookGroup = document.getElementById("webhookFieldsGroup");
   const telegramGroup = document.getElementById("telegramFieldsGroup");
@@ -359,7 +654,6 @@ function initChannelModal() {
     });
   });
 
-  // Test Channel button in Modal
   btnTest.addEventListener("click", async () => {
     const platform = document.querySelector('input[name="channelPlatform"]:checked').value;
     const webhookUrl = document.getElementById("webhookUrl").value;
@@ -382,7 +676,6 @@ function initChannelModal() {
     }
   });
 
-  // Save Channel Form
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const platform = document.querySelector('input[name="channelPlatform"]:checked').value;
@@ -423,7 +716,7 @@ function initChannelModal() {
   });
 }
 
-// 4. Decisions (HITL)
+// 6. Decisions (HITL)
 async function loadDecisions() {
   try {
     const res = await fetch("/api/decisions");
@@ -447,16 +740,16 @@ function renderDecisionsList(decs) {
     return;
   }
 
-  container.innerHTML = decs.map((d) => {
-    const isPending = d.policyDecision === "pending_approval";
-    return `
+  container.innerHTML = decs
+    .map((d) => {
+      const isPending = d.policyDecision === "escalated_to_human" || d.policyDecision === "pending_approval";
+      return `
       <div class="decision-card">
         <div class="decision-info">
           <h3>${d.title}</h3>
           <div class="decision-meta">
             <span><strong>Costo:</strong> $${Number(d.costMxn).toLocaleString("es-MX")} MXN</span>
             <span><strong>Agente:</strong> ${d.proposingAgent || "compras_agent"}</span>
-            <span><strong>Regla:</strong> ${d.policyRule || "RULE_HITL_THRESHOLD"}</span>
             <span><strong>Decisión:</strong> <span class="badge ${isPending ? "badge-amber" : "badge-mint"}">${d.policyDecision}</span></span>
           </div>
           <p style="font-size:13px; color:var(--text-muted); margin-top:8px;">${d.policyReason || "Propuesta de compra lista para autorización humana."}</p>
@@ -466,15 +759,16 @@ function renderDecisionsList(decs) {
           ${
             isPending
               ? `
-            <button class="btn btn-mint btn-sm" onclick="approveDecision('${d.id}')">Aprobar Orden</button>
+            <button class="btn btn-mint btn-sm" onclick="approveDecision('${d.id}')">Aprobar & Emitir Guía</button>
             <button class="btn btn-danger btn-sm" onclick="rejectDecision('${d.id}')">Rechazar</button>
           `
-              : `<span class="badge badge-outline">ARCHIVADA</span>`
+              : `<span class="badge badge-outline">${d.policyDecision.toUpperCase()}</span>`
           }
         </div>
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 }
 
 async function approveDecision(id) {
@@ -482,10 +776,9 @@ async function approveDecision(id) {
     const res = await fetch(`/api/decisions/${id}/approve`, { method: "POST" });
     const data = await res.json();
     if (data.success) {
-      showToast("Propuesta aprobada y orden emitida");
-      loadDecisions();
-      loadDashboardMetrics();
-      appendTelemetryLog("HITL Aprobada", `Decisión ${id} autorizada por operador humano. Orden registrada.`);
+      showToast(data.result?.message || "Propuesta aprobada y guía de embarque generada");
+      loadAllData();
+      appendTelemetryLog("HITL Aprobada", data.result?.message || `Decisión ${id} autorizada.`);
     } else {
       showToast(data.error || "Error al aprobar", "error");
     }
@@ -518,13 +811,13 @@ async function rejectDecision(id) {
   }
 }
 
-// 5. Force Proactive Scan
+// 7. Force Proactive Scan
 function initForceScan() {
   const btn = document.getElementById("btnForceScan");
   btn.addEventListener("click", async () => {
     btn.disabled = true;
     btn.textContent = "⏳ Auditando...";
-    showToast("Ejecutando escaneo proactivo de stock y transporte...");
+    showToast("Ejecutando escaneo proactivo y enviando alertas a Discord/Telegram...");
 
     try {
       const res = await fetch("/api/scan", { method: "POST" });
@@ -533,18 +826,21 @@ function initForceScan() {
         const s = data.result;
         showToast(`Auditoría lista: ${s.stockDeficitsFound} desabastos, ${s.delayedShipmentsFound} demoras`);
         loadAllData();
-        appendTelemetryLog("Escaneo Manual", `Auditoría forzada: ${s.stockDeficitsFound} desabastos detectados, ${s.processedDecisions.length} propuestas generadas.`);
+        appendTelemetryLog(
+          "Escaneo Manual",
+          `Auditoría forzada: ${s.stockDeficitsFound} desabastos detectados, ${s.processedDecisions.length} propuestas generadas y notificadas.`,
+        );
       }
     } catch (err) {
       showToast("Error en escaneo", "error");
     } finally {
       btn.disabled = false;
-      btn.textContent = "⚡ Escanear Ahora";
+      btn.textContent = "⚡ Escanear & Notificar";
     }
   });
 }
 
-// 6. Telemetry & Logs
+// 8. Telemetry & Logs
 function initLogs() {
   const btnClear = document.getElementById("btnClearLogs");
   btnClear.addEventListener("click", () => {
@@ -552,8 +848,8 @@ function initLogs() {
     showToast("Vista de logs despejada");
   });
 
-  appendTelemetryLog("Daemon", "Mint Desktop App inicializada. Conexión relacional a PostgreSQL activa.");
-  appendTelemetryLog("Daemon", "Monitoreando 25 herramientas reales de My Logistics Co. Escuchando eventos 24/7.");
+  appendTelemetryLog("Coordinator", "Mint Logistics Control Tower inicializada. Conexión relacional a PostgreSQL activa.");
+  appendTelemetryLog("Coordinator", "Motor OSRM GPS, Consolidación de Cargas y Canales Discord/Telegram en línea.");
 }
 
 function appendTelemetryLog(tag, message) {

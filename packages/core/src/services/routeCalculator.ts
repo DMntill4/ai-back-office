@@ -26,8 +26,10 @@ export interface RouteCalculationResult {
   destination: GeoPoint;
   distanceKm: number;
   durationMinutes: number;
+  durationHours: number;
   durationFormatted: string;
   costoFleteEstimado: number;
+  estimatedFreightCostMxn: number;
   costoFleteFormatted: string;
   moneda: string;
   desgloseCostos: {
@@ -114,6 +116,7 @@ export async function calculateRealRoute(
   const hours = Math.floor(durationMinutes / 60);
   const mins = durationMinutes % 60;
   const durationFormatted = hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
+  const durationHours = Math.round((durationMinutes / 60) * 10) / 10;
 
   return {
     isSuccess: true,
@@ -121,8 +124,10 @@ export async function calculateRealRoute(
     destination,
     distanceKm,
     durationMinutes,
+    durationHours,
     durationFormatted,
     costoFleteEstimado: totalFlete,
+    estimatedFreightCostMxn: totalFlete,
     costoFleteFormatted: `$${totalFlete.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`,
     moneda: currency,
     desgloseCostos: {
@@ -135,3 +140,4 @@ export async function calculateRealRoute(
     motorUtilizado: motor,
   };
 }
+

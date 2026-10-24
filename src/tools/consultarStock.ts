@@ -5,14 +5,17 @@ import { getStockByProduct } from "../services/inventoryService";
 export const consultarStockSchema = z.object({
   producto_id: z
     .string()
-    .describe("ID del producto a consultar stock (ej. 'prod_st200')"),
+    .describe("ID, SKU o nombre del producto a consultar stock (ej. 'prod_st200')"),
 });
 
 export type ConsultarStockInput = z.infer<typeof consultarStockSchema>;
 
-export async function executeConsultarStock(args: ConsultarStockInput) {
+export async function executeConsultarStock(
+  args: ConsultarStockInput,
+  context?: { companyId?: string },
+) {
   try {
-    const stockInfo = await getStockByProduct(args.producto_id);
+    const stockInfo = await getStockByProduct(args.producto_id, context?.companyId);
 
     if (!stockInfo) {
       return {
@@ -22,12 +25,13 @@ export async function executeConsultarStock(args: ConsultarStockInput) {
       };
     }
 
-    if ('isFuzzyMatch' in stockInfo) {
-      const { suggestions } = stockInfo as { isFuzzyMatch: true, suggestions: any[] };
-      let suggestionText = suggestions.length > 0 
-        ? suggestions.map(s => `- ${s.name} (ID: ${s.id}, SKU: ${s.sku})`).join("\n") 
-        : "No hay productos similares.";
-        
+    if ("isFuzzyMatch" in stockInfo) {
+      const { suggestions } = stockInfo as { isFuzzyMatch: true; suggestions: any[] };
+      const suggestionText =
+        suggestions.length > 0
+          ? suggestions.map((s) => `- ${s.name} (ID: ${s.id}, SKU: ${s.sku})`).join("\n")
+          : "No hay productos similares.";
+
       return {
         isSuccess: false,
         message: `No se encontró el producto con ID '${args.producto_id}'. ¿Quisiste decir alguno de estos?\n${suggestionText}`,

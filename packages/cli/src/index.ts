@@ -143,9 +143,36 @@ program
   .command("app")
   .alias("desktop")
   .alias("web")
-  .description("Abre la Mint Desktop App (Dashboard, Canales de Notificación, Inventario en Tiempo Real y HITL)")
+  .description("Abre la Mint Desktop App (Torre de Control Logística Visual, GPS, Despachos, Canales y HITL)")
   .option("--no-open", "No abrir la ventana de la aplicación automáticamente")
   .action((options) => appCommand(options));
+
+// 8.2b mint logistics / dispatch / receive / consolidate
+program
+  .command("logistics [subcommand] [args...]")
+  .alias("gps")
+  .description("Torre de Control Logística: mint logistics [overview|dispatch|receive|consolidate|rebalance|gps|route]")
+  .action((subcommand, args) => {
+    const { logisticsCommand } = require("./commands/logistics");
+    return logisticsCommand(subcommand, args || []);
+  });
+
+program
+  .command("dispatch [args...]")
+  .description("Despacha mercancía de salida a un cliente desde la bodega más cercana con ruta OSRM")
+  .action((args) => {
+    const { logisticsCommand } = require("./commands/logistics");
+    return logisticsCommand("dispatch", args || []);
+  });
+
+program
+  .command("receive [trackingOrOrderId]")
+  .description("Recibe un embarque en tránsito en almacén e incrementa el stock físico")
+  .action((trackingOrOrderId) => {
+    const { logisticsCommand } = require("./commands/logistics");
+    return logisticsCommand("receive", trackingOrOrderId ? [trackingOrOrderId] : []);
+  });
+
 
 // 8.3 mint channels
 program

@@ -39,8 +39,12 @@ export * from "./services/authAndSetupService";
 export * from "./services/decisionExecutionService";
 export * from "./services/teamService";
 export * from "./services/dataFreshnessService";
+export * from "./services/routeCalculator";
+export * from "./services/geocodingService";
+export * from "./services/logisticsCoordinatorService";
 
 // 7. Cliente LLM
 export * from "./llm/client";
 export * from "./config/env";
 export * from "./config/runtimeCheck";
+

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mint Desktop App // Autonomous Logistics Center</title>
+  <title>Mint Desktop App // Autonomous Logistics Control Tower</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -15,22 +15,22 @@
     <header class="app-titlebar">
       <div class="brand">
         <span class="brand-orb"></span>
-        <span class="brand-title">MINT<span class="brand-accent">.APP</span></span>
-        <span class="badge badge-mint">AUTONOMOUS BACK-OFFICE</span>
+        <span class="brand-title">MINT<span class="brand-accent">.TOWER</span></span>
+        <span class="badge badge-mint">LOGISTICS CONTROL TOWER</span>
       </div>
 
       <div class="titlebar-center">
         <div class="company-selector">
           <label for="companySelect">Empresa:</label>
           <select id="companySelect">
-            <option value="comp_my_logistics_co_">My Logistics Co. [comp_my_logistics_co_]</option>
+            <option value="comp_default">Cargando empresa...</option>
           </select>
         </div>
       </div>
 
       <div class="titlebar-actions">
-        <button id="btnForceScan" class="btn btn-mint btn-sm" title="Ejecutar auditoría inmediata de stock y transporte">
-          ⚡ Escanear Ahora
+        <button id="btnForceScan" class="btn btn-mint btn-sm" title="Ejecutar auditoría inmediata de stock, ROP y transporte">
+          ⚡ Escanear & Notificar
         </button>
         <span class="badge badge-outline" id="daemonStatusBadge">DAEMON 24/7 ONLINE</span>
       </div>
@@ -45,20 +45,29 @@
             <span class="nav-icon">📊</span>
             <span class="nav-label">Dashboard Operativo</span>
           </button>
-          <button class="nav-item" data-tab="channels">
-            <span class="nav-icon">📡</span>
-            <span class="nav-label">Canales & Avisos</span>
-            <span class="nav-pill" id="channelsCountPill">0</span>
+          <button class="nav-item" data-tab="logistics">
+            <span class="nav-icon">🚚</span>
+            <span class="nav-label">Torre Logística & GPS</span>
+            <span class="nav-pill" id="shipmentsCountPill">0</span>
+          </button>
+          <button class="nav-item" data-tab="agent">
+            <span class="nav-icon">🤖</span>
+            <span class="nav-label">Coordinador IA</span>
           </button>
           <button class="nav-item" data-tab="inventory">
             <span class="nav-icon">📦</span>
-            <span class="nav-label">Inventario & Stock</span>
-            <span class="nav-pill" id="productsCountPill">25</span>
+            <span class="nav-label">Inventario & ROP</span>
+            <span class="nav-pill" id="productsCountPill">0</span>
           </button>
           <button class="nav-item" data-tab="decisions">
             <span class="nav-icon">⚖️</span>
             <span class="nav-label">Bandeja HITL</span>
             <span class="nav-pill pill-amber" id="pendingDecisionsPill">0</span>
+          </button>
+          <button class="nav-item" data-tab="channels">
+            <span class="nav-icon">📡</span>
+            <span class="nav-label">Canales Discord/TG</span>
+            <span class="nav-pill" id="channelsCountPill">0</span>
           </button>
           <button class="nav-item" data-tab="logs">
             <span class="nav-icon">📜</span>
@@ -68,9 +77,9 @@
 
         <div class="sidebar-footer">
           <div class="user-chip">
-            <div class="user-avatar">D</div>
+            <div class="user-avatar">M</div>
             <div class="user-info">
-              <span class="user-name" id="sessionUserName">Dale</span>
+              <span class="user-name" id="sessionUserName">Operator</span>
               <span class="user-role" id="sessionUserRole">OWNER</span>
             </div>
           </div>
@@ -86,8 +95,8 @@
         <section id="view-dashboard" class="view-pane active">
           <div class="view-header">
             <div>
-              <h1 class="view-title">Centro de Control Operativo</h1>
-              <p class="view-subtitle">Supervisión autónoma 24/7 de existencias, órdenes de reabastecimiento y canales.</p>
+              <h1 class="view-title">Torre de Control Logístico y Abastecimiento</h1>
+              <p class="view-subtitle">Supervisión autónoma 24/7 de existencias, rutas OSRM, consolidación de cargas y canales Discord/Telegram.</p>
             </div>
             <div class="header-metric">
               <span class="metric-label">Presupuesto Compras Aprobadas</span>
@@ -98,24 +107,24 @@
           <!-- KPI Cards -->
           <div class="kpi-grid">
             <div class="kpi-card">
-              <span class="kpi-title">Catálogo Total</span>
-              <span class="kpi-num text-mint" id="kpiTotalProducts">25</span>
-              <span class="kpi-foot">Herramientas reales auditadas</span>
+              <span class="kpi-title">Catálogo Auditado</span>
+              <span class="kpi-num text-mint" id="kpiTotalProducts">0</span>
+              <span class="kpi-foot">SKUs reales sincronizados</span>
             </div>
             <div class="kpi-card">
               <span class="kpi-title">En Nivel Óptimo</span>
-              <span class="kpi-num text-mint" id="kpiHealthy">25</span>
-              <span class="kpi-foot">Por encima del stock mínimo</span>
+              <span class="kpi-num text-mint" id="kpiHealthy">0</span>
+              <span class="kpi-foot">Sobre Punto de Reorden (ROP)</span>
             </div>
             <div class="kpi-card">
-              <span class="kpi-title">Stock Bajo</span>
+              <span class="kpi-title">Stock Bajo / ROP</span>
               <span class="kpi-num text-amber" id="kpiLowStock">0</span>
-              <span class="kpi-foot">Próximos a umbral de seguridad</span>
+              <span class="kpi-foot">Requieren consolidación o compra</span>
             </div>
             <div class="kpi-card">
-              <span class="kpi-title">Sin Stock (Agotados)</span>
+              <span class="kpi-title">Agotados (Quiebre)</span>
               <span class="kpi-num text-red" id="kpiOutOfStock">0</span>
-              <span class="kpi-foot">Requieren orden de reposición</span>
+              <span class="kpi-foot">Prioridad crítica de reposición</span>
             </div>
           </div>
 
@@ -123,15 +132,16 @@
           <div class="dashboard-grid">
             <div class="card card-hero">
               <div class="card-header">
-                <h2>🤖 Agente Autónomo Mint</h2>
-                <span class="badge badge-mint">ACTIVO 24/7</span>
+                <h2>🚚 Coordinador Logístico Autónomo (No Chatbot)</h2>
+                <span class="badge badge-mint">REACT + OSRM GPS</span>
               </div>
               <p class="card-desc">
-                El agente monitorea continuamente la base de datos de <strong>My Logistics Co.</strong>. Cuando detecta un desabasto, genera propuestas de orden de compra bajo políticas financieras deterministas y las notifica inmediatamente a tus canales configurados.
+                Mint evalúa en tiempo real tu catálogo, calcula <strong>Puntos de Reorden Dinámicos (ROP)</strong>, verifica primero si otra bodega tiene excedente (<strong>Cross-Docking</strong>), consolida cargas multi-SKU con <strong>Landed Cost</strong> (Producto + Flete Carretero OSRM) y despacha guías Inbound/Outbound con coordenadas GPS reales.
               </p>
               <div class="hero-actions">
-                <button class="btn btn-mint" onclick="switchTab('channels')">Configurar Canales de Notificación</button>
-                <button class="btn btn-secondary" onclick="switchTab('inventory')">Ver Catálogo de Stock</button>
+                <button class="btn btn-mint" onclick="switchTab('logistics')">Abrir Torre Logística & Despachos GPS</button>
+                <button class="btn btn-secondary" onclick="switchTab('agent')">Ejecutar Misión con Coordinador IA</button>
+                <button class="btn btn-outline" onclick="switchTab('channels')">Vincular Discord / Telegram</button>
               </div>
             </div>
 
@@ -147,17 +157,156 @@
           </div>
         </section>
 
-        <!-- 2. CHANNELS VIEW (DISCORD / SLACK / TELEGRAM) -->
+        <!-- 2. LOGISTICS CONTROL TOWER & GPS VIEW -->
+        <section id="view-logistics" class="view-pane">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">🚚 Torre Logística, GPS, Rutas OSRM & Despachos</h1>
+              <p class="view-subtitle">Despacha pedidos a clientes desde la bodega más cercana, recibe mercancía en tránsito y consolida cargas con Landed Cost.</p>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="loadLogisticsOverview()">🔄 Actualizar Telemetría GPS</button>
+          </div>
+
+          <!-- Action Forms Row: Outbound Dispatch + Route Calculator + Node GPS Geocoder -->
+          <div class="dashboard-grid" style="margin-bottom: 20px;">
+            <div class="card">
+              <div class="card-header">
+                <h2>📤 Despachar Envío a Cliente (Outbound + OSRM)</h2>
+                <span class="badge badge-mint">AUTO-BODEGA</span>
+              </div>
+              <form id="dispatchForm" style="display:grid; gap:10px; margin-top:10px;">
+                <input type="text" id="dispProduct" class="form-input" placeholder="SKU, ID o Nombre del Producto" required>
+                <div style="display:grid; grid-template-columns: 1fr 2fr; gap:10px;">
+                  <input type="number" id="dispQty" class="form-input" placeholder="Cantidad" value="5" min="1" required>
+                  <input type="text" id="dispDest" class="form-input" placeholder="Ciudad o Dirección Destino (ej: Monterrey, NL)" required>
+                </div>
+                <input type="text" id="dispCustomer" class="form-input" placeholder="Cliente o Sucursal Receptora (ej: Planta Norte)">
+                <button type="submit" class="btn btn-mint">🚚 Calcular Ruta OSRM, Descontar Stock y Emitir Guía</button>
+              </form>
+              <div id="dispatchResultBox" style="margin-top:10px; font-size:13px; color:var(--mint);"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h2>📍 Geocodificar Nodo GPS y Calcular Flete OSRM</h2>
+              </div>
+              <form id="nodeGpsForm" style="display:grid; gap:8px; margin-top:10px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                  <select id="nodeTypeSelect" class="form-input">
+                    <option value="warehouse">🏭 Almacén / Bodega</option>
+                    <option value="supplier">🏢 Proveedor</option>
+                  </select>
+                  <input type="text" id="nodeNameInput" class="form-input" placeholder="Nombre (ej: Central)" value="Central" required>
+                </div>
+                <div style="display:grid; grid-template-columns: 2fr 1fr; gap:8px;">
+                  <input type="text" id="nodeCityInput" class="form-input" placeholder="Ciudad o Dirección (ej: Querétaro, MX)" required>
+                  <button type="submit" class="btn btn-outline">Guardar GPS</button>
+                </div>
+              </form>
+
+              <hr style="border:0; border-top:1px solid var(--border-subtle); margin:12px 0;">
+
+              <form id="routeCalcForm" style="display:grid; gap:8px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:8px;">
+                  <input type="text" id="routeOrigin" class="form-input" placeholder="Origen (ej: CDMX)" required>
+                  <input type="text" id="routeDest" class="form-input" placeholder="Destino (ej: Guadalajara)" required>
+                  <button type="submit" class="btn btn-secondary">Cotizar Ruta</button>
+                </div>
+              </form>
+              <div id="routeCalcResult" style="margin-top:8px; font-size:12px; color:var(--text-muted);"></div>
+            </div>
+          </div>
+
+          <!-- Active Shipments Table -->
+          <div class="card" style="margin-bottom: 20px;">
+            <div class="card-header">
+              <h2>📦 Embarques y Guías Activas (Inbound & Outbound)</h2>
+              <span class="badge badge-outline">RECEPCIONA EN 1 CLIC</span>
+            </div>
+            <div class="table-container" style="margin-top:12px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>GUÍA</th>
+                    <th>ORIGEN</th>
+                    <th>DESTINO</th>
+                    <th>TRANSPORTISTA</th>
+                    <th>ETA</th>
+                    <th>ESTADO</th>
+                    <th class="text-center">ACCIÓN</th>
+                  </tr>
+                </thead>
+                <tbody id="shipmentsTableBody">
+                  <tr><td colspan="7" style="text-align:center; padding:18px; color:var(--text-dim);">Cargando embarques...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Consolidated Load Plans & Nodes -->
+          <div class="dashboard-grid">
+            <div class="card">
+              <div class="card-header">
+                <h2>🚛 Consolidación de Cargas Multi-SKU (Landed Cost)</h2>
+              </div>
+              <div id="consolidatedLoadsBox" style="margin-top:10px;">
+                <div class="empty-hint">Calculando consolidación de cargas...</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h2>🗺️ Nodos Logísticos con Coordenadas GPS</h2>
+              </div>
+              <div id="logisticsNodesBox" style="margin-top:10px;">
+                <div class="empty-hint">Cargando almacenes y proveedores...</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. AGENT COORDINATOR CONSOLE VIEW -->
+        <section id="view-agent" class="view-pane">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">🤖 Consola del Coordinador Logístico IA (18 Herramientas Reales)</h1>
+              <p class="view-subtitle">Ordena despachos, consolidaciones, auditorías de stock, rutas OSRM o envío de reportes a Discord/Telegram.</p>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom: 16px;">
+            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Ejecuta consolidar_cargas_y_rebalancear y dime el plan de compras con Landed Cost.')">📦 Consolidar Cargas & ROP</button>
+              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Calcula la ruta logística y costo de flete OSRM entre Querétaro y Monterrey.')">🗺️ Calcular Flete OSRM</button>
+              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Audita anomalías de inventario y dime qué productos están bajo el mínimo.')">🔍 Auditar Desabastos</button>
+              <button class="btn btn-outline btn-xs" onclick="runQuickAgentPrompt('Envía una notificación operativa a nuestros canales de Discord/Telegram con el resumen de stock.')">📡 Enviar Reporte a Discord/TG</button>
+            </div>
+            <form id="agentChatForm" style="display:grid; grid-template-columns: 1fr auto; gap:10px;">
+              <input type="text" id="agentChatInput" class="form-input" placeholder="Ej: Despacha 3 unidades del primer producto hacia Monterrey, NL o consolida las cargas..." required>
+              <button type="submit" id="btnSendAgentChat" class="btn btn-mint">Ejecutar Orden IA</button>
+            </form>
+          </div>
+
+          <div class="card" id="agentResponseCard" style="min-height: 220px;">
+            <div class="card-header">
+              <h2>Resultado y Trazabilidad de Herramientas Ejecutadas</h2>
+              <span class="badge badge-outline" id="agentStatusBadge">LISTO</span>
+            </div>
+            <div id="agentToolsTimeline" style="margin: 10px 0; display:flex; flex-wrap:wrap; gap:6px;"></div>
+            <pre id="agentResponseOutput" style="white-space:pre-wrap; font-family:inherit; font-size:14px; line-height:1.5; color:var(--text-main); margin-top:10px;">Selecciona una misión rápida arriba o escribe una orden operativa para que el Coordinador ejecute sus herramientas sobre PostgreSQL.</pre>
+          </div>
+        </section>
+
+        <!-- 4. CHANNELS VIEW (DISCORD / SLACK / TELEGRAM) -->
         <section id="view-channels" class="view-pane">
           <div class="view-header">
             <div>
-              <h1 class="view-title">Canales de Notificación y Alertas</h1>
-              <p class="view-subtitle">Conecta Discord, Slack o Telegram con canales dedicados para logs, stock, logística y alertas críticas.</p>
+              <h1 class="view-title">Canales de Notificación y Alertas (Discord / Telegram / Slack)</h1>
+              <p class="view-subtitle">Recibe alertas reales en cuanto el coordinador detecta desabastos, genera embarques o escala compras HITL.</p>
             </div>
             <button class="btn btn-mint" id="btnOpenAddChannelModal">+ Nuevo Canal</button>
           </div>
 
-          <!-- Channel Categories Explanation -->
           <div class="channel-topics-banner">
             <div class="topic-chip"><span class="chip-dot dot-cyan"></span> <strong>Logs & Auditoría:</strong> Registro de telemetría y decisiones tomadas.</div>
             <div class="topic-chip"><span class="chip-dot dot-mint"></span> <strong>Stock & Updates:</strong> Avisos de variaciones y desabastos.</div>
@@ -165,17 +314,14 @@
             <div class="topic-chip"><span class="chip-dot dot-red"></span> <strong>Alertas Críticas:</strong> Quiebres graves y anomalías de sobrecosto.</div>
           </div>
 
-          <!-- Channels List -->
-          <div class="channels-grid" id="channelsGrid">
-            <!-- Dynamically populated -->
-          </div>
+          <div class="channels-grid" id="channelsGrid"></div>
         </section>
 
-        <!-- 3. INVENTORY VIEW -->
+        <!-- 5. INVENTORY VIEW -->
         <section id="view-inventory" class="view-pane">
           <div class="view-header">
             <div>
-              <h1 class="view-title">Catálogo y Existencias en Almacén</h1>
+              <h1 class="view-title">Catálogo, Existencias y Punto de Reorden Dinámico (ROP)</h1>
               <p class="view-subtitle">Stock físico real sincronizado directamente con la base de datos de tu empresa.</p>
             </div>
             <div class="search-box">
@@ -191,38 +337,34 @@
                   <th>PRODUCTO</th>
                   <th>CATEGORÍA</th>
                   <th class="text-right">STOCK ACTUAL</th>
-                  <th class="text-right">STOCK MÍNIMO</th>
+                  <th class="text-right">MÍN / ROP DINÁMICO</th>
                   <th class="text-center">ESTADO</th>
                   <th class="text-center">ACCIONES RÁPIDAS</th>
                 </tr>
               </thead>
-              <tbody id="inventoryTableBody">
-                <!-- Dynamically populated -->
-              </tbody>
+              <tbody id="inventoryTableBody"></tbody>
             </table>
           </div>
         </section>
 
-        <!-- 4. DECISIONS VIEW (HITL INBOX) -->
+        <!-- 6. DECISIONS VIEW (HITL INBOX) -->
         <section id="view-decisions" class="view-pane">
           <div class="view-header">
             <div>
               <h1 class="view-title">Bandeja de Decisiones y Propuestas (HITL)</h1>
-              <p class="view-subtitle">Propuestas de compras de reabastecimiento generadas por el agente esperando autorización humana.</p>
+              <p class="view-subtitle">Al aprobar una orden de compra, Mint emite la orden y genera automáticamente la guía de embarque Inbound con ETA.</p>
             </div>
           </div>
 
-          <div class="decisions-list" id="decisionsList">
-            <!-- Dynamically populated -->
-          </div>
+          <div class="decisions-list" id="decisionsList"></div>
         </section>
 
-        <!-- 5. AUDIT & LOGS VIEW -->
+        <!-- 7. AUDIT & LOGS VIEW -->
         <section id="view-logs" class="view-pane">
           <div class="view-header">
             <div>
               <h1 class="view-title">Bitácora de Telemetría Autónoma</h1>
-              <p class="view-subtitle">Registro en tiempo real de los ciclos de escaneo del daemon y eventos relacionales.</p>
+              <p class="view-subtitle">Registro en tiempo real de los ciclos de escaneo del coordinador y eventos relacionales.</p>
             </div>
             <button class="btn btn-outline btn-sm" id="btnClearLogs">Limpiar Vista</button>
           </div>
@@ -232,11 +374,9 @@
               <span class="terminal-dot dot-red"></span>
               <span class="terminal-dot dot-amber"></span>
               <span class="terminal-dot dot-mint"></span>
-              <span class="terminal-title">mint-autonomous-daemon.log</span>
+              <span class="terminal-title">mint-autonomous-coordinator.log</span>
             </div>
-            <div class="terminal-body" id="terminalLogsBody">
-              <!-- Logs populated -->
-            </div>
+            <div class="terminal-body" id="terminalLogsBody"></div>
           </div>
         </section>
       </main>

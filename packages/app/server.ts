@@ -9,9 +9,9 @@ import {
   inventory,
   decisions,
   companies,
-  users,
+  warehouses,
+  suppliers,
   cases,
-  caseEvents,
   shipments,
   purchaseOrders,
   runAgentLoop,
@@ -20,8 +20,15 @@ import {
   rejectDecision,
   checkDatabaseHealth,
   getSupabaseStatus,
-  calculateDemandForecast,
-  trackShipments,
+  analyzeDynamicCatalogHealth,
+  evaluateWarehouseRebalancing,
+  executeWarehouseTransfer,
+  dispatchOutboundShipment,
+  receiveInboundShipment,
+  buildConsolidatedLoadPlans,
+  updateLogisticsNodeLocation,
+  resolveNodeGeoPoint,
+  calculateRealRoute,
 } from "@mint/core";
 import {
   listNotificationChannels,
@@ -35,13 +42,38 @@ const app = Fastify({ logger: false });
 
 app.register(cors, { origin: true, credentials: true });
 
-// Active session in-memory state (defaults to Dale & My Logistics Co.)
+// Active session in-memory state (hydrates dynamically from DB on first request)
 let activeSession = {
-  companyId: "comp_my_logistics_co_",
-  companyName: "My Logistics Co.",
-  userName: "Dale",
+  companyId: "comp_default",
+  companyName: "Mint Enterprise",
+  userName: "Operator",
   userRole: "owner",
+  initialized: false,
 };
+
+async function ensureActiveSessionHydrated() {
+  if (activeSession.initialized) return;
+  try {
+    const allCompanies = await db.select().from(companies);
+    if (allCompanies.length > 0) {
+      // Preferir empresa que tenga productos cargados
+      for (const comp of allCompanies) {
+        const prods = await db.select().from(products).where(eq(products.companyId, comp.id)).limit(1);
+        if (prods.length > 0) {
+          activeSession.companyId = comp.id;
+          activeSession.companyName = comp.name;
+          activeSession.initialized = true;
+          return;
+        }
+      }
+      activeSession.companyId = allCompanies[0].id;
+      activeSession.companyName = allCompanies[0].name;
+    }
+    activeSession.initialized = true;
+  } catch {
+    // Continuar con valores por defecto si la BD no responde aún
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
 // 1. HEALTH & DB STATUS
@@ -86,7 +118,9 @@ app.get("/api/db/tables", async () => {
 
   const results: any[] = [];
   for (const row of tablesQuery.rows) {
-    const countRes = await pool.query(`SELECT count(*)::int as cnt FROM "${row.table_name}";`).catch(() => ({ rows: [{ cnt: 0 }] }));
+    const countRes = await pool
+      .query(`SELECT count(*)::int as cnt FROM "${row.table_name}";`)
+      .catch(() => ({ rows: [{ cnt: 0 }] }));
     results.push({
       name: row.table_name,
       columnCount: 8,
@@ -101,6 +135,7 @@ app.get("/api/db/tables", async () => {
 // 2. SESSION & USERS
 // ─────────────────────────────────────────────────────────────
 app.get("/api/session", async () => {
+  await ensureActiveSessionHydrated();
   const allCompanies = await db.select().from(companies);
   return {
     success: true,
@@ -114,30 +149,42 @@ app.post("/api/session", async (req) => {
   if (body.companyId) {
     activeSession.companyId = body.companyId;
     activeSession.companyName = body.companyName || body.companyId;
+    activeSession.initialized = true;
   }
   return { success: true, session: activeSession };
 });
 
 // ─────────────────────────────────────────────────────────────
-// 3. PRODUCTS & INVENTORY (REAL DATA ONLY)
+// 3. PRODUCTS & INVENTORY (REAL DATA + DYNAMIC ROP)
 // ─────────────────────────────────────────────────────────────
 app.get("/api/products", async (req) => {
+  await ensureActiveSessionHydrated();
   const query = (req.query as any) || {};
   const companyId = query.companyId || activeSession.companyId;
 
-  const prods = await db.select().from(products).where(eq(products.companyId, companyId));
-  const invs = await db.select().from(inventory).where(eq(inventory.companyId, companyId));
+  const [prods, invs, health] = await Promise.all([
+    db.select().from(products).where(eq(products.companyId, companyId)),
+    db.select().from(inventory).where(eq(inventory.companyId, companyId)),
+    analyzeDynamicCatalogHealth(companyId).catch(() => []),
+  ]);
+
+  const healthMap = new Map(health.map((h) => [h.productId, h]));
 
   const items = prods.map((p) => {
     const itemInv = invs.filter((i) => i.productId === p.id);
     const stock = itemInv.reduce((sum, item) => sum + item.stock, 0);
+    const h = healthMap.get(p.id);
+    const status = stock === 0 ? "AGOTADO" : stock < p.minStock || h?.needsReorder ? "BAJO" : "ÓPTIMO";
     return {
       id: p.id,
       name: p.name,
       sku: p.sku,
-      category: p.category || "Maquinaria y Herramientas",
+      category: p.category || "General",
       minStock: p.minStock,
+      dynamicRop: h?.dynamicRop ?? p.minStock,
+      daysCoverage: h?.daysCoverage ?? 30,
       stock,
+      status,
       isLowStock: stock < p.minStock,
       origin: p.origin || "real",
     };
@@ -146,7 +193,33 @@ app.get("/api/products", async (req) => {
   return { success: true, data: items, products: items };
 });
 
+app.post("/api/products/adjust", async (req) => {
+  await ensureActiveSessionHydrated();
+  const body = (req.body as any) || {};
+  const { productId, delta } = body;
+  const companyId = body.companyId || activeSession.companyId;
+
+  const existingInv = await db
+    .select()
+    .from(inventory)
+    .where(and(eq(inventory.productId, productId), eq(inventory.companyId, companyId)))
+    .limit(1);
+
+  if (existingInv.length === 0) {
+    return { success: false, error: "Registro de inventario no encontrado para este producto." };
+  }
+
+  const newStock = Math.max(0, existingInv[0].stock + Number(delta || 0));
+  await db
+    .update(inventory)
+    .set({ stock: newStock, updatedAt: new Date() })
+    .where(eq(inventory.id, existingInv[0].id));
+
+  return { success: true, newStock };
+});
+
 app.put("/api/inventory/:id", async (req) => {
+  await ensureActiveSessionHydrated();
   const { id } = req.params as { id: string };
   const body = (req.body as any) || {};
   const { stock, minStock } = body;
@@ -165,16 +238,131 @@ app.put("/api/inventory/:id", async (req) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 4. DASHBOARD & KPIS
+// 4. LOGISTICS CONTROL TOWER, GPS & SHIPMENTS
 // ─────────────────────────────────────────────────────────────
-app.get("/api/dashboard", async (req) => {
+app.get("/api/logistics/overview", async (req) => {
+  await ensureActiveSessionHydrated();
   const query = (req.query as any) || {};
   const companyId = query.companyId || activeSession.companyId;
 
-  const prods = await db.select().from(products).where(eq(products.companyId, companyId));
-  const invs = await db.select().from(inventory).where(eq(inventory.companyId, companyId));
-  const decs = await db.select().from(decisions).where(eq(decisions.companyId, companyId));
-  const channels = await listNotificationChannels(companyId);
+  const [whs, supps, ships, health, rebalancing, consolidatedLoads] = await Promise.all([
+    db.select().from(warehouses).where(eq(warehouses.companyId, companyId)),
+    db.select().from(suppliers).where(eq(suppliers.companyId, companyId)),
+    db.select().from(shipments).where(eq(shipments.companyId, companyId)).orderBy(desc(shipments.updatedAt)),
+    analyzeDynamicCatalogHealth(companyId).catch(() => []),
+    evaluateWarehouseRebalancing(companyId).catch(() => []),
+    buildConsolidatedLoadPlans(companyId).catch(() => []),
+  ]);
+
+  return {
+    success: true,
+    warehouses: whs,
+    suppliers: supps,
+    shipments: ships,
+    ropAlerts: health.filter((h) => h.needsReorder),
+    rebalancingProposals: rebalancing,
+    consolidatedLoads,
+  };
+});
+
+app.post("/api/logistics/dispatch", async (req) => {
+  await ensureActiveSessionHydrated();
+  const body = (req.body as any) || {};
+  const companyId = body.companyId || activeSession.companyId;
+
+  const res = await dispatchOutboundShipment({
+    companyId,
+    productQuery: body.productQuery,
+    quantity: Number(body.quantity || 1),
+    destinationAddressOrCity: body.destinationAddressOrCity,
+    customerName: body.customerName,
+    carrier: body.carrier,
+  });
+
+  return res;
+});
+
+app.post("/api/logistics/receive", async (req) => {
+  await ensureActiveSessionHydrated();
+  const body = (req.body as any) || {};
+  const companyId = body.companyId || activeSession.companyId;
+
+  const res = await receiveInboundShipment({
+    companyId,
+    trackingOrOrderId: body.trackingOrOrderId,
+  });
+
+  return res;
+});
+
+app.post("/api/logistics/rebalance", async (req) => {
+  await ensureActiveSessionHydrated();
+  const body = (req.body as any) || {};
+  const companyId = body.companyId || activeSession.companyId;
+
+  const res = await executeWarehouseTransfer({
+    companyId,
+    productId: body.productId,
+    fromWarehouseId: body.fromWarehouseId,
+    toWarehouseId: body.toWarehouseId,
+    quantity: Number(body.quantity || 1),
+  });
+
+  return res;
+});
+
+app.post("/api/logistics/node-location", async (req) => {
+  await ensureActiveSessionHydrated();
+  const body = (req.body as any) || {};
+  const companyId = body.companyId || activeSession.companyId;
+
+  const res = await updateLogisticsNodeLocation({
+    companyId,
+    nodeType: body.nodeType === "supplier" ? "supplier" : "warehouse",
+    nodeIdOrName: body.nodeIdOrName || "Central",
+    addressOrCity: body.addressOrCity,
+  });
+
+  return res;
+});
+
+app.post("/api/logistics/route-calc", async (req) => {
+  const body = (req.body as any) || {};
+  const { origin, destination } = body;
+
+  const [p1, p2] = await Promise.all([
+    resolveNodeGeoPoint({ city: origin }),
+    resolveNodeGeoPoint({ city: destination }),
+  ]);
+
+  if (!p1 || !p2) {
+    return { success: false, message: "No se pudieron geocodificar ambas ubicaciones." };
+  }
+
+  const route = await calculateRealRoute(p1, p2, { currency: "MXN" });
+  return {
+    success: true,
+    origin: p1,
+    destination: p2,
+    route,
+  };
+});
+
+// ─────────────────────────────────────────────────────────────
+// 5. DASHBOARD & KPIS
+// ─────────────────────────────────────────────────────────────
+app.get("/api/dashboard", async (req) => {
+  await ensureActiveSessionHydrated();
+  const query = (req.query as any) || {};
+  const companyId = query.companyId || activeSession.companyId;
+
+  const [prods, invs, decs, ships, channels] = await Promise.all([
+    db.select().from(products).where(eq(products.companyId, companyId)),
+    db.select().from(inventory).where(eq(inventory.companyId, companyId)),
+    db.select().from(decisions).where(eq(decisions.companyId, companyId)),
+    db.select().from(shipments).where(eq(shipments.companyId, companyId)),
+    listNotificationChannels(companyId),
+  ]);
 
   const inventoryMapped = prods.map((p) => {
     const itemInv = invs.filter((i) => i.productId === p.id);
@@ -184,7 +372,10 @@ app.get("/api/dashboard", async (req) => {
 
   const outOfStock = inventoryMapped.filter((p) => p.stock === 0).length;
   const lowStock = inventoryMapped.filter((p) => p.stock > 0 && p.stock <= p.minStock).length;
-  const pendingDecisions = decs.filter((d) => d.policyDecision === "pending_approval").length;
+  const pendingDecisions = decs.filter(
+    (d) => d.policyDecision === "escalated_to_human" || d.policyDecision === "pending_approval",
+  ).length;
+  const activeShipmentsCount = ships.filter((s) => s.status === "en_transito" || s.status === "retrasado").length;
 
   const totalSpend = decs
     .filter((d) => d.policyDecision === "approved" || d.policyDecision === "auto_executed")
@@ -193,21 +384,12 @@ app.get("/api/dashboard", async (req) => {
   return {
     success: true,
     data: {
-      performance: [
-        { name: "Lun", uv: 4 },
-        { name: "Mar", uv: 7 },
-        { name: "Mie", uv: 5 },
-        { name: "Jue", uv: 8 },
-        { name: "Vie", uv: 12 },
-        { name: "Sab", uv: 6 },
-        { name: "Dom", uv: 9 },
-      ],
       realProductsCount: prods.length,
       lowStockCount: lowStock,
-      inTransitShipments: 0,
+      inTransitShipments: activeShipmentsCount,
       dailyReport: {
         totalOrders: decs.length,
-        automated: 0,
+        automated: decs.filter((d) => d.policyDecision === "auto_executed").length,
         pendingReview: pendingDecisions,
         savings: Math.round(totalSpend * 0.12),
         spend: totalSpend,
@@ -220,6 +402,7 @@ app.get("/api/dashboard", async (req) => {
       lowStock,
       healthyProducts: prods.length - outOfStock - lowStock,
       pendingDecisions,
+      activeShipments: activeShipmentsCount,
       activeChannels: channels.length,
       totalSpendMxn: totalSpend,
       daemonStatus: "ONLINE",
@@ -229,18 +412,24 @@ app.get("/api/dashboard", async (req) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 5. DECISIONS & APPROVALS (HITL)
+// 6. DECISIONS & APPROVALS (HITL)
 // ─────────────────────────────────────────────────────────────
 app.get("/api/approvals", async () => {
+  await ensureActiveSessionHydrated();
   const companyId = activeSession.companyId;
   const allDecs = await db
     .select()
     .from(decisions)
-    .where(and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval")))
-    .orderBy(desc(decisions.createdAt))
+    .where(eq(decisions.companyId, companyId))
+    .orderBy(desc(decisions.decidedAt))
     .limit(20);
 
-  return { success: true, data: allDecs };
+  return {
+    success: true,
+    data: allDecs.filter(
+      (d) => d.policyDecision === "escalated_to_human" || d.policyDecision === "pending_approval",
+    ),
+  };
 });
 
 app.post("/api/approvals/:id", async (req) => {
@@ -252,18 +441,19 @@ app.post("/api/approvals/:id", async (req) => {
     const res = await executeAndVerifyDecision(id, "operator_app");
     return { success: true, approval: res };
   } else {
-    const res = await rejectDecision(id, body.reason || "Rechazado desde Desktop App");
+    const res = await rejectDecision(id, "operator_app", body.reason || "Rechazado desde Desktop App");
     return { success: true, approval: res };
   }
 });
 
 app.get("/api/decisions", async () => {
+  await ensureActiveSessionHydrated();
   const companyId = activeSession.companyId;
   const allDecs = await db
     .select()
     .from(decisions)
     .where(eq(decisions.companyId, companyId))
-    .orderBy(desc(decisions.createdAt))
+    .orderBy(desc(decisions.decidedAt))
     .limit(30);
 
   return { success: true, decisions: allDecs };
@@ -272,20 +462,21 @@ app.get("/api/decisions", async () => {
 app.post("/api/decisions/:id/approve", async (req) => {
   const { id } = req.params as { id: string };
   const res = await executeAndVerifyDecision(id, "operator_app");
-  return { success: true, result: res };
+  return { success: res.success, result: res, error: res.error };
 });
 
 app.post("/api/decisions/:id/reject", async (req) => {
   const { id } = req.params as { id: string };
   const body = (req.body as any) || {};
-  const res = await rejectDecision(id, body.reason || "Rechazado desde Mint Desktop App");
-  return { success: true, result: res };
+  const res = await rejectDecision(id, "operator_app", body.reason || "Rechazado desde Mint Desktop App");
+  return { success: res.success, result: res };
 });
 
 // ─────────────────────────────────────────────────────────────
-// 6. CASES & OPERATIONAL ORDERS
+// 7. CASES & OPERATIONAL ORDERS
 // ─────────────────────────────────────────────────────────────
 app.get("/api/cases", async (req) => {
+  await ensureActiveSessionHydrated();
   const query = (req.query as any) || {};
   const companyId = query.companyId || activeSession.companyId;
 
@@ -300,7 +491,7 @@ app.get("/api/cases", async (req) => {
     id: c.id,
     title: c.title || "Caso Operativo",
     agent: "Mint Multi-Agente",
-    priority: "Media",
+    priority: c.priority || "Media",
     status: c.status === "resuelto" ? "Resuelto" : "En Proceso",
     sla: "Dentro de SLA",
     totalCost: c.totalCost || "0.00",
@@ -312,6 +503,7 @@ app.get("/api/cases", async (req) => {
 });
 
 app.get("/api/orders", async (req) => {
+  await ensureActiveSessionHydrated();
   const query = (req.query as any) || {};
   const companyId = query.companyId || activeSession.companyId;
 
@@ -324,12 +516,12 @@ app.get("/api/orders", async (req) => {
 
   const mapped = orders.map((o) => ({
     orderId: o.id,
-    sku: o.productId || "HERR-REAL",
-    productName: "Herramienta Industrial",
+    sku: o.productId || "SKU-REAL",
+    productName: o.productId,
     provider: o.supplierId || "Proveedor Homologado",
     amountMXN: String(o.totalAmount || "0"),
     humanApproved: true,
-    status: "Emitida",
+    status: o.status || "abierta",
     createdAt: o.createdAt ? o.createdAt.toISOString() : new Date().toISOString(),
   }));
 
@@ -337,9 +529,10 @@ app.get("/api/orders", async (req) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 7. CHAT (MULTI-AGENT INTERACTIVE)
+// 8. CHAT (MULTI-AGENT INTERACTIVE COORDINATOR)
 // ─────────────────────────────────────────────────────────────
 app.post("/api/chat", async (req) => {
+  await ensureActiveSessionHydrated();
   const body = (req.body as any) || {};
   const message = body.message || "";
   const companyId = body.companyId || activeSession.companyId;
@@ -348,7 +541,7 @@ app.post("/api/chat", async (req) => {
   await db.insert(cases).values({
     id: caseId,
     companyId,
-    title: "Chat Desktop App",
+    title: "Coordinador Logístico App",
     description: message,
     status: "en_proceso",
     priority: "media",
@@ -376,15 +569,17 @@ app.post("/api/chat", async (req) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 8. CHANNELS & PROACTIVE ALERTS
+// 9. CHANNELS & PROACTIVE ALERTS
 // ─────────────────────────────────────────────────────────────
 app.get("/api/channels", async () => {
+  await ensureActiveSessionHydrated();
   const companyId = activeSession.companyId;
   const channels = await listNotificationChannels(companyId);
   return { success: true, channels };
 });
 
 app.post("/api/channels", async (req) => {
+  await ensureActiveSessionHydrated();
   const body = (req.body as any) || {};
   const companyId = activeSession.companyId;
   const { type, name, webhookUrl, botToken, chatId, topics } = body;
@@ -426,16 +621,16 @@ app.post("/api/channels/test", async (req) => {
 });
 
 app.post("/api/scan", async () => {
+  await ensureActiveSessionHydrated();
   const companyId = activeSession.companyId;
   const scanResult = await runFullOperationalEventScan(companyId);
   return { success: true, result: scanResult };
 });
 
 // ─────────────────────────────────────────────────────────────
-// 9. STATIC FRONTEND SPA SERVING (FRONTEND/DIST)
+// 10. STATIC DESKTOP APP SERVING (PACKAGES/APP/PUBLIC)
 // ─────────────────────────────────────────────────────────────
-const frontendDist = path.resolve(process.cwd(), "frontend/dist");
-const publicFallback = path.resolve(__dirname, "public");
+const publicDir = path.resolve(__dirname, "public");
 
 app.get("/*", async (req, reply) => {
   const reqPath = req.url.split("?")[0];
@@ -444,10 +639,8 @@ app.get("/*", async (req, reply) => {
     return;
   }
 
-  // Check frontend/dist first (Rich React 19 UI)
-  const targetDir = fs.existsSync(frontendDist) ? frontendDist : publicFallback;
   const cleanPath = reqPath === "/" ? "index.html" : reqPath.slice(1);
-  const filePath = path.join(targetDir, cleanPath);
+  const filePath = path.join(publicDir, cleanPath);
 
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     const ext = path.extname(filePath).toLowerCase();
@@ -465,8 +658,7 @@ app.get("/*", async (req, reply) => {
     return;
   }
 
-  // SPA fallback to index.html
-  const indexPath = path.join(targetDir, "index.html");
+  const indexPath = path.join(publicDir, "index.html");
   if (fs.existsSync(indexPath)) {
     reply.type("text/html; charset=utf-8").send(fs.readFileSync(indexPath, "utf-8"));
   } else {
@@ -475,14 +667,14 @@ app.get("/*", async (req, reply) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 10. SERVER STARTUP
+// 11. SERVER STARTUP
 // ─────────────────────────────────────────────────────────────
 const PORT = 4200;
 export async function startAppServer() {
   try {
     await app.listen({ port: PORT, host: "127.0.0.1" });
     console.log(`[Mint Desktop Engine] Corriendo en http://localhost:${PORT}`);
-  } catch (err) {
+  } catch {
     // Port already in use, reuse active instance
   }
 }

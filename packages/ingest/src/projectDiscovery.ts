@@ -753,15 +753,18 @@ export interface ExtractedSupplierItem {
   contactName?: string;
   phone?: string;
   email?: string;
+  city?: string;
   origin?: string;
 }
 
 const SUPPLIER_TABLE_KEYWORDS = [
-  "provider", "providers", "proveedor", "proveedores", "supplier", "suppliers", "vendor", "vendors"
+  "provider", "providers", "proveedor", "proveedores", "supplier", "suppliers", "vendor", "vendors",
+  "distribuidor", "distribuidores", "fabricante", "fabricantes", "mayorista", "mayoristas", "partner", "partners",
+  "suministrador", "suppl", "prov_"
 ];
 
 /**
- * Extrae proveedores reales de archivos SQL (ej. INSERT INTO providers / suppliers)
+ * Extrae proveedores reales de archivos SQL (ej. INSERT INTO providers / suppliers / distribuidores)
  * Si la base de datos no tiene proveedores reales, retorna arreglo vacío (CERO inventos).
  */
 export function extractSuppliersFromSqlFile(filePath: string): ExtractedSupplierItem[] {
@@ -799,6 +802,7 @@ export function extractSuppliersFromSqlFile(filePath: string): ExtractedSupplier
     const contactIdx = columns.findIndex((c) => c.includes("contact") || c.includes("contacto") || c.includes("representante"));
     const phoneIdx = columns.findIndex((c) => c.includes("phone") || c.includes("telefono") || c.includes("cel"));
     const emailIdx = columns.findIndex((c) => c.includes("email") || c.includes("correo"));
+    const cityIdx = columns.findIndex((c) => c.includes("city") || c.includes("ciudad") || c.includes("ubicacion") || c.includes("address") || c.includes("direccion"));
 
     for (let rIdx = 0; rIdx < rowTuples.length; rIdx++) {
       const parts = splitSqlRowParts(rowTuples[rIdx]);
@@ -807,12 +811,14 @@ export function extractSuppliersFromSqlFile(filePath: string): ExtractedSupplier
       const contact = contactIdx >= 0 ? parts[contactIdx] : undefined;
       const phone = phoneIdx >= 0 ? parts[phoneIdx] : undefined;
       const email = emailIdx >= 0 ? parts[emailIdx] : undefined;
+      const city = cityIdx >= 0 ? parts[cityIdx] : undefined;
 
       suppliers.push({
         name,
         contactName: contact,
         phone,
         email,
+        city,
         origin: "real",
       });
     }
@@ -820,3 +826,4 @@ export function extractSuppliersFromSqlFile(filePath: string): ExtractedSupplier
 
   return suppliers;
 }
+

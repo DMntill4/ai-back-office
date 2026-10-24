@@ -15,7 +15,7 @@ export async function executeSimularEscenario(args: SimularEscenarioInput) {
     const { getStockByProduct } = await import("../services/inventoryService");
     const stockInfo = await getStockByProduct(args.producto_id);
 
-    if (stockInfo.isFuzzyMatch) {
+    if ("isFuzzyMatch" in stockInfo && stockInfo.isFuzzyMatch) {
       return {
         isSuccess: false,
         message: `Producto '${args.producto_id}' no encontrado.`,
@@ -23,13 +23,30 @@ export async function executeSimularEscenario(args: SimularEscenarioInput) {
       };
     }
 
+    if (!("productId" in stockInfo) || !stockInfo.productId) {
+      return {
+        isSuccess: false,
+        message: `No se pudo obtener información del producto '${args.producto_id}'.`,
+      };
+    }
+
     const currentStock = stockInfo.currentStock ?? 0;
     const minStock = stockInfo.minStock ?? 10;
 
-    // Supuesto de consumo promedio diario estimado = minStock / 5
-    const consumoDiarioBase = Math.max(1, Math.ceil(minStock / 5));
+    // Obtener tasa real de consumo diario desde el historial de ventas
+    const { calculateDemandForecast } = await import("../services/demandService");
+    const forecast = await calculateDemandForecast({
+      productId: stockInfo.productId,
+      horizonDays: 30,
+    });
+
+    const consumoDiarioBase =
+      forecast.averageDailySales > 0
+        ? forecast.averageDailySales
+        : Math.max(0.5, Math.round(((stockInfo.salesCount || 0) / 30) * 10) / 10);
+
     const factorDemanda = 1 + args.incremento_demanda_porcentaje / 100;
-    const consumoDiarioSimulado = Math.round(consumoDiarioBase * factorDemanda);
+    const consumoDiarioSimulado = Math.max(0.1, Math.round(consumoDiarioBase * factorDemanda * 10) / 10);
 
     const diasHastaAgotamiento = Math.floor(currentStock / consumoDiarioSimulado);
     const diasRiesgoConRetraso = Math.max(0, diasHastaAgotamiento - args.retraso_proveedor_dias);
@@ -38,7 +55,10 @@ export async function executeSimularEscenario(args: SimularEscenarioInput) {
     fechaAgotamientoProyectada.setDate(fechaAgotamientoProyectada.getDate() + diasRiesgoConRetraso);
 
     const requiereReabastecimientoUrgente = diasRiesgoConRetraso <= 7;
-    const unidadesSugeridasAComprar = Math.max(minStock * 2, (15 - diasRiesgoConRetraso) * consumoDiarioSimulado);
+    const unidadesSugeridasAComprar = Math.max(
+      minStock,
+      Math.ceil((15 - diasRiesgoConRetraso) * consumoDiarioSimulado),
+    );
 
     return {
       isSuccess: true,

@@ -9,11 +9,22 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 
-// 0. Empresas (Multi-tenant)
+// 0. Empresas (Multi-tenant con perfil físico y fiscal global)
 export const companies = pgTable("companies", {
   id: text("id").primaryKey(), // ej: 'comp_default', 'comp_acme' o UUID de Supabase Auth
   name: text("name").notNull(),
   slug: varchar("slug", { length: 100 }).unique(),
+  legalName: text("legal_name"),
+  taxId: varchar("tax_id", { length: 50 }),
+  rfcTaxId: varchar("rfc_tax_id", { length: 50 }),
+  currency: varchar("currency", { length: 10 }).default("USD"),
+  streetAddress: text("street_address"),
+  postalCode: varchar("postal_code", { length: 20 }),
+  city: text("city"),
+  state: text("state"),
+  country: varchar("country", { length: 50 }),
+  latitude: decimal("latitude", { precision: 10, scale: 6 }),
+  longitude: decimal("longitude", { precision: 10, scale: 6 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -48,7 +59,7 @@ export const products = pgTable(
   ],
 );
 
-// 2. Almacenes / Bodegas
+// 2. Almacenes / Bodegas con ubicación física y coordenadas GPS reales
 export const warehouses = pgTable("warehouses", {
   id: text("id").primaryKey(), // ej: 'alm_central'
   companyId: text("company_id")
@@ -57,6 +68,14 @@ export const warehouses = pgTable("warehouses", {
     .default("comp_default"),
   name: text("name").notNull(),
   location: text("location"),
+  streetAddress: text("street_address"),
+  postalCode: varchar("postal_code", { length: 20 }),
+  city: text("city"),
+  state: text("state"),
+  country: varchar("country", { length: 50 }),
+  latitude: decimal("latitude", { precision: 10, scale: 6 }),
+  longitude: decimal("longitude", { precision: 10, scale: 6 }),
+  contactPhone: varchar("contact_phone", { length: 50 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -83,7 +102,7 @@ export const inventory = pgTable("inventory", {
     .notNull(),
 });
 
-// 4. Proveedores
+// 4. Proveedores con ubicación física real y datos fiscales
 export const suppliers = pgTable("suppliers", {
   id: text("id").primaryKey(), // ej: 'prov_acme'
   companyId: text("company_id")
@@ -93,6 +112,14 @@ export const suppliers = pgTable("suppliers", {
   name: text("name").notNull(),
   email: text("email"),
   phone: varchar("phone", { length: 50 }),
+  taxId: varchar("tax_id", { length: 20 }),
+  streetAddress: text("street_address"),
+  postalCode: varchar("postal_code", { length: 20 }),
+  city: text("city"),
+  state: text("state"),
+  country: varchar("country", { length: 50 }),
+  latitude: decimal("latitude", { precision: 10, scale: 6 }),
+  longitude: decimal("longitude", { precision: 10, scale: 6 }),
   origin: text("origin", { enum: ["simulado", "real"] })
     .notNull()
     .default("simulado"),
