@@ -181,5 +181,45 @@
        * 100% observancia de límites presupuestales autónomos y escalamiento HITL.
 - **Consecuencias:** Cobertura de pruebas ampliada a 82 tests pasando al 100% (23 suites), permitiendo un despliegue operativo seguro y robusto en producción.
 
+## ADR-015: Erradicación del Síndrome del Espejo y Eliminación de Código Duplicado (`/src` vs `packages/core/src`)
+- **Fecha:** 2026-10-24
+- **Estado:** Aceptado
+- **Contexto:** Existía una duplicación exacta byte por byte entre la carpeta `/src` en la raíz del repositorio y `/packages/core/src`. Esto provocaba desincronización, ediciones sobre archivos fantasma que no se reflejaban en la ejecución de los paquetes y confusión entre los desarrolladores.
+- **Decisión:**
+  - Eliminar de raíz la carpeta `/src` y consolidar toda la lógica de agentes, servicios, base de datos Drizzle, herramientas tipadas y motor de políticas dentro de `packages/core/src`.
+  - Actualizar todas las importaciones y scripts de ejecución (`db:migrate`, `db:seed`, etc.) para apuntar exclusivamente a `@mint/core`.
+- **Consecuencias:** Se eliminaron 65 archivos duplicados, logrando una única fuente de verdad para la lógica del sistema.
+
+## ADR-016: Arquitectura 100% Terminal-First y Desacoplamiento Definitivo del Frontend Web
+- **Fecha:** 2026-10-24
+- **Estado:** Aceptado
+- **Contexto:** El proyecto acumulaba código muerto y dependencias asociadas a una interfaz web (Fastify HTTP, React 19, Vite, Tailwind CSS, endpoints REST en puerto 3001) que generaban confusión operativa y requerían mantener dos stacks simultáneos cuando el valor central del producto es la autonomía de back office y la gestión por terminal.
+- **Decisión:**
+  - Eliminar `packages/app` y los comandos huérfanos `web.ts` y `app.ts`.
+  - Operar el sistema de manera 100% Terminal-First a través de `@mint/cli` y `@mint/daemon`.
+  - Las interacciones y aprobaciones remotas se canalizan vía Telegram, Slack y Gmail con tokens criptográficos HMAC, sin depender de un servidor web local en ejecución.
+- **Consecuencias:** Reducción drástica de dependencias innecesarias, menor superficie de ataque, tiempos de compilación inmediatos y enfoque absoluto en la experiencia de terminal profesional.
+
+## ADR-017: Rediseño Visual de Terminal (Linux TUI, Claude Code Theme, Árbol de Pensamiento y Diff de Impacto)
+- **Fecha:** 2026-10-24
+- **Estado:** Aceptado
+- **Contexto:** La CLI requería una estética sobria y profesional, de alta densidad informativa, eliminando elementos visuales informales (emojis) e implementando estándares visuales de herramientas modernas de desarrollo como Claude Code o entornos Kali Linux.
+- **Decisión:**
+  - Erradicar todos los emojis de la consola y la documentación, reemplazándolos por etiquetas técnicas estructuradas (`[OK]`, `[ALERTA]`, `[CLI]`, `[ARQUITECTURA]`, `●`, `▸`, `─`, `│`, `├─`, `└─`).
+  - Implementar el componente visual **Thought Tree** (`packages/cli/src/ui/thoughtTree.ts`): despliega el árbol de deliberación del agente en vivo durante la invocación de herramientas y la síntesis de planes.
+  - Implementar la tarjeta de **Diff de Impacto en Base de Datos** (`renderProductionAuditCard` en `packages/cli/src/ui/voucher.ts`): al aprobar o ejecutar una orden de compra, muestra la tabla de cambios en PostgreSQL (estado previo vs nuevo, ID de orden, transacción confirmada y verificación física).
+- **Consecuencias:** Interfaz de usuario altamente técnica, legible y adecuada para supervisores de operaciones y directores de logística.
+
+## ADR-018: Dominio Industrial Colombiano (COP) y Sustitución de Plantillas Estáticas por Motor Cuantitativo Real
+- **Fecha:** 2026-10-24
+- **Estado:** Aceptado
+- **Contexto:** El sistema contenía plantillas estáticas con porcentajes inventados (40%, 25%, 20%, 15%), costos fijos irreales (380), datos de ejemplo mexicanos ($10,000 MXN) y datos de prueba descontextualizados (`02_data.sql`, `opus-rentals`).
+- **Decisión:**
+  - Calibrar la semilla (`seed/index.ts`) y la configuración para el sector industrial colombiano: **Ferretería Industrial Santandereana S.A.S.**, sedes en Bucaramanga (`BOD-BUC`), Bogotá (`BOD-BOG`) y Medellín (`BOD-MED`), moneda COP y umbral de supervisión de $5,000,000 COP.
+  - Catálogo de 16 SKUs industriales reales (herramientas DeWalt, Bosch, Honda, etc.) con precios de mercado en COP.
+  - Refactorizar `goalSeekingService.ts`: erradicar plantillas y porcentajes fijos. Las palancas de optimización (renegociación de compras, compresión de stock de seguridad, consolidación de fletes) se calculan analizando matemáticamente las órdenes de compra históricas y las existencias reales en PostgreSQL.
+- **Consecuencias:** Eliminación total de alucinaciones numéricas. Las recomendaciones del agente corresponden a análisis cuantitativo verificable sobre datos reales.
+
+
 
 
