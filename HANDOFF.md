@@ -271,10 +271,18 @@ npm run agent
 - Al escribir `/exit` o pulsar `Ctrl+C`, realiza un apagado ordenado de todos los subprocesos.
 
 ### 2. Flujo del Asistente Interactivo Inicial (First-Run Wizard)
-El usuario no tiene que escribir comandos complejos con tokens ni flags (`npx mint notify add ...`). El wizard le pregunta de forma conversacional:
-1. **Operator Profile:** Nombre y empresa (ej: `Dale`, `My Logistics Co.`).
-2. **Data Connection:** Escanea automáticamente el workspace en busca de bases de datos (`.db`, `.sqlite`) o archivos (`.csv`, `.xlsx`) y permite elegir con un número o ingresar una ruta personalizada.
-3. **Sales Channels:** Permite pegar el Bot Token de Telegram o Webhook de Slack/Discord directamente, o presionar Enter para saltar.
+El usuario no tiene que escribir comandos complejos con tokens ni flags (`npx mint notify add ...`). El wizard le guía con inteligencia artificial y validación de seguridad:
+1. **Operator Profile & Gmail Verification:** 
+   - Nombre y empresa (ej: `Dale`, `My Logistics Co.`).
+   - Validación estricta de Gmail (`@gmail.com` / `@googlemail.com`) y contraseña (mínimo 6 caracteres).
+   - Auto-registro de canal de notificaciones Google/Gmail para alertas operativas y resúmenes diarios.
+2. **AI-Powered Project Database Discovery:** 
+   - **Opción `[1]` Búsqueda por Lenguaje Natural con Cerebro AI:** Permite ingresar consultas como *"Buscame la base de datos de mi proyecto springboot opus rentals"*.
+   - El modelo LLM (conectado vía `RETO_KEY` a Grok) interpreta la consulta, extrae el proyecto (`opus-rentals`), tecnología (`Spring Boot`) y motor de base de datos (`MySQL`).
+   - Evalúa los candidatos en disco, emite su decisión y razonamiento, extrae el catálogo real de herramientas/maquinaria (25 equipos de `02_data.sql` con precios diarios y stock) y vincula a los proveedores homologados. CERO datos de prueba (`sample_inventory.csv`).
+   - **Opción `[2]` Conexión Directa:** Permite ingresar la ruta a un archivo `.sqlite`, `.db`, `.sql` o `.csv`.
+   - **Opción `[3]` Catálogo Limpio:** Inicia con catálogo completamente limpio y vacío (0 productos).
+3. **Sales Channels:** Permite vincular canales de mensajería (Telegram, Slack, Discord) o continuar con Gmail.
 4. **Autonomy Policy:** Elige entre Asistido (compras < $10k MXN automáticas), Full Auto, o Supervisado.
 
 ### 3. Comandos Rápidos y Prácticos (Slash Commands con Tab)
