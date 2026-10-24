@@ -45,16 +45,17 @@ export async function consoleCommand() {
 
   const memMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
 
+  const companyDisplayName = session?.companyName || companyId;
   console.log(
     drawCard(
       [
-        `${theme.dim("Operador:")}   ${theme.bold(userName)} (${userRole.toUpperCase()})  ${theme.dim("│")}  ${theme.dim("Tenant:")} ${theme.mintBold(companyId)}`,
-        `${theme.dim("Daemon:")}     ${daemonBadge}  ${theme.dim("│")}  ${theme.dim("Memoria:")} ${memMb} MB`,
-        `${theme.dim("Harness:")}    Agentes Paralelos: Inventario, Compras, Transporte, Riesgo Adversarial`,
-        `${theme.dim("Comandos:")}   Escribe ${theme.mintBold("help")} para comandos, ${theme.mintBold("matrix")} para ver agentes, o ${theme.mintBold("exit")} para salir.`,
+        `${theme.dim("Welcome back,")} ${theme.bold(userName)}! (${userRole.toUpperCase()})  ${theme.dim("│")}  ${theme.dim("Company:")} ${theme.mintBold(companyDisplayName)} [${theme.dim(companyId)}]`,
+        `${theme.dim("Daemon:")}       ${daemonBadge}  ${theme.dim("│")}  ${theme.dim("Memory:")} ${memMb} MB`,
+        `${theme.dim("Status:")}       Autonomous agent is active, monitoring inventory and executing incoming sales.`,
+        `${theme.dim("Commands:")}     ${theme.mintBold("/status")}  │  ${theme.mintBold("/stock")}  │  ${theme.mintBold("/orders")}  │  ${theme.mintBold("/inbox")}  │  ${theme.mintBold("/exit")}`,
       ],
       {
-        title: "KALI-GRADE AGENT CONTROL CENTER",
+        title: "🍃 MINT AUTONOMOUS AGENT CONTROL CENTER",
         borderColor: theme.mint,
       },
     ),

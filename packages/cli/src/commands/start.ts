@@ -43,7 +43,14 @@ export async function startCommand(options: StartOptions = {}) {
     process.exit(1);
   }
 
-  const session = await getSession();
+  let session = await getSession();
+
+  // First-time execution: Friendly interactive onboarding wizard in English
+  if (!session && !options.headless && process.stdin.isTTY) {
+    const { runOnboardingWizard } = require("./onboarding");
+    session = await runOnboardingWizard();
+  }
+
   const companyId = session?.companyId || "comp_default";
   const port = options.port || process.env.PORT || "3000";
 
