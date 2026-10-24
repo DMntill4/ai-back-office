@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
+import { formatTerminalMarkdown } from "../ui/markdown";
 import { withSpinner } from "../ui/spinner";
 
 export async function chatCommand(message: string, options: { json?: boolean; noExit?: boolean } = {}) {
@@ -38,9 +39,7 @@ export async function chatCommand(message: string, options: { json?: boolean; no
     }
 
     console.log("");
-    const responseLines = (res.summary || "Sin respuesta del modelo.")
-      .split("\n")
-      .map((l: string) => (l.trim() ? l : " "));
+    const responseLines = formatTerminalMarkdown(res.summary || "Sin respuesta del modelo.");
 
     const statusBadge =
       res.status === "resuelto"

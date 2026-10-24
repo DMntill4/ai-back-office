@@ -9,16 +9,51 @@ export interface BoxOptions {
   width?: number;
 }
 
+function wrapBoxLine(str: string, width: number): string[] {
+  if (theme.stripAnsi(str).length <= width) return [str];
+  const words = str.split(" ");
+  const res: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    const cand = cur ? `${cur} ${w}` : w;
+    if (theme.stripAnsi(cand).length <= width) {
+      cur = cand;
+    } else {
+      if (cur) res.push(cur);
+      cur = w;
+    }
+  }
+  if (cur) res.push(cur);
+  return res.length > 0 ? res : [str];
+}
+
 export function drawCard(lines: string[], options: BoxOptions = {}): string {
   const border = options.borderColor || theme.gray;
   const padding = options.padding ?? 1;
 
+  // Responsive column calculation
+  const terminalCols = process.stdout.columns || 86;
+  const maxAllowedWidth = Math.min(Math.max(terminalCols - 2, 60), 88);
+  const maxInnerContent = Math.max(30, maxAllowedWidth - 2 - padding * 2);
+
+  // Pre-wrap lines to prevent any overflow outside the box
+  const normalizedLines: string[] = [];
+  for (const raw of lines) {
+    if (theme.stripAnsi(raw).length > maxInnerContent) {
+      normalizedLines.push(...wrapBoxLine(raw, maxInnerContent));
+    } else {
+      normalizedLines.push(raw);
+    }
+  }
+
   // Compute content width
-  const contentWidths = lines.map((l) => theme.stripAnsi(l).length);
+  const contentWidths = normalizedLines.map((l) => theme.stripAnsi(l).length);
   const titleLen = options.title ? theme.stripAnsi(options.title).length + 4 : 0;
   const badgeLen = options.badge ? options.badge.length + 4 : 0;
   const maxContent = Math.max(...contentWidths, titleLen + badgeLen, 40);
-  const totalWidth = options.width ? Math.max(options.width, maxContent + padding * 2) : maxContent + padding * 2 + 2;
+  const totalWidth = options.width
+    ? Math.min(Math.max(options.width, maxContent + padding * 2 + 2), maxAllowedWidth)
+    : Math.min(maxContent + padding * 2 + 2, maxAllowedWidth);
 
   const innerWidth = totalWidth - 2;
 
@@ -52,7 +87,7 @@ export function drawCard(lines: string[], options: BoxOptions = {}): string {
   }
 
   // Content lines
-  for (const line of lines) {
+  for (const line of normalizedLines) {
     const strippedLen = theme.stripAnsi(line).length;
     const padRight = Math.max(0, innerWidth - (strippedLen + padding * 2));
     const content = " ".repeat(padding) + line + " ".repeat(padRight + padding);
@@ -70,12 +105,15 @@ export function drawCard(lines: string[], options: BoxOptions = {}): string {
   return output.join("\n");
 }
 
-export function drawDivider(title?: string, width = 72): string {
+export function drawDivider(title?: string, width?: number): string {
+  const terminalCols = process.stdout.columns || 86;
+  const targetWidth = width || Math.min(Math.max(terminalCols - 2, 60), 88);
+
   if (!title) {
-    return theme.dim("─".repeat(width));
+    return theme.dim("─".repeat(targetWidth));
   }
   const cleanTitle = ` ${theme.bold(title)} `;
   const titleLen = theme.stripAnsi(cleanTitle).length;
-  const side = Math.max(2, Math.floor((width - titleLen) / 2));
-  return theme.dim("─".repeat(side)) + cleanTitle + theme.dim("─".repeat(width - side - titleLen));
+  const side = Math.max(2, Math.floor((targetWidth - titleLen) / 2));
+  return theme.dim("─".repeat(side)) + cleanTitle + theme.dim("─".repeat(Math.max(0, targetWidth - side - titleLen)));
 }

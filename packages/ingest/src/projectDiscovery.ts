@@ -536,12 +536,127 @@ export interface ExtractedProductItem {
 }
 
 const INVENTORY_TABLE_KEYWORDS = [
-  "tool", "prod", "item", "art", "equip", "part", "mat", "merc", "inv", "cat", "med", "veh", "supply", "asset", "service"
+  "tool", "tools", "herramienta", "herramientas", "product", "products", "producto", "productos",
+  "item", "items", "articulo", "articulos", "equipment", "equipo", "equipos", "part", "parts",
+  "pieza", "piezas", "material", "materiales", "mercancia", "inventory", "inventario", "asset", "assets",
+  "supply", "supplies", "insumo", "insumos", "maquinaria", "machine", "machinery"
 ];
 
-const METADATA_TABLE_SUFFIXES = [
-  "category", "categories", "categoria", "categorias", "type", "types", "group", "groups", "log", "logs", "status", "role", "roles", "user", "users"
+const METADATA_OR_TRANSACTION_KEYWORDS = [
+  "categor", "type", "tipo", "group", "grupo", "log", "status", "role", "user", "usuario",
+  "invoice", "factura", "payment", "pago", "rental", "rent", "order", "orden", "damage", "daño",
+  "return", "devolucion", "contact", "contacto", "coverage", "zone", "zona", "spec", "image", "imagen",
+  "client", "cliente", "token", "permission", "permiso", "history", "historial", "method", "metodo"
 ];
+
+function cleanSqlPart(raw: string): string {
+  const trimmed = raw.trim();
+  if ((trimmed.startsWith("'") && trimmed.endsWith("'")) || (trimmed.startsWith('"') && trimmed.endsWith('"'))) {
+    return trimmed.slice(1, -1).replace(/''/g, "'").trim();
+  }
+  return trimmed;
+}
+
+/**
+ * Divide de manera segura un bloque VALUES (...) de SQL en tuplas de filas,
+ * respetando paréntesis anidados dentro de literales de cadena (ej: 'Vibrocompactador (Bailarina)').
+ */
+function splitSqlTuples(valuesBlock: string): string[] {
+  const tuples: string[] = [];
+  let inString = false;
+  let stringChar = "";
+  let parenDepth = 0;
+  let currentTuple = "";
+
+  for (let i = 0; i < valuesBlock.length; i++) {
+    const char = valuesBlock[i];
+    const prevChar = i > 0 ? valuesBlock[i - 1] : "";
+
+    if ((char === "'" || char === '"') && prevChar !== "\\") {
+      if (!inString) {
+        inString = true;
+        stringChar = char;
+      } else if (stringChar === char) {
+        if (i + 1 < valuesBlock.length && valuesBlock[i + 1] === char) {
+          currentTuple += char;
+          i++; // escapar comilla duplicada ''
+        } else {
+          inString = false;
+        }
+      }
+    }
+
+    if (!inString) {
+      if (char === "(") {
+        if (parenDepth === 0) {
+          currentTuple = "";
+          parenDepth = 1;
+          continue;
+        } else {
+          parenDepth++;
+        }
+      } else if (char === ")") {
+        parenDepth--;
+        if (parenDepth === 0) {
+          tuples.push(currentTuple.trim());
+          currentTuple = "";
+          continue;
+        }
+      }
+    }
+
+    if (parenDepth > 0) {
+      currentTuple += char;
+    }
+  }
+
+  return tuples;
+}
+
+/**
+ * Divide una tupla SQL en sus valores individuales respetando cadenas con comas o apóstrofes.
+ */
+function splitSqlRowParts(rowStr: string): string[] {
+  const parts: string[] = [];
+  let inString = false;
+  let stringChar = "";
+  let currentPart = "";
+
+  for (let i = 0; i < rowStr.length; i++) {
+    const char = rowStr[i];
+    const prevChar = i > 0 ? rowStr[i - 1] : "";
+
+    if ((char === "'" || char === '"') && prevChar !== "\\") {
+      if (!inString) {
+        inString = true;
+        stringChar = char;
+      } else if (stringChar === char) {
+        if (i + 1 < rowStr.length && rowStr[i + 1] === char) {
+          currentPart += char;
+          i++;
+        } else {
+          inString = false;
+        }
+      }
+      currentPart += char;
+      continue;
+    }
+
+    if (!inString && char === ",") {
+      parts.push(cleanSqlPart(currentPart));
+      currentPart = "";
+      continue;
+    }
+
+    currentPart += char;
+  }
+
+  if (currentPart.length > 0) {
+    parts.push(cleanSqlPart(currentPart));
+  }
+
+  return parts;
+}
 
 /**
  * Extractor Universal de Catálogo / Inventario para cualquier proyecto y sector.
@@ -559,8 +674,8 @@ export function extractProductsFromSqlFile(filePath: string): ExtractedProductIt
     const rawTableName = match[1];
     const tableNameLower = rawTableName.toLowerCase();
 
-    // Omitir tablas que sean solo categorías, roles, logs o tipos
-    if (METADATA_TABLE_SUFFIXES.some((s) => tableNameLower.endsWith(s) || tableNameLower.endsWith(s + "s"))) {
+    // Omitir tablas que sean transacciones, facturas, clientes, roles, logs o tipos
+    if (METADATA_OR_TRANSACTION_KEYWORDS.some((kw) => tableNameLower.includes(kw))) {
       continue;
     }
 
@@ -576,43 +691,55 @@ export function extractProductsFromSqlFile(filePath: string): ExtractedProductIt
       continue;
     }
 
-    const rowMatches = valuesBlock.match(/\(([^)]+)\)/g);
-    if (!rowMatches) continue;
+    const rowTuples = splitSqlTuples(valuesBlock);
+    if (!rowTuples.length) continue;
 
-    const nameIdx = columns.findIndex((c) => c === "name" || c === "nombre" || c.includes("name") || c.includes("title"));
-    const brandIdx = columns.findIndex((c) => c.includes("brand") || c.includes("marca") || c.includes("fabricante"));
-    const modelIdx = columns.findIndex((c) => c.includes("model") || c.includes("modelo"));
+    const nameIdx = columns.findIndex((c) => c === "name" || c === "nombre" || c === "tool_name" || c === "product_name" || c.includes("name") || c.includes("title"));
+    const brandIdx = columns.findIndex((c) => c === "brand" || c === "marca" || c.includes("brand") || c.includes("marca") || c.includes("fabricante"));
+    const modelIdx = columns.findIndex((c) => c === "model" || c === "modelo" || c.includes("model"));
     const skuIdx = columns.findIndex((c) => c === "sku" || c === "code" || c === "codigo" || c.includes("sku"));
     const priceIdx = columns.findIndex((c) => c.includes("price") || c.includes("precio") || c.includes("cost") || c.includes("daily") || c.includes("unit") || c.includes("monto"));
-    const stockIdx = columns.findIndex((c) => c.includes("stock") || c.includes("quantity") || c.includes("qty") || c.includes("existenc") || c.includes("cantidad"));
+    const stockIdx = columns.findIndex((c) => c === "stock" || c === "quantity" || c === "qty" || c === "existencias" || c === "cantidad" || c.includes("stock") || c.includes("quantity"));
     const minStockIdx = columns.findIndex((c) => c.includes("min_stock") || c.includes("min_qty") || c.includes("reorder") || c.includes("minimo"));
     const categoryIdx = columns.findIndex((c) => c === "category" || c === "categoria" || c.includes("category_name"));
+    const statusIdx = columns.findIndex((c) => c === "status" || c === "estado" || c.includes("status"));
 
     const defaultCategory = rawTableName.charAt(0).toUpperCase() + rawTableName.slice(1);
     const skuPrefix = rawTableName.slice(0, 4).toUpperCase();
 
-    for (let rIdx = 0; rIdx < rowMatches.length; rIdx++) {
-      const rowStr = rowMatches[rIdx].replace(/^\(|\)$/g, "");
-      const parts = rowStr.split(/,\s*(?=(?:[^']*'[^']*')*[^']*$)/).map((p) => p.replace(/^'|'$/g, "").trim());
+    for (let rIdx = 0; rIdx < rowTuples.length; rIdx++) {
+      const parts = splitSqlRowParts(rowTuples[rIdx]);
 
       const rawName = nameIdx >= 0 && parts[nameIdx] ? parts[nameIdx] : `Item #${rIdx + 1}`;
-      const brand = brandIdx >= 0 ? parts[brandIdx] : "";
-      const model = modelIdx >= 0 ? parts[modelIdx] : "";
+      const brand = brandIdx >= 0 && parts[brandIdx] ? parts[brandIdx] : "";
+      const model = modelIdx >= 0 && parts[modelIdx] ? parts[modelIdx] : "";
       const customSku = skuIdx >= 0 && parts[skuIdx] ? parts[skuIdx] : `${skuPrefix}-${rIdx + 1 < 10 ? "0" : ""}${rIdx + 1}`;
-      const priceRaw = priceIdx >= 0 ? parseFloat(parts[priceIdx]) : 100;
-      const stockRaw = stockIdx >= 0 ? parseInt(parts[stockIdx], 10) : 5;
-      const minStockRaw = minStockIdx >= 0 ? parseInt(parts[minStockIdx], 10) : 2;
+      const priceRaw = priceIdx >= 0 && parts[priceIdx] ? parseFloat(parts[priceIdx]) : 100;
+
+      // Calcular stock físico real
+      let stock = 1;
+      if (stockIdx >= 0 && parts[stockIdx]) {
+        const parsedStock = parseInt(parts[stockIdx], 10);
+        stock = isNaN(parsedStock) ? 1 : parsedStock;
+      } else if (statusIdx >= 0 && parts[statusIdx]) {
+        const st = parts[statusIdx].toUpperCase();
+        stock = st === "AVAILABLE" || st === "ACTIVO" || st === "DISPONIBLE" || st === "EN_STOCK" ? 1 : 0;
+      }
+
+      const minStockRaw = minStockIdx >= 0 && parts[minStockIdx] ? parseInt(parts[minStockIdx], 10) : 1;
       const category = categoryIdx >= 0 && parts[categoryIdx] ? parts[categoryIdx] : defaultCategory;
 
-      const fullName = brand ? `${rawName} (${brand}${model ? " " + model : ""})`.trim() : rawName;
+      const fullName = brand
+        ? `${rawName} (${brand}${model ? " " + model : ""})`.trim()
+        : rawName;
 
       items.push({
         sku: customSku,
         name: fullName,
         category,
         price: isNaN(priceRaw) || priceRaw <= 0 ? 100 : priceRaw,
-        stock: isNaN(stockRaw) ? 5 : stockRaw,
-        minStock: isNaN(minStockRaw) ? 2 : minStockRaw,
+        stock,
+        minStock: isNaN(minStockRaw) ? 1 : minStockRaw,
       });
     }
   }
@@ -656,17 +783,25 @@ export function extractSuppliersFromSqlFile(filePath: string): ExtractedSupplier
     const columns = match[2].split(",").map((c) => c.replace(/[`'"]/g, "").trim().toLowerCase());
     const valuesBlock = match[3];
 
-    const rowMatches = valuesBlock.match(/\(([^)]+)\)/g);
-    if (!rowMatches) continue;
+    const rowTuples = splitSqlTuples(valuesBlock);
+    if (!rowTuples.length) continue;
 
-    const nameIdx = columns.findIndex((c) => c === "name" || c === "nombre" || c.includes("company") || c.includes("razon") || c.includes("name"));
+    const nameIdx = columns.findIndex(
+      (c) =>
+        c === "company_name" ||
+        c === "name" ||
+        c === "nombre" ||
+        c === "razon_social" ||
+        c.includes("company") ||
+        c.includes("razon") ||
+        c.includes("name"),
+    );
     const contactIdx = columns.findIndex((c) => c.includes("contact") || c.includes("contacto") || c.includes("representante"));
     const phoneIdx = columns.findIndex((c) => c.includes("phone") || c.includes("telefono") || c.includes("cel"));
     const emailIdx = columns.findIndex((c) => c.includes("email") || c.includes("correo"));
 
-    for (let rIdx = 0; rIdx < rowMatches.length; rIdx++) {
-      const rowStr = rowMatches[rIdx].replace(/^\(|\)$/g, "");
-      const parts = rowStr.split(/,\s*(?=(?:[^']*'[^']*')*[^']*$)/).map((p) => p.replace(/^'|'$/g, "").trim());
+    for (let rIdx = 0; rIdx < rowTuples.length; rIdx++) {
+      const parts = splitSqlRowParts(rowTuples[rIdx]);
 
       const name = nameIdx >= 0 && parts[nameIdx] ? parts[nameIdx] : `Proveedor #${rIdx + 1}`;
       const contact = contactIdx >= 0 ? parts[contactIdx] : undefined;

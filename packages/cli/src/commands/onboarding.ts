@@ -319,16 +319,20 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
                 set: { name: item.name, category: item.category, minStock: item.minStock },
               });
 
+            const invId = `inv_${companyId}_${productId}`;
             await db
               .insert(inventory)
               .values({
-                id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                id: invId,
                 companyId,
                 productId,
                 warehouseId: `alm_central_${companyId}`,
                 stock: item.stock,
               })
-              .onConflictDoNothing();
+              .onConflictDoUpdate({
+                target: inventory.id,
+                set: { stock: item.stock, updatedAt: new Date() },
+              });
 
             importedProductsCount++;
           }
@@ -363,16 +367,20 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
               })
               .onConflictDoNothing();
 
+            const invId = `inv_${companyId}_${productId}`;
             await db
               .insert(inventory)
               .values({
-                id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                id: invId,
                 companyId,
                 productId,
                 warehouseId: `alm_central_${companyId}`,
                 stock: item.stock,
               })
-              .onConflictDoNothing();
+              .onConflictDoUpdate({
+                target: inventory.id,
+                set: { stock: item.stock, updatedAt: new Date() },
+              });
 
             importedProductsCount++;
           }

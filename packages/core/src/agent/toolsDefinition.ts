@@ -413,7 +413,7 @@ export async function dispatchToolCall(
 
     case "generar_reporte_general":
       return {
-        result: await executeReporteGeneral(parsedArgs),
+        result: await executeReporteGeneral(parsedArgs, context),
         isClosingAction: false,
       };
 
