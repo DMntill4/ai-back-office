@@ -12,8 +12,8 @@ export interface ProactiveAlert {
 
 /**
  * Event Emitter central del motor proactivo.
- * Permite que cualquier servidor API (Fastify, WebSockets, SSE) se conecte
- * y escuche alertas en tiempo real para ser consumidas por el Frontend personalizado.
+ * Permite que cualquier consumidor de eventos (Fastify, WebSockets, SSE, Canales de Notificación) se conecte
+ * y escuche alertas en tiempo real para ser consumidas por el Centro de Control y Notificadores.
  */
 class ProactiveMonitorEmitter extends NodeEventEmitter {}
 
@@ -95,7 +95,7 @@ export async function runProactiveAuditCycle(): Promise<ProactiveAlert[]> {
 }
 
 /**
- * Obtiene la lista actual de alertas activas enviadas al Frontend.
+ * Obtiene la lista actual de alertas activas enviadas a los canales y centro de control.
  */
 export function getActiveProactiveAlerts(): ProactiveAlert[] {
   return [...alertsMemoryStore];

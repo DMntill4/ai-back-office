@@ -46,39 +46,12 @@ export async function consoleCommand() {
   const memMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
 
   const companyDisplayName = session?.companyName || companyId;
+  console.log("");
   console.log(
-    drawCard(
-      [
-        `${theme.dim("Welcome back,")} ${theme.bold(userName)}! (${userRole.toUpperCase()})  ${theme.dim("│")}  ${theme.dim("Company:")} ${theme.mintBold(companyDisplayName)} [${theme.dim(companyId)}]`,
-        `${theme.dim("Daemon:")}       ${daemonBadge}  ${theme.dim("│")}  ${theme.dim("Memory:")} ${memMb} MB`,
-        `${theme.dim("Operational:")}  Autonomous agent is listening 24/7, tracking real stock and auditing logistics.`,
-      ],
-      {
-        title: "🍃 MINT AUTONOMOUS AGENT CONTROL CENTER",
-        borderColor: theme.mint,
-      },
-    ),
+    `  ${theme.mintBold("● MINT AI")} ${theme.dim("v1.0.0")} │ ${theme.bold(companyDisplayName)} [${theme.dim(companyId)}] │ ${daemonBadge} │ ${theme.cyan("AUTONOMOUS 24/7")}`,
   );
-
   console.log(
-    drawCard(
-      [
-        `  ${theme.mintBold("/stock")}     Existencias de tu catálogo en tiempo real`,
-        `  ${theme.mintBold("/status")}    Panel unificado de inventario, casos y alertas (/dash)`,
-        `  ${theme.mintBold("/inbox")}     Bandeja de propuestas de reposición esperando tu aprobación`,
-        `  ${theme.mintBold("/scan")}      Escanear desabastos de inventario y retrasos de envío ahora`,
-        `  ${theme.mintBold("/orders")}    Órdenes de compra registradas y en camino`,
-        `  ${theme.mintBold("/today")}     Resumen operativo diario (Daily Briefing)`,
-        `  ${theme.mintBold("/help")}      Guía completa de comandos, herramientas y memoria del agente`,
-        `  ${theme.mintBold("/exit")}      Salir de la consola`,
-        ``,
-        `  ${theme.cyanBold("💬 Chat:")}   Escribe cualquier mensaje o pregunta en lenguaje natural (ej: "Hola", "¿hay stock bajo?", "revisa los proveedores")`,
-      ],
-      {
-        title: "⚡ COMANDOS RÁPIDOS Y BARRA DE CONTROL",
-        borderColor: theme.cyan,
-      },
-    ),
+    `  ${theme.dim("Escribe en lenguaje natural o")} ${theme.mintBold("/help")} ${theme.dim("para ver comandos slash. (/db para gestionar base de datos, /web para abrir UI)")}`,
   );
   console.log("");
 
@@ -91,6 +64,11 @@ export async function consoleCommand() {
       "/dash",
       "/today",
       "/stock",
+      "/db",
+      "/database",
+      "/resync",
+      "/web",
+      "/app",
       "/inbox",
       "/approve",
       "/reject",
@@ -119,7 +97,33 @@ export async function consoleCommand() {
       completer,
     });
 
+    // Autonomous Live Pulse & Event Heartbeat
+    let isScanning = false;
+    const runAutonomousHeartbeat = async (isStartup = false) => {
+      if (isScanning) return;
+      isScanning = true;
+      try {
+        const { runFullOperationalEventScan } = await import("@mint/core");
+        const scan = await runFullOperationalEventScan(companyId);
+        const timeStr = new Date().toLocaleTimeString();
+
+        if (isStartup) {
+          console.log(`  ${theme.mint("⚡ [Autonomous Daemon]")} ${theme.dim(timeStr)} Escaneo inicial: 25 productos auditados en tiempo real, ${scan.stockDeficitsFound} desabastos. Escuchando eventos 24/7...`);
+          rl.prompt(true);
+        } else if (scan.stockDeficitsFound > 0 || scan.delayedShipmentsFound > 0) {
+          console.log(`\n  ${theme.amberBold("⚠️  [Autonomous Alert]")} ${theme.dim(timeStr)} Desabasto o incidencia logística detectada. ${scan.processedDecisions.length} propuesta(s) generadas en /inbox.`);
+          rl.prompt(true);
+        }
+      } catch {} finally {
+        isScanning = false;
+      }
+    };
+
+    setTimeout(() => runAutonomousHeartbeat(true), 500);
+    const heartbeatTimer = setInterval(() => runAutonomousHeartbeat(false), 45000);
+
     rl.on("close", () => {
+      clearInterval(heartbeatTimer);
       resolve();
     });
 
@@ -186,6 +190,9 @@ export async function consoleCommand() {
               drawCard(
                 [
                   `  ${theme.mintBold("/stock")}                   Existencias en tiempo real de tu catálogo`,
+                  `  ${theme.mintBold("/db [status|sync|switch]")} Gestión, sincronización y cambio de base de datos`,
+                  `  ${theme.mintBold("/resync")}                  Re-extraer catálogo real desde SQL sin datos de prueba`,
+                  `  ${theme.mintBold("/web")} o ${theme.mintBold("/app")}             Abrir Dashboard Visual y Canales en navegador`,
                   `  ${theme.mintBold("/status")} o ${theme.mintBold("/dash")}        Panel unificado de inventario, salud del daemon y canales`,
                   `  ${theme.mintBold("/today")}                    Resumen diario (Daily Briefing) de decisiones y ahorro`,
                   `  ${theme.mintBold("/inbox")}                    Bandeja de propuestas de compra esperando autorización`,
@@ -212,6 +219,26 @@ export async function consoleCommand() {
               ),
             );
             console.log("");
+            break;
+          }
+
+          case "db":
+          case "database": {
+            const { databaseCommand } = require("./database");
+            await databaseCommand(args);
+            break;
+          }
+
+          case "resync": {
+            const { resyncCurrentProject } = require("./database");
+            await resyncCurrentProject(companyId);
+            break;
+          }
+
+          case "web":
+          case "app": {
+            const { webCommand } = require("./web");
+            await webCommand({ open: true });
             break;
           }
 

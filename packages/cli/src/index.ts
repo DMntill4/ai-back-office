@@ -12,6 +12,8 @@ import { teamCommand } from "./commands/team";
 import { doctorCommand } from "./commands/doctor";
 import { startCommand } from "./commands/start";
 import { setupCommand } from "./commands/setup";
+import { databaseCommand } from "./commands/database";
+import { webCommand } from "./commands/web";
 import { triggerScanApi } from "./client";
 import { getSession } from "./keychain";
 import { theme } from "./ui/theme";
@@ -36,7 +38,7 @@ program.hook("preAction", (thisCommand, actionCommand) => {
 program
   .command("start")
   .alias("agent")
-  .description("Inicia TODO el sistema autónomo (Servidor Backend, Daemon, Canales y Consola) sin frontend web")
+  .description("Inicia el sistema autónomo Mint (Daemon de fondo, Canales y Consola de Control)")
   .option("--headless", "Corre en segundo plano sin consola interactiva (ideal para servidores)")
   .option("--port <port>", "Puerto para el servidor de webhooks y API (por defecto: 3000)")
   .option("--json", "Salida en formato JSON")
@@ -124,6 +126,24 @@ program
   .description("Consulta existencias reales de inventario y estado de quiebre de stock")
   .option("--json", "Salida en formato JSON")
   .action((options) => stockCommand(options));
+
+// 8.1 mint db / mint database
+program
+  .command("db [subcommand] [args...]")
+  .alias("database")
+  .description("Gestión, re-sincronización y cambio de base de datos o catálogo (mint db [status|sync|switch])")
+  .action((subcommand, args) => {
+    const combined = subcommand ? [subcommand, ...(args || [])] : [];
+    return databaseCommand(combined);
+  });
+
+// 8.2 mint web / mint app
+program
+  .command("web")
+  .alias("app")
+  .description("Inicia y abre la Dashboard Web Visual (React 19) con canales de notificación (Discord/Slack)")
+  .option("--no-open", "No abrir el navegador automáticamente")
+  .action((options) => webCommand(options));
 
 // 9. mint orders
 program

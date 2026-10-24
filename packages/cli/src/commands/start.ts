@@ -144,7 +144,7 @@ export async function startCommand(options: StartOptions = {}) {
           serverPid: serverProc.pid,
           port,
           companyId,
-          frontend: "DISABLED (Terminal-only)",
+          autonomy: "active",
         },
         null,
         2
@@ -164,12 +164,12 @@ export async function startCommand(options: StartOptions = {}) {
         `${theme.dim("Servidor API:")}      ${theme.mintBold(`http://localhost:${port}`)} (Webhooks, Canales y REST)`,
         `${theme.dim("Daemon Autónomo:")}   ${theme.badge("ACTIVO", "mint")} Vigilando stock, retrasos y fuentes locales`,
         `${theme.dim("Base de Datos:")}     ${theme.bold(report.postgres.provider || "PostgreSQL Cloud")}`,
-        `${theme.dim("Frontend Web:")}      ${theme.badge("OMITIDO / DESHABILITADO", "gray")} (Modo 100% Terminal)`,
+        `${theme.dim("Dashboard Visual:")}  ${theme.cyan("Disponible en cualquier momento vía /web o 'mint web'")}`,
         `${theme.dim("Logs de Servicio:")}  ${theme.dim(serverLogPath)}`,
       ],
       {
         title: "🍃 MINT AUTONOMOUS AGENT SYSTEM INICIADO",
-        badge: "HEADLESS ONLINE",
+        badge: "ONLINE 24/7",
         badgeColor: "mint",
         borderColor: theme.mint,
       }

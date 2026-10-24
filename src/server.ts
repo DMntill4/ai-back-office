@@ -211,7 +211,7 @@ server.post("/api/chat", async (request, reply) => {
       .values({
         id: caseId,
         companyId,
-        title: "Chat Frontend (API)",
+        title: "Chat Operativo",
         description: message,
         status: "en_proceso",
         priority: "media",
@@ -246,10 +246,20 @@ server.get("/api/chat/history", async (request, reply) => {
   const companyId = query.companyId || "comp_default";
 
   try {
+    const { or } = await import("drizzle-orm");
     const chatCases = await db
       .select()
       .from(cases)
-      .where(and(eq(cases.companyId, companyId), eq(cases.title, "Chat Frontend (API)")))
+      .where(
+        and(
+          eq(cases.companyId, companyId),
+          or(
+            eq(cases.title, "Chat Operativo"),
+            eq(cases.title, "Chat Operator"),
+            eq(cases.title, "Chat Frontend (API)"),
+          ),
+        ),
+      )
       .orderBy(desc(cases.createdAt))
       .limit(20);
 
