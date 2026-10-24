@@ -43,3 +43,4 @@ export * from "./services/dataFreshnessService";
 // 7. Cliente LLM
 export * from "./llm/client";
 export * from "./config/env";
+export * from "./config/runtimeCheck";

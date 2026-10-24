@@ -9,6 +9,7 @@ import { simulateCommand } from "./commands/simulate";
 import { dashboardCommand } from "./commands/dashboard";
 import { consoleCommand } from "./commands/console";
 import { teamCommand } from "./commands/team";
+import { doctorCommand } from "./commands/doctor";
 import { triggerScanApi } from "./client";
 import { getSession } from "./keychain";
 import { theme } from "./ui/theme";
@@ -28,6 +29,14 @@ program.hook("preAction", (thisCommand, actionCommand) => {
     return;
   }
 });
+
+// 0. mint doctor / mint env
+program
+  .command("doctor")
+  .alias("env")
+  .description("Verifica la compatibilidad del entorno (Node >= 22.5.0, SQLite nativo) y conectividad a PostgreSQL")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => doctorCommand(options));
 
 // 1. mint dashboard / mint status
 program
