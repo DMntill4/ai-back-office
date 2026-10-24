@@ -138,6 +138,9 @@ export async function consoleCommand() {
       "/pause",
       "/resume",
       "/matrix",
+      "/whoami",
+      "/login",
+      "/logout",
       "/help",
       "/clear",
       "/exit",
@@ -267,6 +270,7 @@ export async function consoleCommand() {
                   `  ${theme.mintBold("/inbox")}                    Bandeja de propuestas esperando autorización (HITL)`,
                   `  ${theme.mintBold("/approve <id>")}             Aprobar propuesta (crea Orden + Embarque Inbound con ETA)`,
                   `  ${theme.mintBold("/scan")}                     Ejecutar escaneo proactivo y notificar a Discord/Telegram`,
+                  `  ${theme.mintBold("/whoami | /logout")}         Ver usuario/empresa activa o cerrar sesión para cambiar de cuenta`,
                 ],
                 {
                   title: "⚡ COMANDOS DE OPERACIÓN",
@@ -573,6 +577,27 @@ export async function consoleCommand() {
             const { chatCommand } = require("./chat");
             await chatCommand(args.join(" "), { noExit: true });
             break;
+          }
+
+          case "whoami": {
+            const { whoamiCommand } = require("./whoami");
+            await whoamiCommand();
+            break;
+          }
+
+          case "logout": {
+            const { logoutCommand } = require("./whoami");
+            await logoutCommand();
+            console.log(theme.dim("  Cerrando consola actual. Ejecuta 'mint' o 'mint login' para iniciar sesión con otra cuenta.\n"));
+            rl.close();
+            return;
+          }
+
+          case "login": {
+            const { loginCommand } = require("./login");
+            rl.close();
+            await loginCommand(args[0], args[1]);
+            return;
           }
 
           default: {
