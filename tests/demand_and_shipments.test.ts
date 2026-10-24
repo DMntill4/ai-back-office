@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { executePronosticarDemanda } from "../src/tools/pronosticarDemanda";
-import { executeConsultarEnvios } from "../src/tools/consultarEnvios";
-import { executeCrearOrdenCompra } from "../src/tools/crearOrdenCompra";
-import { saveBotSetupConfig, registerUser } from "../src/services/authAndSetupService";
-import { calculateDemandForecast } from "../src/services/demandService";
-import { trackShipments } from "../src/services/shipmentService";
-import { db } from "../src/db/client";
-import { companies, products, suppliers, supplierProducts, salesHistory, shipments, warehouses } from "../src/db/schema";
+import { executePronosticarDemanda } from "../packages/core/src/tools/pronosticarDemanda";
+import { executeConsultarEnvios } from "../packages/core/src/tools/consultarEnvios";
+import { executeCrearOrdenCompra } from "../packages/core/src/tools/crearOrdenCompra";
+import { saveBotSetupConfig, registerUser } from "../packages/core/src/services/authAndSetupService";
+import { calculateDemandForecast } from "../packages/core/src/services/demandService";
+import { trackShipments } from "../packages/core/src/services/shipmentService";
+import { db } from "../packages/core/src/db/client";
+import { companies, products, suppliers, supplierProducts, salesHistory, shipments, warehouses } from "../packages/core/src/db/schema";
 import { eq } from "drizzle-orm";
 
 describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umbral y Seguimiento de Envíos", () => {
@@ -128,7 +128,7 @@ describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umb
 
     // Compra de 50 unidades a $450 = $22,500 MXN
     // En comp_default requeriría aprobación, pero con $50,000 se aprueba autónomamente
-    const { createPurchaseOrder } = await import("../src/services/inventoryService");
+    const { createPurchaseOrder } = await import("../packages/core/src/services/inventoryService");
     const result = await createPurchaseOrder({
       caseId: `case_vip_${Date.now()}`,
       companyId,

@@ -4,7 +4,7 @@ import {
   compactSupplierFacts,
   compactShipmentFacts,
   enforceTokenBudget,
-} from "../src/agent/context/contextManager";
+} from "../packages/core/src/agent/context/contextManager";
 
 describe("Capa de Gestión y Compresión de Ventana de Contexto (ContextManager)", () => {
   it("debe compactar datos de inventario en hechos densos sin campos innecesarios", () => {

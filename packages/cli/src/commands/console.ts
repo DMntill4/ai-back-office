@@ -281,8 +281,8 @@ export async function consoleCommand() {
           case "app":
           case "desktop":
           case "web": {
-            const { appCommand } = require("./app");
-            await appCommand({ open: true });
+            console.log(`\n  ${theme.mint("[TERMINAL-FIRST]")} Mint opera exclusivamente en modo terminal/consola en esta rama.`);
+            console.log(`  Ejecuta ${theme.bold("dashboard")} o ${theme.bold("status")} para ver la torre de control en tiempo real.\n`);
             break;
           }
 

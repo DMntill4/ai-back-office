@@ -13,7 +13,6 @@ import { doctorCommand } from "./commands/doctor";
 import { startCommand } from "./commands/start";
 import { setupCommand } from "./commands/setup";
 import { databaseCommand } from "./commands/database";
-import { appCommand } from "./commands/app";
 import { channelsCommand, settingsCommand } from "./commands/channels";
 import { goalCommand } from "./commands/goal";
 import { triggerScanApi } from "./client";
@@ -149,9 +148,11 @@ program
   .command("app")
   .alias("desktop")
   .alias("web")
-  .description("Abre la Mint Desktop App (Torre de Control Logística Visual, GPS, Despachos, Canales y HITL)")
-  .option("--no-open", "No abrir la ventana de la aplicación automáticamente")
-  .action((options) => appCommand(options));
+  .description("Torre de control en consola (100% Terminal-First)")
+  .action(() => {
+    console.log(`\n  ${theme.mint("[TERMINAL-FIRST]")} Mint opera exclusivamente en modo terminal/consola en esta rama.`);
+    console.log(`  Ejecuta ${theme.bold("mint dashboard")} o ${theme.bold("mint console")} para ver la torre de control en tiempo real.\n`);
+  });
 
 // 8.2b mint logistics / dispatch / receive / consolidate
 program

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evaluatePolicy, type ActionProposal } from "../src/policy/policyEngine";
+import { evaluatePolicy, type ActionProposal } from "../packages/core/src/policy/policyEngine";
 
 describe("Motor de Políticas Determinista (Policy Engine Guardrails)", () => {
   const baseProposal: ActionProposal = {

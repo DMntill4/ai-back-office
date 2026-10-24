@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { executeConsultarStock } from "../src/tools/consultarStock";
-import { executeVerOrdenesAbiertas } from "../src/tools/verOrdenesAbiertas";
-import { executeCrearOrdenCompra } from "../src/tools/crearOrdenCompra";
-import { db } from "../src/db/client";
-import { companies, products, suppliers, supplierProducts } from "../src/db/schema";
+import { executeConsultarStock } from "../packages/core/src/tools/consultarStock";
+import { executeVerOrdenesAbiertas } from "../packages/core/src/tools/verOrdenesAbiertas";
+import { executeCrearOrdenCompra } from "../packages/core/src/tools/crearOrdenCompra";
+import { db } from "../packages/core/src/db/client";
+import { companies, products, suppliers, supplierProducts } from "../packages/core/src/db/schema";
 
 describe("Herramientas del Agente (Tools)", () => {
   beforeAll(async () => {

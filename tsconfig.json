@@ -22,5 +22,5 @@
       "@mint/notifiers/*": ["packages/notifiers/src/*"]
     }
   },
-  "include": ["src", "scripts", "tests", "packages"]
+  "include": ["packages", "scripts", "tests"]
 }

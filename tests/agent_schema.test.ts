@@ -6,7 +6,7 @@ import {
   toolCalls,
   idempotencyKeys,
   approvals,
-} from "../src/db/schema";
+} from "../packages/core/src/db/schema";
 import { getTableName } from "drizzle-orm";
 
 describe("Esquemas de las tablas del Agente", () => {

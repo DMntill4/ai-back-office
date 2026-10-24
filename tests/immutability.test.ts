@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll, beforeAll } from "vitest";
-import { db, pool } from "../src/db/client";
-import { cases, caseEvents, companies } from "../src/db/schema";
+import { db, pool } from "../packages/core/src/db/client";
+import { cases, caseEvents, companies } from "../packages/core/src/db/schema";
 import { eq } from "drizzle-orm";
 
 describe("Blindaje de inmutabilidad en case_events", () => {

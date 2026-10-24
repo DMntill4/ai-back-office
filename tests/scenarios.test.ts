@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
-import { runAgentLoop } from "../src/agent/loop";
-import { FakeGrokClient } from "../src/llm/fake";
+import { runAgentLoop } from "../packages/core/src/agent/loop";
+import { FakeGrokClient } from "../packages/core/src/llm/fake";
 
 describe("Business Scenarios and Automated Tests with Fake LLM", () => {
   let mockClient: FakeGrokClient;
@@ -361,7 +361,7 @@ describe("Business Scenarios and Automated Tests with Fake LLM", () => {
   });
 
   afterAll(async () => {
-    const { pool } = await import("../src/db/client");
+    const { pool } = await import("../packages/core/src/db/client");
     await pool.end();
   });
 });

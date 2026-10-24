@@ -6,8 +6,8 @@ import {
   saveBotSetupConfig,
   getTemplateSql,
   executeSqlUpload,
-} from "../src/services/authAndSetupService";
-import { getStockByProduct } from "../src/services/inventoryService";
+} from "../packages/core/src/services/authAndSetupService";
+import { getStockByProduct } from "../packages/core/src/services/inventoryService";
 
 describe("Autenticación, Roles y Flujo de Setup Step-by-Step", () => {
   it("debe definir adecuadamente los 4 roles canónicos con sus permisos de gobernanza", () => {

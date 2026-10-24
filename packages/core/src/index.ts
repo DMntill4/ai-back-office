@@ -49,3 +49,8 @@ export * from "./llm/client";
 export * from "./config/env";
 export * from "./config/runtimeCheck";
 
+// 8. Logger y Utilidades
+export * from "./lib/logger";
+export * from "./db/migrate";
+export * from "./worker/proactiveMonitor";
+
