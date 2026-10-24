@@ -24,6 +24,7 @@ export interface DiscoveredProject {
 export interface AIProjectQueryAnalysis {
   projectName: string;
   searchTerms: string[];
+  locationHints: string[];
   expectedFramework: string | null;
   expectedDbType: string | null;
   reasoning: string;
@@ -31,8 +32,9 @@ export interface AIProjectQueryAnalysis {
 
 /**
  * Cerebro AI: Utiliza el modelo LLM conectado (vía RETO_KEY / GROK_API_KEY)
- * para comprender la intención, extraer los nombres de proyectos y tecnologías
- * a partir de cualquier consulta en lenguaje natural (Español o Inglés).
+ * para comprender la intención, extraer los nombres de proyectos, tecnologías
+ * y pistas de ubicación (ej: "Downloads", "Descargas", "D:\repos") a partir
+ * de cualquier consulta en lenguaje natural (Español o Inglés).
  */
 export async function interpretQueryWithAI(query: string): Promise<AIProjectQueryAnalysis> {
   const apiKey = getLlmApiKey();
@@ -45,11 +47,16 @@ export async function interpretQueryWithAI(query: string): Promise<AIProjectQuer
             role: "system",
             content: `You are Mint's Autonomous Project & Database Discovery AI.
 Analyze the user's natural language request (in Spanish, English, or any language) to find their project database or inventory.
-Extract the target project name, directory search tokens, expected tech framework (e.g. Spring Boot, Node.js), and database engine.
+Extract:
+1. Target project name.
+2. Directory search tokens.
+3. Location hints (any folders or paths mentioned, e.g. "Downloads", "Descargas", "D:\\repos", "privado", "carpeta X") or empty array.
+4. Expected tech framework (e.g. Spring Boot, Node.js), and database engine.
 Return strictly a valid JSON object without markdown fences:
 {
   "projectName": string,
   "searchTerms": string[],
+  "locationHints": string[],
   "expectedFramework": string or null,
   "expectedDbType": string or null,
   "reasoning": string
@@ -70,6 +77,7 @@ Return strictly a valid JSON object without markdown fences:
           return {
             projectName: parsed.projectName || query,
             searchTerms: parsed.searchTerms.map((t: string) => t.toLowerCase().trim()),
+            locationHints: Array.isArray(parsed.locationHints) ? parsed.locationHints : [],
             expectedFramework: parsed.expectedFramework || null,
             expectedDbType: parsed.expectedDbType || null,
             reasoning: parsed.reasoning || "Interpreted via Grok AI",
@@ -88,9 +96,15 @@ Return strictly a valid JSON object without markdown fences:
     .split(/\s+/)
     .filter((w) => w.length >= 3);
 
+  const fallbackLocations: string[] = [];
+  const qLower = query.toLowerCase();
+  if (qLower.includes("download") || qLower.includes("descarga")) fallbackLocations.push("Downloads");
+  if (qLower.includes("desktop") || qLower.includes("escritorio")) fallbackLocations.push("Desktop");
+
   return {
     projectName: tokens.join("-") || query,
     searchTerms: tokens,
+    locationHints: fallbackLocations,
     expectedFramework: null,
     expectedDbType: null,
     reasoning: "Local tokenizer fallback",
@@ -167,41 +181,123 @@ Return strictly a valid JSON object without markdown fences:
 }
 
 /**
- * Busca proyectos en carpetas estándar del usuario (Documents, OneDrive, Desktop, Projects, CWD)
+ * Busca proyectos en carpetas estándar del usuario y ubicaciones específicas
+ * indicadas por el usuario (ej: "Downloads", "Descargas", carpetas privadas, rutas directas)
  * guiado por el Cerebro AI de Mint.
  */
 export async function searchProjectDatabase(query: string): Promise<DiscoveredProject[]> {
-  // 1. El LLM interpreta la consulta en lenguaje natural y extrae términos de búsqueda inteligentes
+  // 1. El LLM interpreta la consulta en lenguaje natural, extrayendo términos y pistas de ubicación
   const aiAnalysis = await interpretQueryWithAI(query);
   const searchTerms = aiAnalysis.searchTerms;
+  const locationHints = aiAnalysis.locationHints || [];
 
-  if (searchTerms.length === 0) return [];
+  if (searchTerms.length === 0 && locationHints.length === 0) return [];
 
   const home = os.homedir();
-  const candidateRoots = [
+  const explicitRoots: string[] = [];
+
+  // Resolver carpetas específicas indicadas en la consulta (ej: Downloads, Descargas, C:\..., D:\...)
+  for (const hint of locationHints) {
+    const hintClean = hint.trim();
+    const hintLower = hintClean.toLowerCase();
+    if (hintLower.includes("download") || hintLower.includes("descarga")) {
+      const candidates = [
+        path.join(home, "Downloads"),
+        path.join(home, "Descargas"),
+        path.join(home, "OneDrive", "Downloads"),
+      ];
+      candidates.forEach((c) => {
+        if (fs.existsSync(c)) explicitRoots.push(c);
+      });
+    } else if (hintLower.includes("desktop") || hintLower.includes("escritorio")) {
+      const candidates = [
+        path.join(home, "Desktop"),
+        path.join(home, "Escritorio"),
+        path.join(home, "OneDrive", "Desktop"),
+      ];
+      candidates.forEach((c) => {
+        if (fs.existsSync(c)) explicitRoots.push(c);
+      });
+    } else if (path.isAbsolute(hintClean) && fs.existsSync(hintClean)) {
+      explicitRoots.push(hintClean);
+    } else {
+      const fromHome = path.join(home, hintClean);
+      if (fs.existsSync(fromHome)) explicitRoots.push(fromHome);
+      const fromCwd = path.join(process.cwd(), hintClean);
+      if (fs.existsSync(fromCwd)) explicitRoots.push(fromCwd);
+    }
+  }
+
+  // Raíces estándar de desarrollo
+  const standardRoots = [
     process.cwd(),
     path.join(home, "OneDrive", "Documents"),
     path.join(home, "Documents"),
     path.join(home, "Projects"),
     path.join(home, "Workspace"),
+    path.join(home, "workspace"),
     path.join(home, "Desktop"),
+    path.join(home, "Downloads"),
+    path.join(home, "src"),
+    path.join(home, "dev"),
     home,
   ];
+
+  // Priorizar raíces explícitas si el usuario dijo "busca en downloads / carpeta X"
+  const candidateRoots = Array.from(new Set([...explicitRoots, ...standardRoots]));
 
   const checkedDirs = new Set<string>();
   const candidates: DiscoveredProject[] = [];
 
-  for (const root of candidateRoots) {
-    if (!fs.existsSync(root) || checkedDirs.has(root)) continue;
-    checkedDirs.add(root);
+  // Escaneo recursivo tolerante a carpetas anidadas (ej. descargas descomprimidas)
+  function scanDir(dir: string, depth: number, maxDepth: number) {
+    if (!fs.existsSync(dir) || checkedDirs.has(dir) || depth > maxDepth) return;
+    checkedDirs.add(dir);
+
+    const baseNameLower = path.basename(dir).toLowerCase();
+    const isRootCandidate = candidateRoots.includes(dir);
+
+    if (!isRootCandidate) {
+      const matchesSelf = searchTerms.some((term) => {
+        const cleanTerm = term.replace(/[^a-z0-9]/g, "");
+        const cleanEntry = baseNameLower.replace(/[^a-z0-9]/g, "");
+        return cleanEntry.includes(cleanTerm) || cleanTerm.includes(cleanEntry);
+      });
+
+      if (matchesSelf) {
+        const projectInfo = inspectProjectDirectory(dir);
+        if (projectInfo) {
+          if (!candidates.some((c) => c.projectPath.toLowerCase() === projectInfo.projectPath.toLowerCase())) {
+            candidates.push(projectInfo);
+          }
+        }
+      }
+    }
 
     try {
-      const entries = fs.readdirSync(root, { withFileTypes: true });
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
         const entryNameLower = entry.name.toLowerCase();
+        if (
+          [
+            "node_modules",
+            ".git",
+            ".idea",
+            ".vscode",
+            "appdata",
+            "windows",
+            "temp",
+            "cache",
+            "target",
+            "build",
+            ".gradle",
+          ].includes(entryNameLower)
+        ) {
+          continue;
+        }
 
-        // Comparar con los términos de búsqueda extraídos por la IA
+        const subDir = path.join(dir, entry.name);
         const matchesTerm = searchTerms.some((term) => {
           const cleanTerm = term.replace(/[^a-z0-9]/g, "");
           const cleanEntry = entryNameLower.replace(/[^a-z0-9]/g, "");
@@ -209,16 +305,28 @@ export async function searchProjectDatabase(query: string): Promise<DiscoveredPr
         });
 
         if (matchesTerm) {
-          const projectDir = path.join(root, entry.name);
-          const projectInfo = inspectProjectDirectory(projectDir);
+          const projectInfo = inspectProjectDirectory(subDir);
           if (projectInfo) {
-            candidates.push(projectInfo);
+            if (!candidates.some((c) => c.projectPath.toLowerCase() === projectInfo.projectPath.toLowerCase())) {
+              candidates.push(projectInfo);
+            }
           }
         }
+
+        // Si es una ubicación explícita (ej: Downloads), profundizar hasta nivel 3
+        if (depth < maxDepth) {
+          scanDir(subDir, depth + 1, maxDepth);
+        }
       }
-    } catch {
-      // Omitir si no hay permisos de lectura
-    }
+    } catch {}
+  }
+
+  for (const root of candidateRoots) {
+    if (!fs.existsSync(root)) continue;
+    const isExplicit = explicitRoots.some(
+      (e) => root.toLowerCase() === e.toLowerCase() || root.toLowerCase().startsWith(e.toLowerCase()),
+    );
+    scanDir(root, 0, isExplicit ? 3 : 1);
   }
 
   // 2. El LLM analiza los candidatos encontrados y emite su veredicto y razonamiento

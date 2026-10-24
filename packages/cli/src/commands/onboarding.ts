@@ -204,150 +204,156 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
 
     console.log(`  How would you like to connect your database or catalog?`);
     if (localProjects.length > 0) {
-      console.log(`    ${theme.mintBold("[1] 🔎 Connect a detected project, or search by name / natural language")}`);
+      console.log(`    ${theme.mintBold(`[1] ⚡ Quick connect a detected project (select 1-${localProjects.length})`)}`);
+      console.log(`    ${theme.cyanBold(`[2] 💬 Chat with AI to find anywhere (e.g. "busca en downloads mi proyecto...", "está en D:\\repos")`)}`);
+      console.log(`    ${theme.dim("[3] 📁 Enter file path or database URI (.sqlite, .db, .sql, .csv)")}`);
+      console.log(`    ${theme.dim("[4] ⏭  Skip for now (start with a clean, empty catalog)")}`);
     } else {
-      console.log(`    ${theme.mintBold("[1] 🔎 Search this PC for a project by name or query")}`);
+      console.log(`    ${theme.cyanBold(`[1] 💬 Chat with AI to find your project (e.g. "busca en downloads mi proyecto...", "está en C:\\work")`)}`);
+      console.log(`    ${theme.dim("[2] 📁 Enter file path or database URI (.sqlite, .db, .sql, .csv)")}`);
+      console.log(`    ${theme.dim("[3] ⏭  Skip for now (start with a clean, empty catalog)")}`);
     }
-    console.log(`    ${theme.cyanBold("[2] 📁 Enter file path or database URI")} (.sqlite, .db, .sql, .csv)`);
-    console.log(`    ${theme.dim("[3] ⏭  Skip for now (start with a clean, empty catalog)")}`);
 
     const sourceChoice = await ask(rl, `\n  Choose an option`, "1");
     let importedProductsCount = 0;
     let selectedSourceLabel = "Empty (0 products)";
+    let foundProjects: DiscoveredProject[] = [];
 
-    if (sourceChoice === "1") {
-      let foundProjects: DiscoveredProject[] = [];
+    const isQuickSelect = localProjects.length > 0 && sourceChoice === "1";
+    const isChatAiSearch = (localProjects.length > 0 && sourceChoice === "2") || (localProjects.length === 0 && sourceChoice === "1");
+    const isCustomPath = (localProjects.length > 0 && sourceChoice === "3") || (localProjects.length === 0 && sourceChoice === "2");
 
-      if (localProjects.length > 0) {
-        const queryPrompt = `  ${theme.bold(`Enter project number (1-${localProjects.length}), name, or natural language query`)}`;
-        const projectQuery = await ask(rl, queryPrompt, "1");
-
-        const selectedNum = parseInt(projectQuery, 10);
-        if (!isNaN(selectedNum) && selectedNum >= 1 && selectedNum <= localProjects.length) {
-          foundProjects = [localProjects[selectedNum - 1]];
-        } else {
-          console.log(`\n  Searching your PC with Mint AI Brain for projects matching "${theme.mintBold(projectQuery)}"...`);
-          foundProjects = await searchProjectDatabase(projectQuery);
-        }
+    if (isQuickSelect) {
+      const queryPrompt = `  ${theme.bold(`Enter project number (1-${localProjects.length}) or project name`)}`;
+      const selected = await ask(rl, queryPrompt, "1");
+      const selectedNum = parseInt(selected, 10);
+      if (!isNaN(selectedNum) && selectedNum >= 1 && selectedNum <= localProjects.length) {
+        foundProjects = [localProjects[selectedNum - 1]];
       } else {
-        const projectQuery = await ask(
-          rl,
-          `  ${theme.bold("Enter project name or search query (e.g. 'ecommerce-api', 'inventory-service')")}`,
-          "",
-        );
-        if (projectQuery) {
-          console.log(`\n  Searching your PC with Mint AI Brain for projects matching "${theme.mintBold(projectQuery)}"...`);
-          foundProjects = await searchProjectDatabase(projectQuery);
-        }
+        console.log(`\n  Searching your PC with Mint AI Brain for "${theme.mintBold(selected)}"...`);
+        foundProjects = await searchProjectDatabase(selected);
       }
+    } else if (isChatAiSearch) {
+      console.log(`\n  ${theme.cyanBold("💬 Mint AI Location & Project Discovery:")}`);
+      console.log(`  You can name any project and give location hints (e.g. "busca en downloads mi proyecto...", "está en D:\\repos\\app")`);
+      const chatQuery = await ask(
+        rl,
+        `  ${theme.bold("Tell Mint AI what to find and where to look")}`,
+        localProjects.length > 0 ? localProjects[0].projectName : "",
+      );
 
-      if (foundProjects.length > 0) {
-        console.log(`  ${theme.success("✔")} Mint AI identified ${theme.bold(foundProjects.length)} project(s):\n`);
-        foundProjects.forEach((proj: DiscoveredProject, idx: number) => {
-          console.log(`    ${theme.mintBold(`[#${idx + 1}] ${proj.projectName}`)} (${proj.framework})`);
-          console.log(`        Location:   ${theme.dim(proj.projectPath)}`);
-          if (proj.databaseName) {
-            console.log(`        Database:   ${theme.cyanBold(proj.databaseName)} (${proj.dbType.toUpperCase()}) on ${proj.host}:${proj.port}`);
-          }
-          if (proj.sqlFiles.length > 0) {
-            const sqlNames = proj.sqlFiles.map((f: string) => path.basename(f)).join(", ");
-            console.log(`        SQL Data:   ${theme.bold(sqlNames)}`);
-          }
-          if (proj.aiReasoning) {
-            console.log(`        AI Decision: ${theme.mint(proj.aiReasoning)}`);
-          }
-          console.log("");
-        });
+      if (chatQuery) {
+        console.log(`\n  Mint AI Brain is searching across target locations for "${theme.mintBold(chatQuery)}"...`);
+        foundProjects = await searchProjectDatabase(chatQuery);
+      }
+    }
 
-        const projToUse = foundProjects[0];
-        const confirmSync = await ask(
-          rl,
-          `  Would you like to sync items from '${theme.bold(projToUse.projectName)}'? [Y/n]`,
-          "Y",
-        );
+    if (foundProjects.length > 0) {
+      console.log(`\n  ${theme.success("✔")} Mint AI identified ${theme.bold(foundProjects.length)} project(s):\n`);
+      foundProjects.forEach((proj: DiscoveredProject, idx: number) => {
+        console.log(`    ${theme.mintBold(`[#${idx + 1}] ${proj.projectName}`)} (${proj.framework})`);
+        console.log(`        Location:   ${theme.dim(proj.projectPath)}`);
+        if (proj.databaseName) {
+          console.log(`        Database:   ${theme.cyanBold(proj.databaseName)} (${proj.dbType.toUpperCase()}) on ${proj.host}:${proj.port}`);
+        }
+        if (proj.sqlFiles.length > 0) {
+          const sqlNames = proj.sqlFiles.map((f: string) => path.basename(f)).join(", ");
+          console.log(`        SQL Data:   ${theme.bold(sqlNames)}`);
+        }
+        if (proj.aiReasoning) {
+          console.log(`        AI Decision: ${theme.mint(proj.aiReasoning)}`);
+        }
+        console.log("");
+      });
 
-        if (confirmSync.toLowerCase() !== "n") {
-          // Check for data SQL files in the project
-          const extracted: ExtractedProductItem[] = [];
-          for (const sqlFile of projToUse.sqlFiles) {
-            if (fs.existsSync(sqlFile)) {
-              const fileItems = extractProductsFromSqlFile(sqlFile);
-              if (fileItems.length > 0) {
-                console.log(`  Extracting catalog and inventory items from ${theme.bold(path.basename(sqlFile))}... (${fileItems.length} items found)`);
-                extracted.push(...fileItems);
-              }
+      const projToUse = foundProjects[0];
+      const confirmSync = await ask(
+        rl,
+        `  Would you like to sync items from '${theme.bold(projToUse.projectName)}'? [Y/n]`,
+        "Y",
+      );
+
+      if (confirmSync.toLowerCase() !== "n") {
+        // Check for data SQL files in the project
+        const extracted: ExtractedProductItem[] = [];
+        for (const sqlFile of projToUse.sqlFiles) {
+          if (fs.existsSync(sqlFile)) {
+            const fileItems = extractProductsFromSqlFile(sqlFile);
+            if (fileItems.length > 0) {
+              console.log(`  Extracting catalog and inventory items from ${theme.bold(path.basename(sqlFile))}... (${fileItems.length} items found)`);
+              extracted.push(...fileItems);
             }
           }
+        }
 
-          if (extracted.length > 0) {
-            for (const item of extracted) {
-              const productId = `prod_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
-              await db
-                .insert(products)
-                .values({
-                  id: productId,
-                  companyId,
-                  sku: item.sku,
-                  name: item.name,
-                  category: item.category,
-                  minStock: item.minStock,
-                  origin: "real",
-                })
-                .onConflictDoUpdate({
-                  target: [products.companyId, products.sku],
-                  set: { name: item.name, category: item.category, minStock: item.minStock },
-                });
+        if (extracted.length > 0) {
+          for (const item of extracted) {
+            const productId = `prod_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+            await db
+              .insert(products)
+              .values({
+                id: productId,
+                companyId,
+                sku: item.sku,
+                name: item.name,
+                category: item.category,
+                minStock: item.minStock,
+                origin: "real",
+              })
+              .onConflictDoUpdate({
+                target: [products.companyId, products.sku],
+                set: { name: item.name, category: item.category, minStock: item.minStock },
+              });
 
-              await db
-                .insert(inventory)
-                .values({
-                  id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            await db
+              .insert(inventory)
+              .values({
+                id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                companyId,
+                productId,
+                warehouseId: `alm_central_${companyId}`,
+                stock: item.stock,
+              })
+              .onConflictDoNothing();
+
+            // Link suppliers
+            await db
+              .insert(supplierProducts)
+              .values([
+                {
+                  id: `sp_fast_${productId}`,
                   companyId,
+                  supplierId: suppFastId,
                   productId,
-                  warehouseId: `alm_central_${companyId}`,
-                  stock: item.stock,
-                })
-                .onConflictDoNothing();
+                  unitPrice: String(item.price * 0.8),
+                  minOrderQuantity: 1,
+                  leadTimeDays: 1,
+                },
+                {
+                  id: `sp_econ_${productId}`,
+                  companyId,
+                  supplierId: suppEconId,
+                  productId,
+                  unitPrice: String(item.price * 0.65),
+                  minOrderQuantity: 5,
+                  leadTimeDays: 6,
+                },
+              ])
+              .onConflictDoNothing();
 
-              // Link suppliers
-              await db
-                .insert(supplierProducts)
-                .values([
-                  {
-                    id: `sp_fast_${productId}`,
-                    companyId,
-                    supplierId: suppFastId,
-                    productId,
-                    unitPrice: String(item.price * 0.8),
-                    minOrderQuantity: 1,
-                    leadTimeDays: 1,
-                  },
-                  {
-                    id: `sp_econ_${productId}`,
-                    companyId,
-                    supplierId: suppEconId,
-                    productId,
-                    unitPrice: String(item.price * 0.65),
-                    minOrderQuantity: 5,
-                    leadTimeDays: 6,
-                  },
-                ])
-                .onConflictDoNothing();
-
-              importedProductsCount++;
-            }
-
-            selectedSourceLabel = `${projToUse.projectName} (${importedProductsCount} items)`;
-            console.log(`  ${theme.success("✔")} Successfully synced ${theme.bold(importedProductsCount)} real items from ${theme.mintBold(projToUse.projectName)}!\n`);
-          } else {
-            console.log(`  ${theme.dim("○ Project registered. Database ready for live connection.")}\n`);
-            selectedSourceLabel = `${projToUse.projectName} (Live DB)`;
+            importedProductsCount++;
           }
+
+          selectedSourceLabel = `${projToUse.projectName} (${importedProductsCount} items)`;
+          console.log(`  ${theme.success("✔")} Successfully synced ${theme.bold(importedProductsCount)} real items from ${theme.mintBold(projToUse.projectName)}!\n`);
+        } else {
+          console.log(`  ${theme.dim("○ Project registered. Database ready for live connection.")}\n`);
+          selectedSourceLabel = `${projToUse.projectName} (Live DB)`;
         }
-      } else {
-        console.log(`  ${theme.amber("No project matching that query was found.")} Starting with empty catalog.\n`);
       }
-    } else if (sourceChoice === "2") {
+    } else if (isChatAiSearch || isQuickSelect) {
+      console.log(`  ${theme.amber("No project matching that query was found on this computer.")} Starting with empty catalog.\n`);
+    } else if (isCustomPath) {
       const customPath = await ask(rl, `  Enter path to file (.sqlite, .db, .sql, .csv)`);
       if (customPath && fs.existsSync(customPath)) {
         const ext = path.extname(customPath).toLowerCase();
