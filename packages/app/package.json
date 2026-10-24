@@ -1,0 +1,13 @@
+{
+  "name": "@mint/app",
+  "version": "1.0.0",
+  "description": "Mint Desktop Dashboard App - Autonomous Logistics & Multi-Channel Center",
+  "main": "server.ts",
+  "scripts": {
+    "start": "tsx server.ts"
+  },
+  "dependencies": {
+    "@mint/core": "*",
+    "@mint/notifiers": "*"
+  }
+}

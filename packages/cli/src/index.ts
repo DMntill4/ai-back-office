@@ -13,7 +13,7 @@ import { doctorCommand } from "./commands/doctor";
 import { startCommand } from "./commands/start";
 import { setupCommand } from "./commands/setup";
 import { databaseCommand } from "./commands/database";
-import { webCommand } from "./commands/web";
+import { appCommand } from "./commands/app";
 import { triggerScanApi } from "./client";
 import { getSession } from "./keychain";
 import { theme } from "./ui/theme";
@@ -137,13 +137,14 @@ program
     return databaseCommand(combined);
   });
 
-// 8.2 mint web / mint app
+// 8.2 mint app / mint desktop
 program
-  .command("web")
-  .alias("app")
-  .description("Inicia y abre la Dashboard Web Visual (React 19) con canales de notificación (Discord/Slack)")
-  .option("--no-open", "No abrir el navegador automáticamente")
-  .action((options) => webCommand(options));
+  .command("app")
+  .alias("desktop")
+  .alias("web")
+  .description("Abre la Mint Desktop App (Dashboard, Canales de Notificación, Inventario en Tiempo Real y HITL)")
+  .option("--no-open", "No abrir la ventana de la aplicación automáticamente")
+  .action((options) => appCommand(options));
 
 // 9. mint orders
 program

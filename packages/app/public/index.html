@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mint Desktop App // Autonomous Logistics Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div id="app" class="desktop-shell">
+    <!-- Desktop Titlebar -->
+    <header class="app-titlebar">
+      <div class="brand">
+        <span class="brand-orb"></span>
+        <span class="brand-title">MINT<span class="brand-accent">.APP</span></span>
+        <span class="badge badge-mint">AUTONOMOUS BACK-OFFICE</span>
+      </div>
+
+      <div class="titlebar-center">
+        <div class="company-selector">
+          <label for="companySelect">Empresa:</label>
+          <select id="companySelect">
+            <option value="comp_my_logistics_co_">My Logistics Co. [comp_my_logistics_co_]</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="titlebar-actions">
+        <button id="btnForceScan" class="btn btn-mint btn-sm" title="Ejecutar auditoría inmediata de stock y transporte">
+          ⚡ Escanear Ahora
+        </button>
+        <span class="badge badge-outline" id="daemonStatusBadge">DAEMON 24/7 ONLINE</span>
+      </div>
+    </header>
+
+    <!-- Main App Layout: Sidebar + Viewport -->
+    <div class="app-body">
+      <!-- Sidebar -->
+      <aside class="app-sidebar">
+        <nav class="nav-menu">
+          <button class="nav-item active" data-tab="dashboard">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Dashboard Operativo</span>
+          </button>
+          <button class="nav-item" data-tab="channels">
+            <span class="nav-icon">📡</span>
+            <span class="nav-label">Canales & Avisos</span>
+            <span class="nav-pill" id="channelsCountPill">0</span>
+          </button>
+          <button class="nav-item" data-tab="inventory">
+            <span class="nav-icon">📦</span>
+            <span class="nav-label">Inventario & Stock</span>
+            <span class="nav-pill" id="productsCountPill">25</span>
+          </button>
+          <button class="nav-item" data-tab="decisions">
+            <span class="nav-icon">⚖️</span>
+            <span class="nav-label">Bandeja HITL</span>
+            <span class="nav-pill pill-amber" id="pendingDecisionsPill">0</span>
+          </button>
+          <button class="nav-item" data-tab="logs">
+            <span class="nav-icon">📜</span>
+            <span class="nav-label">Auditoría & Logs</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="user-chip">
+            <div class="user-avatar">D</div>
+            <div class="user-info">
+              <span class="user-name" id="sessionUserName">Dale</span>
+              <span class="user-role" id="sessionUserRole">OWNER</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Workspace Views -->
+      <main class="app-viewport">
+        <!-- Toast Notification Container -->
+        <div id="toastContainer" class="toast-container"></div>
+
+        <!-- 1. DASHBOARD VIEW -->
+        <section id="view-dashboard" class="view-pane active">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Centro de Control Operativo</h1>
+              <p class="view-subtitle">Supervisión autónoma 24/7 de existencias, órdenes de reabastecimiento y canales.</p>
+            </div>
+            <div class="header-metric">
+              <span class="metric-label">Presupuesto Compras Aprobadas</span>
+              <span class="metric-value text-mint" id="kpiTotalSpend">$0.00 MXN</span>
+            </div>
+          </div>
+
+          <!-- KPI Cards -->
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <span class="kpi-title">Catálogo Total</span>
+              <span class="kpi-num text-mint" id="kpiTotalProducts">25</span>
+              <span class="kpi-foot">Herramientas reales auditadas</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">En Nivel Óptimo</span>
+              <span class="kpi-num text-mint" id="kpiHealthy">25</span>
+              <span class="kpi-foot">Por encima del stock mínimo</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Stock Bajo</span>
+              <span class="kpi-num text-amber" id="kpiLowStock">0</span>
+              <span class="kpi-foot">Próximos a umbral de seguridad</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Sin Stock (Agotados)</span>
+              <span class="kpi-num text-red" id="kpiOutOfStock">0</span>
+              <span class="kpi-foot">Requieren orden de reposición</span>
+            </div>
+          </div>
+
+          <!-- Quick Actions & Status -->
+          <div class="dashboard-grid">
+            <div class="card card-hero">
+              <div class="card-header">
+                <h2>🤖 Agente Autónomo Mint</h2>
+                <span class="badge badge-mint">ACTIVO 24/7</span>
+              </div>
+              <p class="card-desc">
+                El agente monitorea continuamente la base de datos de <strong>My Logistics Co.</strong>. Cuando detecta un desabasto, genera propuestas de orden de compra bajo políticas financieras deterministas y las notifica inmediatamente a tus canales configurados.
+              </p>
+              <div class="hero-actions">
+                <button class="btn btn-mint" onclick="switchTab('channels')">Configurar Canales de Notificación</button>
+                <button class="btn btn-secondary" onclick="switchTab('inventory')">Ver Catálogo de Stock</button>
+              </div>
+            </div>
+
+            <div class="card card-channels-summary">
+              <div class="card-header">
+                <h2>📡 Canales de Alerta Activos</h2>
+                <button class="btn btn-outline btn-xs" onclick="switchTab('channels')">+ Agregar Canal</button>
+              </div>
+              <div id="dashboardChannelsList" class="mini-channels-list">
+                <div class="empty-hint">Cargando canales configurados...</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. CHANNELS VIEW (DISCORD / SLACK / TELEGRAM) -->
+        <section id="view-channels" class="view-pane">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Canales de Notificación y Alertas</h1>
+              <p class="view-subtitle">Conecta Discord, Slack o Telegram con canales dedicados para logs, stock, logística y alertas críticas.</p>
+            </div>
+            <button class="btn btn-mint" id="btnOpenAddChannelModal">+ Nuevo Canal</button>
+          </div>
+
+          <!-- Channel Categories Explanation -->
+          <div class="channel-topics-banner">
+            <div class="topic-chip"><span class="chip-dot dot-cyan"></span> <strong>Logs & Auditoría:</strong> Registro de telemetría y decisiones tomadas.</div>
+            <div class="topic-chip"><span class="chip-dot dot-mint"></span> <strong>Stock & Updates:</strong> Avisos de variaciones y desabastos.</div>
+            <div class="topic-chip"><span class="chip-dot dot-violet"></span> <strong>Logística & Pedidos:</strong> Órdenes de compra y seguimiento de guías.</div>
+            <div class="topic-chip"><span class="chip-dot dot-red"></span> <strong>Alertas Críticas:</strong> Quiebres graves y anomalías de sobrecosto.</div>
+          </div>
+
+          <!-- Channels List -->
+          <div class="channels-grid" id="channelsGrid">
+            <!-- Dynamically populated -->
+          </div>
+        </section>
+
+        <!-- 3. INVENTORY VIEW -->
+        <section id="view-inventory" class="view-pane">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Catálogo y Existencias en Almacén</h1>
+              <p class="view-subtitle">Stock físico real sincronizado directamente con la base de datos de tu empresa.</p>
+            </div>
+            <div class="search-box">
+              <input type="text" id="inventorySearchInput" placeholder="Buscar por producto, marca o SKU...">
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table" id="inventoryTable">
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>PRODUCTO</th>
+                  <th>CATEGORÍA</th>
+                  <th class="text-right">STOCK ACTUAL</th>
+                  <th class="text-right">STOCK MÍNIMO</th>
+                  <th class="text-center">ESTADO</th>
+                  <th class="text-center">ACCIONES RÁPIDAS</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 4. DECISIONS VIEW (HITL INBOX) -->
+        <section id="view-decisions" class="view-pane">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Bandeja de Decisiones y Propuestas (HITL)</h1>
+              <p class="view-subtitle">Propuestas de compras de reabastecimiento generadas por el agente esperando autorización humana.</p>
+            </div>
+          </div>
+
+          <div class="decisions-list" id="decisionsList">
+            <!-- Dynamically populated -->
+          </div>
+        </section>
+
+        <!-- 5. AUDIT & LOGS VIEW -->
+        <section id="view-logs" class="view-pane">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Bitácora de Telemetría Autónoma</h1>
+              <p class="view-subtitle">Registro en tiempo real de los ciclos de escaneo del daemon y eventos relacionales.</p>
+            </div>
+            <button class="btn btn-outline btn-sm" id="btnClearLogs">Limpiar Vista</button>
+          </div>
+
+          <div class="terminal-log-card">
+            <div class="terminal-header">
+              <span class="terminal-dot dot-red"></span>
+              <span class="terminal-dot dot-amber"></span>
+              <span class="terminal-dot dot-mint"></span>
+              <span class="terminal-title">mint-autonomous-daemon.log</span>
+            </div>
+            <div class="terminal-body" id="terminalLogsBody">
+              <!-- Logs populated -->
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modal: Add Notification Channel -->
+    <div class="modal-overlay" id="addChannelModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modalTitle">Configurar Canal de Notificación</h3>
+          <button class="btn-close" id="btnCloseModal">✕</button>
+        </div>
+        <form id="channelForm" class="modal-body">
+          <div class="form-group">
+            <label>Plataforma de Notificación</label>
+            <div class="platform-selector">
+              <label class="platform-option">
+                <input type="radio" name="channelPlatform" value="discord" checked>
+                <span class="platform-pill">🎮 Discord</span>
+              </label>
+              <label class="platform-option">
+                <input type="radio" name="channelPlatform" value="slack">
+                <span class="platform-pill">💬 Slack</span>
+              </label>
+              <label class="platform-option">
+                <input type="radio" name="channelPlatform" value="telegram">
+                <span class="platform-pill">✈️ Telegram</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="channelName">Nombre descriptivo del canal</label>
+            <input type="text" id="channelName" class="form-input" placeholder="Ej: Discord #alertas-logistica" required>
+          </div>
+
+          <!-- Webhook Field (Discord / Slack) -->
+          <div id="webhookFieldsGroup" class="form-group">
+            <label for="webhookUrl">Webhook URL</label>
+            <input type="url" id="webhookUrl" class="form-input" placeholder="https://discord.com/api/webhooks/... o https://hooks.slack.com/...">
+            <span class="form-help">Pega la URL de webhook creada en las integraciones de tu servidor o workspace.</span>
+          </div>
+
+          <!-- Telegram Fields -->
+          <div id="telegramFieldsGroup" class="form-group" style="display:none;">
+            <label for="telegramBotToken">Bot Token (de @BotFather)</label>
+            <input type="text" id="telegramBotToken" class="form-input" placeholder="123456789:ABCdefGHIjk-lmnOPQrstUVwxYZ">
+            
+            <label for="telegramChatId" style="margin-top:12px;">Chat ID del Grupo o Canal</label>
+            <input type="text" id="telegramChatId" class="form-input" placeholder="Ej: -100123456789 o @tu_canal_logistica">
+          </div>
+
+          <!-- Event Topics Selection -->
+          <div class="form-group">
+            <label>Eventos suscritos a este canal:</label>
+            <div class="checkbox-grid">
+              <label class="checkbox-label">
+                <input type="checkbox" name="channelTopics" value="stock" checked>
+                <span>📦 Actualizaciones y Quiebres de Stock</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" name="channelTopics" value="critical" checked>
+                <span>⚠️ Alertas Críticas de Inventario</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" name="channelTopics" value="logistics" checked>
+                <span>🚚 Pedidos, Envíos y Compras HITL</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" name="channelTopics" value="logs" checked>
+                <span>📜 Telemetría y Logs del Daemon</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelModal">Cancelar</button>
+            <button type="button" class="btn btn-outline" id="btnTestChannel">Probar Envío</button>
+            <button type="submit" class="btn btn-mint">Guardar Canal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

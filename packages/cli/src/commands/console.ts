@@ -51,7 +51,7 @@ export async function consoleCommand() {
     `  ${theme.mintBold("● MINT AI")} ${theme.dim("v1.0.0")} │ ${theme.bold(companyDisplayName)} [${theme.dim(companyId)}] │ ${daemonBadge} │ ${theme.cyan("AUTONOMOUS 24/7")}`,
   );
   console.log(
-    `  ${theme.dim("Escribe en lenguaje natural o")} ${theme.mintBold("/help")} ${theme.dim("para ver comandos slash. (/db para gestionar base de datos, /web para abrir UI)")}`,
+    `  ${theme.dim("Escribe en lenguaje natural o")} ${theme.mintBold("/help")} ${theme.dim("para ver comandos slash. (/db para base de datos, /app para abrir Desktop App)")}`,
   );
   console.log("");
 
@@ -192,7 +192,7 @@ export async function consoleCommand() {
                   `  ${theme.mintBold("/stock")}                   Existencias en tiempo real de tu catálogo`,
                   `  ${theme.mintBold("/db [status|sync|switch]")} Gestión, sincronización y cambio de base de datos`,
                   `  ${theme.mintBold("/resync")}                  Re-extraer catálogo real desde SQL sin datos de prueba`,
-                  `  ${theme.mintBold("/web")} o ${theme.mintBold("/app")}             Abrir Dashboard Visual y Canales en navegador`,
+                  `  ${theme.mintBold("/app")}                     Abrir Mint Desktop App (Dashboard, Canales y Stock)`,
                   `  ${theme.mintBold("/status")} o ${theme.mintBold("/dash")}        Panel unificado de inventario, salud del daemon y canales`,
                   `  ${theme.mintBold("/today")}                    Resumen diario (Daily Briefing) de decisiones y ahorro`,
                   `  ${theme.mintBold("/inbox")}                    Bandeja de propuestas de compra esperando autorización`,
@@ -235,10 +235,11 @@ export async function consoleCommand() {
             break;
           }
 
-          case "web":
-          case "app": {
-            const { webCommand } = require("./web");
-            await webCommand({ open: true });
+          case "app":
+          case "desktop":
+          case "web": {
+            const { appCommand } = require("./app");
+            await appCommand({ open: true });
             break;
           }
 

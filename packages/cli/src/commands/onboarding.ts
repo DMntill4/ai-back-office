@@ -410,97 +410,120 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     }
 
     // -------------------------------------------------------------
-    // STEP 3: AUTONOMOUS NOTIFICATIONS & ALERTS CHANNELS (MANDATORY)
+    // STEP 3: CANAL DE COMUNICACIÓN Y ALERTAS
     // -------------------------------------------------------------
-    console.log(drawDivider("STEP 3 OF 4: AUTONOMOUS NOTIFICATION CHANNELS (MANDATORY)", 76));
-    console.log(`  ${theme.bold("Para que Mint opere de forma autónoma, DEBES configurar dónde recibir avisos:")}`);
-    console.log(`    • Actualizaciones y quiebres de existencias (Stock Alerts)`);
-    console.log(`    • Alertas críticas de logística y demoras de transporte`);
-    console.log(`    • Propuestas de compra y reposición para autorización inmediata`);
-    console.log("");
-    console.log(`  Selecciona tu canal de recepción de alertas:`);
-    console.log(`    ${theme.mintBold("[1] 🎮 Discord Webhook")} (Canal de alertas en tu servidor Discord)`);
-    console.log(`    ${theme.cyanBold("[2] 💬 Slack Webhook")} (Canal de operaciones en Slack)`);
-    console.log(`    ${theme.violet("[3] ✈️ Telegram Bot")} (Bot interactivo con tokens de aprobación)`);
-    console.log(`    ${theme.amberBold(`[4] 📧 Gmail Alerts`)} (Notificaciones al correo registrado: ${email})`);
-    console.log(`    ${theme.bold("[5] 🖥️ Dashboard Web Integrada")} (Alertas en vivo en navegador con /web)`);
+    console.log(drawDivider("STEP 3 OF 4: CANAL DE COMUNICACIÓN Y ALERTAS", 76));
+    console.log(`  Elige la plataforma donde tu equipo recibirá las notificaciones autónomas:`);
+    console.log(`    ${theme.mintBold("[1] 🎮 Discord")} (Webhooks para canal de texto o categorías)`);
+    console.log(`    ${theme.cyanBold("[2] 💬 Slack")} (Webhooks para canal #operaciones / #logística)`);
+    console.log(`    ${theme.violet("[3] ✈️ Telegram")} (Bot con aprobación interactiva de compras)`);
+    console.log(`    ${theme.amberBold(`[4] 📧 Gmail`)} (Alertas directas a ${email})`);
+    console.log(`    ${theme.bold("[5] 🖥️ Mint Desktop App")} (Configurar y probar canales visualmente en la App)`);
 
     let channelDescription = "None";
-    let channelConfigured = false;
+    const chanChoice = await ask(rl, `\n  Selecciona tu plataforma (1-5)`, "1");
 
-    while (!channelConfigured) {
-      const chanChoice = await ask(rl, `\n  Selecciona una opción (1-5)`, "1");
+    if (chanChoice === "1" || chanChoice === "2") {
+      const isDiscord = chanChoice === "1";
+      const platformName = isDiscord ? "Discord" : "Slack";
+      const platformType = isDiscord ? "discord" : "slack";
 
-      if (chanChoice === "1") {
-        const webhook = await ask(rl, `  Ingresa Webhook URL de Discord`);
-        if (webhook && webhook.startsWith("http")) {
+      console.log(`\n  ¿Cómo deseas organizar los canales de ${platformName}?`);
+      console.log(`    ${theme.mintBold("[1]")} Webhook unificado (un solo canal para logs, stock, pedidos y alertas)`);
+      console.log(`    ${theme.cyanBold("[2]")} Canales dedicados por categoría (logs, stock, pedidos, alertas críticas)`);
+
+      const modeChoice = await ask(rl, `  Elige estructura`, "1");
+
+      if (modeChoice === "2") {
+        console.log(`\n  ${theme.dim("Configura las URLs de los canales de " + platformName + " (presiona Enter para omitir alguno):")}`);
+        const logHook = await ask(rl, `    • Webhook para Logs y Auditoría`);
+        const stockHook = await ask(rl, `    • Webhook para Stock y Updates`);
+        const orderHook = await ask(rl, `    • Webhook para Logística y Pedidos`);
+        const critHook = await ask(rl, `    • Webhook para Alertas Críticas`);
+
+        if (logHook) {
           await addNotificationChannel({
             companyId,
-            type: "discord",
-            name: "Discord Operational Alerts",
-            config: { webhookUrl: webhook, topics: ["stock", "critical", "orders"] },
+            type: platformType as any,
+            name: `${platformName} - Logs & Auditoría`,
+            config: { webhookUrl: logHook, topics: ["logs"] },
           });
-          channelDescription = "Discord Webhook (Canal de Alertas)";
-          channelConfigured = true;
-          console.log(`  ${theme.success("✔")} Canal de Discord vinculado con éxito.\n`);
-        } else {
-          console.log(`  ${theme.redBold("❌ URL inválida.")} Debe iniciar con https://discord.com/api/webhooks/...\n`);
         }
-      } else if (chanChoice === "2") {
-        const webhook = await ask(rl, `  Ingresa Webhook URL de Slack`);
-        if (webhook && webhook.startsWith("http")) {
+        if (stockHook) {
           await addNotificationChannel({
             companyId,
-            type: "slack",
-            name: "Slack Ops Channel",
-            config: { webhookUrl: webhook, topics: ["stock", "critical", "orders"] },
+            type: platformType as any,
+            name: `${platformName} - Stock & Updates`,
+            config: { webhookUrl: stockHook, topics: ["stock"] },
           });
-          channelDescription = "Slack Webhook (Canal de Operaciones)";
-          channelConfigured = true;
-          console.log(`  ${theme.success("✔")} Canal de Slack vinculado con éxito.\n`);
-        } else {
-          console.log(`  ${theme.redBold("❌ URL inválida.")} Debe iniciar con https://hooks.slack.com/...\n`);
         }
-      } else if (chanChoice === "3") {
-        const token = await ask(rl, `  Ingresa Telegram Bot Token`);
-        const chatId = await ask(rl, `  Ingresa Telegram Chat ID`);
-        if (token && chatId) {
+        if (orderHook) {
           await addNotificationChannel({
             companyId,
-            type: "telegram",
-            name: "Telegram Sales Bot",
-            config: { botToken: token, chatId, topics: ["stock", "critical", "orders"] },
+            type: platformType as any,
+            name: `${platformName} - Logística & Pedidos`,
+            config: { webhookUrl: orderHook, topics: ["logistics", "orders"] },
           });
-          channelDescription = `Telegram Bot (@${chatId})`;
-          channelConfigured = true;
-          console.log(`  ${theme.success("✔")} Bot de Telegram vinculado con éxito.\n`);
-        } else {
-          console.log(`  ${theme.redBold("❌ Credenciales incompletas.")} Debes ingresar tanto el Token como el Chat ID.\n`);
         }
-      } else if (chanChoice === "4") {
-        await addNotificationChannel({
-          companyId,
-          type: "gmail",
-          name: `Gmail Alerts (${email})`,
-          config: { email, topics: ["stock", "critical", "orders"] },
-        });
-        channelDescription = `Gmail Alerts (${email})`;
-        channelConfigured = true;
-        console.log(`  ${theme.success("✔")} Canal de alertas por Gmail vinculado a ${theme.bold(email)}.\n`);
-      } else if (chanChoice === "5") {
-        await addNotificationChannel({
-          companyId,
-          type: "gmail",
-          name: "Dashboard Web Live Feed",
-          config: { email, webFeed: true, topics: ["stock", "critical", "orders"] },
-        });
-        channelDescription = "Dashboard Web Visual (http://localhost:5173)";
-        channelConfigured = true;
-        console.log(`  ${theme.success("✔")} Dashboard Web configurada como receptor de alertas en tiempo real.`);
-        console.log(`  ${theme.dim("Podrás abrir la consola visual en cualquier momento usando el comando '/web'.")}\n`);
+        if (critHook) {
+          await addNotificationChannel({
+            companyId,
+            type: platformType as any,
+            name: `${platformName} - Alertas Críticas`,
+            config: { webhookUrl: critHook, topics: ["critical"] },
+          });
+        }
+
+        channelDescription = `${platformName} (Canales Dedicados)`;
+        console.log(`\n  ${theme.success("✔")} Canales dedicados de ${platformName} registrados con éxito.\n`);
       } else {
-        console.log(`  ${theme.amber("Por favor selecciona una opción válida entre 1 y 5.")}`);
+        const webhook = await ask(rl, `  Ingresa la URL del Webhook de ${platformName}`);
+        if (webhook && webhook.startsWith("http")) {
+          await addNotificationChannel({
+            companyId,
+            type: platformType as any,
+            name: `${platformName} Alertas Generales`,
+            config: { webhookUrl: webhook, topics: ["logs", "stock", "logistics", "critical"] },
+          });
+          channelDescription = `${platformName} Webhook`;
+          console.log(`  ${theme.success("✔")} Webhook de ${platformName} configurado y activo.\n`);
+        } else {
+          console.log(`  ${theme.amber("○ URL omitida. Podrás agregarla más adelante desde la Desktop App.")}\n`);
+        }
       }
+    } else if (chanChoice === "3") {
+      console.log(`\n  ${theme.cyanBold("Configuración de Telegram Bot:")}`);
+      console.log(`  1. Habla con @BotFather en Telegram y crea un bot para obtener el Bot Token.`);
+      console.log(`  2. Añade el bot a tu grupo/canal y obtén el Chat ID (ej: -100123456789 o @tu_canal).`);
+
+      const token = await ask(rl, `  Ingresa el Bot Token`);
+      const chatId = await ask(rl, `  Ingresa el Chat ID`);
+
+      if (token && chatId) {
+        await addNotificationChannel({
+          companyId,
+          type: "telegram",
+          name: `Telegram Bot (@${chatId})`,
+          config: { botToken: token, chatId, topics: ["logs", "stock", "logistics", "critical"] },
+        });
+        channelDescription = `Telegram Bot (@${chatId})`;
+        console.log(`  ${theme.success("✔")} Bot de Telegram vinculado y listo para aprobación de compras.\n`);
+      } else {
+        console.log(`  ${theme.amber("○ Credenciales de Telegram omitidas por ahora.")}\n`);
+      }
+    } else if (chanChoice === "4") {
+      await addNotificationChannel({
+        companyId,
+        type: "gmail",
+        name: `Gmail Alerts (${email})`,
+        config: { email, topics: ["logs", "stock", "logistics", "critical"] },
+      });
+      channelDescription = `Gmail Alerts (${email})`;
+      console.log(`  ${theme.success("✔")} Notificaciones por correo electrónico vinculadas a ${theme.bold(email)}.\n`);
+    } else {
+      channelDescription = "Mint Desktop App (Gestión Visual)";
+      console.log(`  ${theme.success("✔")} Configuración de canales diferida a la Mint Desktop App.`);
+      console.log(`  ${theme.dim("Ejecuta 'mint app' o '/app' en la consola para conectar y probar canales con un clic.")}\n`);
     }
 
     // -------------------------------------------------------------
