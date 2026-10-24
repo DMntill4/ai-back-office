@@ -619,3 +619,69 @@ export function extractProductsFromSqlFile(filePath: string): ExtractedProductIt
 
   return items;
 }
+
+export interface ExtractedSupplierItem {
+  id?: string;
+  name: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  origin?: string;
+}
+
+const SUPPLIER_TABLE_KEYWORDS = [
+  "provider", "providers", "proveedor", "proveedores", "supplier", "suppliers", "vendor", "vendors"
+];
+
+/**
+ * Extrae proveedores reales de archivos SQL (ej. INSERT INTO providers / suppliers)
+ * Si la base de datos no tiene proveedores reales, retorna arreglo vacío (CERO inventos).
+ */
+export function extractSuppliersFromSqlFile(filePath: string): ExtractedSupplierItem[] {
+  if (!fs.existsSync(filePath)) return [];
+  const content = fs.readFileSync(filePath, "utf-8");
+  const suppliers: ExtractedSupplierItem[] = [];
+
+  const insertRegex = /INSERT\s+INTO\s+`?([a-zA-Z0-9_]+)`?\s*\(([^)]+)\)\s*VALUES\s*([\s\S]+?);/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = insertRegex.exec(content)) !== null) {
+    const rawTableName = match[1];
+    const tableNameLower = rawTableName.toLowerCase();
+
+    if (!SUPPLIER_TABLE_KEYWORDS.some((kw) => tableNameLower.includes(kw))) {
+      continue;
+    }
+
+    const columns = match[2].split(",").map((c) => c.replace(/[`'"]/g, "").trim().toLowerCase());
+    const valuesBlock = match[3];
+
+    const rowMatches = valuesBlock.match(/\(([^)]+)\)/g);
+    if (!rowMatches) continue;
+
+    const nameIdx = columns.findIndex((c) => c === "name" || c === "nombre" || c.includes("company") || c.includes("razon") || c.includes("name"));
+    const contactIdx = columns.findIndex((c) => c.includes("contact") || c.includes("contacto") || c.includes("representante"));
+    const phoneIdx = columns.findIndex((c) => c.includes("phone") || c.includes("telefono") || c.includes("cel"));
+    const emailIdx = columns.findIndex((c) => c.includes("email") || c.includes("correo"));
+
+    for (let rIdx = 0; rIdx < rowMatches.length; rIdx++) {
+      const rowStr = rowMatches[rIdx].replace(/^\(|\)$/g, "");
+      const parts = rowStr.split(/,\s*(?=(?:[^']*'[^']*')*[^']*$)/).map((p) => p.replace(/^'|'$/g, "").trim());
+
+      const name = nameIdx >= 0 && parts[nameIdx] ? parts[nameIdx] : `Proveedor #${rIdx + 1}`;
+      const contact = contactIdx >= 0 ? parts[contactIdx] : undefined;
+      const phone = phoneIdx >= 0 ? parts[phoneIdx] : undefined;
+      const email = emailIdx >= 0 ? parts[emailIdx] : undefined;
+
+      suppliers.push({
+        name,
+        contactName: contact,
+        phone,
+        email,
+        origin: "real",
+      });
+    }
+  }
+
+  return suppliers;
+}

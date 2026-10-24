@@ -1,5 +1,5 @@
-import * as readline from "readline";
-import { getPendingDecisionsApi, resolveDecisionApi } from "../client";
+import { db, decisions, executeAndVerifyDecision } from "@mint/core";
+import { eq, and, desc } from "drizzle-orm";
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
@@ -12,17 +12,17 @@ export async function inboxCommand(
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
-  // 1. Si se solicita aprobar directamente
+  // 1. Aprobar directamente
   if (action === "approve" && targetId) {
     try {
-      const res = await resolveDecisionApi(targetId, "approve", session?.name || "CLI_OPERATOR");
+      const res = await executeAndVerifyDecision(targetId, session?.name || "CLI_OPERATOR");
       if (options.json) {
         console.log(JSON.stringify(res));
       } else {
         if (res.success) {
           console.log(`\n${theme.success("✔")} Decisión ${theme.bold(targetId)} ${theme.mintBold("APROBADA")}.`);
           console.log(`   ${res.message}`);
-          console.log(`   ${theme.muted("Post-verificación en PostgreSQL confirmada.")}\n`);
+          console.log(`   ${theme.muted("Post-verificación en base de datos relacional confirmada.")}\n`);
         } else {
           console.error(theme.redBold(`❌ Falló la aprobación: ${res.message}`));
         }
@@ -41,12 +41,16 @@ export async function inboxCommand(
     }
   }
 
-  // 2. Si se solicita rechazar directamente
+  // 2. Rechazar directamente
   if (action === "reject" && targetId) {
     try {
-      const res = await resolveDecisionApi(targetId, "reject", session?.name || "CLI_OPERATOR");
+      await db
+        .update(decisions)
+        .set({ policyDecision: "rejected", decidedAt: new Date() })
+        .where(eq(decisions.id, targetId));
+
       if (options.json) {
-        console.log(JSON.stringify(res));
+        console.log(JSON.stringify({ success: true, message: `Decisión ${targetId} rechazada.` }));
       } else {
         console.log(`\n${theme.warning("⚠")} Decisión ${theme.bold(targetId)} ${theme.amberBold("RECHAZADA")} y archivada en bitácora.\n`);
       }
@@ -64,32 +68,33 @@ export async function inboxCommand(
     }
   }
 
-  // 3. Listar decisiones pendientes (inbox list / visualización interactiva)
+  // 3. Listar decisiones pendientes (Human-in-the-Loop)
   try {
-    const res = await getPendingDecisionsApi(companyId);
-    if (!res.success) {
-      throw new Error("No se pudieron cargar las decisiones pendientes");
-    }
+    const pending = await db
+      .select()
+      .from(decisions)
+      .where(and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval")))
+      .orderBy(desc(decisions.createdAt));
 
     if (options.json) {
-      console.log(JSON.stringify(res.data, null, 2));
+      console.log(JSON.stringify(pending, null, 2));
       return;
     }
 
     console.log("\n" + drawDivider(`BANDEJA DE DECISIONES PENDIENTES (HITL) [${companyId}]`, 86));
 
-    if (res.data.length === 0) {
+    if (pending.length === 0) {
       console.log(`\n  ${theme.success("✨ No hay decisiones pendientes de supervisión humana.")}`);
-      console.log(`  ${theme.muted("El agente autónomo mantiene todas las operaciones al día.")}\n`);
+      console.log(`  ${theme.muted("El agente autónomo mantiene todas las operaciones y alertas al día.")}\n`);
       return;
     }
 
-    console.log(`\n  ${theme.bold(res.data.length)} decisión(es) esperando autorización del operador:\n`);
+    console.log(`\n  ${theme.bold(pending.length)} propuesta(s) esperando autorización del operador:\n`);
 
-    for (let i = 0; i < res.data.length; i++) {
-      const d = res.data[i];
-      const evidence = d.evidence || {};
-      const risk = d.risk || {};
+    for (let i = 0; i < pending.length; i++) {
+      const d = pending[i];
+      const evidence = (d.evidencePayload as any) || {};
+      const risk = (d.riskPayload as any) || {};
 
       const costStr = `$${Number(d.costMxn).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
       const riskPct = `${(Number(d.riskScore) * 100).toFixed(0)}%`;
@@ -98,7 +103,7 @@ export async function inboxCommand(
       const cardLines = [
         `${theme.dim("ID:")}         ${theme.bold(d.id)}  ${theme.dim("│")}  ${theme.dim("Agente:")} ${theme.mintBold(d.proposingAgent)}`,
         `${theme.dim("Costo:")}      ${theme.bold(costStr)}  ${theme.dim("│")}  ${theme.dim("Riesgo:")} ${riskBadge}`,
-        `${theme.dim("Gobernanza:")} ${d.policyReason}`,
+        `${theme.dim("Gobernanza:")} ${d.policyReason || "Propuesta de compra por stock de seguridad"}`,
         `${theme.dim("Evidencia:")}  Stock: ${evidence.currentStock ?? "0"}u │ Déficit: ${evidence.deficit ?? "N/A"}u │ Prov: ${evidence.supplierName ?? "N/A"}`,
       ];
 
@@ -107,7 +112,7 @@ export async function inboxCommand(
       }
 
       cardLines.push(
-        `${theme.dim("Acciones:")}   ${theme.mintBold(`mint inbox approve ${d.id}`)}  ${theme.dim("│")}  ${theme.amberBold(`mint inbox reject ${d.id}`)}  ${theme.dim("│")}  ${theme.cyanBold(`mint explain ${d.id}`)}`,
+        `${theme.dim("Acciones:")}   ${theme.mintBold(`/approve ${d.id}`)}  ${theme.dim("│")}  ${theme.amberBold(`/reject ${d.id}`)}  ${theme.dim("│")}  ${theme.cyanBold(`/explain ${d.id}`)}`,
       );
 
       console.log(

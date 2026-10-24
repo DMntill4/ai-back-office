@@ -51,12 +51,32 @@ export async function consoleCommand() {
       [
         `${theme.dim("Welcome back,")} ${theme.bold(userName)}! (${userRole.toUpperCase()})  ${theme.dim("│")}  ${theme.dim("Company:")} ${theme.mintBold(companyDisplayName)} [${theme.dim(companyId)}]`,
         `${theme.dim("Daemon:")}       ${daemonBadge}  ${theme.dim("│")}  ${theme.dim("Memory:")} ${memMb} MB`,
-        `${theme.dim("Status:")}       Autonomous agent is active, monitoring inventory and executing incoming sales.`,
-        `${theme.dim("Commands:")}     ${theme.mintBold("/status")}  │  ${theme.mintBold("/stock")}  │  ${theme.mintBold("/orders")}  │  ${theme.mintBold("/inbox")}  │  ${theme.mintBold("/exit")}`,
+        `${theme.dim("Operational:")}  Autonomous agent is listening 24/7, tracking real stock and auditing logistics.`,
       ],
       {
         title: "🍃 MINT AUTONOMOUS AGENT CONTROL CENTER",
         borderColor: theme.mint,
+      },
+    ),
+  );
+
+  console.log(
+    drawCard(
+      [
+        `  ${theme.mintBold("/stock")}     Existencias de tu catálogo en tiempo real`,
+        `  ${theme.mintBold("/status")}    Panel unificado de inventario, casos y alertas (/dash)`,
+        `  ${theme.mintBold("/inbox")}     Bandeja de propuestas de reposición esperando tu aprobación`,
+        `  ${theme.mintBold("/scan")}      Escanear desabastos de inventario y retrasos de envío ahora`,
+        `  ${theme.mintBold("/orders")}    Órdenes de compra registradas y en camino`,
+        `  ${theme.mintBold("/today")}     Resumen operativo diario (Daily Briefing)`,
+        `  ${theme.mintBold("/help")}      Guía completa de comandos, herramientas y memoria del agente`,
+        `  ${theme.mintBold("/exit")}      Salir de la consola`,
+        ``,
+        `  ${theme.cyanBold("💬 Chat:")}   Escribe cualquier mensaje o pregunta en lenguaje natural (ej: "Hola", "¿hay stock bajo?", "revisa los proveedores")`,
+      ],
+      {
+        title: "⚡ COMANDOS RÁPIDOS Y BARRA DE CONTROL",
+        borderColor: theme.cyan,
       },
     ),
   );
@@ -131,24 +151,67 @@ export async function consoleCommand() {
         switch (cmd) {
           case "help":
           case "?": {
-            console.log("\n" + drawDivider("⚡ COMANDOS RÁPIDOS DEL AGENTE (SLASH COMMANDS)", 84));
-            console.log(`  ${theme.mintBold("/setup")}                   Setup automático en 2 segundos (crea almacén, stock y proveedores)`);
-            console.log(`  ${theme.mintBold("/status")} o ${theme.mintBold("/dash")}        Panel unificado de inventario, casos y alertas`);
-            console.log(`  ${theme.mintBold("/today")}                    Resumen diario (Daily Briefing) de decisiones y gasto`);
-            console.log(`  ${theme.mintBold("/stock")}                    Existencias en tiempo real de tu catálogo`);
-            console.log(`  ${theme.mintBold("/inbox")}                    Bandeja de compras que esperan tu autorización`);
-            console.log(`  ${theme.mintBold("/approve <id>")}            Aprobar una orden de compra pendiente`);
-            console.log(`  ${theme.mintBold("/reject <id>")}             Rechazar una propuesta de compra`);
-            console.log(`  ${theme.mintBold("/explain <id>")}            Explicación y árbol de deliberación del agente`);
-            console.log(`  ${theme.mintBold("/simulate [shock]")}        Simular quiebre de stock en sandbox (what-if)`);
-            console.log(`  ${theme.mintBold("/scan")}                    Disparar escaneo proactivo de stock y transporte ahora`);
-            console.log(`  ${theme.mintBold("/orders")}                  Órdenes de compra registradas y en camino`);
-            console.log(`  ${theme.mintBold("/auto [dry-run|assisted|auto]")} Cambiar nivel de autonomía`);
-            console.log(`  ${theme.mintBold("/matrix")}                  Ver especialistas que deliberan en paralelo`);
-            console.log(`  ${theme.mintBold("/clear")}                   Limpiar pantalla`);
-            console.log(`  ${theme.mintBold("/exit")}                    Salir de la consola`);
-            console.log(`\n  ${theme.cyanBold("💡 Tip:")} También puedes escribir directamente en lenguaje natural`);
-            console.log(`     (ej: ${theme.dim('"¿hay stock bajo?"')}, ${theme.dim('"revisa los proveedores"')}) y el agente te responderá.\n`);
+            console.log("\n" + drawDivider("⚡ MINT AUTONOMOUS LOGISTICS & OPERATIONAL AGENT // GUÍA DEL SISTEMA", 86));
+            console.log(
+              drawCard(
+                [
+                  `${theme.bold("¿QUÉ HACE EL AGENTE MINT?")}`,
+                  `Mint es tu director de operaciones logísticas autónomo. Su función es mantener el inventario`,
+                  `en niveles óptimos, monitorear desabastos 24/7 y generar propuestas de compra auditadas.`,
+                  ``,
+                  `${theme.bold("GOBERNANZA Y HUMAN-IN-THE-LOOP (HITL):")}`,
+                  `Por política de producción, Mint ${theme.bold("NUNCA")} ejecuta compras a proveedores ficticios ni gasta dinero`,
+                  `sin tu autorización. Cuando detecta un déficit o stock crítico, formula una ${theme.mintBold("Propuesta de Reposición")}`,
+                  `que se deposita en ${theme.mintBold("/inbox")} para que tú la apruebes o rechaces con 1 clic.`,
+                  ``,
+                  `${theme.bold("HERRAMIENTAS DEL AGENTE (13 TOOLS):")}`,
+                  `El agente cuenta con un cerebro ReAct (Grok LLM) conectado a 13 herramientas especializadas:`,
+                  `  • consultar_stock         • evaluar_proveedores      • auditar_anomalias`,
+                  `  • consultar_envios        • analisis_financiero      • pronosticar_demanda`,
+                  `  • verificar_frescura_datos• simular_escenario        • consultar_estado_sistema`,
+                  `  • generar_reporte_general • ver_ordenes_abiertas     • ajustar_stock`,
+                  `  • crear_orden_compra (con verificación transaccional y post-query)`,
+                  ``,
+                  `${theme.bold("MEMORIA CONVERSACIONAL:")}`,
+                  `Mint recuerda los turnos previos de tu conversación y el contexto de tu empresa entre consultas.`,
+                ],
+                {
+                  title: "🍃 ARQUITECTURA Y PRINCIPIOS DE OPERACIÓN",
+                  borderColor: theme.mint,
+                },
+              ),
+            );
+
+            console.log(
+              drawCard(
+                [
+                  `  ${theme.mintBold("/stock")}                   Existencias en tiempo real de tu catálogo`,
+                  `  ${theme.mintBold("/status")} o ${theme.mintBold("/dash")}        Panel unificado de inventario, salud del daemon y canales`,
+                  `  ${theme.mintBold("/today")}                    Resumen diario (Daily Briefing) de decisiones y ahorro`,
+                  `  ${theme.mintBold("/inbox")}                    Bandeja de propuestas de compra esperando autorización`,
+                  `  ${theme.mintBold("/approve <id>")}            Aprobar una propuesta de compra y emitir la orden`,
+                  `  ${theme.mintBold("/reject <id>")}             Rechazar y archivar una propuesta`,
+                  `  ${theme.mintBold("/scan")}                    Escanear desabastos reales de stock y envíos en PostgreSQL ahora`,
+                  `  ${theme.mintBold("/orders")}                  Historial de órdenes de compra emitidas`,
+                  `  ${theme.mintBold("/matrix")}                  Ver especialistas que deliberan en paralelo`,
+                  `  ${theme.mintBold("/explain <id>")}            Explicación y árbol de deliberación del agente`,
+                  `  ${theme.mintBold("/clear")}                   Limpiar pantalla`,
+                  `  ${theme.mintBold("/exit")}                    Salir de la consola`,
+                  ``,
+                  `${theme.cyanBold("💬 CHAT EN LENGUAJE NATURAL:")}`,
+                  `  Escribe directamente lo que necesites sin ningún comando previo. Ejemplos:`,
+                  `  • "Hola"                                → Saludo ejecutivo con balance de existencias`,
+                  `  • "¿Cuáles productos tienen stock bajo?" → Consulta herramientas y tabula datos`,
+                  `  • "¿Quiénes son nuestros proveedores?"  → Lista proveedores homologados reales`,
+                  `  • "Simula qué pasa si la demanda sube"  → Ejecuta simulación What-If`,
+                ],
+                {
+                  title: "⚡ COMANDOS SLASH Y CONSULTAS NATURALES",
+                  borderColor: theme.cyan,
+                },
+              ),
+            );
+            console.log("");
             break;
           }
 
@@ -317,11 +380,11 @@ export async function consoleCommand() {
         }
 
         case "scan": {
-          const { triggerScanApi } = require("../client");
-          console.log(theme.muted("🔍 Ejecutando escaneo proactivo de stock y transporte..."));
-          const res = await triggerScanApi(companyId);
+          const { runFullOperationalEventScan } = require("@mint/core");
+          console.log(theme.muted("🔍 Ejecutando escaneo proactivo de stock y transporte en base de datos..."));
+          const res = await runFullOperationalEventScan(companyId);
           console.log(
-            `\n${theme.success("✔")} Escaneo completado: ${theme.bold(res.stockDeficitsFound)} desabastos, ${theme.bold(res.delayedShipmentsFound)} retrasos, ${theme.bold(res.processedDecisions.length)} decisiones procesadas.\n`,
+            `\n${theme.success("✔")} Escaneo completado: ${theme.bold(res.stockDeficitsFound)} desabastos detectados, ${theme.bold(res.delayedShipmentsFound)} retrasos de transporte, ${theme.bold(res.processedDecisions.length)} propuestas enviadas a /inbox.\n`,
           );
           break;
         }

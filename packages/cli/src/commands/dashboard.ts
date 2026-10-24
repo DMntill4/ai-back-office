@@ -58,7 +58,19 @@ export async function dashboardCommand(options: { json?: boolean; noExit?: boole
 
     const totalValueAtStake = pendingDecisions.reduce((sum, d) => sum + Number(d.costMxn), 0);
 
-    // 4. Canales de Notificación
+    // 4. Canales de Notificación (Auto-healing para canales discord guardados como slack)
+    await db
+      .update(notificationChannels)
+      .set({ type: "discord", name: "Discord Alerts" })
+      .where(
+        and(
+          eq(notificationChannels.companyId, companyId),
+          eq(notificationChannels.type, "slack"),
+          sql`${notificationChannels.config} LIKE '%discord%'`,
+        ),
+      )
+      .catch(() => null);
+
     const channels = await db
       .select()
       .from(notificationChannels)
@@ -91,8 +103,32 @@ export async function dashboardCommand(options: { json?: boolean; noExit?: boole
         : theme.badge("STANDBY", "gray");
 
     const channelNames = channels.length > 0
-      ? channels.map((c) => `${c.type.toUpperCase()}: ${c.name}`).join(", ")
+      ? channels
+          .map((c) => {
+            const isDiscord =
+              c.type === "discord" ||
+              String((c.config as any)?.webhookUrl || "").toLowerCase().includes("discord");
+            const typeStr = isDiscord ? "DISCORD" : c.type.toUpperCase();
+            let nameStr = c.name;
+            if (isDiscord && nameStr.toLowerCase().includes("slack")) {
+              nameStr = "Discord Alerts";
+            }
+            return `${typeStr}: ${nameStr}`;
+          })
+          .join(", ")
       : theme.dim("None connected (Runs locally)");
+
+    const autonomyDescriptions: Record<string, string> = {
+      "dry-run": "Human approval required for any restock in /inbox (0 automated buys)",
+      "supervised": "Human approval required for any restock in /inbox (0 automated buys)",
+      "assisted": "Low-stock alert drafting; high-value purchases require review",
+      "auto": "Automated replenishment under budget policy",
+    };
+    const autonomyDesc =
+      autonomyDescriptions[autonomyLevel.toLowerCase()] ||
+      "Human approval required for any restock";
+    const autonomyBadgeColor =
+      autonomyLevel === "auto" ? "cyan" : autonomyLevel === "assisted" ? "mint" : "amber";
 
     const companyDisplayName = session?.companyName || companyId;
 
@@ -110,7 +146,7 @@ export async function dashboardCommand(options: { json?: boolean; noExit?: boole
         [
           `${theme.dim("Organization:")}  ${theme.mintBold(companyDisplayName)} [${theme.dim(companyId)}]`,
           `${theme.dim("Agent Daemon:")}  ${daemonStateBadge} (PID ${daemon.pid || process.pid})`,
-          `${theme.dim("Autonomy Mode:")} ${theme.badge(autonomyLevel.toUpperCase(), "mint")} (Restocks < $10,000 MXN auto-executed)`,
+          `${theme.dim("Autonomy Mode:")} ${theme.badge(autonomyLevel.toUpperCase(), autonomyBadgeColor)} (${autonomyDesc})`,
           `${theme.dim("Data Catalog:")}  ${inventoryStatus}`,
           `${theme.dim("Sales Channel:")} ${channelNames}`,
           `${theme.dim("Operations:")}    ${activeCases.length} active case(s)  │  ${inboxStatus}`,

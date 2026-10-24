@@ -50,21 +50,31 @@ Flujo: Consulta stock -> Consulta órdenes abiertas -> Crea orden si falta -> Ve
 
   if (companyId) {
     try {
-      const { businessConfig } = await import("../db/schema");
+      const { businessConfig, companies, products, suppliers } = await import("../db/schema");
+      const [comp] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+      const prods = await db.select().from(products).where(eq(products.companyId, companyId));
+      const supps = await db.select().from(suppliers).where(eq(suppliers.companyId, companyId));
+
       const configs = await db
         .select()
         .from(businessConfig)
         .where(eq(businessConfig.companyId, companyId));
 
-      const botName = configs.find((c) => c.key === "bot_name")?.value;
-      const botTone = configs.find((c) => c.key === "bot_tone")?.value;
+      const botName = configs.find((c) => c.key === "bot_name")?.value || "Mint Autonomous Agent";
+      const botTone = configs.find((c) => c.key === "bot_tone")?.value || "ejecutivo";
       const customRules = configs.find((c) => c.key === "bot_custom_rules")?.value;
 
-      let customBlock = "\n\n[CONFIGURACIÓN Y PERSONALIDAD DEL BOT DE LA EMPRESA]";
-      if (botName) customBlock += `\nNombre asignado: ${botName}`;
-      if (botTone) customBlock += `\nTono y estilo de respuesta: ${botTone}`;
-      if (customRules) customBlock += `\nDirectivas y reglas de gobernanza:\n${customRules}`;
-      customBlock += `\nIMPORTANTE: Si los productos consultados tienen origen 'real' (cargados mediante SQL por la empresa), confírmalo explícitamente indicando que son datos de STOCK REAL.`;
+      let customBlock = "\n\n[CONTEXTO Y CONFIGURACIÓN EN TIEMPO REAL]";
+      customBlock += `\n- Empresa Activa: ${comp?.name || companyId} (ID: ${companyId})`;
+      customBlock += `\n- Catálogo Actual: ${prods.length} productos registrados.`;
+      if (supps.length > 0) {
+        customBlock += `\n- Proveedores Homologados: ${supps.map((s) => s.name).join(", ")}.`;
+      } else {
+        customBlock += `\n- Proveedores: Sin proveedores externos homologados aún.`;
+      }
+      customBlock += `\n- Asistente: ${botName} (Tono: ${botTone})`;
+      if (customRules) customBlock += `\nDirectivas de gobernanza:\n${customRules}`;
+      customBlock += `\nIMPORTANTE: Los productos cargados provienen de la base de datos real del cliente. Muestra siempre fidelidad a esos datos y CERO datos inventados.`;
 
       prompt += customBlock;
     } catch {
@@ -132,9 +142,41 @@ export async function runAgentLoop(
   }
 
   // 3. Inicializar historial de conversación con estricta separación entre instrucciones y datos
-  const systemPrompt = await loadSystemPrompt(caseRecord?.companyId);
+  const companyId = caseRecord?.companyId || "comp_default";
+  const systemPrompt = await loadSystemPrompt(companyId);
+
+  // 3.1 Cargar memoria conversacional previa de la empresa (últimos diálogos)
+  const previousDialogues: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+  try {
+    const { ne, desc, and } = await import("drizzle-orm");
+    const prevCases = await db
+      .select()
+      .from(cases)
+      .where(and(eq(cases.companyId, companyId), ne(cases.id, caseId)))
+      .orderBy(desc(cases.createdAt))
+      .limit(3);
+
+    for (const prev of prevCases.reverse()) {
+      if (prev.description) {
+        previousDialogues.push({
+          role: "user",
+          content: prev.description,
+        });
+      }
+      if (prev.resultSummary) {
+        previousDialogues.push({
+          role: "assistant",
+          content: prev.resultSummary,
+        });
+      }
+    }
+  } catch {
+    // Fallback silencioso
+  }
+
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
+    ...previousDialogues,
     {
       role: "user",
       content: `[SOLICITUD U OPERACIÓN DEL USUARIO]
@@ -144,9 +186,9 @@ Mensaje / Consulta: ${caseDesc}
 Datos adjuntos: ${JSON.stringify(inputData)}
 
 Instrucciones de ejecución:
-1. Si la consulta es una pregunta informativa o sobre el sistema/base de datos (ej: a qué base de datos estás conectado, qué stock hay, qué órdenes existen), ejecuta la herramienta pertinente (ej: consultar_estado_sistema, consultar_stock, etc.) y responde directamente de forma clara, natural y ejecutiva sin lenguaje robótico de expediente.
-2. Si requiere acciones operativas (compras, ajustes de inventario), ejecútalas, verifica los cambios y dicta la resolución.
-3. Si el usuario solo saluda o pregunta algo general, responde de forma amigable y profesional presentando tus capacidades como MINT.`,
+1. Si la consulta es un saludo ("Hola", "¿qué tal?", etc.) o una presentación, saluda calurosamente al operador en español, confírmale tu disponibilidad como director operativo y logístico inteligente de la empresa, dale un breve resumen ejecutivo de las existencias actuales y ofrece revisar existencias (/stock), auditar desabastos (/scan) o cotizaciones de proveedores.
+2. Si es una pregunta informativa o sobre el catálogo/base de datos (ej: existencias, herramientas, proveedores), ejecuta la herramienta pertinente (consultar_stock, reportes_generales, consultar_estado_sistema) y responde con datos reales y concisos.
+3. Si requiere acciones operativas (compras, ajustes), ejecútalas, verifica los cambios y dicta la resolución.`,
     },
   ];
 
@@ -259,6 +301,7 @@ Instrucciones de ejecución:
       finalSummary =
         response.content || "Análisis completado sin herramientas adicionales.";
       finalReason = "El modelo concluyó sin solicitar más acciones.";
+      finalStatus = "resuelto";
       break;
     }
   }

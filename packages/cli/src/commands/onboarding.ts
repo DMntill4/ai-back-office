@@ -20,8 +20,10 @@ import {
   searchProjectDatabase,
   scanLocalWorkspaceProjects,
   extractProductsFromSqlFile,
+  extractSuppliersFromSqlFile,
   type DiscoveredProject,
   type ExtractedProductItem,
+  type ExtractedSupplierItem,
 } from "@mint/ingest";
 import { addNotificationChannel } from "@mint/notifiers";
 import { saveSession, type StoredSession } from "../keychain";
@@ -166,17 +168,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       config: { email },
     }).catch(() => null);
 
-    // Default approved suppliers (Express 1-day & Wholesale Economy 6-day)
-    const suppFastId = `supp_fast_${companyId}`;
-    const suppEconId = `supp_econ_${companyId}`;
-    await db
-      .insert(suppliers)
-      .values([
-        { id: suppFastId, companyId, name: "FastTrack Industrial Supplies SA", origin: "real" },
-        { id: suppEconId, companyId, name: "Global Wholesale Distribution Co", origin: "real" },
-      ])
-      .onConflictDoNothing();
-
+    // Real suppliers are populated from database/project SQL schemas in Step 2 without fabricating fake vendors
     console.log(`\n  ${theme.success("✔")} Profile registered & verified with Gmail: ${theme.mintBold(email)}.\n`);
 
     // -------------------------------------------------------------
@@ -276,6 +268,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       if (confirmSync.toLowerCase() !== "n") {
         // Check for data SQL files in the project
         const extracted: ExtractedProductItem[] = [];
+        const extractedSuppliers: ExtractedSupplierItem[] = [];
+
         for (const sqlFile of projToUse.sqlFiles) {
           if (fs.existsSync(sqlFile)) {
             const fileItems = extractProductsFromSqlFile(sqlFile);
@@ -283,7 +277,27 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
               console.log(`  Extracting catalog and inventory items from ${theme.bold(path.basename(sqlFile))}... (${fileItems.length} items found)`);
               extracted.push(...fileItems);
             }
+
+            const fileSuppliers = extractSuppliersFromSqlFile(sqlFile);
+            if (fileSuppliers.length > 0) {
+              console.log(`  Extracting verified suppliers from ${theme.bold(path.basename(sqlFile))}... (${fileSuppliers.length} suppliers found)`);
+              extractedSuppliers.push(...fileSuppliers);
+            }
           }
+        }
+
+        // Insert real suppliers from the project (if present)
+        for (const s of extractedSuppliers) {
+          const suppId = `supp_${s.name.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 30)}_${companyId}`;
+          await db
+            .insert(suppliers)
+            .values({
+              id: suppId,
+              companyId,
+              name: s.name,
+              origin: "real",
+            })
+            .onConflictDoNothing();
         }
 
         if (extracted.length > 0) {
@@ -314,31 +328,6 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
                 warehouseId: `alm_central_${companyId}`,
                 stock: item.stock,
               })
-              .onConflictDoNothing();
-
-            // Link suppliers
-            await db
-              .insert(supplierProducts)
-              .values([
-                {
-                  id: `sp_fast_${productId}`,
-                  companyId,
-                  supplierId: suppFastId,
-                  productId,
-                  unitPrice: String(item.price * 0.8),
-                  minOrderQuantity: 1,
-                  leadTimeDays: 1,
-                },
-                {
-                  id: `sp_econ_${productId}`,
-                  companyId,
-                  supplierId: suppEconId,
-                  productId,
-                  unitPrice: String(item.price * 0.65),
-                  minOrderQuantity: 5,
-                  leadTimeDays: 6,
-                },
-              ])
               .onConflictDoNothing();
 
             importedProductsCount++;
@@ -442,14 +431,15 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     } else if (chanChoice === "2") {
       const webhook = await ask(rl, `  Enter Webhook URL (Slack or Discord)`);
       if (webhook) {
+        const isDiscord = webhook.toLowerCase().includes("discord");
         await addNotificationChannel({
           companyId,
-          type: "slack",
-          name: "Incoming Sales Webhook",
+          type: isDiscord ? "discord" : "slack",
+          name: isDiscord ? "Discord Alerts" : "Slack Alerts",
           config: { webhookUrl: webhook },
         });
-        channelDescription = "Slack/Discord Webhook";
-        console.log(`  ${theme.success("✔")} Webhook channel linked.\n`);
+        channelDescription = isDiscord ? "Discord Webhook" : "Slack Webhook";
+        console.log(`  ${theme.success("✔")} ${channelDescription} linked and active.\n`);
       } else {
         console.log(`  ${theme.dim("○ No webhook entered. Skipped for now.")}\n`);
       }
@@ -461,21 +451,21 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     // STEP 4: AUTONOMY GOVERNANCE
     // -------------------------------------------------------------
     console.log(drawDivider("STEP 4 OF 4: AUTONOMY GOVERNANCE LEVEL", 76));
-    console.log(`  How autonomously should Mint reorder inventory when stock drops below minimum?`);
+    console.log(`  How should Mint handle inventory deficits when stock falls below safety levels?`);
     console.log(
-      `    ${theme.mintBold("[1] Assisted (Recommended)")} — Automatically buys orders < $10,000 MXN; notifies you on bigger purchases.`,
+      `    ${theme.mintBold("[1] Supervised / Human Approval First (Recommended for Production)")} — Generates restocking proposals for your 1-click review in /inbox; zero unauthorized purchases.`,
     );
     console.log(
-      `    ${theme.cyanBold("[2] Fully Autonomous")} — Autonomously executes all restocking orders without waiting.`,
+      `    ${theme.cyanBold("[2] Assisted / Low-Stock Alerts & Auto-Drafting")} — Proactively alerts your team on Discord/Gmail and drafts purchase orders with supplier comparisons.`,
     );
     console.log(
-      `    ${theme.dim("[3] Supervised / Dry-run")} — Only suggests purchase orders; requires manual operator approval.`,
+      `    ${theme.dim("[3] Autonomous (Policy-Governed)")} — Automatically restocks under strict budget policy with vetted suppliers.`,
     );
 
     const autoChoice = await ask(rl, `\n  Select autonomy mode`, "1");
-    let autonomyLevel = "assisted";
-    if (autoChoice === "2") autonomyLevel = "auto";
-    if (autoChoice === "3") autonomyLevel = "dry-run";
+    let autonomyLevel = "dry-run";
+    if (autoChoice === "2") autonomyLevel = "assisted";
+    if (autoChoice === "3") autonomyLevel = "auto";
 
     await db
       .insert(businessConfig)
