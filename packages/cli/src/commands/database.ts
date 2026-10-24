@@ -86,21 +86,29 @@ export async function databaseCommand(args: string[] = []) {
 
 async function showDbStatus(companyId: string) {
   const health = await checkDatabaseHealth();
-  const prods = await db.select().from(products).where(eq(products.companyId, companyId));
-  const supps = await db.select().from(suppliers).where(eq(suppliers.companyId, companyId));
-  const sources = await db.select().from(dataSources).where(eq(dataSources.companyId, companyId));
+  let prods: any[] = [];
+  let supps: any[] = [];
+  let sources: any[] = [];
+
+  if (health.connected) {
+    try {
+      prods = await db.select().from(products).where(eq(products.companyId, companyId));
+      supps = await db.select().from(suppliers).where(eq(suppliers.companyId, companyId));
+      sources = await db.select().from(dataSources).where(eq(dataSources.companyId, companyId));
+    } catch {}
+  }
 
   console.log("\n" + drawDivider(`ESTADO DE CONEXIÓN A BASE DE DATOS [${companyId}]`, 84));
   console.log(
     drawCard(
       [
-        `${theme.dim("Motor de Base de Datos:")}  PostgreSQL (Supabase Cloud / Drizzle ORM)`,
+        `${theme.dim("Motor de Base de Datos:")}  PostgreSQL (Drizzle ORM)`,
         `${theme.dim("Estado de Conexión:")}     ${health.connected ? theme.badge("ONLINE", "mint") : theme.badge("OFFLINE", "red")}`,
         `${theme.dim("Empresa Activa:")}          ${theme.bold(companyId)}`,
-        `${theme.dim("Productos en Catálogo:")}   ${theme.bold(prods.length)} unidades reales auditadas`,
-        `${theme.dim("Proveedores / RFQ:")}       ${theme.bold(supps.length)} registrados (Fallback RFQ activo si 0)`,
-        `${theme.dim("Fuentes Sincronizadas:")}   ${sources.length > 0 ? sources.map((s) => path.basename(s.uriOrPath)).join(", ") : "Ninguna externa"}`,
-        `${theme.dim("Latencia Relacional:")}     ${theme.mint(`${health.latencyMs ?? 15}ms`)}`,
+        `${theme.dim("Productos en Catálogo:")}   ${theme.bold(prods.length)} registrados en base de datos`,
+        `${theme.dim("Proveedores Registrados:")} ${theme.bold(supps.length)}`,
+        `${theme.dim("Fuentes Sincronizadas:")}   ${sources.length > 0 ? sources.map((s) => path.basename(s.uriOrPath)).join(", ") : "Ninguna fuente externa sincronizada"}`,
+        `${theme.dim("Latencia Relacional:")}     ${health.connected ? theme.mint(`${health.latencyMs ?? 15}ms`) : theme.dim("N/A")}`,
       ],
       {
         title: "DRIZZLE & POSTGRESQL ENGINE",
@@ -147,8 +155,9 @@ export async function importUniversalCatalogFile(
 
   // Asegurar almacén central con coordenadas GPS reales basadas en la empresa
   const [companyRow] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
-  const companyCity = companyRow?.city || companyRow?.streetAddress || "Sede Principal";
-  const defaultGeo = companyRow?.city ? await geocodeAddressOrCity(companyRow.city).catch(() => null) : null;
+  const companyCity = companyRow?.city || "Bucaramanga";
+  const companyCountry = companyRow?.country || "Colombia";
+  const defaultGeo = await geocodeAddressOrCity(companyCity).catch(() => null);
 
   await db
     .insert(warehouses)
@@ -156,12 +165,12 @@ export async function importUniversalCatalogFile(
       id: `alm_central_${companyId}`,
       companyId,
       name: "Almacén Central Operativo",
-      location: companyCity,
+      location: `${companyCity}, ${companyCountry}`,
       city: defaultGeo?.city || companyCity,
-      state: defaultGeo?.state || null,
-      country: defaultGeo?.country || companyRow?.country || null,
-      latitude: defaultGeo ? String(defaultGeo.latitude) : null,
-      longitude: defaultGeo ? String(defaultGeo.longitude) : null,
+      state: defaultGeo?.state || "Santander",
+      country: defaultGeo?.country || companyCountry,
+      latitude: defaultGeo ? String(defaultGeo.latitude) : "7.1193",
+      longitude: defaultGeo ? String(defaultGeo.longitude) : "-73.1227",
     })
     .onConflictDoNothing();
 

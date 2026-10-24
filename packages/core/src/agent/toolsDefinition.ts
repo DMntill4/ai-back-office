@@ -425,7 +425,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
         properties: {
           proveedor_id: {
             type: "string",
-            description: "ID, nombre o ciudad del proveedor de origen (ej. 'prov_acme', 'Bosch', 'Monterrey')",
+            description: "ID, nombre o ciudad del proveedor de origen (ej. 'prov_dewalt', 'Bosch Colombia', 'Bucaramanga')",
           },
           almacen_id: {
             type: "string",
@@ -433,11 +433,11 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
           origen_direccion: {
             type: "string",
-            description: "Ciudad o dirección libre de origen (ej. 'Querétaro', 'Guadalajara')",
+            description: "Ciudad o dirección libre de origen (ej. 'Bucaramanga', 'Bogotá')",
           },
           destino_direccion: {
             type: "string",
-            description: "Ciudad o dirección libre de destino (ej. 'Monterrey', 'CDMX')",
+            description: "Ciudad o dirección libre de destino (ej. 'Medellín', 'Barranquilla')",
           },
         },
       },
@@ -462,7 +462,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
           destino_direccion: {
             type: "string",
-            description: "Ciudad o dirección de entrega del cliente (ej. 'Monterrey, NL', 'Av. Reforma 222, CDMX')",
+            description: "Ciudad o dirección de entrega del cliente (ej. 'Bogotá, D.C.', 'Calle 45 # 13-22, Bucaramanga')",
           },
           cliente_nombre: {
             type: "string",
@@ -470,7 +470,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
           transportista: {
             type: "string",
-            description: "Transportista asignado (por defecto 'Mint Logistics Express')",
+            description: "Transportista asignado (por defecto 'Coordinadora' o 'Servientrega')",
           },
         },
         required: ["producto_id", "cantidad", "destino_direccion"],

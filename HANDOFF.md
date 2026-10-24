@@ -1,4 +1,4 @@
-# 🍃 MINT CLI & AUTONOMOUS AI BACK OFFICE — TECHNICAL HANDOFF DOCUMENT
+# [MINT] MINT CLI & AUTONOMOUS AI BACK OFFICE — TECHNICAL HANDOFF DOCUMENT
 
 **Fecha de Entrega:** 23 de Octubre de 2026  
 **Rama:** `feature/data-layer-hardening-and-discovery` (Commits locales convencionales, política de no-push cumplida)  

@@ -35,29 +35,28 @@
 
 ---
 
-## 🏛️ Arquitectura Monorepo
+## [ARQUITECTURA] Arquitectura Monorepo
 
 El proyecto está organizado como un **Monorepo limpio** con `npm workspaces`:
 
 | Paquete | Responsabilidad |
 |---|---|
 | `@mint/core` | Cerebro del sistema: agentes especialistas, tools tipadas (Zod), Drizzle ORM / PostgreSQL, Context Manager y Motor de Políticas Determinista. Cero dependencias de frameworks HTTP. |
-| `@mint/cli` | Interfaz de línea de comandos (`mint login`, `mint inbox`, `mint watch`, `mint source add`, `mint autonomy`, `mint doctor`, etc.) con sesión cifrada en Keychain local (AES-256-GCM). |
+| `@mint/cli` | Interfaz de línea de comandos (`mint login`, `mint inbox`, `mint watch`, `mint source add`, `mint autonomy`, `mint doctor`, `mint goal`, `mint console`, etc.) con sesión cifrada en Keychain local (AES-256-GCM). |
 | `@mint/daemon` | Proceso autónomo en segundo plano. Vigila carpetas de datos con fs.watch nativo, detecta desabastos, evalúa retrasos de camiones y cron del plan diario. |
 | `@mint/notifiers` | Adaptadores remotos para **Telegram** (Bot API con inline buttons), **Slack** (Block Kit), **Gmail** (HTML responsivo con links firmados HMAC-SHA256) y canales de venta (Discord/Telegram/Slack listener). |
 | `@mint/ingest` | Motor de ingesta asistida de CSV/Excel/SQLite/Postgres con mapeo semántico heurístico, detección de schema drift, circuito de borrado masivo (>20%), confirmación en dos fases, sanitización no destructiva y marca `origin = 'real'`. |
-| `frontend` | Consola web interactiva en React 19 + Tailwind CSS v4 + Framer Motion. |
 
 ---
 
-## 💻 Mint CLI: Comandos Principales
+## [CLI] Mint CLI: Comandos Principales
 
 Ejecuta el CLI mediante `npm start`, `npm run mint -- <comando>` o enlazando el binario global `mint`:
 
 ```bash
-# 🚀 INICIO UNIFICADO (100% AUTÓNOMO / CERO FRONTEND WEB)
-npm start                          # Inicia TODO: Servidor API, Daemon de fondo y Consola Interactiva
-npm run agent                      # Alias de inicio rápido sin frontend web
+# [INICIO] INICIO UNIFICADO (100% TERMINAL-FIRST / AUTONOMO)
+npm start                          # Inicia el Daemon de fondo y la Consola Interactiva
+npm run agent                      # Alias de inicio rápido terminal-first
 npm run agent:headless             # Modo headless continuo (ideal para servidores en segundo plano)
 mint start                         # Comando nativo de Mint CLI
 
@@ -117,7 +116,7 @@ mint notify test telegram          # Envía notificación de prueba con botones 
 
 ---
 
-## 🤖 Red Multi-Agente y Motor de Políticas
+## [AGENTES] Red Multi-Agente y Motor de Políticas
 
 ```
            [ Disparador: Archivo Modificado / Stock Bajo / Envío Retrasado ]

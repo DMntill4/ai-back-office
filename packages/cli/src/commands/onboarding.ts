@@ -319,9 +319,9 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
               id: suppId,
               companyId,
               name: s.name,
-              city: s.city || "Monterrey",
-              latitude: "25.6866",
-              longitude: "-100.3161",
+              city: s.city || "Bucaramanga",
+              latitude: "7.1193",
+              longitude: "-73.1227",
               origin: "real",
             })
             .onConflictDoNothing();
@@ -336,9 +336,9 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
               id: fallbackSuppId,
               companyId,
               name: "Compra Directa / Licitación Abierta (RFQ)",
-              city: "Querétaro",
-              latitude: "20.5888",
-              longitude: "-100.3899",
+              city: "Bucaramanga",
+              latitude: "7.1193",
+              longitude: "-73.1227",
               origin: "real",
             })
             .onConflictDoNothing();

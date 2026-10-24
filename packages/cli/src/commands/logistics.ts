@@ -145,8 +145,8 @@ export async function dispatchCliFlow(companyId: string, args: string[] = []) {
     console.log("\n" + drawDivider("DESPACHO DE SALIDA A CLIENTE (OUTBOUND + OSRM)", 82));
     const productQuery = args[0] || (await ask(rl, "  1. SKU, ID o nombre del producto"));
     const qtyRaw = args[1] || (await ask(rl, "  2. Cantidad a enviar", "5"));
-    const destCity = args.slice(2).join(" ") || (await ask(rl, "  3. Ciudad o direccion destino", "Monterrey, NL"));
-    const customerName = await ask(rl, "  4. Cliente o sucursal receptora", "Cliente Corporativo");
+    const destCity = args.slice(2).join(" ") || (await ask(rl, "  3. Ciudad o direccion destino", "Bogotá, D.C."));
+    const customerName = await ask(rl, "  4. Cliente o sucursal receptora", "Distribuidora Industrial del Oriente");
 
     rl.close();
 
@@ -319,8 +319,8 @@ export async function configureGpsNodeCliFlow(companyId: string, args: string[] 
 export async function routeCalcCliFlow(args: string[] = []) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const orig = args[0] || (await ask(rl, "  Ciudad o direccion de Origen", "Queretaro"));
-    const dest = args[1] || (await ask(rl, "  Ciudad o direccion de Destino", "Monterrey"));
+    const orig = args[0] || (await ask(rl, "  Ciudad o direccion de Origen", "Bucaramanga"));
+    const dest = args[1] || (await ask(rl, "  Ciudad o direccion de Destino", "Bogotá"));
     rl.close();
 
     const [p1, p2] = await Promise.all([resolveNodeGeoPoint({ city: orig }), resolveNodeGeoPoint({ city: dest })]);
@@ -329,7 +329,7 @@ export async function routeCalcCliFlow(args: string[] = []) {
       return;
     }
 
-    const route = await calculateRealRoute(p1, p2, { currency: "MXN" });
+    const route = await calculateRealRoute(p1, p2, { currency: "COP" });
     console.log(
       "\n" +
         drawCard(

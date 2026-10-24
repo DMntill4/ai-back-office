@@ -652,32 +652,9 @@ export async function consoleCommand() {
               );
             } else {
               const lower = trimmed.toLowerCase();
-              if (/bajar gastos|reducir gastos|reducir costos|ahorrar|objetivo|meta/i.test(lower)) {
+              if (/bajar gastos|reducir gastos|reducir costos|ahorrar|meta de ahorro/i.test(lower)) {
                 const { goalCommand } = require("./goal");
                 await goalCommand(trimmed, { noExit: true });
-              } else if (/c[oó]mo funciona el agente|qu[eé] hace el agente|eres un chatbot|qu[eé] haces|qui[eé]n eres/i.test(lower)) {
-                console.log("\n" + drawDivider("ARQUITECTURA Y ESTADO DEL AGENTE AUTÓNOMO MINT", 82));
-                console.log(
-                  drawCard(
-                    [
-                      `${theme.bold("Mint NO es un chatbot tradicional de charla.")}`,
-                      `${theme.dim("Es un agente logístico y operativo autónomo de back-office.")}`,
-                      "",
-                      `${theme.mintBold("¿Qué hace automáticamente en segundo plano?")}`,
-                      `  1. ${theme.bold("Vigilancia Continua:")} Monitorea stock, calcula ROP dinámico y detecta retrasos GPS.`,
-                      `  2. ${theme.bold("Deliberación Multi-Agente:")} 5 especialistas (Inventario, Compras, Transporte, Riesgo, Coordinador).`,
-                      `  3. ${theme.bold("Gobernanza HITL:")} Formula propuestas completas con cálculo de Landed Cost y las coloca en /inbox.`,
-                      `  4. ${theme.bold("Ejecución y Facturación:")} Al aprobarse (/approve), genera órdenes de compra, guías de envío y factura electrónica formal con sello criptográfico.`,
-                      `  5. ${theme.bold("Metas de Ahorro:")} Ejecuta planes estratégicos (/goal bajar gastos en un 30%).`,
-                    ],
-                    {
-                      title: "AGENTE AUTÓNOMO DE BACK-OFFICE",
-                      badge: "SISTEMA OPERATIVO",
-                      badgeColor: "mint",
-                      borderColor: theme.mint,
-                    },
-                  ),
-                );
               } else {
                 const { chatCommand } = require("./chat");
                 await chatCommand(trimmed, { noExit: true });
