@@ -211,19 +211,19 @@ Instrucciones de ejecución:
   const multiAgentTimeline: Array<{ agent: string; action: string; details?: string }> = [];
 
   const SPECIALIST_MAP: Record<string, string> = {
-    consultar_stock: "📦 Especialista de Inventario",
-    ajustar_stock: "📦 Especialista de Inventario",
-    pronosticar_demanda: "📈 Especialista de Demanda & Consumo",
-    evaluar_proveedores: "🏭 Especialista de Compras & Proveedores",
-    crear_orden_compra: "🏭 Especialista de Compras & Proveedores",
-    consultar_envios: "🚚 Especialista de Transporte & Envíos",
-    analisis_financiero: "💰 Auditor Financiero",
-    auditar_anomalias: "🛡️ Auditor de Riesgo y Fraude",
-    consultar_canales_notificacion: "📡 Coordinador de Notificaciones",
-    probar_canal_notificacion: "📡 Coordinador de Notificaciones",
-    consultar_estado_sistema: "⚙️ Ingeniero de Plataforma",
-    verificar_frescura_datos: "⚙️ Ingeniero de Plataforma",
-    generar_reporte_general: "📊 Analista de Operaciones",
+    consultar_stock: "Módulo Inventario [PostgreSQL]",
+    ajustar_stock: "Módulo Inventario [PostgreSQL]",
+    pronosticar_demanda: "Módulo Consumo Histórico",
+    evaluar_proveedores: "Módulo Catálogo Proveedores",
+    crear_orden_compra: "Módulo Compras [HITL Gatekeeper]",
+    consultar_envios: "Módulo Envíos [PostgreSQL Shipments]",
+    analisis_financiero: "Módulo Contable [Valuación Real]",
+    auditar_anomalias: "Módulo Auditoría [Reglas Deterministas]",
+    consultar_canales_notificacion: "Despachador de Red [Webhooks/API]",
+    probar_canal_notificacion: "Despachador de Red [Webhooks/API]",
+    consultar_estado_sistema: "Motor de Infraestructura",
+    verificar_frescura_datos: "Motor de Infraestructura",
+    generar_reporte_general: "Generador de Reportes",
   };
 
   // 4. Bucle principal de pensamiento y acción (ReAct)

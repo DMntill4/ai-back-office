@@ -31,7 +31,7 @@ export async function chatCommand(message: string, options: { json?: boolean; no
       return;
     }
 
-    console.log(`\n  ${theme.mintBold("🤖 COORDINADOR MULTI-AGENTE MINT")} ${theme.dim("// Deliberando caso")} ${theme.cyan(caseId)}...`);
+    console.log(`\n  ${theme.mintBold("⚙️ ORQUESTADOR OPERATIVO MINT")} ${theme.dim("// Ejecutando caso")} ${theme.cyan(caseId)}...`);
     res = await runAgentLoop(caseId, {
       onEvent: (ev) => {
         console.log(`    ${theme.dim(`[Paso ${ev.step}]`)} ${theme.mintBold(ev.agent)} ➔ ${theme.cyan(ev.action)}`);
@@ -41,12 +41,12 @@ export async function chatCommand(message: string, options: { json?: boolean; no
     console.log("");
     const responseLines = formatTerminalMarkdown(res.summary || "Sin respuesta del modelo.");
 
-    // Tarjeta con los agentes especialistas que participaron
+    // Tarjeta con los módulos del sistema ejecutados
     if (res.multiAgentEvents && res.multiAgentEvents.length > 0) {
-      const uniqueAgents = Array.from(new Set(res.multiAgentEvents.map((e: any) => e.agent)));
+      const uniqueModules = Array.from(new Set(res.multiAgentEvents.map((e: any) => e.agent)));
       responseLines.push("");
       responseLines.push(theme.dim("─────────────────────────────────────────────────────────────────"));
-      responseLines.push(`${theme.bold("👥 EQUIPO MULTI-AGENTE DELIBERADOR:")} ${uniqueAgents.join(" • ")}`);
+      responseLines.push(`${theme.bold("🛠️ MÓDULOS DEL SISTEMA EJECUTADOS:")} ${uniqueModules.join(" • ")}`);
     }
 
     const statusBadge =
