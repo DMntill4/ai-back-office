@@ -5,7 +5,7 @@ export const calcularRutaLogisticaSchema = z.object({
   proveedor_id: z
     .string()
     .optional()
-    .describe("ID o nombre del proveedor de origen (ej. 'prov_acme' o 'Bosch')"),
+    .describe("ID o nombre del proveedor de origen (ej. 'prov_acme', 'Bosch', 'Grainger')"),
   almacen_id: z
     .string()
     .optional()
@@ -20,10 +20,34 @@ export async function executeCalcularRutaLogistica(
 ) {
   try {
     const { db } = await import("../db/client");
-    const { suppliers, warehouses } = await import("../db/schema");
-    const { eq, ilike, or } = await import("drizzle-orm");
+    const { suppliers, warehouses, companies, businessConfig } = await import("../db/schema");
+    const { eq, ilike, or, and } = await import("drizzle-orm");
 
     const effectiveCompanyId = context?.companyId || "comp_default";
+
+    // 0. Detectar moneda configurada para la empresa activa
+    let currency = "USD";
+    const [compRecord] = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, effectiveCompanyId))
+      .limit(1);
+
+    if (compRecord && (compRecord as any).currency) {
+      currency = (compRecord as any).currency;
+    } else {
+      const [conf] = await db
+        .select()
+        .from(businessConfig)
+        .where(
+          and(
+            eq(businessConfig.companyId, effectiveCompanyId),
+            eq(businessConfig.key, "currency"),
+          ),
+        )
+        .limit(1);
+      if (conf?.currency) currency = conf.currency;
+    }
 
     // 1. Obtener almacén de destino
     let targetWarehouse: any = null;
@@ -91,6 +115,7 @@ export async function executeCalcularRutaLogistica(
       address: targetSupplier.streetAddress || undefined,
       city: targetSupplier.city || undefined,
       state: targetSupplier.state || undefined,
+      country: targetSupplier.country || undefined,
     };
 
     const destination: GeoPoint = {
@@ -100,9 +125,13 @@ export async function executeCalcularRutaLogistica(
       address: targetWarehouse.streetAddress || undefined,
       city: targetWarehouse.city || undefined,
       state: targetWarehouse.state || undefined,
+      country: targetWarehouse.country || undefined,
     };
 
-    const route = await calculateRealRoute(origin, destination);
+    const route = await calculateRealRoute(origin, destination, { currency });
+
+    const formatCost = (num: number) =>
+      `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 
     return {
       isSuccess: true,
@@ -110,22 +139,23 @@ export async function executeCalcularRutaLogistica(
         origen: {
           proveedor: targetSupplier.name,
           direccion: targetSupplier.streetAddress || "Dirección no especificada",
-          ciudad: `${targetSupplier.city || "N/A"}, ${targetSupplier.state || "N/A"}`,
+          ubicacion: `${targetSupplier.city || "N/A"}${targetSupplier.state ? `, ${targetSupplier.state}` : ""}${targetSupplier.country ? ` (${targetSupplier.country})` : ""}`,
           coordenadas: `${targetSupplier.latitude}, ${targetSupplier.longitude}`,
         },
         destino: {
           almacen: targetWarehouse.name,
           direccion: targetWarehouse.streetAddress || "Dirección no especificada",
-          ciudad: `${targetWarehouse.city || "N/A"}, ${targetWarehouse.state || "N/A"}`,
+          ubicacion: `${targetWarehouse.city || "N/A"}${targetWarehouse.state ? `, ${targetWarehouse.state}` : ""}${targetWarehouse.country ? ` (${targetWarehouse.country})` : ""}`,
           coordenadas: `${targetWarehouse.latitude}, ${targetWarehouse.longitude}`,
         },
         distanciaVialRealKm: route.distanceKm,
         tiempoEstimadoTransito: route.durationFormatted,
         costoFleteEstimado: route.costoFleteFormatted,
+        moneda: currency,
         desgloseFlete: {
-          tarifaBaseManiobra: `$${route.desgloseCostos.tarifaBaseMxn.toLocaleString("es-MX")} MXN`,
-          costoPorKilometro: `$${route.desgloseCostos.costoPorKmRecorridoMxn.toLocaleString("es-MX")} MXN`,
-          casetasPeajesCapufe: `$${route.desgloseCostos.peajesEstimadosCapufeMxn.toLocaleString("es-MX")} MXN`,
+          tarifaBaseManiobra: formatCost(route.desgloseCostos.tarifaBase),
+          costoPorDistancia: formatCost(route.desgloseCostos.costoPorDistancia),
+          peajesYTasasTransito: formatCost(route.desgloseCostos.peajesYTasasTransito),
         },
         motorCartografico: route.motorUtilizado,
       },

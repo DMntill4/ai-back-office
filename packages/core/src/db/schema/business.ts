@@ -9,18 +9,20 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 
-// 0. Empresas (Multi-tenant con perfil físico y fiscal real)
+// 0. Empresas (Multi-tenant con perfil físico y fiscal global)
 export const companies = pgTable("companies", {
   id: text("id").primaryKey(), // ej: 'comp_default', 'comp_acme' o UUID de Supabase Auth
   name: text("name").notNull(),
   slug: varchar("slug", { length: 100 }).unique(),
   legalName: text("legal_name"),
-  rfcTaxId: varchar("rfc_tax_id", { length: 20 }),
+  taxId: varchar("tax_id", { length: 50 }),
+  rfcTaxId: varchar("rfc_tax_id", { length: 50 }),
+  currency: varchar("currency", { length: 10 }).default("USD"),
   streetAddress: text("street_address"),
   postalCode: varchar("postal_code", { length: 20 }),
   city: text("city"),
   state: text("state"),
-  country: varchar("country", { length: 50 }).default("México"),
+  country: varchar("country", { length: 50 }),
   latitude: decimal("latitude", { precision: 10, scale: 6 }),
   longitude: decimal("longitude", { precision: 10, scale: 6 }),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -70,6 +72,7 @@ export const warehouses = pgTable("warehouses", {
   postalCode: varchar("postal_code", { length: 20 }),
   city: text("city"),
   state: text("state"),
+  country: varchar("country", { length: 50 }),
   latitude: decimal("latitude", { precision: 10, scale: 6 }),
   longitude: decimal("longitude", { precision: 10, scale: 6 }),
   contactPhone: varchar("contact_phone", { length: 50 }),
@@ -114,6 +117,7 @@ export const suppliers = pgTable("suppliers", {
   postalCode: varchar("postal_code", { length: 20 }),
   city: text("city"),
   state: text("state"),
+  country: varchar("country", { length: 50 }),
   latitude: decimal("latitude", { precision: 10, scale: 6 }),
   longitude: decimal("longitude", { precision: 10, scale: 6 }),
   origin: text("origin", { enum: ["simulado", "real"] })

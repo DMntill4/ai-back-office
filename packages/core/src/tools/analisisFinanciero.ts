@@ -12,10 +12,34 @@ export async function executeAnalisisFinanciero(
 ) {
   try {
     const { db } = await import("../db/client");
-    const { inventory, products, purchaseOrders, supplierProducts } = await import("../db/schema");
+    const { inventory, products, purchaseOrders, supplierProducts, companies, businessConfig } = await import("../db/schema");
     const { eq, and, sql } = await import("drizzle-orm");
 
     const effectiveCompanyId = context?.companyId || "comp_default";
+
+    // 0. Detectar moneda configurada para la empresa activa
+    let currency = "USD";
+    const [compRecord] = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, effectiveCompanyId))
+      .limit(1);
+
+    if (compRecord && (compRecord as any).currency) {
+      currency = (compRecord as any).currency;
+    } else {
+      const [conf] = await db
+        .select()
+        .from(businessConfig)
+        .where(
+          and(
+            eq(businessConfig.companyId, effectiveCompanyId),
+            eq(businessConfig.key, "currency"),
+          ),
+        )
+        .limit(1);
+      if (conf?.currency) currency = conf.currency;
+    }
 
     // 1. Obtener existencias actuales con sus precios reales de catálogo de proveedores
     const items = await db
@@ -99,12 +123,16 @@ export async function executeAnalisisFinanciero(
       }
     }
 
+    const formatAmount = (val: number) =>
+      `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+
     return {
       isSuccess: true,
       resumenFinanciero: {
-        valorInventarioValuadoReal: `$${valorEstimadoInventario.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`,
-        compromisosComprasAbiertas: `$${totalComprometido.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`,
-        presupuestoReabastecimientoRequerido: `$${presupuestoReabastecimientoEstimado.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`,
+        moneda: currency,
+        valorInventarioValuadoReal: formatAmount(valorEstimadoInventario),
+        compromisosComprasAbiertas: formatAmount(totalComprometido),
+        presupuestoReabastecimientoRequerido: formatAmount(presupuestoReabastecimientoEstimado),
         metricasSalud: {
           totalProductosRegistrados: uniqueProducts.length,
           productosAgotados,
@@ -113,7 +141,7 @@ export async function executeAnalisisFinanciero(
         },
         diagnostico:
           productosBajoMinimo > 0
-            ? `Se identificaron ${productosBajoMinimo} productos por debajo del stock mínimo. El costo real para cubrir el déficit con precios vigentes de catálogo es de $${presupuestoReabastecimientoEstimado.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN.`
+            ? `Se identificaron ${productosBajoMinimo} productos por debajo del stock mínimo. El costo real para cubrir el déficit con precios vigentes de catálogo es de ${formatAmount(presupuestoReabastecimientoEstimado)}.`
             : "Inventario en balance. No hay productos por debajo del stock mínimo configurado.",
       },
     };

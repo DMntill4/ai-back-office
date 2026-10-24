@@ -114,7 +114,7 @@ export async function executeConsultarEstadoSistema(
 
     const botName = configs.find((c) => c.key === "bot_name")?.value || "MINT";
     const botTone = configs.find((c) => c.key === "bot_tone")?.value || "ejecutivo";
-    const moneda = configs.find((c) => c.key === "currency")?.value || "MXN";
+    const moneda = configs.find((c) => c.key === "currency")?.value || (companyRes[0] as any)?.currency || "USD";
 
     const canalesTexto = channels.length > 0
       ? `Canales de alerta conectados: ${channels.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`
@@ -160,7 +160,7 @@ export async function executeConsultarEstadoSistema(
         nombre: "MINT",
         tono: "ejecutivo",
         gobernanza: "HUMAN-IN-THE-LOOP 100%",
-        moneda: "MXN",
+        moneda: "USD",
       },
       resumenEjecutivo: `Fallo al verificar el estado de la base de datos: ${error.message}`,
     };
