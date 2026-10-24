@@ -99,9 +99,9 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     // -------------------------------------------------------------
     // STEP 1: IDENTITY & COMPANY
     // -------------------------------------------------------------
-    console.log(drawDivider("STEP 1 OF 4: OPERATOR & COMPANY IDENTITY", 76));
-    const userName = await ask(rl, `  ${theme.bold("1.1 What's your name or operator handle?")}`, "Dale");
-    const companyName = await ask(rl, `  ${theme.bold("1.2 What's your company or business name?")}`, "My Logistics Co.");
+    console.log(drawDivider("PASO 1 DE 4: IDENTIDAD DEL OPERADOR Y EMPRESA", 76));
+    const userName = await ask(rl, `  ${theme.bold("1.1 Nombre del operador")}`, "Andres");
+    const companyName = await ask(rl, `  ${theme.bold("1.2 Nombre de la empresa")}`, "Ferretería Industrial Santandereana S.A.S.");
 
     // Validate Gmail email address
     const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@g(oogle)?mail\.com$/i;
@@ -109,13 +109,13 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     while (true) {
       email = await ask(
         rl,
-        `  ${theme.bold("1.3 Account Gmail address (required for Google notifications)")}`,
-        "dalej@gmail.com",
+        `  ${theme.bold("1.3 Correo Gmail (para alertas operativas automáticas)")}`,
+        "operaciones@gmail.com",
       );
       if (GMAIL_REGEX.test(email)) {
         break;
       }
-      console.log(`  ${theme.redBold("[ERROR] Invalid email:")} Only Gmail accounts (e.g. yourname@gmail.com) are accepted for automated operational alerts.\n`);
+      console.log(`  ${theme.redBold("[ERROR] Correo inválido:")} Se requiere cuenta Gmail para alertas automáticas.\n`);
     }
 
     // Validate operator password
@@ -123,19 +123,19 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     while (true) {
       password = await ask(
         rl,
-        `  ${theme.bold("1.4 Operator password (min 6 characters)")}`,
+        `  ${theme.bold("1.4 Contraseña de operador (mínimo 6 caracteres)")}`,
         "password123",
       );
       if (password.length >= 6) {
         break;
       }
-      console.log(`  ${theme.redBold("[ERROR] Password too short:")} Must be at least 6 characters.\n`);
+      console.log(`  ${theme.redBold("[ERROR] Contraseña muy corta:")} Debe tener al menos 6 caracteres.\n`);
     }
 
     const warehouseCity = await ask(
       rl,
-      `  ${theme.bold("1.5 Main warehouse city or country (e.g. Bogotá, Medellín, Miami, Madrid)")}`,
-      "Bogotá",
+      `  ${theme.bold("1.5 Ciudad de la bodega principal (ej. Bucaramanga, Bogotá, Medellín)")}`,
+      "Bucaramanga",
     );
 
     const companyId = `comp_${companyName.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 16) || "main"}`;
@@ -149,7 +149,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       id: companyId,
       name: companyName,
       city: whGeo?.city || warehouseCity,
-      country: whGeo?.country || null,
+      country: whGeo?.country || "Colombia",
+      currency: "COP",
       latitude: whGeo ? String(whGeo.latitude) : null,
       longitude: whGeo ? String(whGeo.longitude) : null,
     }).onConflictDoNothing();

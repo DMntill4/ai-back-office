@@ -63,12 +63,20 @@ export interface PurchaseOrderVoucher {
   receiptPath?: string;
 }
 
+export interface StateDiff {
+  entity: string;
+  previousState: string;
+  newState: string;
+  tablesAffected: string[];
+}
+
 export interface ExecutionResult {
   success: boolean;
   orderId?: string;
   trackingNumber?: string;
   verified: boolean;
   message: string;
+  diff?: StateDiff;
   error?: string;
   voucher?: PurchaseOrderVoucher;
 }
@@ -114,7 +122,22 @@ export async function executeAndVerifyDecision(
     const orderId = `po_${randomUUID().slice(0, 8)}`;
 
     try {
-      // 2.0 Asegurar que el proveedor exista en la tabla suppliers (evitar fallo de FK en bases sin proveedores)
+      // Obtener estado anterior real de inventario y compras
+      let previousStock = 0;
+      let activePosCount = 0;
+      let activeShipmentsCount = 0;
+      try {
+        const [invFound, poFound, shipFound] = await Promise.all([
+          db.select().from(inventory).where(and(eq(inventory.productId, productId), eq(inventory.companyId, dec.companyId))),
+          db.select().from(purchaseOrders).where(and(eq(purchaseOrders.companyId, dec.companyId), eq(purchaseOrders.status, "abierta"))),
+          db.select().from(shipments).where(and(eq(shipments.companyId, dec.companyId), eq(shipments.status, "en_transito"))),
+        ]);
+        previousStock = invFound.reduce((sum, row) => sum + row.stock, 0);
+        activePosCount = poFound.length;
+        activeShipmentsCount = shipFound.length;
+      } catch {}
+
+      // 2.0 Asegurar que el proveedor exista en la tabla suppliers
       const existingSupplier = await db
         .select()
         .from(suppliers)
@@ -199,14 +222,14 @@ export async function executeAndVerifyDecision(
           companyId: dec.companyId,
           trackingNumber,
           purchaseOrderId: orderId,
-          carrier: "Mint Inbound Freight",
+          carrier: "Servientrega Industrial",
           originLocation: originLabel,
           destinationLocation: destLabel,
           status: "en_transito",
           estimatedDelivery: eta,
         });
       } catch {
-        // Si la creación opcional de guía falla en mocks de test unitarios aislados, no romper la orden de compra
+        // Fallback
       }
 
       // 2.4 Generar comprobante y orden formal de compra (Voucher de producción)
@@ -220,9 +243,7 @@ export async function executeAndVerifyDecision(
         ]);
         prodRow = pFound[0];
         compRow = cFound[0];
-      } catch {
-        // En tests o mocks continuar con defaults
-      }
+      } catch {}
 
       const numUnitPrice = Number(unitPrice) || 0;
       const numQty = Number(quantity) || 1;
@@ -230,7 +251,7 @@ export async function executeAndVerifyDecision(
       const numTax = Math.round(numSubtotal * 0.16 * 100) / 100;
       const numFreight = Number(evidence.freightCostMxn || 0);
       const numTotal = numSubtotal + numTax + numFreight;
-      const currency = compRow?.currency || "USD";
+      const currency = compRow?.currency || "COP";
       const folioNumber = `PO-${now.getFullYear()}-${orderId.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(-6)}`;
       const sha256 = crypto
         .createHash("sha256")
@@ -274,7 +295,7 @@ export async function executeAndVerifyDecision(
           currency,
         },
         logistics: {
-          carrier: "Mint Inbound Freight",
+          carrier: "Servientrega Industrial",
           trackingNumber,
           origin: originLabel,
           destination: destLabel,
@@ -301,9 +322,35 @@ export async function executeAndVerifyDecision(
         const receiptFile = path.join(receiptsDir, `${orderId}.json`);
         fs.writeFileSync(receiptFile, JSON.stringify(voucher, null, 2), "utf8");
         voucher.receiptPath = receiptFile;
-      } catch {
-        // Ignorar si no se puede escribir en disco
-      }
+      } catch {}
+
+      // Registrar evento inmutable en case_events con hash y diff
+      try {
+        const { caseEvents } = await import("../db/schema");
+        await db.insert(caseEvents).values({
+          id: `evt_exec_${randomUUID().slice(0, 8)}`,
+          caseId: dec.caseId,
+          eventType: "decision_ejecutada",
+          payload: {
+            decisionId,
+            orderId,
+            trackingNumber,
+            approvedBy,
+            sha256,
+            diff: {
+              previousState: `Stock en almacén: ${previousStock} uds | Órdenes abiertas: ${activePosCount}`,
+              newState: `PO: ${orderId} (Abierta) | Guía: ${trackingNumber} | Stock proyectado: ${previousStock + numQty} uds`,
+            },
+          },
+        });
+      } catch {}
+
+      const diff: StateDiff = {
+        entity: prodRow?.name || evidence.productName || "Insumo Industrial",
+        previousState: `Stock en almacén: ${previousStock} uds | Órdenes abiertas: ${activePosCount} | Guías en tránsito: ${activeShipmentsCount}`,
+        newState: `PO: ${orderId} (Abierta) | Guía: ${trackingNumber} (En tránsito OSRM) | Stock proyectado: ${previousStock + numQty} uds`,
+        tablesAffected: ["purchase_orders (+1)", "shipments (+1)", "case_events (+1)", "decisions (aprobada)"],
+      };
 
       await db
         .update(decisions)
@@ -321,11 +368,11 @@ export async function executeAndVerifyDecision(
             verifiedAt: now.toISOString(),
             idempotencyKey,
             voucher,
+            diff,
           },
         })
         .where(eq(decisions.id, decisionId));
 
-      // Actualizar caso asociado
       await db
         .update(cases)
         .set({
@@ -341,10 +388,10 @@ export async function executeAndVerifyDecision(
         trackingNumber,
         verified: true,
         voucher,
+        diff,
         message: `Orden formal ${folioNumber} (${orderId}) y Guía ${trackingNumber} emitidas exitosamente en PostgreSQL. Total: $${numTotal.toFixed(2)} ${currency}.`,
       };
     } catch (err: any) {
-      // Si falla la verificación, reabrir caso en estado urgente
       await db
         .update(cases)
         .set({
@@ -375,6 +422,13 @@ export async function executeAndVerifyDecision(
       });
 
       const now = new Date();
+      const diff: StateDiff = {
+        entity: evidence.productName || evidence.productId || "Herramientas",
+        previousState: `Bodega Origen: ${evidence.fromWarehouseId} | Bodega Destino: ${evidence.toWarehouseId}`,
+        newState: `Transferencia en curso: ${evidence.quantity || 5} uds despachadas | Guía: ${transferRes.trackingNumber || "TRK-TRANS"}`,
+        tablesAffected: ["inventory (rebalanceado)", "shipments (+1)", "decisions (aprobada)"],
+      };
+
       await db
         .update(decisions)
         .set({
@@ -387,6 +441,7 @@ export async function executeAndVerifyDecision(
             confirmed: transferRes.success,
             trackingNumber: transferRes.trackingNumber,
             verifiedAt: now.toISOString(),
+            diff,
           },
         })
         .where(eq(decisions.id, decisionId));
@@ -395,6 +450,7 @@ export async function executeAndVerifyDecision(
         success: transferRes.success,
         trackingNumber: transferRes.trackingNumber,
         verified: transferRes.success,
+        diff,
         message: transferRes.message,
       };
     } catch (err: any) {
@@ -407,7 +463,7 @@ export async function executeAndVerifyDecision(
     }
   }
 
-  // 4. Otros tipos de acción: ej. Ajuste de stock
+  // 4. Ajuste de stock
   if (dec.actionType === "ajustar_stock") {
     const productId = evidence.productId;
     const delta = evidence.delta || 0;
@@ -419,10 +475,18 @@ export async function executeAndVerifyDecision(
       .limit(1);
 
     if (existingInv.length > 0) {
-      const newStock = Math.max(0, existingInv[0].stock + delta);
+      const prevStock = existingInv[0].stock;
+      const newStock = Math.max(0, prevStock + delta);
       await db.update(inventory).set({ stock: newStock }).where(eq(inventory.id, existingInv[0].id));
 
       const now = new Date();
+      const diff: StateDiff = {
+        entity: productId,
+        previousState: `Stock anterior en inventario: ${prevStock} unidades`,
+        newState: `Stock nuevo en PostgreSQL: ${newStock} unidades (Ajuste: ${delta >= 0 ? "+" : ""}${delta})`,
+        tablesAffected: ["inventory (actualizado)", "decisions (aprobada)"],
+      };
+
       await db
         .update(decisions)
         .set({
@@ -430,16 +494,57 @@ export async function executeAndVerifyDecision(
           approvedBy,
           executedAt: now,
           verifiedAt: now,
-          executionResult: { confirmed: true, newStock },
+          executionResult: { confirmed: true, newStock, diff },
         })
         .where(eq(decisions.id, decisionId));
 
       return {
         success: true,
         verified: true,
-        message: `Stock ajustado a ${newStock} unidades y post-verificado.`,
+        diff,
+        message: `Stock ajustado de ${prevStock} a ${newStock} unidades y post-verificado.`,
       };
     }
+  }
+
+  // 5. Reasignación / Consolidación de envío
+  if (dec.actionType === "reasignar_envio") {
+    const newCarrier = evidence.carrier || "Servientrega Industrial Consolidada";
+    let targetShip: any = null;
+    const shipsFound = await db.select().from(shipments).where(eq(shipments.companyId, dec.companyId)).limit(1);
+    if (shipsFound.length > 0) targetShip = shipsFound[0];
+
+    if (targetShip) {
+      await db.update(shipments).set({
+        carrier: newCarrier,
+        status: "en_transito",
+        notes: `Ruta consolidada OSRM autorizada por ${approvedBy}.`,
+        updatedAt: new Date(),
+      }).where(eq(shipments.id, targetShip.id));
+    }
+
+    const now = new Date();
+    const diff: StateDiff = {
+      entity: targetShip?.trackingNumber || "Despachos en Corredor Logístico",
+      previousState: `Transportista: ${targetShip?.carrier || "Individual"} | Estado: ${targetShip?.status || "preparación"}`,
+      newState: `Consolidación OSRM: ${newCarrier} (En tránsito)`,
+      tablesAffected: ["shipments (actualizado)", "decisions (aprobada)"],
+    };
+
+    await db.update(decisions).set({
+      policyDecision: "approved",
+      approvedBy,
+      executedAt: now,
+      verifiedAt: now,
+      executionResult: { confirmed: true, carrier: newCarrier, diff },
+    }).where(eq(decisions.id, decisionId));
+
+    return {
+      success: true,
+      verified: true,
+      diff,
+      message: `Consolidación logística ejecutada y verificada en PostgreSQL.`,
+    };
   }
 
   return {

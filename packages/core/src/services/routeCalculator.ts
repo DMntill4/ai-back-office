@@ -103,11 +103,11 @@ export async function calculateRealRoute(
   }
 
   // Modelo de costos logísticos estandarizado por divisa:
-  // Si la moneda es MXN, se aplican tarifas locales; de lo contrario se calcula en USD/EUR equivalentes
   const isMxn = currency.toUpperCase() === "MXN";
-  const tarifaBase = options.baseRate ?? (isMxn ? 850 : 50);
-  const tarifaKm = options.ratePerKm ?? (isMxn ? 16.5 : 1.25);
-  const factorPeaje = isMxn ? 2.8 : 0.2;
+  const isCop = currency.toUpperCase() === "COP";
+  const tarifaBase = options.baseRate ?? (isCop ? 45000 : isMxn ? 850 : 50);
+  const tarifaKm = options.ratePerKm ?? (isCop ? 1800 : isMxn ? 16.5 : 1.25);
+  const factorPeaje = isCop ? 250 : isMxn ? 2.8 : 0.2;
 
   const costoDistancia = Math.round(distanceKm * tarifaKm);
   const peajesTransito = distanceKm > 60 ? Math.round(distanceKm * factorPeaje) : 0;

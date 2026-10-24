@@ -56,13 +56,14 @@ export function compactSupplierFacts(
     minOrderQuantity: number;
     origin?: string;
   }>,
+  currency: string = "COP",
 ): string {
   if (suppliers.length === 0) {
     return "[FACTS_PROVEEDORES_REAL] No existen proveedores homologados registrados para este insumo.";
   }
 
   const lines = suppliers.map((s, idx) => {
-    return `  #${idx + 1}: ${s.supplierName} (ID: ${s.supplierId}) -> Precio: $${s.unitPrice.toFixed(2)} MXN/u | Plazo Entrega: ${s.leadTimeDays} días | Pedido Mínimo: ${s.minOrderQuantity}u`;
+    return `  #${idx + 1}: ${s.supplierName} (ID: ${s.supplierId}) -> Precio: $${Number(s.unitPrice).toLocaleString()} ${currency}/u | Plazo Entrega: ${s.leadTimeDays} días | Pedido Mínimo: ${s.minOrderQuantity}u`;
   });
 
   return `[FACTS_PROVEEDORES_REAL] (Opciones homologadas disponibles en base de datos):
@@ -108,6 +109,7 @@ export function compactRecentOrdersFacts(
     status: string;
     createdAt: Date | string;
   }>,
+  currency: string = "COP",
 ): string {
   if (orders.length === 0) {
     return "[AUDITORÍA_COMPRAS_72H] Cero órdenes emitidas en las últimas 72 horas para este producto.";
@@ -115,7 +117,7 @@ export function compactRecentOrdersFacts(
 
   const lines = orders.map((o) => {
     const date = typeof o.createdAt === "string" ? o.createdAt : o.createdAt.toISOString();
-    return `  - PO: ${o.id} | Cantidad: ${o.quantity}u | Total: $${Number(o.totalAmount).toFixed(2)} MXN | Estado: ${o.status} | Fecha: ${date}`;
+    return `  - PO: ${o.id} | Cantidad: ${o.quantity}u | Total: $${Number(o.totalAmount).toLocaleString()} ${currency} | Estado: ${o.status} | Fecha: ${date}`;
   });
 
   return `[AUDITORÍA_COMPRAS_72H] (Órdenes recientes detectadas en base de datos):

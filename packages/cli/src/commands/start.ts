@@ -1,12 +1,20 @@
-import * as path from "node:path";
-import * as fs from "node:fs";
-import * as os from "node:os";
-import { spawn, type ChildProcess } from "node:child_process";
-import { verifyRuntimeEnvironment } from "@mint/core";
-import { readDaemonState, writeDaemonState, tickOnce } from "@mint/daemon";
+import {
+  verifyRuntimeEnvironment,
+  checkDatabaseHealth,
+  ensureDecisionsTables,
+  runMigrations,
+  runProactiveAuditCycle,
+  db,
+  companies,
+  warehouses,
+  decisions,
+  businessConfig,
+} from "@mint/core";
+import { readDaemonState, writeDaemonState, tickOnce, getDaemonStatus } from "@mint/daemon";
 import { getSession } from "../keychain";
-import { theme } from "../ui/theme";
+import { theme, renderSystemHeader } from "../ui/theme";
 import { consoleCommand } from "./console";
+import { eq, and } from "drizzle-orm";
 
 export interface StartOptions {
   headless?: boolean;
@@ -14,61 +22,62 @@ export interface StartOptions {
   json?: boolean;
 }
 
-async function waitForServer(port: string | number, maxAttempts = 15): Promise<boolean> {
-  const url = `http://127.0.0.1:${port}/health`;
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) return true;
-    } catch {}
-    await new Promise((r) => setTimeout(r, 200));
-  }
-  return false;
-}
-
 export async function startCommand(options: StartOptions = {}) {
+  // 1. Diagnóstico de entorno y compatibilidad
   const report = await verifyRuntimeEnvironment();
   if (!report.compatible) {
-    console.error(theme.redBold("\n[ERROR] No se puede iniciar Mint Back Office. Diagnostico fallido:"));
+    console.error(theme.redBold("\n[ERROR] No se puede iniciar Mint Back Office. Diagnóstico fallido:"));
     for (const diag of report.diagnostics) {
       console.error(`  ${diag}`);
     }
     process.exit(1);
   }
 
-  let session = await getSession();
+  // 2. Verificación y preparación de base de datos PostgreSQL
+  const dbHealth = await checkDatabaseHealth();
+  if (!dbHealth.connected) {
+    console.error(theme.redBold("\n[ERROR] No hay conexión con PostgreSQL. Revisa tu DATABASE_URL en .env"));
+    process.exit(1);
+  }
 
+  try {
+    await runMigrations().catch(() => null);
+    await ensureDecisionsTables().catch(() => null);
+  } catch {
+    // Continuar si ya existen
+  }
+
+  // 3. Cargar sesión de empresa activa o ejecutar onboarding
+  let session = await getSession();
   if (!session && !options.headless && process.stdin.isTTY) {
     const { runOnboardingWizard } = require("./onboarding");
     session = await runOnboardingWizard();
   }
 
   const companyId = session?.companyId || "comp_default";
-  const port = options.port || process.env.PORT || "3000";
 
-  const logDir = path.join(os.homedir(), ".mint", "logs");
-  if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
-  }
-  const serverLogPath = path.join(logDir, "server.log");
-  const serverLogStream = fs.openSync(serverLogPath, "a");
+  // 4. Cargar contexto real de la empresa en memoria
+  let companyDisplayName = session?.companyName || "Ferretería Industrial Santandereana S.A.S.";
+  let autonomyLevel = "dry-run";
+  let pendingCount = 0;
 
-  const serverScript = path.resolve(__dirname, "../../../../src/server.ts");
-  const tsxCli = require.resolve("tsx/cli");
-
-  const serverProc: ChildProcess = spawn(
-    process.execPath,
-    [tsxCli, serverScript],
-    {
-      env: { ...process.env, PORT: String(port) },
-      stdio: ["ignore", serverLogStream, serverLogStream],
-      shell: false,
-      detached: false,
+  try {
+    const [compRows, bConfigs, pendingDecs] = await Promise.all([
+      db.select().from(companies).where(eq(companies.id, companyId)).limit(1),
+      db.select().from(businessConfig).where(eq(businessConfig.companyId, companyId)),
+      db.select().from(decisions).where(
+        and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval")),
+      ),
+    ]);
+    if (compRows[0]?.name) {
+      companyDisplayName = compRows[0].name;
     }
-  );
+    const autoCfg = bConfigs.find((c) => c.key === "autonomy_level");
+    if (autoCfg?.value) autonomyLevel = autoCfg.value;
+    pendingCount = pendingDecs.length;
+  } catch {}
 
-  await waitForServer(port, 15);
-
+  // 5. Iniciar y registrar el daemon en segundo plano (Terminal-First)
   const daemonState = readDaemonState();
   daemonState.isRunning = true;
   daemonState.pid = process.pid;
@@ -76,14 +85,17 @@ export async function startCommand(options: StartOptions = {}) {
   daemonState.startedAt = new Date().toISOString();
   writeDaemonState(daemonState);
 
+  // Ciclo autónomo periódico de auditoría (cada 30s)
   const tickerInterval = setInterval(async () => {
     try {
       await tickOnce(companyId);
     } catch {}
   }, 30000);
 
+  // 6. Diagnóstico autónomo inicial al arranque
   try {
     await tickOnce(companyId);
+    await runProactiveAuditCycle().catch(() => null);
   } catch {}
 
   let cleanedUp = false;
@@ -97,16 +109,6 @@ export async function startCommand(options: StartOptions = {}) {
       state.pid = null;
       writeDaemonState(state);
     } catch {}
-
-    if (serverProc && !serverProc.killed) {
-      try {
-        if (process.platform === "win32" && serverProc.pid) {
-          spawn("taskkill", ["/pid", String(serverProc.pid), "/f", "/t"]);
-        } else {
-          serverProc.kill("SIGTERM");
-        }
-      } catch {}
-    }
   };
 
   process.on("SIGINT", () => {
@@ -124,14 +126,14 @@ export async function startCommand(options: StartOptions = {}) {
         {
           success: true,
           mode: options.headless ? "headless" : "interactive",
-          serverPid: serverProc.pid,
-          port,
           companyId,
-          autonomy: "active",
+          autonomyLevel,
+          dbConnected: true,
+          pendingDecisions: pendingCount,
         },
         null,
-        2
-      )
+        2,
+      ),
     );
     if (options.headless) {
       cleanup();
@@ -139,9 +141,22 @@ export async function startCommand(options: StartOptions = {}) {
     }
   }
 
+  // 7. Mostrar encabezado Linux minimalist y pasar a consola o modo headless
   if (options.headless || !process.stdin.isTTY) {
-    console.log(`\n${theme.mintBold("[MINT HEADLESS]")} API: http://localhost:${port} | Empresa: ${companyId}`);
-    console.log(theme.dim("  Presiona Ctrl+C para detener los servicios.\n"));
+    console.log("");
+    console.log(
+      renderSystemHeader({
+        dbConnected: true,
+        companyName: companyDisplayName,
+        daemonActive: true,
+        autonomyLevel,
+        pendingCount,
+      }),
+    );
+    console.log(
+      `\n  ${theme.mintBold("[MINT HEADLESS DAEMON]")} Empresa: ${theme.smokeBold(companyDisplayName)} [${companyId}]`,
+    );
+    console.log(`  ${theme.dim("Monitoreo continuo 24/7 activo. Presiona Ctrl+C para detener.")}\n`);
     await new Promise(() => {});
   } else {
     try {

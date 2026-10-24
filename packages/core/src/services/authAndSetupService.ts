@@ -23,7 +23,7 @@ export interface SetupConfigInput {
   botTone: "ejecutivo" | "tecnico" | "didactico";
   botCustomRules?: string;
   approvalLimitAmount: number;
-  currency: "MXN" | "USD";
+  currency: "COP" | "MXN" | "USD" | string;
 }
 
 export interface SqlUploadInput {

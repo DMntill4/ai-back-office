@@ -20,41 +20,36 @@ export interface GeocodedLocation {
   source: "NOMINATIM_OSM" | "LOGISTICS_HUB_INDEX" | "EXISTING_COORDINATES";
 }
 
-// Índice rápido de corredores industriales/logísticos internacionales y de LATAM/USA/Europa
-// como respaldo instantáneo (<1ms) cuando no hay red o en entornos de test offline.
+// Índice rápido de corredores industriales y logísticos de Colombia (con respaldo regional)
+// como respuesta instantánea (<1ms) cuando no hay red o en entornos de prueba.
 const GLOBAL_LOGISTICS_HUBS: Record<string, Omit<GeocodedLocation, "source">> = {
-  "ciudad de mexico": { latitude: 19.4326, longitude: -99.1332, displayName: "Ciudad de México, CDMX, México", city: "Ciudad de México", state: "CDMX", country: "México" },
-  "cdmx": { latitude: 19.4326, longitude: -99.1332, displayName: "Ciudad de México, CDMX, México", city: "Ciudad de México", state: "CDMX", country: "México" },
-  "monterrey": { latitude: 25.6866, longitude: -100.3161, displayName: "Monterrey, Nuevo León, México", city: "Monterrey", state: "Nuevo León", country: "México" },
-  "guadalajara": { latitude: 20.6597, longitude: -103.3496, displayName: "Guadalajara, Jalisco, México", city: "Guadalajara", state: "Jalisco", country: "México" },
-  "queretaro": { latitude: 20.5888, longitude: -100.3899, displayName: "Santiago de Querétaro, Querétaro, México", city: "Querétaro", state: "Querétaro", country: "México" },
-  "puebla": { latitude: 19.0414, longitude: -98.2063, displayName: "Puebla de Zaragoza, Puebla, México", city: "Puebla", state: "Puebla", country: "México" },
-  "toluca": { latitude: 19.2826, longitude: -99.6557, displayName: "Toluca de Lerdo, Estado de México, México", city: "Toluca", state: "Estado de México", country: "México" },
-  "cuautitlan": { latitude: 19.6453, longitude: -99.2081, displayName: "Cuautitlán Izcalli, Estado de México, México", city: "Cuautitlán Izcalli", state: "Estado de México", country: "México" },
-  "naucalpan": { latitude: 19.4678, longitude: -99.2312, displayName: "Naucalpan de Juárez, Estado de México, México", city: "Naucalpan", state: "Estado de México", country: "México" },
-  "apodaca": { latitude: 25.7812, longitude: -100.1895, displayName: "Apodaca, Nuevo León, México", city: "Apodaca", state: "Nuevo León", country: "México" },
-  "tijuana": { latitude: 32.5149, longitude: -117.0382, displayName: "Tijuana, Baja California, México", city: "Tijuana", state: "Baja California", country: "México" },
-  "leon": { latitude: 21.1221, longitude: -101.6826, displayName: "León, Guanajuato, México", city: "León", state: "Guanajuato", country: "México" },
-  "merida": { latitude: 20.9674, longitude: -89.5926, displayName: "Mérida, Yucatán, México", city: "Mérida", state: "Yucatán", country: "México" },
-  "veracruz": { latitude: 19.1738, longitude: -96.1342, displayName: "Puerto de Veracruz, Veracruz, México", city: "Veracruz", state: "Veracruz", country: "México" },
+  // Colombia - Eje Principal y Santander
+  "bucaramanga": { latitude: 7.1193, longitude: -73.1227, displayName: "Bucaramanga, Santander, Colombia", city: "Bucaramanga", state: "Santander", country: "Colombia" },
+  "giron": { latitude: 7.0722, longitude: -73.1678, displayName: "Girón, Santander, Colombia", city: "Girón", state: "Santander", country: "Colombia" },
+  "floridablanca": { latitude: 7.0622, longitude: -73.0864, displayName: "Floridablanca, Santander, Colombia", city: "Floridablanca", state: "Santander", country: "Colombia" },
+  "piedecuesta": { latitude: 6.9881, longitude: -73.0497, displayName: "Piedecuesta, Santander, Colombia", city: "Piedecuesta", state: "Santander", country: "Colombia" },
   "bogota": { latitude: 4.711, longitude: -74.0721, displayName: "Bogotá, D.C., Colombia", city: "Bogotá", state: "Cundinamarca", country: "Colombia" },
+  "cota": { latitude: 4.8114, longitude: -74.1039, displayName: "Cota, Cundinamarca, Colombia", city: "Cota", state: "Cundinamarca", country: "Colombia" },
   "medellin": { latitude: 6.2442, longitude: -75.5812, displayName: "Medellín, Antioquia, Colombia", city: "Medellín", state: "Antioquia", country: "Colombia" },
+  "itagui": { latitude: 6.173, longitude: -75.6111, displayName: "Itagüí, Antioquia, Colombia", city: "Itagüí", state: "Antioquia", country: "Colombia" },
   "cali": { latitude: 3.4516, longitude: -76.532, displayName: "Santiago de Cali, Valle del Cauca, Colombia", city: "Cali", state: "Valle del Cauca", country: "Colombia" },
+  "yumbo": { latitude: 3.5828, longitude: -76.4958, displayName: "Yumbo, Valle del Cauca, Colombia", city: "Yumbo", state: "Valle del Cauca", country: "Colombia" },
   "barranquilla": { latitude: 10.9685, longitude: -74.7813, displayName: "Barranquilla, Atlántico, Colombia", city: "Barranquilla", state: "Atlántico", country: "Colombia" },
   "cartagena": { latitude: 10.391, longitude: -75.4794, displayName: "Cartagena de Indias, Bolívar, Colombia", city: "Cartagena", state: "Bolívar", country: "Colombia" },
-  "bucaramanga": { latitude: 7.1193, longitude: -73.1227, displayName: "Bucaramanga, Santander, Colombia", city: "Bucaramanga", state: "Santander", country: "Colombia" },
+  "cucuta": { latitude: 7.8939, longitude: -72.5078, displayName: "Cúcuta, Norte de Santander, Colombia", city: "Cúcuta", state: "Norte de Santander", country: "Colombia" },
+  "pereira": { latitude: 4.8133, longitude: -75.6961, displayName: "Pereira, Risaralda, Colombia", city: "Pereira", state: "Risaralda", country: "Colombia" },
+  "manizales": { latitude: 5.0689, longitude: -75.5174, displayName: "Manizales, Caldas, Colombia", city: "Manizales", state: "Caldas", country: "Colombia" },
+  "ibague": { latitude: 4.4389, longitude: -75.2322, displayName: "Ibagué, Tolima, Colombia", city: "Ibagué", state: "Tolima", country: "Colombia" },
+  "tunja": { latitude: 5.5353, longitude: -73.3678, displayName: "Tunja, Boyacá, Colombia", city: "Tunja", state: "Boyacá", country: "Colombia" },
+  "villavicencio": { latitude: 4.142, longitude: -73.6266, displayName: "Villavicencio, Meta, Colombia", city: "Villavicencio", state: "Meta", country: "Colombia" },
+  "santa marta": { latitude: 11.2408, longitude: -74.199, displayName: "Santa Marta, Magdalena, Colombia", city: "Santa Marta", state: "Magdalena", country: "Colombia" },
+
+  // Nodos Internacionales de Respaldo
+  "miami": { latitude: 25.7617, longitude: -80.1918, displayName: "Miami, Florida, USA", city: "Miami", state: "FL", country: "USA" },
+  "panama": { latitude: 8.9824, longitude: -79.5199, displayName: "Ciudad de Panamá, Panamá", city: "Ciudad de Panamá", state: "Panamá", country: "Panamá" },
   "lima": { latitude: -12.0464, longitude: -77.0428, displayName: "Lima, Perú", city: "Lima", state: "Lima", country: "Perú" },
   "santiago": { latitude: -33.4489, longitude: -70.6693, displayName: "Santiago, Región Metropolitana, Chile", city: "Santiago", state: "RM", country: "Chile" },
-  "buenos aires": { latitude: -34.6037, longitude: -58.3816, displayName: "Buenos Aires, CABA, Argentina", city: "Buenos Aires", state: "CABA", country: "Argentina" },
-  "madrid": { latitude: 40.4168, longitude: -3.7038, displayName: "Madrid, Comunidad de Madrid, España", city: "Madrid", state: "Madrid", country: "España" },
-  "barcelona": { latitude: 41.3874, longitude: 2.1686, displayName: "Barcelona, Cataluña, España", city: "Barcelona", state: "Cataluña", country: "España" },
-  "miami": { latitude: 25.7617, longitude: -80.1918, displayName: "Miami, Florida, USA", city: "Miami", state: "FL", country: "USA" },
-  "houston": { latitude: 29.7604, longitude: -95.3698, displayName: "Houston, Texas, USA", city: "Houston", state: "TX", country: "USA" },
-  "laredo": { latitude: 27.5036, longitude: -99.5076, displayName: "Laredo, Texas, USA", city: "Laredo", state: "TX", country: "USA" },
-  "los angeles": { latitude: 34.0522, longitude: -118.2437, displayName: "Los Angeles, California, USA", city: "Los Angeles", state: "CA", country: "USA" },
-  "new york": { latitude: 40.7128, longitude: -74.006, displayName: "New York, NY, USA", city: "New York", state: "NY", country: "USA" },
-  "sao paulo": { latitude: -23.5505, longitude: -46.6333, displayName: "São Paulo, SP, Brasil", city: "São Paulo", state: "SP", country: "Brasil" },
-  "panama": { latitude: 8.9824, longitude: -79.5199, displayName: "Ciudad de Panamá, Panamá", city: "Ciudad de Panamá", state: "Panamá", country: "Panamá" },
+  "madrid": { latitude: 40.4168, longitude: -3.7038, displayName: "Madrid, España", city: "Madrid", state: "Madrid", country: "España" },
 };
 
 const geocodeCache = new Map<string, GeocodedLocation>();

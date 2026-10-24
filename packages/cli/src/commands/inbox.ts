@@ -20,18 +20,27 @@ export async function inboxCommand(
         console.log(JSON.stringify(res));
       } else {
         if (res.success) {
-          console.log(`\n  ${theme.mintBold("[OK] DECISIÓN APROBADA Y EJECUTADA CON ÉXITO")}`);
+          console.log(`\n  ${theme.mintBold("[OK] DECISIÓN APROBADA Y EJECUTADA EN PRODUCCIÓN")}`);
+          if (res.diff) {
+            console.log("");
+            console.log(`  ${theme.charcoal("┌─")} ${theme.bold("DIFF DE IMPACTO EN BASE DE DATOS")}`);
+            console.log(`  ${theme.charcoal("│")}  ${theme.dim("Entidad:")}         ${theme.smokeBold(res.diff.entity)}`);
+            console.log(`  ${theme.charcoal("│")}  ${theme.redBold("[-] ANTERIOR:")}      ${theme.dim(res.diff.previousState)}`);
+            console.log(`  ${theme.charcoal("│")}  ${theme.mintBold("[+] NUEVO:")}         ${theme.smoke(res.diff.newState)}`);
+            console.log(`  ${theme.charcoal("│")}  ${theme.dim("Tablas mutadas:")}  ${theme.cyan(res.diff.tablesAffected.join(", "))}`);
+            console.log(`  ${theme.charcoal("└─" + "─".repeat(64))}\n`);
+          }
           if (res.voucher) {
             const { renderInvoiceVoucher } = require("../ui/voucher");
-            console.log("\n" + renderInvoiceVoucher(res.voucher) + "\n");
+            console.log(renderInvoiceVoucher(res.voucher) + "\n");
             if (res.voucher.receiptPath) {
-              console.log(`  ${theme.dim("Comprobante digital exportado:")} ${theme.cyan(res.voucher.receiptPath)}\n`);
+              console.log(`  ${theme.dim("Comprobante formal emitido:")} ${theme.cyan(res.voucher.receiptPath)}\n`);
             }
           } else {
             console.log(`  ${res.message}\n`);
           }
         } else {
-          console.error(theme.redBold(`  [ERROR] Fallo la aprobacion: ${res.message}`));
+          console.error(theme.redBold(`  [ERROR] Falló la aprobación: ${res.message}`));
         }
       }
       return;

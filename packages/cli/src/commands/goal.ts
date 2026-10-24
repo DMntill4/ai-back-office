@@ -33,9 +33,10 @@ export async function goalCommand(
 
     console.log("\n" + drawDivider(`MOTOR ESTRATÉGICO DE OBJETIVOS │ PLAN DE IMPLEMENTACIÓN [${companyId}]`, 86));
 
-    const baselineStr = `$${plan.currentMonthlyBaselineMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
-    const targetStr = `$${plan.targetMonthlySpendMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
-    const savingsStr = `$${plan.projectedMonthlySavingsMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
+    const curr = plan.currency || "COP";
+    const baselineStr = `$${plan.currentMonthlyBaselineMxn.toLocaleString()} ${curr}`;
+    const targetStr = `$${plan.targetMonthlySpendMxn.toLocaleString()} ${curr}`;
+    const savingsStr = `$${plan.projectedMonthlySavingsMxn.toLocaleString()} ${curr}`;
 
     // Barra de viabilidad técnica estilo terminal Linux
     const barLength = 24;
@@ -47,8 +48,8 @@ export async function goalCommand(
         [
           `${theme.dim("Objetivo:")}        ${theme.bold(`"${plan.objectiveText}"`)}`,
           `${theme.dim("Meta de Reducción:")} ${theme.mintBold(`-${plan.targetSavingsPercentage}%`)}  ${theme.dim("│")}  ${theme.dim("Viabilidad:")} ${progressBar} ${(plan.feasibilityScore * 100).toFixed(0)}%`,
-          theme.dim("─".repeat(74)),
-          `${theme.dim("Gasto Mensual Base:")}     ${theme.bold(baselineStr)} (Compras + Almacén + Fletes)`,
+          theme.charcoal("─".repeat(74)),
+          `${theme.dim("Gasto Mensual Base:")}     ${theme.smokeBold(baselineStr)} (Compras + Bodegaje + Fletes)`,
           `${theme.dim("Gasto Objetivo Nuevo:")}    ${theme.cyanBold(targetStr)} / mes`,
           `${theme.dim("Ahorro Neto Proyectado:")}  ${theme.mintBold(savingsStr)} / mes`,
         ],
@@ -61,11 +62,19 @@ export async function goalCommand(
       ),
     );
 
+    if (plan.executiveSummary) {
+      console.log("\n  " + theme.mintBold("[ANÁLISIS ESTRATÉGICO DEL AGENTE]"));
+      const summaryLines = plan.executiveSummary.split("\n").filter(Boolean);
+      for (const sl of summaryLines) {
+        console.log(`  ${theme.smoke(sl)}`);
+      }
+    }
+
     console.log("\n  " + theme.bold("LAS 4 PALANCAS TÁCTICAS OPERATIVAS:"));
     const leverRows = plan.levers.map((l) => ({
       name: l.name,
       area: theme.badge(l.area, l.area === "COMPRAS" ? "cyan" : l.area === "INVENTARIO" ? "mint" : l.area === "FLETES" ? "amber" : "violet"),
-      savings: `$${l.monthlySavingsMxn.toLocaleString("es-MX")} MXN`,
+      savings: `$${l.monthlySavingsMxn.toLocaleString()} ${curr}`,
       timeframe: l.timeframe,
       risk: `${(l.riskScore * 100).toFixed(0)}%`,
     }));
@@ -75,7 +84,7 @@ export async function goalCommand(
         [
           { header: "Palanca Operativa", key: "name", width: 34 },
           { header: "Área", key: "area", width: 12, align: "center" },
-          { header: "Ahorro / Mes", key: "savings", width: 16, align: "right" },
+          { header: "Ahorro / Mes", key: "savings", width: 18, align: "right" },
           { header: "Plazo", key: "timeframe", width: 12, align: "center" },
           { header: "Riesgo", key: "risk", width: 8, align: "center" },
         ],
@@ -89,13 +98,13 @@ export async function goalCommand(
         drawCard(
           [
             `${theme.dim("Período:")} ${theme.bold(ph.period)}  ${theme.dim("│")}  ${theme.dim("Enfoque:")} ${ph.focus}`,
-            `${theme.dim("Ahorro Acumulado Proyectado:")} ${theme.mintBold(`$${ph.expectedCumulativeSavingsMxn.toLocaleString("es-MX")} MXN / mes`)}`,
+            `${theme.dim("Ahorro Acumulado Proyectado:")} ${theme.mintBold(`$${ph.expectedCumulativeSavingsMxn.toLocaleString()} ${curr} / mes`)}`,
             theme.dim("Hitos clave:"),
             ...ph.milestones.map((m) => `  ${theme.mint("→")} ${m}`),
           ],
           {
             title: `FASE ${ph.phaseNumber}: ${ph.title.toUpperCase()}`,
-            borderColor: ph.phaseNumber === 1 ? theme.cyan : ph.phaseNumber === 2 ? theme.mint : theme.gray,
+            borderColor: ph.phaseNumber === 1 ? theme.cyan : ph.phaseNumber === 2 ? theme.mint : theme.border,
           },
         ),
       );
@@ -109,7 +118,7 @@ export async function goalCommand(
           `  ${theme.mintBold("[STAGED]")} ${theme.bold(st.id)} │ ${st.title}`,
         );
         console.log(
-          `           Costo Comprometido: $${st.costMxn.toLocaleString("es-MX")} MXN │ Ahorro Esperado: ${theme.mintBold(`$${st.projectedSavingsMxn.toLocaleString("es-MX")} MXN`)}`,
+          `           Costo Comprometido: $${st.costMxn.toLocaleString()} ${curr} │ Ahorro Esperado: ${theme.mintBold(`$${st.projectedSavingsMxn.toLocaleString()} ${curr}`)}`,
         );
         console.log(
           `           Acción: ${theme.cyan(`/approve ${st.id}`)} para autorizar y emitir la orden/guía.\n`,

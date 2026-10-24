@@ -1,5 +1,5 @@
 import * as readline from "readline";
-import { theme } from "../ui/theme";
+import { theme, renderSystemHeader } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
 import { getSession } from "../keychain";
 import { getDaemonStatus } from "@mint/daemon";
@@ -10,6 +10,7 @@ import {
   decisions,
   shipments,
   warehouses,
+  businessConfig,
   analyzeDynamicCatalogHealth,
   buildConsolidatedLoadPlans,
 } from "@mint/core";
@@ -26,26 +27,21 @@ export async function consoleCommand() {
 
   const companyId = session?.companyId || "comp_default";
   const userName = session?.name || "operator";
-  const companyDisplayName = session?.companyName || companyId;
+  const companyDisplayName = session?.companyName || "Ferretería Industrial Santandereana S.A.S.";
 
   console.clear();
 
-  const daemon = getDaemonStatus();
-  const daemonBadge = daemon.isPaused
-    ? theme.badge("PAUSED", "red")
-    : daemon.isRunning
-      ? theme.badge(`ONLINE (PID ${daemon.pid || process.pid})`, "mint")
-      : theme.badge("STANDBY", "gray");
+  let dbConnected = true;
+  let autonomyLevel = "dry-run";
+  let prodsCount = 0;
+  let activeShipsCount = 0;
+  let ropAlertsCount = 0;
+  let whCity = "Bucaramanga";
+  let pendingCount = 0;
+  let initialScanFindings: string[] = [];
 
-  console.log("");
-  console.log(
-    `  ${theme.mintBold("MINT")} ${theme.dim("v2.5.0")}  │  ${theme.bold(companyDisplayName)} [${theme.dim(companyId)}]  │  ${daemonBadge}`,
-  );
-  console.log(theme.dim("  " + "─".repeat(78)));
-
-  // Resumen compacto de 2 líneas al inicio (sin cajas gigantes ni emojis)
   try {
-    const [prods, whs, ships, pendingDecs, health, loads] = await Promise.all([
+    const [prods, whs, ships, pendingDecs, health, bConfigs] = await Promise.all([
       db.select().from(products).where(eq(products.companyId, companyId)),
       db.select().from(warehouses).where(eq(warehouses.companyId, companyId)),
       db.select().from(shipments).where(eq(shipments.companyId, companyId)),
@@ -54,22 +50,63 @@ export async function consoleCommand() {
         .from(decisions)
         .where(and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval"))),
       analyzeDynamicCatalogHealth(companyId).catch(() => []),
-      buildConsolidatedLoadPlans(companyId).catch(() => []),
+      db.select().from(businessConfig).where(eq(businessConfig.companyId, companyId)).catch(() => []),
     ]);
 
-    const activeShips = ships.filter((s) => s.status === "en_transito" || s.status === "retrasado");
+    prodsCount = prods.length;
+    pendingCount = pendingDecs.length;
+    activeShipsCount = ships.filter((s) => s.status === "en_transito" || s.status === "retrasado").length;
     const ropAlerts = health.filter((h) => h.needsReorder);
-    const whCity = whs[0]?.city || whs[0]?.location || "Sede Principal";
+    ropAlertsCount = ropAlerts.length;
+    whCity = whs[0]?.city || whs[0]?.location || "Bucaramanga";
+    const autoCfg = bConfigs.find((c) => c.key === "autonomy_level");
+    if (autoCfg?.value) autonomyLevel = autoCfg.value;
 
-    console.log(
-      `  ${theme.dim("Catalogo:")} ${theme.bold(String(prods.length))} SKUs  │  ${theme.dim("Bodega:")} ${whCity}  │  ${theme.dim("Bajo ROP:")} ${ropAlerts.length > 0 ? theme.amberBold(String(ropAlerts.length)) : theme.mint("0")}  │  ${theme.dim("Guias:")} ${activeShips.length}  │  ${theme.dim("Cargas:")} ${loads.length}  │  ${theme.dim("Inbox:")} ${pendingDecs.length}`,
-    );
-    console.log(
-      `  ${theme.dim("Comandos:")} ${theme.mintBold("/goal")}  ${theme.mint("/logistics")}  ${theme.mint("/dispatch")}  ${theme.mint("/stock")}  ${theme.mint("/inbox")}  ${theme.mint("/approve")}  ${theme.mint("/invoice")}  ${theme.mint("/daemon")}  ${theme.mint("/help")}`,
-    );
-    console.log(theme.dim("  " + "─".repeat(78)));
+    if (ropAlerts.length > 0) {
+      initialScanFindings.push(
+        `${theme.amberBold("[STOCK BAJO ROP]")} ${ropAlerts.length} productos críticos: ${ropAlerts.slice(0, 3).map((r) => r.name).join(", ")}`,
+      );
+    }
+    const delayed = ships.filter((s) => s.status === "retrasado");
+    if (delayed.length > 0) {
+      initialScanFindings.push(
+        `${theme.redBold("[ALERTA ENVÍO]")} Guía ${delayed[0].trackingNumber} retrasada (${delayed[0].carrier || "Transportista"}).`,
+      );
+    }
   } catch {
-    // Continuar si la BD aún no tiene tablas inicializadas
+    dbConnected = false;
+  }
+
+  const daemon = getDaemonStatus();
+  console.log("");
+  console.log(
+    renderSystemHeader({
+      dbConnected,
+      companyName: companyDisplayName,
+      daemonActive: daemon.isRunning && !daemon.isPaused,
+      autonomyLevel,
+      pendingCount,
+    }),
+  );
+  console.log(
+    `  ${theme.dim("Catálogo:")} ${theme.smokeBold(String(prodsCount))} SKUs  │  ${theme.dim("Sede:")} ${theme.smoke(whCity)}  │  ${theme.dim("Bajo ROP:")} ${ropAlertsCount > 0 ? theme.amberBold(String(ropAlertsCount)) : theme.mint("0")}  │  ${theme.dim("En Tránsito:")} ${activeShipsCount}  │  ${theme.dim("Inbox:")} ${pendingCount}`,
+  );
+  console.log(
+    `  ${theme.dim("Comandos:")} ${theme.mintBold("/goal")}  ${theme.mint("/logistics")}  ${theme.mint("/dispatch")}  ${theme.mint("/stock")}  ${theme.mint("/inbox")}  ${theme.mint("/approve")}  ${theme.mint("/daemon")}  ${theme.mint("/help")}`,
+  );
+  console.log(theme.charcoal("  " + "─".repeat(82)));
+
+  // Diagnóstico autónomo inicial al arranque
+  if (initialScanFindings.length > 0) {
+    console.log(`\n  ${theme.mintBold("[DIAGNÓSTICO AUTÓNOMO INICIAL]")}`);
+    initialScanFindings.forEach((finding, idx) => {
+      const isLast = idx === initialScanFindings.length - 1 && pendingCount === 0;
+      console.log(`  ${theme.charcoal(isLast ? "└─" : "├─")} ${finding}`);
+    });
+    if (pendingCount > 0) {
+      console.log(`  ${theme.charcoal("└─")} ${theme.smoke(`Propuestas formuladas en /inbox. Usa ${theme.mintBold("/inbox")} o ${theme.mintBold("/approve <id>")} para autorizarlas.`)}`);
+    }
+    console.log("");
   }
 
   console.log("");

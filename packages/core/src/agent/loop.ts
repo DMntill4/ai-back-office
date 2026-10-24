@@ -15,7 +15,7 @@ export interface AgentLoopOptions {
   client?: {
     chatCompletion: (options: any) => Promise<any>;
   };
-  onEvent?: (event: { step: number; agent: string; action: string; details?: string }) => void;
+  onEvent?: (event: { step: number; agent: string; action: string; details?: string; resultSummary?: string }) => void;
 }
 
 export interface AgentExecutionReport {
@@ -26,7 +26,7 @@ export interface AgentExecutionReport {
   totalCost: string;
   summary: string;
   reason: string;
-  multiAgentEvents?: Array<{ agent: string; action: string; details?: string }>;
+  multiAgentEvents?: Array<{ agent: string; action: string; details?: string; resultSummary?: string }>;
 }
 
 /**
@@ -68,16 +68,18 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
       const botTone = configs.find((c) => c.key === "bot_tone")?.value || "ejecutivo";
       const customRules = configs.find((c) => c.key === "bot_custom_rules")?.value;
 
-      const locCity = comp?.city || mainWh?.city || mainWh?.location || "Sede Principal";
-      const locCountry = comp?.country || mainWh?.country || "";
+      const locCity = comp?.city || mainWh?.city || mainWh?.location || "Bucaramanga";
+      const locCountry = comp?.country || mainWh?.country || "Colombia";
+      const locCurrency = comp?.currency || "COP";
 
       let customBlock = "\n\n[CONTEXTO Y CONFIGURACIÓN EN TIEMPO REAL]";
-      customBlock += `\n- Empresa Activa: ${comp?.name || companyId} (ID: ${companyId})`;
-      customBlock += `\n- Ubicación Matriz / Bodega: ${locCity}${locCountry ? `, ${locCountry}` : ""}`;
-      customBlock += `\n- Moneda Base Operativa: ${comp?.currency || "USD / Local"}`;
+      customBlock += `\n- Empresa Activa: ${comp?.name || "Ferretería Industrial Santandereana S.A.S."} (ID: ${companyId})`;
+      customBlock += `\n- Rubro Comercial: Comercialización y Distribución de Herramientas y Ferretería Industrial.`;
+      customBlock += `\n- Ubicación Matriz / Bodega: ${locCity}, ${locCountry}`;
+      customBlock += `\n- Moneda Base Operativa: ${locCurrency} (Pesos Colombianos)`;
       customBlock += `\n- Catálogo Actual: ${prods.length} productos registrados en PostgreSQL.`;
       if (prods.length > 0) {
-        customBlock += `\n- Muestra de Catálogo Real: ${prods.slice(0, 8).map((p) => `${p.name} [${p.sku}]`).join("; ")}`;
+        customBlock += `\n- Muestra de Catálogo Real: ${prods.slice(0, 10).map((p) => `${p.name} [${p.sku}]`).join("; ")}`;
       }
       if (supps.length > 0) {
         customBlock += `\n- Proveedores Homologados: ${supps.map((s) => `${s.name} (${s.city || "Distribuidor"})`).join(", ")}.`;
@@ -92,7 +94,7 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
       customBlock += `\n- Asistente: ${botName} (Tono: ${botTone})`;
       customBlock += `\n- Gobernanza: HUMAN-IN-THE-LOOP 100%. CERO compras automáticas unilaterales sin autorización en /inbox.`;
       if (customRules) customBlock += `\nDirectivas adicionales de gobernanza:\n${customRules}`;
-      customBlock += `\nREGLA ESTRICTA DE FIDELIDAD: Los productos y proveedores cargados provienen de la base de datos real del cliente. Basa tus respuestas exclusivamente en las entidades, SKUs y ubicaciones verificadas arriba. Jamás inventes productos de otros rubros ni supongas sedes no registradas.`;
+      customBlock += `\nPROHIBICIÓN ESTRICTA DE ALUCINACIONES: Los productos, existencias y proveedores cargados provienen de la base de datos real en PostgreSQL. Queda terminantemente prohibido inventar productos de otros rubros (alimentos, Nutella, etc.) o sedes fuera de Colombia. Basa tus respuestas exclusivamente en las entidades y consultas a la base de datos.`;
 
       prompt += customBlock;
     } catch {
@@ -217,7 +219,7 @@ Instrucciones de ejecución:
   let finalStatus: "resuelto" | "escalado" = "escalado";
   let finalSummary = "El agente no completó el ciclo satisfactoriamente.";
   let finalReason = "Límite de pasos alcanzado";
-  const multiAgentTimeline: Array<{ agent: string; action: string; details?: string }> = [];
+  const multiAgentTimeline: Array<{ agent: string; action: string; details?: string; resultSummary?: string }> = [];
 
   const SPECIALIST_MAP: Record<string, string> = {
     consultar_stock: "Módulo Inventario [PostgreSQL]",
@@ -279,19 +281,6 @@ Instrucciones de ejecución:
         const toolArgs = call.function.arguments;
         const specialist = SPECIALIST_MAP[toolName] || "[AGENTE] Especialista";
 
-        options.onEvent?.({
-          step: currentStep,
-          agent: specialist,
-          action: toolName,
-          details: typeof toolArgs === "string" ? toolArgs : JSON.stringify(toolArgs),
-        });
-
-        multiAgentTimeline.push({
-          agent: specialist,
-          action: toolName,
-          details: typeof toolArgs === "string" ? toolArgs : JSON.stringify(toolArgs),
-        });
-
         const { result, isClosingAction, closingType } = await dispatchToolCall(
           toolName,
           toolArgs,
@@ -300,6 +289,55 @@ Instrucciones de ejecución:
             caseId,
           },
         );
+
+        let resultSummary = "Ejecutado con éxito";
+        if (!result.isSuccess) {
+          resultSummary = `Fallo: ${result.error || "Error de ejecución"}`;
+        } else if (toolName === "consultar_stock") {
+          const res = result.result;
+          if (res?.stock !== undefined) {
+            resultSummary = `${res.stock} unidades en stock (ROP: ${res.reorderPoint ?? "N/A"}) -> ${res.status || "OK"}`;
+          } else if (Array.isArray(res?.items)) {
+            resultSummary = `${res.items.length} productos verificados en PostgreSQL`;
+          }
+        } else if (toolName === "evaluar_proveedores") {
+          const cot = result.result?.cotizaciones?.[0];
+          if (cot) {
+            resultSummary = `${cot.supplierName || "Proveedor"}: $${Number(cot.unitCostMxn || 0).toLocaleString()} COP (Lead: ${cot.deliveryDays || 2}d)`;
+          } else {
+            resultSummary = "Catálogo de proveedores evaluado";
+          }
+        } else if (toolName === "calcular_ruta_logistica") {
+          const r = result.result;
+          if (r?.distanciaKm !== undefined) {
+            resultSummary = `OSRM: ${r.distanciaKm} km, ${r.duracionHoras}h, Flete: $${Number(r.costoEstimadoMxn || 0).toLocaleString()} COP`;
+          }
+        } else if (toolName === "crear_orden_compra") {
+          resultSummary = `Propuesta encolada en /inbox (PO #${result.result?.orderId || result.result?.poId || "PENDING"})`;
+        } else if (toolName === "auditar_anomalias") {
+          resultSummary = `${result.result?.anomaliasDetectadas?.length ?? 0} anomalías detectadas en inventario`;
+        } else if (result.result?.summary) {
+          resultSummary = String(result.result.summary);
+        } else if (result.result?.message) {
+          resultSummary = String(result.result.message);
+        }
+
+        const stepDetail = typeof toolArgs === "string" ? toolArgs : JSON.stringify(toolArgs);
+
+        options.onEvent?.({
+          step: currentStep,
+          agent: specialist,
+          action: toolName,
+          details: stepDetail,
+          resultSummary,
+        });
+
+        multiAgentTimeline.push({
+          agent: specialist,
+          action: toolName,
+          details: stepDetail,
+          resultSummary,
+        });
 
         // Control de escrituras no verificadas
         if (toolName === "crear_orden_compra") {

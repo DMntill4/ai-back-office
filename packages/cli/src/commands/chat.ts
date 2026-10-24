@@ -27,24 +27,31 @@ export async function chatCommand(message: string, options: { json?: boolean; no
       return;
     }
 
-    const executedSteps: string[] = [];
+    const executedSteps: Array<{ agent: string; action: string; details?: string; resultSummary?: string }> = [];
     const res = await runAgentLoop(caseId, {
       onEvent: (ev) => {
-        executedSteps.push(`${ev.action}`);
+        executedSteps.push({
+          agent: ev.agent,
+          action: ev.action,
+          details: ev.details,
+          resultSummary: ev.resultSummary,
+        });
       },
     });
 
     console.log("");
     if (executedSteps.length > 0) {
-      console.log(`  ${theme.dim("Tools ejecutadas:")} ${theme.cyan(executedSteps.join(" -> "))}`);
+      const { renderThoughtTree } = await import("../ui/thoughtTree");
+      console.log(renderThoughtTree(executedSteps, message));
+      console.log("");
     }
 
     const responseLines = formatTerminalMarkdown(res.summary || "Sin respuesta del modelo.");
-    console.log(theme.dim("  " + "─".repeat(76)));
+    console.log(theme.charcoal("  " + "─".repeat(76)));
     for (const line of responseLines) {
       console.log(`  ${line}`);
     }
-    console.log(theme.dim("  " + "─".repeat(76)));
+    console.log(theme.charcoal("  " + "─".repeat(76)));
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));

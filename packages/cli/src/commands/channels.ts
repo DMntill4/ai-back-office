@@ -181,37 +181,46 @@ export async function settingsCommand() {
 
   console.log("\n" + drawDivider("CONFIGURACIÓN DEL SISTEMA Y GOBERNANZA OPERATIVA", 84));
 
-  const configs = await db
-    .select()
-    .from(businessConfig)
-    .where(eq(businessConfig.companyId, companyId));
+  let configs: any[] = [];
+  let channels: any[] = [];
+  let dbStatus = theme.mint("Conectada");
 
-  const channels = await listNotificationChannels(companyId);
+  try {
+    configs = await db
+      .select()
+      .from(businessConfig)
+      .where(eq(businessConfig.companyId, companyId));
+
+    channels = await listNotificationChannels(companyId);
+  } catch {
+    dbStatus = theme.amber("Desconectada (Modo offline)");
+  }
 
   console.log(
     drawCard(
       [
         `${theme.bold("EMPRESA Y USUARIO ACTIVO:")}`,
         `  - Organizacion:   ${theme.mintBold(session?.companyName || companyId)} [${companyId}]`,
-        `  - Operador:       ${theme.bold(session?.name || "Dale")} <${session?.email || "dalej@gmail.com"}> (Rol: ${session?.role || "owner"})`,
+        `  - Operador:       ${theme.bold(session?.name || "Operador")} <${session?.email || "admin@mint.local"}> (Rol: ${session?.role || "owner"})`,
         ``,
         `${theme.bold("GOBERNANZA FINANCIERA Y AUTONOMIA (PRODUCCION):")}`,
-        `  - Modo de Operacion:  ${theme.badge("HUMAN-IN-THE-LOOP 100%", "mint")} (CERO compras automaticas)`,
+        `  - Modo de Operacion:  ${theme.badge("HUMAN-IN-THE-LOOP 100%", "mint")} (CERO compras automaticas sin autorizacion)`,
         `  - Politica de Compras: Toda orden de reposicion requiere autorizacion humana en ${theme.mintBold("/inbox")}.`,
         `  - Presupuesto Maximo:  Definido por orden en cada propuesta evaluada por el equipo multi-agente.`,
         ``,
         `${theme.bold("CANALES DE COMUNICACION CONECTADOS:")}`,
         channels.length > 0
           ? channels.map((c) => `  - ${c.type.toUpperCase()}: ${theme.bold(c.name)} (${c.isActive ? theme.mint("Activo") : theme.amber("Pausado")})`).join("\n")
-          : `  - ${theme.amber("Ningun canal remoto conectado. Agrega uno con /channels add discord <url>")}`,
+          : `  - ${theme.dim("Ningun canal remoto conectado. Agrega uno con mint channels add discord <url>")}`,
         ``,
         `${theme.bold("BASE DE DATOS Y CATALOGO:")}`,
-        `  - Motor:          PostgreSQL 15 (Supabase AWS Pooler)`,
-        `  - Catalogo Real:  Sincronizado en tiempo real (0 datos ficticios)`,
+        `  - Estado:         ${dbStatus}`,
+        `  - Motor:          PostgreSQL (Drizzle ORM)`,
+        `  - Catalogo Real:  Herramientas y Ferretería Industrial (Colombia)`,
       ],
       {
         title: "AJUSTES Y GOBERNANZA MINT",
-        borderColor: theme.cyan,
+        borderColor: theme.mint,
       },
     ),
   );
