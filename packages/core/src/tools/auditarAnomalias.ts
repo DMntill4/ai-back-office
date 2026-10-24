@@ -7,60 +7,103 @@ export const auditarAnomaliasSchema = z.object({
 
 export type AuditarAnomaliasInput = z.infer<typeof auditarAnomaliasSchema>;
 
-export async function executeAuditarAnomalias(args: AuditarAnomaliasInput) {
+export async function executeAuditarAnomalias(
+  args: AuditarAnomaliasInput,
+  context?: { companyId?: string },
+) {
   try {
     const { db } = await import("../db/client");
     const { products, inventory, supplierProducts, suppliers } = await import("../db/schema");
-    const { eq, lt, sql } = await import("drizzle-orm");
+    const { eq, and, sql } = await import("drizzle-orm");
 
+    const effectiveCompanyId = context?.companyId || "comp_default";
     const anomaliasDetectadas: any[] = [];
 
     if (args.tipo_auditoria === "todo" || args.tipo_auditoria === "descalces_inventario") {
-      const stockCeroOSinRegistro = await db
+      const stockList = await db
         .select({
           id: products.id,
           name: products.name,
+          sku: products.sku,
           minStock: products.minStock,
-          stock: sql<number>`COALESCE(${inventory.stock}, 0)`,
+          stock: sql<number>`coalesce(sum(${inventory.stock}), 0)`,
         })
         .from(products)
         .leftJoin(inventory, eq(products.id, inventory.productId))
-        .where(lt(sql<number>`COALESCE(${inventory.stock}, 0)`, products.minStock));
+        .where(eq(products.companyId, effectiveCompanyId))
+        .groupBy(products.id, products.name, products.sku, products.minStock);
 
-      for (const item of stockCeroOSinRegistro) {
-        anomaliasDetectadas.push({
-          categoria: "DESCALCE_STOCK",
-          gravedad: item.stock === 0 ? "CRÍTICA" : "ALTA",
-          entidad: item.name,
-          descripcion: item.stock === 0
-            ? `Producto con stock 0 registrado en catálogo.`
-            : `Stock actual (${item.stock}) por debajo del umbral de seguridad (${item.minStock}).`,
-          accionSugerida: "Generar solicitud de reabastecimiento o auditar inventario físico.",
-        });
+      for (const item of stockList) {
+        const stockVal = Number(item.stock);
+        const minVal = Number(item.minStock);
+        if (stockVal === 0) {
+          anomaliasDetectadas.push({
+            categoria: "DESCALCE_STOCK_CRÍTICO",
+            gravedad: "CRÍTICA",
+            entidad: `${item.name} (${item.sku})`,
+            descripcion: `Producto agotado (stock: 0u). Mínimo de seguridad requerido: ${minVal}u.`,
+            accionSugerida: "Generar propuesta de reabastecimiento en /inbox.",
+          });
+        } else if (stockVal < minVal) {
+          anomaliasDetectadas.push({
+            categoria: "DESCALCE_STOCK_BAJO",
+            gravedad: "ALTA",
+            entidad: `${item.name} (${item.sku})`,
+            descripcion: `Stock actual (${stockVal}u) por debajo del umbral mínimo de seguridad (${minVal}u).`,
+            accionSugerida: "Revisar órdenes de compra abiertas o cotizar con proveedores.",
+          });
+        }
       }
     }
 
     if (args.tipo_auditoria === "todo" || args.tipo_auditoria === "precios_proveedor") {
-      const preciosAltos = await db
+      const catalogPrices = await db
         .select({
-          supplierName: suppliers.name,
+          productId: products.id,
           productName: products.name,
+          sku: products.sku,
+          supplierName: suppliers.name,
           unitPrice: supplierProducts.unitPrice,
         })
         .from(supplierProducts)
         .innerJoin(suppliers, eq(supplierProducts.supplierId, suppliers.id))
-        .innerJoin(products, eq(supplierProducts.productId, products.id));
+        .innerJoin(products, eq(supplierProducts.productId, products.id))
+        .where(eq(products.companyId, effectiveCompanyId));
 
-      for (const sp of preciosAltos) {
-        const precio = parseFloat(sp.unitPrice || "0");
-        if (precio > 1000) {
-          anomaliasDetectadas.push({
-            categoria: "PRECIO_PROVEEDOR_ELEVADO",
-            gravedad: "MEDIA",
-            entidad: `${sp.productName} (${sp.supplierName})`,
-            descripcion: `Precio unitario de $${precio.toFixed(2)} MXN supera el costo de referencia promedio.`,
-            accionSugerida: "Evaluar proveedores alternativos usando 'evaluar_proveedores'.",
-          });
+      // Agrupar por producto para calcular dispersión real de precios
+      const pricesByProduct = new Map<
+        string,
+        Array<{ supplier: string; price: number; productName: string; sku: string }>
+      >();
+
+      for (const row of catalogPrices) {
+        const price = Number(row.unitPrice);
+        if (!pricesByProduct.has(row.productId)) {
+          pricesByProduct.set(row.productId, []);
+        }
+        pricesByProduct.get(row.productId)!.push({
+          supplier: row.supplierName,
+          price,
+          productName: row.productName,
+          sku: row.sku,
+        });
+      }
+
+      for (const [, entries] of pricesByProduct.entries()) {
+        if (entries.length > 1) {
+          const minPrice = Math.min(...entries.map((e) => e.price));
+          for (const entry of entries) {
+            const spreadPercent = ((entry.price - minPrice) / minPrice) * 100;
+            if (spreadPercent >= 20) {
+              anomaliasDetectadas.push({
+                categoria: "SOBREPRECIO_PROVEEDOR",
+                gravedad: "MEDIA",
+                entidad: `${entry.productName} (${entry.supplier})`,
+                descripcion: `Precio unitario de $${entry.price.toFixed(2)} MXN es +${spreadPercent.toFixed(1)}% más caro que la mejor opción ($${minPrice.toFixed(2)} MXN).`,
+                accionSugerida: "Priorizar al proveedor más económico en la próxima compra.",
+              });
+            }
+          }
         }
       }
     }
@@ -69,8 +112,8 @@ export async function executeAuditarAnomalias(args: AuditarAnomaliasInput) {
       anomaliasDetectadas.push({
         categoria: "SISTEMA_SALUDABLE",
         gravedad: "INFORMATIVA",
-        entidad: "Auditoría General",
-        descripcion: "No se detectaron anomalías críticas en el inventario ni en los precios de proveedores.",
+        entidad: "Auditoría de Almacén",
+        descripcion: "No se detectaron descalces críticos ni sobreprecios en el catálogo analizado.",
         accionSugerida: "Continuar monitoreo rutinario.",
       });
     }
@@ -80,27 +123,16 @@ export async function executeAuditarAnomalias(args: AuditarAnomaliasInput) {
       totalAnomalias: anomaliasDetectadas.length,
       anomalias: anomaliasDetectadas,
       resumenAuditoria: {
-        estadoGeneral: anomaliasDetectadas.some(a => a.gravedad === "CRÍTICA") ? "REQUIERE_ATENCION_URGENTE" : "ESTABLE",
+        estadoGeneral: anomaliasDetectadas.some((a) => a.gravedad === "CRÍTICA")
+          ? "REQUIERE_ATENCION_URGENTE"
+          : "ESTABLE",
         timestamp: new Date().toISOString(),
       },
     };
-  } catch {
+  } catch (error) {
     return {
-      isSuccess: true,
-      totalAnomalias: 1,
-      anomalias: [
-        {
-          categoria: "DESCALCE_STOCK",
-          gravedad: "ALTA",
-          entidad: "Sensor Térmico ST-200",
-          descripcion: "Stock actual (2 unidades) por debajo del mínimo de seguridad (15 unidades).",
-          accionSugerida: "Revisar compras abiertas o generar orden con proveedor Grainger.",
-        },
-      ],
-      resumenAuditoria: {
-        estadoGeneral: "REQUIERE_ATENCION_URGENTE",
-        timestamp: new Date().toISOString(),
-      },
+      isSuccess: false,
+      message: `Error al ejecutar auditoría de anomalías: ${(error as Error).message}`,
     };
   }
 }

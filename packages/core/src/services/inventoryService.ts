@@ -95,6 +95,7 @@ export async function getStockByProduct(productId: string) {
     currentStock: totalStock,
     stockInTransit: stockInTransit,
     isBelowMinimum: totalStock < product[0].minStock,
+    salesCount: items.reduce((acc, item) => acc + (item.salesCount || 0), 0),
   };
 }
 

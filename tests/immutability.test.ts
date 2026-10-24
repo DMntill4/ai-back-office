@@ -1,11 +1,25 @@
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll, beforeAll } from "vitest";
 import { db, pool } from "../src/db/client";
-import { cases, caseEvents } from "../src/db/schema";
+import { cases, caseEvents, companies } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 
 describe("Blindaje de inmutabilidad en case_events", () => {
   const testCaseId = "case_immutability_test";
   const testEventId = "evt_immutability_test";
+
+  beforeAll(async () => {
+    try {
+      await db
+        .insert(companies)
+        .values({
+          id: "comp_default",
+          name: "Default Test Company",
+        })
+        .onConflictDoNothing();
+    } catch {
+      // ignore
+    }
+  });
 
   it("debe permitir insertar un evento normalmente", async () => {
     try {

@@ -122,8 +122,37 @@ export async function ensureDecisionsTables(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_data_sources_company ON data_sources(company_id);
       CREATE INDEX IF NOT EXISTS idx_notif_channels_company ON notification_channels(company_id);
       CREATE INDEX IF NOT EXISTS idx_notif_log_token ON notification_log(signed_token);
+
+      -- Columnas físicas y geográficas para Empresas
+      ALTER TABLE companies ADD COLUMN IF NOT EXISTS legal_name TEXT;
+      ALTER TABLE companies ADD COLUMN IF NOT EXISTS rfc_tax_id VARCHAR(20);
+      ALTER TABLE companies ADD COLUMN IF NOT EXISTS street_address TEXT;
+      ALTER TABLE companies ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);
+      ALTER TABLE companies ADD COLUMN IF NOT EXISTS city TEXT;
+      ALTER TABLE companies ADD COLUMN IF NOT EXISTS state TEXT;
+      ALTER TABLE companies ADD COLUMN IF NOT EXISTS country VARCHAR(50) DEFAULT 'México';
+      ALTER TABLE companies ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 6);
+      ALTER TABLE companies ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 6);
+
+      -- Columnas físicas y geográficas para Almacenes
+      ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS street_address TEXT;
+      ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);
+      ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS city TEXT;
+      ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS state TEXT;
+      ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 6);
+      ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 6);
+      ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50);
+
+      -- Columnas físicas y geográficas para Proveedores
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS tax_id VARCHAR(20);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS street_address TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS city TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS state TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 6);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 6);
     `);
-    console.log("✅ Tablas de decisiones, eventos y reglas operativas verificadas en PostgreSQL.");
+    console.log("✅ Tablas e infraestructura física/geográfica verificadas en PostgreSQL.");
   } catch (err) {
     console.warn("⚠️ Aviso al asegurar tablas de decisiones:", (err as Error).message);
   } finally {

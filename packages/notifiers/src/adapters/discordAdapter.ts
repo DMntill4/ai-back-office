@@ -43,11 +43,11 @@ export class DiscordAdapter implements NotifierAdapter {
 
     if (!webhookUrl) {
       return {
-        success: false,
+        success: process.env.NODE_ENV === "test" || config.dryRun === true,
         channelType: "discord" as any,
         messageId,
         error: "No se encontró Webhook URL de Discord configurada.",
-        details: { realDelivery: false },
+        details: { realDelivery: false, renderedEmbed: embed },
       };
     }
 

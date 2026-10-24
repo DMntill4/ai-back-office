@@ -29,17 +29,61 @@ export class GmailAdapter implements NotifierAdapter {
       </div>
     `.trim();
 
-    const messageId = `gmail_msg_${Date.now()}`;
+    const resendApiKey = process.env.RESEND_API_KEY || config.resendApiKey;
 
+    if (resendApiKey) {
+      try {
+        const response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: process.env.RESEND_FROM || "Mint Back-Office <notifications@resend.dev>",
+            to: [recipientEmail],
+            subject: `[Mint ${payload.severity}] ${payload.title}`,
+            html: htmlBody,
+          }),
+        });
+
+        if (response.ok) {
+          const resendData = await response.json();
+          return {
+            success: true,
+            channelType: this.type,
+            messageId: resendData.id || `resend_${Date.now()}`,
+            deliveredAt: new Date().toISOString(),
+            details: {
+              to: recipientEmail,
+              provider: "Resend",
+              resendId: resendData.id,
+            },
+          };
+        } else {
+          const errText = await response.text();
+          return {
+            success: false,
+            channelType: this.type,
+            error: `Error al enviar correo por Resend API (HTTP ${response.status}): ${errText}`,
+          };
+        }
+      } catch (err: any) {
+        return {
+          success: false,
+          channelType: this.type,
+          error: `Fallo de red al conectar con Resend API: ${err.message}`,
+        };
+      }
+    }
+
+    // Si no hay API key configurada, reportar honestamente que no se pudo enviar a la bandeja
     return {
-      success: true,
+      success: false,
       channelType: this.type,
-      messageId,
-      deliveredAt: new Date().toISOString(),
+      error: `No hay RESEND_API_KEY configurada en .env ni credenciales SMTP activas para enviar correos a ${recipientEmail}. Configura RESEND_API_KEY o utiliza webhooks de Discord/Slack con '/channels add discord <url>'.`,
       details: {
         to: recipientEmail,
-        subject: `[Mint ${payload.severity}] ${payload.title}`,
-        note: "Para despacho remoto directo a buzón de Google se requiere configurar SMTP/App Password en .env (SMTP_USER / SMTP_PASS). Se recomienda Discord/Slack para entrega inmediata sin fricción.",
       },
     };
   }

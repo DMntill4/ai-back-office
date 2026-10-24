@@ -217,6 +217,7 @@ Instrucciones de ejecución:
     evaluar_proveedores: "Módulo Catálogo Proveedores",
     crear_orden_compra: "Módulo Compras [HITL Gatekeeper]",
     consultar_envios: "Módulo Envíos [PostgreSQL Shipments]",
+    calcular_ruta_logistica: "Motor Logístico [Cartografía OSRM & Fletes]",
     analisis_financiero: "Módulo Contable [Valuación Real]",
     auditar_anomalias: "Módulo Auditoría [Reglas Deterministas]",
     consultar_canales_notificacion: "Despachador de Red [Webhooks/API]",

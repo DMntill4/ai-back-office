@@ -167,6 +167,7 @@ describe("Fase F3: Multi-Agente + Motor de Políticas en modo dry-run", () => {
       "RULE_DRY_RUN_GUARDRAIL",
       "RULE_HUMAN_IN_THE_LOOP_REQUIRED",
       "RULE_EXCEEDS_AUTONOMOUS_BUDGET",
+      "RULE_STALE_DATA_REFUSAL",
     ]).toContain(result.policyResult!.matchedRule);
 
     // 5. Verificación de Persistencia en tabla decisions

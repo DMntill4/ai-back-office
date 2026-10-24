@@ -12,6 +12,7 @@ import { executeConsultarEnvios } from "../tools/consultarEnvios";
 import { executeAjustarStock } from "../tools/ajustarStock";
 import { executeConsultarEstadoSistema } from "../tools/consultarEstadoSistema";
 import { executeVerificarFrescuraDatos } from "../tools/verificarFrescuraDatos";
+import { executeCalcularRutaLogistica } from "../tools/calcularRutaLogistica";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -230,7 +231,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "escalar_caso",
       description:
-        "Dictamina el caso como ESCALADO a un humano cuando supera límites de compra ($10,000 MXN), falta información o hay inconsistencias.",
+        "Dictamina el caso como ESCALADO a un humano cuando requiere revisión ejecutiva, autorización de compra (HITL), falta información o hay inconsistencias.",
       parameters: {
         type: "object",
         properties: {
@@ -374,6 +375,27 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "calcular_ruta_logistica",
+      description:
+        "Calcula la distancia vial real en kilómetros, tiempo de conducción por carretera y costo estimado de flete entre el almacén y un proveedor con base en coordenadas GPS y cartografía OSRM.",
+      parameters: {
+        type: "object",
+        properties: {
+          proveedor_id: {
+            type: "string",
+            description: "ID o nombre del proveedor de origen (ej. 'prov_acme', 'Bosch', 'Komatsu')",
+          },
+          almacen_id: {
+            type: "string",
+            description: "ID opcional del almacén de destino (por defecto toma el almacén principal)",
+          },
+        },
+      },
+    },
+  },
 ];
 
 export async function dispatchToolCall(
@@ -477,6 +499,12 @@ export async function dispatchToolCall(
     case "auditar_anomalias":
       return {
         result: await executeAuditarAnomalias(parsedArgs),
+        isClosingAction: false,
+      };
+
+    case "calcular_ruta_logistica":
+      return {
+        result: await executeCalcularRutaLogistica(parsedArgs, context),
         isClosingAction: false,
       };
 

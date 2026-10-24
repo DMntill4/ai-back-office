@@ -17,7 +17,7 @@ export interface NotificationPayload {
 export interface SendResult {
   success: boolean;
   channelType: ChannelType;
-  messageId: string;
+  messageId?: string;
   deliveredAt?: string;
   error?: string;
   details?: Record<string, any>;
