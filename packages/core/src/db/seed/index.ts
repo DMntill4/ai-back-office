@@ -480,7 +480,7 @@ export async function runSeed() {
     ])
     .onConflictDoNothing();
 
-  console.log("[SEED] Datos logísticos de prueba sembrados exitosamente en Supabase.");
+  console.log("[SEED] Catálogo industrial y almacén sembrados exitosamente en PostgreSQL.");
 }
 
 if (require.main === module) {

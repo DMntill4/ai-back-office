@@ -1,4 +1,4 @@
-import { db, pool } from "../db/client";
+import { db, pool, checkDatabaseHealth } from "../db/client";
 import { products, inventory, companies, users, businessConfig } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 
@@ -120,12 +120,15 @@ export async function executeConsultarEstadoSistema(
       ? `Canales de alerta conectados: ${channels.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`
       : `No hay canales remotos conectados actualmente. Puedes vincular Discord o Slack con '/channels add discord <url>'.`;
 
-    const resumen = `Estoy conectado en tiempo real a PostgreSQL en Supabase Cloud. Tienes cargadas ${tablenames.length} tablas en el esquema relacional. Para la empresa '${companyName}' (${companyId}), tienes ${prods.length} productos registrados en catálogo con un total de ${totalUnidades} unidades físicas en almacén. ${canalesTexto} Política de gobernanza: HUMAN-IN-THE-LOOP 100% (Cero compras automáticas; toda propuesta requiere tu aprobación explícita).`;
+    const health = await checkDatabaseHealth().catch(() => null);
+    const dbProvider = health?.provider || "PostgreSQL";
+
+    const resumen = `Estoy conectado en tiempo real a ${dbProvider}. Tienes cargadas ${tablenames.length} tablas en el esquema relacional. Para la empresa '${companyName}' (${companyId}), tienes ${prods.length} productos registrados en catálogo con un total de ${totalUnidades} unidades físicas en almacén. ${canalesTexto} Política de gobernanza: HUMAN-IN-THE-LOOP 100% (Cero compras automáticas; toda propuesta requiere tu aprobación explícita).`;
 
     return {
       isSuccess: true,
-      motorBaseDatos: "PostgreSQL 15 (Supabase Cloud)",
-      proveedorCloud: "Supabase AWS Pooler (Puerto 6543)",
+      motorBaseDatos: dbProvider,
+      proveedorCloud: health?.host || "localhost:5432",
       conexionActiva: true,
       tablasCargadas: tablenames,
       totalTablas: tablenames.length,
@@ -149,7 +152,7 @@ export async function executeConsultarEstadoSistema(
     return {
       isSuccess: false,
       motorBaseDatos: "PostgreSQL (Desconectado)",
-      proveedorCloud: "Supabase",
+      proveedorCloud: "Local / Docker",
       conexionActiva: false,
       empresaActiva: { id: companyId, nombre: "Desconocida" },
       totalProductosRegistrados: 0,

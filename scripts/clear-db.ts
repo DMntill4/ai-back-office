@@ -37,7 +37,7 @@ async function clear() {
         ON CONFLICT (company_id, key) DO NOTHING`
   );
 
-  console.log("✅ Base de datos reiniciada a 0: Solo el admin, la empresa y el bot limpios.");
+  console.log("[DB] Base de datos reiniciada a 0: Solo el admin, la empresa y el bot limpios.");
   await pool.end();
   process.exit(0);
 }

@@ -1047,7 +1047,7 @@ const start = async () => {
     const port = parseInt(process.env.PORT || "3000", 10);
     await server.listen({ port, host: "0.0.0.0" });
     console.log(`[HTTP] Servidor MINT corriendo en http://localhost:${port}`);
-    console.log("[DB] Conexión a Base de Datos relacional activa (Drizzle ORM & Supabase ready)");
+    console.log("[DB] Conexión a Base de Datos relacional activa (Drizzle ORM & PostgreSQL ready)");
   } catch (err) {
     server.log.error(err);
     process.exit(1);

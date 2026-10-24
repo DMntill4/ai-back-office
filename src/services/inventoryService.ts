@@ -337,7 +337,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     approvalId,
     totalAmount,
     threshold: maxAllowedAmount,
-    message: `El agente ha generado la solicitud de compra por $${totalAmount.toFixed(2)} ${currency}. Excede el límite autónomo de $${maxAllowedAmount.toFixed(2)} ${currency}. Pendiente de aprobación humana en Supabase/Postgres.`,
+    message: `El agente ha generado la solicitud de compra por $${totalAmount.toFixed(2)} ${currency}. Excede el límite autónomo de $${maxAllowedAmount.toFixed(2)} ${currency}. Pendiente de aprobación humana en PostgreSQL / Inbox.`,
   };
 }
 

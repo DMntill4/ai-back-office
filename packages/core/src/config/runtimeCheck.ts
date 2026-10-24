@@ -98,7 +98,7 @@ export async function verifyRuntimeEnvironment(): Promise<RuntimeEnvironmentRepo
     host: dbHealth.host,
     error: dbHealth.error,
     recommendation: !dbHealth.connected
-      ? `No se pudo conectar a PostgreSQL en ${process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/ai_back_office"}. Verifica que el contenedor de PostgreSQL o la URL de Supabase estén activos.`
+      ? `No se pudo conectar a PostgreSQL en ${process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/ai_back_office"}. Verifica que el contenedor de PostgreSQL o el servicio de base de datos estén activos.`
       : undefined,
   };
 

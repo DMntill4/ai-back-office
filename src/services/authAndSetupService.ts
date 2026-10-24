@@ -356,7 +356,7 @@ export async function executeSqlUpload(input: SqlUploadInput) {
 
     return {
       success: true,
-      message: "Base de datos SQL importada y sincronizada correctamente en PostgreSQL / Supabase.",
+      message: "Base de datos SQL importada y sincronizada correctamente en PostgreSQL.",
       totalStatementsExecuted: executedCount,
       realProductsInserted: allCompanyProducts.length,
       realProductsCount: allCompanyProducts.length,
