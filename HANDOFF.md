@@ -253,28 +253,37 @@ Siguiendo la instrucción explícita de **no hacer `git push`**, los siguientes 
 
 ---
 
-## 9. GUÍA RÁPIDA DE ARRANQUE Y OPERACIÓN
+## 9. GUÍA RÁPIDA DE ARRANQUE Y OPERACIÓN (100% TERMINAL / CERO FRONTEND WEB)
 
-### 1. Iniciar el Servidor Backend & Web
+### 1. Iniciar TODO el Sistema Autónomo (Comando Único)
 ```bash
-npm run dev
-# Inicia Fastify en http://localhost:3000 y Vite SPA en http://localhost:5173
+npm start
+# o alternativamente:
+npm run agent
+# o desde el CLI:
+mint start
+```
+**¿Qué hace este comando?**
+- Verifica el entorno (Node >= 22.5.0 para `node:sqlite` nativo y conectividad a PostgreSQL).
+- Inicia el servidor Backend Fastify (Webhooks de canales, REST y salud) en segundo plano en `http://localhost:3000`.
+- Inicia el Daemon autónomo en segundo plano (vigilancia de archivos y stock).
+- **Omite y desactiva 100% el frontend web.**
+- Abre de inmediato la **Consola Interactiva Kali-grade** en la misma terminal para operar directamente.
+- Al escribir `exit` o presionar `Ctrl+C`, apaga de forma limpia todos los subprocesos.
+
+### 2. Modo Headless (Para servidores o ejecución silenciosa sin consola)
+```bash
+npm run agent:headless
 ```
 
-### 2. Iniciar Consola Interactiva Mint (Estilo Kali / Claude Code)
+### 3. Diagnóstico de Salud y Arquitectura
 ```bash
-node packages/cli/bin/mint.js console
-# o mediante script:
-npm run mint -- console
-```
-
-### 3. Iniciar el Daemon Autónomo de Fondo
-```bash
-node packages/cli/bin/mint.js daemon start
+npm run mint -- doctor
 ```
 
 ### 4. Ejecutar el Conjunto de Pruebas
 ```bash
-npm run test
+npm test
 npm run typecheck
 ```
+

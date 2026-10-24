@@ -52,9 +52,15 @@ El proyecto está organizado como un **Monorepo limpio** con `npm workspaces`:
 
 ## 💻 Mint CLI: Comandos Principales
 
-Ejecuta el CLI mediante `npm run mint -- <comando>` o enlazando el binario global `mint`:
+Ejecuta el CLI mediante `npm start`, `npm run mint -- <comando>` o enlazando el binario global `mint`:
 
 ```bash
+# 🚀 INICIO UNIFICADO (100% AUTÓNOMO / CERO FRONTEND WEB)
+npm start                          # Inicia TODO: Servidor API, Daemon de fondo y Consola Interactiva
+npm run agent                      # Alias de inicio rápido sin frontend web
+npm run agent:headless             # Modo headless continuo (ideal para servidores en segundo plano)
+mint start                         # Comando nativo de Mint CLI
+
 # 0. Diagnóstico de Entorno y Arquitectura
 mint doctor                        # Verifica Node >= 22.5.0 (SQLite nativo) y conectividad PostgreSQL (alias: mint env)
 

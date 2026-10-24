@@ -10,6 +10,7 @@ import { dashboardCommand } from "./commands/dashboard";
 import { consoleCommand } from "./commands/console";
 import { teamCommand } from "./commands/team";
 import { doctorCommand } from "./commands/doctor";
+import { startCommand } from "./commands/start";
 import { triggerScanApi } from "./client";
 import { getSession } from "./keychain";
 import { theme } from "./ui/theme";
@@ -30,7 +31,17 @@ program.hook("preAction", (thisCommand, actionCommand) => {
   }
 });
 
-// 0. mint doctor / mint env
+// 0. mint start / mint agent
+program
+  .command("start")
+  .alias("agent")
+  .description("Inicia TODO el sistema autónomo (Servidor Backend, Daemon, Canales y Consola) sin frontend web")
+  .option("--headless", "Corre en segundo plano sin consola interactiva (ideal para servidores)")
+  .option("--port <port>", "Puerto para el servidor de webhooks y API (por defecto: 3000)")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => startCommand(options));
+
+// 0.1 mint doctor / mint env
 program
   .command("doctor")
   .alias("env")
