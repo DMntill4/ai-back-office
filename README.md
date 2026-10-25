@@ -244,6 +244,17 @@ npm run db:seed
 
 ---
 
+## [DOCS] Documentación y Reportes de Arquitectura
+
+| Documento | Descripción |
+| :--- | :--- |
+| [Reporte Técnico Season 2](docs/REPORTE_TECNICO_S2.md) | **Reporte Técnico Oficial de Season 2**: Matriz S1 vs S2, arquitectura 100% Terminal-First, Thought Tree y validación determinista. |
+| [Reporte Técnico Season 1](docs/REPORTE_TECNICO.md) | Reporte Técnico de Arquitectura e Implementación inicial (Sprint 1). |
+| [Transferencia Técnica (HANDOFF)](HANDOFF.md) | Bitácora técnica completa de entrega, mapa de paquetes, CLI y guías de ejecución. |
+| [Registro de Decisiones (DECISIONS)](DECISIONS.md) | 18 Architecture Decision Records (ADRs) documentados formalmente. |
+
+---
+
 ## Contribuidores
 
 <table align="center">
