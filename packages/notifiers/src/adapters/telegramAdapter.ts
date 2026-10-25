@@ -24,11 +24,11 @@ _Por favor confirme o rechace esta operación antes de que expire el token._
     const inlineKeyboard = [
       [
         {
-          text: `[APROBAR] ($${payload.costMxn.toLocaleString("es-MX")} MXN)`,
+          text: `Aprobar ($${payload.costMxn.toLocaleString("es-CO")} COP)`,
           callback_data: `mint:approve:${payload.approveToken}`,
         },
         {
-          text: `[RECHAZAR]`,
+          text: `Rechazar`,
           callback_data: `mint:reject:${payload.rejectToken}`,
         },
       ],

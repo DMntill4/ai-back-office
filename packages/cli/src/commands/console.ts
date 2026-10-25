@@ -434,28 +434,20 @@ export async function consoleCommand() {
           }
 
           case "approve": {
-            if (!args[0]) {
-              console.log(theme.amber("Especifica el ID de la decision. Ej: /approve dec_123"));
-            } else {
-              const { inboxCommand } = require("./inbox");
-              await inboxCommand("approve", args[0], { noExit: true });
-            }
+            const { inboxCommand } = require("./inbox");
+            await inboxCommand("approve", args[0], { noExit: true });
             break;
           }
 
           case "reject": {
-            if (!args[0]) {
-              console.log(theme.amber("Especifica el ID de la decision. Ej: /reject dec_123"));
-            } else {
-              const { inboxCommand } = require("./inbox");
-              await inboxCommand("reject", args[0], { noExit: true });
-            }
+            const { inboxCommand } = require("./inbox");
+            await inboxCommand("reject", args[0], { noExit: true });
             break;
           }
 
           case "explain": {
             const { explainCommand } = require("./explain");
-            await explainCommand(args[0]);
+            await explainCommand(args[0], { noExit: true });
             break;
           }
 
@@ -711,16 +703,36 @@ export async function executeAgentQuery(
       resultSummary?: string;
     }> = [];
 
-    const res = await runAgentLoop(caseId, {
-      onEvent: (ev) => {
-        executedSteps.push({
-          agent: ev.agent,
-          action: ev.action,
-          details: ev.details,
-          resultSummary: ev.resultSummary,
-        });
-      },
-    });
+    const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    let spinnerMsg = "Consultando modelo y deliberando...";
+    let frameIdx = 0;
+    const isTTY = Boolean(process.stdout.isTTY);
+    let timer: any = null;
+    if (isTTY) {
+      timer = setInterval(() => {
+        process.stdout.write(`\r  ${theme.mint(frames[frameIdx++ % frames.length])} ${theme.dim(spinnerMsg)} `);
+      }, 80);
+    } else {
+      console.log(`  ${theme.dim("... Deliberando con el agente...")}`);
+    }
+
+    let res;
+    try {
+      res = await runAgentLoop(caseId, {
+        onEvent: (ev) => {
+          spinnerMsg = `${ev.agent}: ejecutando ${ev.action}...`;
+          executedSteps.push({
+            agent: ev.agent,
+            action: ev.action,
+            details: ev.details,
+            resultSummary: ev.resultSummary,
+          });
+        },
+      });
+    } finally {
+      if (timer) clearInterval(timer);
+      if (isTTY) process.stdout.write("\r\x1b[K");
+    }
 
     console.log("");
     if (executedSteps.length > 0) {

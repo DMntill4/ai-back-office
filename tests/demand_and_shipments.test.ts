@@ -92,12 +92,12 @@ describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umb
   });
 
   it("crear_orden_compra debe requerir aprobación humana (HITL) cuando el monto excede el umbral", async () => {
-    // 30 unidades a $450 MXN = $13,500 MXN (Supera el umbral por defecto de $10,000 MXN)
+    // Monto que supera el umbral
     const result = await executeCrearOrdenCompra({
       case_id: `case_hitl_${Date.now()}`,
       producto_id: "prod_st200",
       proveedor_id: "prov_acme",
-      cantidad: 30,
+      cantidad: 20000,
       idempotency_key: `idem_hitl_purchase_${Date.now()}`,
     });
 

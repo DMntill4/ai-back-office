@@ -18,3 +18,4 @@ renders/
 # Agent local artifacts
 .agents/
 skills-lock.json
+receipts/

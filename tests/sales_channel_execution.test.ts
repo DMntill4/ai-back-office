@@ -66,7 +66,7 @@ describe("Ejecución Autónoma de Ventas desde Canales Externos (@mint/notifiers
 
     expect(result.success).toBe(true);
     expect(result.channelType).toBe("discord");
-    expect(result.details?.renderedEmbed?.title).toContain("MINT DECISION ALERT");
+    expect(result.details?.renderedEmbed?.title).toContain("[MINT] DECISION ALERT");
     expect(result.details?.renderedEmbed?.fields).toBeDefined();
   });
 

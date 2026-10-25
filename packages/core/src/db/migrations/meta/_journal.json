@@ -43,6 +43,13 @@
       "when": 1792427420799,
       "tag": "0005_chubby_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792943286575,
+      "tag": "0006_nappy_otto_octavius",
+      "breakpoints": true
     }
   ]
 }

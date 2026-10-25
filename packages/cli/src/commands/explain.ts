@@ -4,29 +4,51 @@ import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
 import { getSession } from "../keychain";
 
-export async function explainCommand(decisionId: string, options: { json?: boolean } = {}) {
-  if (!decisionId) {
-    console.error(theme.redBold("[ERROR] Debes especificar el ID de la decisión. Ejemplo: mint explain dec_12345"));
-    process.exit(1);
-  }
-
+export async function explainCommand(
+  decisionId?: string,
+  options: { json?: boolean; noExit?: boolean } = {},
+) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
+  if (!decisionId) {
+    if (options.json) {
+      console.log(JSON.stringify({ error: "Debes especificar el ID de la decisión." }));
+    } else {
+      console.log(`\n  ${theme.amberBold("[AVISO]")} ${theme.smoke("Debes especificar el ID de la propuesta. Ejemplo: /explain dec_12345 o /explain 1")}\n`);
+    }
+    if (!options.noExit) process.exit(1);
+    return;
+  }
+
   try {
+    let finalId = decisionId;
+    const num = parseInt(decisionId.replace("#", ""), 10);
+    if (!isNaN(num) && num > 0) {
+      const list = await db
+        .select({ id: decisions.id })
+        .from(decisions)
+        .where(eq(decisions.companyId, companyId))
+        .orderBy(desc(decisions.createdAt));
+      if (num <= list.length) {
+        finalId = list[num - 1].id;
+      }
+    }
+
     const foundDecisions = await db
       .select()
       .from(decisions)
-      .where(eq(decisions.id, decisionId))
+      .where(eq(decisions.id, finalId))
       .limit(1);
 
     if (foundDecisions.length === 0) {
       if (options.json) {
         console.log(JSON.stringify({ error: `Decisión ${decisionId} no encontrada.` }));
       } else {
-        console.error(theme.redBold(`[ERROR] No se encontró la decisión '${decisionId}' en la empresa ${companyId}.`));
+        console.log(`\n  ${theme.redBold("[ERROR]")} ${theme.smoke(`No se encontró la propuesta '${decisionId}' en la empresa ${companyId}.`)}\n`);
       }
-      process.exit(1);
+      if (!options.noExit) process.exit(1);
+      return;
     }
 
     const d = foundDecisions[0];
@@ -65,7 +87,7 @@ export async function explainCommand(decisionId: string, options: { json?: boole
           ? "amber"
           : "red";
 
-    const costStr = `$${Number(d.costMxn).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
+    const costStr = `$${Number(d.costMxn).toLocaleString("es-CO", { minimumFractionDigits: 0 })} COP`;
     const riskPct = `${(Number(d.riskScore) * 100).toFixed(0)}%`;
 
     console.log("");
@@ -83,63 +105,64 @@ export async function explainCommand(decisionId: string, options: { json?: boole
           title: `DECISIÓN AUTÓNOMA: ${d.title}`,
           badge: d.policyDecision.toUpperCase(),
           badgeColor,
+          width: 76,
         },
       ),
     );
 
-    console.log("\n" + drawDivider("DELIBERACIÓN MULTI-AGENTE Y EVIDENCIA"));
+    console.log("\n" + drawDivider("DELIBERACIÓN MULTI-AGENTE Y EVIDENCIA", 76));
 
     const evidence = (d.evidencePayload as any) || {};
     const risk = (d.riskPayload as any) || {};
 
-    console.log(`\n${theme.mintBold("1. Agente Especialista Proponente (" + d.proposingAgent + "):")}`);
-    console.log(`   ${theme.muted("Motivo:")}    ${d.title}`);
+    console.log(`\n  ${theme.mintBold("1. Agente Especialista Proponente (" + d.proposingAgent + "):")}`);
+    console.log(`     ${theme.dim("Motivo:")}    ${d.title}`);
     console.log(
-      `   ${theme.muted("Métricas:")}  Stock Actual: ${evidence.currentStock ?? "N/A"}u ` +
+      `     ${theme.dim("Métricas:")}  Stock Actual: ${evidence.currentStock ?? "N/A"}u ` +
         `│ Déficit: ${evidence.deficit ?? "N/A"}u ` +
         `│ Proveedor: ${evidence.supplierName ?? "N/A"} ` +
-        `│ Costo Unitario: $${evidence.unitCostMxn ?? "N/A"} MXN`,
+        `│ Costo Unitario: $${Number(evidence.unitCostMxn || 0).toLocaleString("es-CO", { minimumFractionDigits: 0 })} COP`,
     );
 
-    console.log(`\n${theme.cyanBold("2. Agente de Riesgo y Auditoría (Adversarial):")}`);
-    console.log(`   ${theme.muted("Confianza:")} ${((1 - Number(d.riskScore)) * 100).toFixed(0)}% `);
+    console.log(`\n  ${theme.cyanBold("2. Agente de Riesgo y Auditoría (Adversarial):")}`);
+    console.log(`     ${theme.dim("Confianza:")} ${((1 - Number(d.riskScore)) * 100).toFixed(0)}% `);
     if (risk.redFlags && risk.redFlags.length > 0) {
-      console.log(`   ${theme.danger("Banderas Rojas Detectadas:")}`);
+      console.log(`     ${theme.danger("Banderas Rojas Detectadas:")}`);
       for (const flag of risk.redFlags) {
-        console.log(`   ${theme.redBold("•")} ${flag}`);
+        console.log(`     ${theme.redBold("•")} ${flag}`);
       }
     } else {
-      console.log(`   ${theme.success("[OK]")} Sin objeciones de seguridad ni duplicidad detectadas.`);
+      console.log(`     ${theme.success("[OK]")} Sin objeciones de seguridad ni duplicidad detectadas.`);
     }
 
-    console.log("\n" + drawDivider("MOTOR DE POLÍTICAS DETERMINISTA"));
-    console.log(`\n${theme.amberBold("3. Regla de Gobernanza Aplicada:")}`);
-    console.log(`   ${theme.muted("Decisión:")} ${theme.bold(d.policyDecision.toUpperCase())}`);
-    console.log(`   ${theme.muted("Razón:")}    ${d.policyReason || "Evaluado según políticas activas."}`);
+    console.log("\n" + drawDivider("MOTOR DE POLÍTICAS DETERMINISTA", 76));
+    console.log(`\n  ${theme.amberBold("3. Regla de Gobernanza Aplicada:")}`);
+    console.log(`     ${theme.dim("Decisión:")} ${theme.bold(d.policyDecision.toUpperCase())}`);
+    console.log(`     ${theme.dim("Razón:")}    ${d.policyReason || "Evaluado según políticas activas."}`);
 
     if (d.approvedBy) {
-      console.log(`   ${theme.success("Aprobador:")} ${theme.bold(d.approvedBy)}`);
+      console.log(`     ${theme.success("Aprobador:")} ${theme.bold(d.approvedBy)}`);
     }
     if (d.executedAt) {
       console.log(
-        `   ${theme.success("Ejecutado:")} ${new Date(d.executedAt).toLocaleString("es-MX")}`,
+        `     ${theme.success("Ejecutado:")} ${new Date(d.executedAt).toLocaleString("es-CO")}`,
       );
     }
     if (d.verifiedAt) {
       console.log(
-        `   ${theme.success("[OK] Post-Verificación en PostgreSQL confirmada:")} ${new Date(d.verifiedAt).toLocaleString("es-MX")}`,
+        `     ${theme.success("[OK] Post-Verificación en PostgreSQL confirmada:")} ${new Date(d.verifiedAt).toLocaleString("es-CO")}`,
       );
     }
 
     if (events.length > 0) {
-      console.log("\n" + drawDivider("TRAZA CRIPTOGRÁFICA INMUTABLE (case_events)"));
+      console.log("\n" + drawDivider("TRAZA CRIPTOGRÁFICA INMUTABLE (case_events)", 76));
       console.log("");
       for (const ev of events) {
-        const time = new Date(ev.createdAt).toLocaleTimeString("es-MX");
+        const time = new Date(ev.createdAt).toLocaleTimeString("es-CO");
         const payloadDesc = (ev.payload as any)?.description || (ev.payload as any)?.motivo || (ev.payload as any)?.message || JSON.stringify(ev.payload);
         console.log(
           `  ${theme.dim(`[${time}]`)} ${theme.bold(ev.eventType.padEnd(18))} ` +
-            `${theme.muted(payloadDesc)}`,
+            `${theme.dim(payloadDesc)}`,
         );
       }
     }
@@ -148,8 +171,10 @@ export async function explainCommand(decisionId: string, options: { json?: boole
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.redBold(`[ERROR] Error al explicar decisión: ${err.message}`));
+      console.error(theme.redBold(`  [ERROR] Error al explicar decisión: ${err.message}`));
     }
-    process.exit(1);
+    if (!options.noExit) {
+      process.exit(1);
+    }
   }
 }

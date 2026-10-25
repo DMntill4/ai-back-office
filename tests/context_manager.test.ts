@@ -37,7 +37,8 @@ describe("Capa de Gestión y Compresión de Ventana de Contexto (ContextManager)
 
     expect(facts).toContain("[FACTS_PROVEEDORES_REAL]");
     expect(facts).toContain("Acme Industrial");
-    expect(facts).toContain("$120.50 MXN/u");
+    expect(facts).toContain("120.5");
+    expect(facts).toContain("/u");
     expect(facts).toContain("2 días");
   });
 

@@ -68,9 +68,9 @@ program
   .option("--json", "Salida en formato JSON")
   .action((options) => dashboardCommand(options));
 
-// 2. mint explain <id>
+// 2. mint explain [id]
 program
-  .command("explain <id>")
+  .command("explain [id]")
   .description("Explica la deliberación multi-agente, evidencia y regla de política tras una decisión")
   .option("--json", "Salida en formato JSON")
   .action((id, options) => explainCommand(id, options));
@@ -205,7 +205,7 @@ program
 // 10. mint inbox
 program
   .command("inbox [action] [id]")
-  .description("Bandeja de decisiones (HITL): mint inbox | mint inbox approve <id> | mint inbox reject <id>")
+  .description("Bandeja de decisiones (HITL): mint inbox | mint inbox <id> | mint inbox approve <id> | mint inbox reject <id>")
   .option("--json", "Salida en formato JSON")
   .action((action, id, options) => inboxCommand(action, id, options));
 

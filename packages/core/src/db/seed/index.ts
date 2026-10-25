@@ -181,7 +181,7 @@ export async function runSeed() {
         origin: "real",
       },
       {
-        id: "tool_bomba_h20",
+        id: "prod_b200",
         companyId: "comp_default",
         name: "Bomba Centrifuga Industrial 2HP 220V",
         description: "Bomba sumergible de acero inoxidable para fluidos y refrigeracion",
@@ -191,7 +191,7 @@ export async function runSeed() {
         origin: "real",
       },
       {
-        id: "tool_valv_v500",
+        id: "prod_v500",
         companyId: "comp_default",
         name: "Valvula Reguladora de Presion 2\" Brida",
         description: "Valvula de paso para control de sobrepresion hidraulica y de vapor",
@@ -201,7 +201,7 @@ export async function runSeed() {
         origin: "real",
       },
       {
-        id: "tool_st200",
+        id: "prod_st200",
         companyId: "comp_default",
         name: "Sensor Termico Industrial PT-100 Alta Precision",
         description: "Sonda termometrica de acero inoxidable para hornos y calderas industriales",
@@ -211,7 +211,7 @@ export async function runSeed() {
         origin: "real",
       },
       {
-        id: "tool_plc10",
+        id: "prod_plc10",
         companyId: "comp_default",
         name: "Controlador Logico Programable PLC 24V Ethernet",
         description: "Modulo CPU para automatizacion de lineas de ensamblaje industrial",
@@ -317,13 +317,13 @@ export async function runSeed() {
       // Compresor 50L: Carencia critica (1 de 8)
       { id: "inv_005", companyId: "comp_default", productId: "tool_cmp_50l", warehouseId: "alm_central", stock: 1, salesCount: 65 },
       // Bomba Centrifuga: Saludable (8 de 6)
-      { id: "inv_006", companyId: "comp_default", productId: "tool_bomba_h20", warehouseId: "alm_central", stock: 8, salesCount: 42 },
+      { id: "inv_006", companyId: "comp_default", productId: "prod_b200", warehouseId: "alm_central", stock: 8, salesCount: 42 },
       // Valvula Reguladora: COMPLETAMENTE AGOTADO (0 de 8)
-      { id: "inv_007", companyId: "comp_default", productId: "tool_valv_v500", warehouseId: "alm_central", stock: 0, salesCount: 110 },
+      { id: "inv_007", companyId: "comp_default", productId: "prod_v500", warehouseId: "alm_central", stock: 0, salesCount: 110 },
       // Sensor Termico PT-100: Carencia (3 de 15)
-      { id: "inv_008", companyId: "comp_default", productId: "tool_st200", warehouseId: "alm_central", stock: 3, salesCount: 140 },
+      { id: "inv_008", companyId: "comp_default", productId: "prod_st200", warehouseId: "alm_central", stock: 3, salesCount: 140 },
       // PLC 24V: Stock critico (1 de 5)
-      { id: "inv_009", companyId: "comp_default", productId: "tool_plc10", warehouseId: "alm_central", stock: 1, salesCount: 28 },
+      { id: "inv_009", companyId: "comp_default", productId: "prod_plc10", warehouseId: "alm_central", stock: 1, salesCount: 28 },
       // Cable Cobre 12: Saludable (18 de 10)
       { id: "inv_010", companyId: "comp_default", productId: "tool_cable_c12", warehouseId: "alm_central", stock: 18, salesCount: 95 },
       // Guantes de Nitrilo: TOP VENTAS (120 de 50)
@@ -465,13 +465,13 @@ export async function runSeed() {
       // Compresor de Aire 50L
       { id: "sp_008", companyId: "comp_default", supplierId: "prov_bosch", productId: "tool_cmp_50l", unitPrice: "750000.00", minOrderQuantity: 1, leadTimeDays: 3 },
       // Bomba Centrifuga 2HP
-      { id: "sp_009", companyId: "comp_default", supplierId: "prov_makita", productId: "tool_bomba_h20", unitPrice: "580000.00", minOrderQuantity: 1, leadTimeDays: 1 },
+      { id: "sp_009", companyId: "comp_default", supplierId: "prov_makita", productId: "prod_b200", unitPrice: "580000.00", minOrderQuantity: 1, leadTimeDays: 1 },
       // Valvula Reguladora de Presion 2\"
-      { id: "sp_010", companyId: "comp_default", supplierId: "prov_dewalt", productId: "tool_valv_v500", unitPrice: "210000.00", minOrderQuantity: 2, leadTimeDays: 2 },
+      { id: "sp_010", companyId: "comp_default", supplierId: "prov_dewalt", productId: "prod_v500", unitPrice: "210000.00", minOrderQuantity: 2, leadTimeDays: 2 },
       // Sensor Termico PT-100
-      { id: "sp_011", companyId: "comp_default", supplierId: "prov_bosch", productId: "tool_st200", unitPrice: "95000.00", minOrderQuantity: 5, leadTimeDays: 2 },
+      { id: "sp_011", companyId: "comp_default", supplierId: "prov_bosch", productId: "prod_st200", unitPrice: "95000.00", minOrderQuantity: 5, leadTimeDays: 2 },
       // PLC 24V Ethernet
-      { id: "sp_012", companyId: "comp_default", supplierId: "prov_bosch", productId: "tool_plc10", unitPrice: "1250000.00", minOrderQuantity: 1, leadTimeDays: 3 },
+      { id: "sp_012", companyId: "comp_default", supplierId: "prov_bosch", productId: "prod_plc10", unitPrice: "1250000.00", minOrderQuantity: 1, leadTimeDays: 3 },
       // Bobina Cable 12 AWG
       { id: "sp_013", companyId: "comp_default", supplierId: "prov_makita", productId: "tool_cable_c12", unitPrice: "320000.00", minOrderQuantity: 2, leadTimeDays: 1 },
       // Guantes de Nitrilo (Caja 100u)
