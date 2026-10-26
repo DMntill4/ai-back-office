@@ -19,6 +19,8 @@ export const theme = {
   mint: wrap("\x1b[38;2;16;185;129m", "\x1b[39m"), // #10B981
   mintBold: wrap("\x1b[1m\x1b[38;2;16;185;129m", "\x1b[22m\x1b[39m"),
   cyan: wrap("\x1b[38;2;6;182;212m", "\x1b[39m"), // #06B6D4
+  sky: wrap("\x1b[38;2;135;206;250m", "\x1b[39m"), // #87CEFA
+  skyBold: wrap("\x1b[1m\x1b[38;2;135;206;250m", "\x1b[22m\x1b[39m"),
   cyanBold: wrap("\x1b[1m\x1b[38;2;6;182;212m", "\x1b[22m\x1b[39m"),
   amber: wrap("\x1b[38;2;245;158;11m", "\x1b[39m"), // #F59E0B
   amberBold: wrap("\x1b[1m\x1b[38;2;245;158;11m", "\x1b[22m\x1b[39m"),
@@ -66,5 +68,19 @@ export const theme = {
   // Strip ANSI helper for alignment calculation
   stripAnsi(str: string): string {
     return str.replace(/\x1b\[[0-9;]*m/g, "");
+  },
+
+  // Canal de Auditoría Autónoma Visible
+  audit(phase: "OBSERVE" | "DECIDE" | "EXECUTE" | "VERIFY", detail: string): string {
+    const badges: Record<string, string> = {
+      OBSERVE: wrap("\x1b[1m\x1b[38;2;92;207;230m", "\x1b[22m\x1b[39m")("[👁 OBSERVE]"),
+      DECIDE: wrap("\x1b[1m\x1b[38;2;229;192;123m", "\x1b[22m\x1b[39m")("[🧠 DECIDE] "),
+      EXECUTE: wrap("\x1b[1m\x1b[38;2;140;207;126m", "\x1b[22m\x1b[39m")("[⚡ EXECUTE]"),
+      VERIFY: wrap("\x1b[1m\x1b[38;2;224;108;117m", "\x1b[22m\x1b[39m")("[🛡 VERIFY] "),
+    };
+    const time = new Date().toLocaleTimeString("es-CO", { hour12: false });
+    const timeStr = wrap("\x1b[38;2;75;82;99m", "\x1b[39m")(time);
+    const detailStr = wrap("\x1b[38;2;171;178;191m", "\x1b[39m")(detail);
+    return `${timeStr} ${badges[phase] || `[${phase}]`} ${detailStr}`;
   },
 };

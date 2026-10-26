@@ -1,4 +1,4 @@
-import { listTeamMembers, inviteTeamMember, removeTeamMember } from "@mint/core";
+import { listTeamMembers, inviteTeamMember, removeTeamMember, hasPermission, type UserRole } from "@mint/core";
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { renderTable } from "../ui/table";
@@ -7,17 +7,22 @@ import { drawCard, drawDivider } from "../ui/box";
 export async function teamCommand(
   action: "list" | "invite" | "remove" = "list",
   targetArg?: string,
-  options: { name?: string; role?: "owner" | "operator" | "auditor" | "viewer"; json?: boolean } = {},
+  options: { name?: string; role?: UserRole; json?: boolean } = {},
 ) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
   // 1. Invitar nuevo miembro al equipo
   if (action === "invite") {
+    if (!hasPermission(session?.role, "manage_team")) {
+      console.error(theme.redBold(`\n❌ Permiso denegado: tu rol '${session?.role}' no tiene permiso para invitar miembros al equipo. Se requiere 'owner' o 'admin'.\n`));
+      return;
+    }
+
     const email = targetArg;
     if (!email) {
       console.error(theme.redBold("❌ Debes indicar el correo electrónico. Ejemplo: mint team invite colega@empresa.com --name 'Carlos' --role operator"));
-      process.exit(1);
+      return;
     }
     const name = options.name || email.split("@")[0];
     const role = options.role || "operator";
@@ -46,16 +51,21 @@ export async function teamCommand(
       } else {
         console.error(theme.redBold(`❌ Error al invitar usuario: ${err.message}`));
       }
-      process.exit(1);
+      return;
     }
   }
 
   // 2. Eliminar miembro del equipo
   if (action === "remove") {
+    if (!hasPermission(session?.role, "manage_team")) {
+      console.error(theme.redBold(`\n❌ Permiso denegado: tu rol '${session?.role}' no tiene permiso para eliminar miembros del equipo. Se requiere 'owner' o 'admin'.\n`));
+      return;
+    }
+
     const userId = targetArg;
     if (!userId) {
       console.error(theme.redBold("❌ Debes indicar el ID del usuario a eliminar. Ejemplo: mint team remove usr_12345"));
-      process.exit(1);
+      return;
     }
 
     try {
@@ -100,11 +110,15 @@ export async function teamCommand(
       const roleBadge =
         m.role === "owner"
           ? theme.badge("OWNER", "mint")
-          : m.role === "operator"
-            ? theme.badge("OPERATOR", "cyan")
-            : m.role === "auditor"
-              ? theme.badge("AUDITOR", "amber")
-              : theme.badge("VIEWER", "gray");
+          : m.role === "admin"
+            ? theme.badge("ADMIN", "cyan")
+            : m.role === "operator"
+              ? theme.badge("OPERATOR", "cyan")
+              : m.role === "driver"
+                ? theme.badge("DRIVER", "violet")
+                : m.role === "auditor"
+                  ? theme.badge("AUDITOR", "amber")
+                  : theme.badge("VIEWER", "gray");
 
       const dateStr = m.createdAt ? new Date(m.createdAt).toLocaleDateString("es-MX") : "N/A";
 

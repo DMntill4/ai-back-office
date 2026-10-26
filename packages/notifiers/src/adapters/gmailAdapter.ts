@@ -5,20 +5,22 @@ export class GmailAdapter implements NotifierAdapter {
 
   async send(payload: NotificationPayload, config: Record<string, any>): Promise<SendResult> {
     const recipientEmail = config.email || process.env.NOTIFICATION_EMAIL || "operaciones@mint.io";
+    const currency = payload.currency || "USD";
+    const formattedAmount = `$${payload.costMxn.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 
     const htmlBody = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
         <h2 style="color: #0f172a; margin-top: 0;">🚨 Mint Logistics — Solicitud de Aprobación</h2>
         <p style="font-size: 16px; color: #334155;"><strong>${payload.title}</strong></p>
         <div style="background-color: #f8fafc; padding: 16px; border-radius: 6px; margin: 16px 0;">
-          <p style="margin: 4px 0;"><strong>Monto Total:</strong> $${payload.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</p>
+          <p style="margin: 4px 0;"><strong>Monto Total:</strong> ${formattedAmount}</p>
           <p style="margin: 4px 0;"><strong>Agente Origen:</strong> ${payload.proposingAgent}</p>
           <p style="margin: 4px 0;"><strong>Severidad:</strong> ${payload.severity}</p>
         </div>
         <p style="color: #475569; font-size: 14px; line-height: 1.5;">${payload.evidenceSummary}</p>
         <div style="margin-top: 24px; display: flex; gap: 12px;">
           <a href="https://mint.local/approve?token=${payload.approveToken}" style="background-color: #16a34a; color: #ffffff; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-            ✅ Aprobar Orden ($${payload.costMxn.toLocaleString("es-MX")} MXN)
+            ✅ Aprobar Orden (${formattedAmount})
           </a>
           &nbsp;&nbsp;
           <a href="https://mint.local/reject?token=${payload.rejectToken}" style="background-color: #dc2626; color: #ffffff; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">

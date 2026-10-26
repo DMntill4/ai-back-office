@@ -146,6 +146,138 @@ export async function ensureDecisionsTables(): Promise<void> {
       ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 6);
       ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50);
 
+      -- Tablas propias de MINT (Prefijo reservado mint_*)
+      CREATE TABLE IF NOT EXISTS mint_table_mappings (
+        id VARCHAR(128) PRIMARY KEY,
+        company_id VARCHAR(64) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        source_table VARCHAR(128) NOT NULL,
+        target_entity VARCHAR(64) NOT NULL,
+        column_mappings JSONB NOT NULL DEFAULT '{}'::jsonb,
+        is_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+        is_read_only BOOLEAN NOT NULL DEFAULT TRUE,
+        write_roles JSONB NOT NULL DEFAULT '[]'::jsonb,
+        version INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS mint_pending_questions (
+        id VARCHAR(128) PRIMARY KEY,
+        company_id VARCHAR(64) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        topic VARCHAR(64) NOT NULL,
+        question TEXT NOT NULL,
+        context JSONB NOT NULL DEFAULT '{}'::jsonb,
+        status VARCHAR(32) NOT NULL DEFAULT 'pending',
+        answer TEXT,
+        answered_by VARCHAR(100),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        answered_at TIMESTAMP WITH TIME ZONE
+      );
+
+      CREATE TABLE IF NOT EXISTS mint_route_incidents (
+        id VARCHAR(128) PRIMARY KEY,
+        company_id VARCHAR(64) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        shipment_id VARCHAR(128),
+        tracking_number VARCHAR(100) NOT NULL,
+        incident_type VARCHAR(64) NOT NULL,
+        severity VARCHAR(16) NOT NULL DEFAULT 'MEDIUM',
+        current_location TEXT,
+        delay_minutes INTEGER NOT NULL DEFAULT 0,
+        previous_route JSONB NOT NULL DEFAULT '{}'::jsonb,
+        proposed_route JSONB NOT NULL DEFAULT '{}'::jsonb,
+        status VARCHAR(32) NOT NULL DEFAULT 'proposed',
+        approved_by VARCHAR(100),
+        notified_parties JSONB NOT NULL DEFAULT '[]'::jsonb,
+        reason TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        resolved_at TIMESTAMP WITH TIME ZONE
+      );
+
+      CREATE TABLE IF NOT EXISTS mint_sales_orders (
+        id VARCHAR(128) PRIMARY KEY,
+        company_id VARCHAR(64) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        external_order_id VARCHAR(128),
+        customer_name TEXT NOT NULL,
+        customer_email TEXT,
+        shipping_address TEXT NOT NULL,
+        total_amount NUMERIC(12, 2) NOT NULL,
+        currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+        channel VARCHAR(64) NOT NULL DEFAULT 'web',
+        payment_status VARCHAR(32) NOT NULL DEFAULT 'paid',
+        shipping_status VARCHAR(32) NOT NULL DEFAULT 'pending',
+        idempotency_key VARCHAR(255) UNIQUE,
+        signature_verified BOOLEAN NOT NULL DEFAULT FALSE,
+        items_payload JSONB NOT NULL DEFAULT '[]'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+
+      -- Columnas de auditoría y aprobación estricta en decisions
+      ALTER TABLE decisions ADD COLUMN IF NOT EXISTS requester_user_id VARCHAR(100);
+      ALTER TABLE decisions ADD COLUMN IF NOT EXISTS supervisor_notified BOOLEAN DEFAULT FALSE;
+      ALTER TABLE decisions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
+
+      -- Tablas adicionales de calidad, cuarentena, agregación y modo sombra (Segunda Pasada)
+      CREATE TABLE IF NOT EXISTS mint_quarantine_records (
+        id VARCHAR(128) PRIMARY KEY,
+        company_id VARCHAR(64) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        entity_type VARCHAR(64) NOT NULL,
+        source_table VARCHAR(128) NOT NULL,
+        record_identifier VARCHAR(128),
+        violation_type VARCHAR(64) NOT NULL,
+        reason TEXT NOT NULL,
+        severity VARCHAR(16) NOT NULL DEFAULT 'ERROR',
+        raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        status VARCHAR(32) NOT NULL DEFAULT 'quarantined',
+        reviewed_by VARCHAR(100),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        reviewed_at TIMESTAMP WITH TIME ZONE
+      );
+
+      CREATE TABLE IF NOT EXISTS mint_shadow_decisions (
+        id VARCHAR(128) PRIMARY KEY,
+        company_id VARCHAR(64) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        action_type VARCHAR(64) NOT NULL,
+        proposing_agent VARCHAR(64) NOT NULL,
+        title TEXT NOT NULL,
+        simulated_cost NUMERIC(12, 2) NOT NULL DEFAULT 0,
+        evidence_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        predicted_outcome JSONB NOT NULL DEFAULT '{}'::jsonb,
+        actual_outcome JSONB,
+        shadow_status VARCHAR(32) NOT NULL DEFAULT 'simulated',
+        comparison_notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        evaluated_at TIMESTAMP WITH TIME ZONE
+      );
+
+      CREATE TABLE IF NOT EXISTS mint_materialized_aggregations (
+        id VARCHAR(128) PRIMARY KEY,
+        company_id VARCHAR(64) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        aggregation_key VARCHAR(128) NOT NULL,
+        metrics_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        record_count INTEGER NOT NULL DEFAULT 0,
+        computed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS mint_quality_scores (
+        id VARCHAR(128) PRIMARY KEY,
+        company_id VARCHAR(64) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        module VARCHAR(64) NOT NULL,
+        confidence_level VARCHAR(32) NOT NULL,
+        score_percent INTEGER NOT NULL,
+        total_records_audited INTEGER NOT NULL DEFAULT 0,
+        corrupt_records_count INTEGER NOT NULL DEFAULT 0,
+        reasons JSONB NOT NULL DEFAULT '[]'::jsonb,
+        sample_corrupt_records JSONB NOT NULL DEFAULT '[]'::jsonb,
+        evaluated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_quarantine_company ON mint_quarantine_records(company_id, status);
+      CREATE INDEX IF NOT EXISTS idx_shadow_company ON mint_shadow_decisions(company_id, shadow_status);
+      CREATE INDEX IF NOT EXISTS idx_quality_company ON mint_quality_scores(company_id, module);
+      CREATE INDEX IF NOT EXISTS idx_mat_agg_key ON mint_materialized_aggregations(company_id, aggregation_key);
+
       -- Columnas físicas y fiscales para Proveedores
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS tax_id VARCHAR(50);
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS street_address TEXT;
@@ -155,6 +287,10 @@ export async function ensureDecisionsTables(): Promise<void> {
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS country VARCHAR(50);
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 6);
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 6);
+
+      -- Columnas de precio y costo directo en Productos
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS price NUMERIC(10, 2);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(10, 2);
     `);
     console.log("✅ Tablas e infraestructura física/geográfica verificadas en PostgreSQL.");
   } catch (err) {

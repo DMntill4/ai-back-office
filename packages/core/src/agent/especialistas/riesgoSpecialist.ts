@@ -77,6 +77,14 @@ export async function auditProposalRisk(params: {
     .where(and(eq(purchaseOrders.productId, params.productId), eq(purchaseOrders.companyId, companyId)))
     .limit(10);
 
+  // Detectar divisa corporativa real
+  let currency = "USD";
+  try {
+    const { companies } = await import("../../db/schema");
+    const [c] = await db.select({ currency: companies.currency }).from(companies).where(eq(companies.id, companyId)).limit(1);
+    if (c?.currency) currency = c.currency;
+  } catch {}
+
   if (historicalOrders.length > 0) {
     const avgHistoricalPrice =
       historicalOrders.reduce((sum, o) => sum + parseFloat(o.unitPrice), 0) / historicalOrders.length;
@@ -85,7 +93,7 @@ export async function auditProposalRisk(params: {
 
     if (priceInflationPercent > 25) {
       redFlags.push(
-        `Sobrecosto atípico detectado: El precio unitario propuesto ($${params.proposedUnitPrice} MXN) está +${priceInflationPercent.toFixed(1)}% por encima del histórico promedio ($${avgHistoricalPrice.toFixed(2)} MXN).`,
+        `Sobrecosto atípico detectado: El precio unitario propuesto ($${params.proposedUnitPrice} ${currency}) está +${priceInflationPercent.toFixed(1)}% por encima del histórico promedio ($${avgHistoricalPrice.toFixed(2)} ${currency}).`,
       );
       riskScore += 0.35;
     } else if (priceInflationPercent > 0) {
@@ -115,6 +123,7 @@ export async function auditProposalRisk(params: {
       status: o.status,
       createdAt: o.createdAt,
     })),
+    currency,
   );
 
   return {

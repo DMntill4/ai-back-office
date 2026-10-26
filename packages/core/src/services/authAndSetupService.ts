@@ -3,12 +3,23 @@ import { users, companies, businessConfig, products, inventory } from "../db/sch
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
+export type UserRole = "owner" | "admin" | "operator" | "driver" | "viewer" | "auditor";
+export type ActionPermission =
+  | "approve"
+  | "dispatch"
+  | "receive"
+  | "manage_team"
+  | "manage_channels"
+  | "configure_bot"
+  | "upload_sql"
+  | "view";
+
 export interface RegisterInput {
   name: string;
   email: string;
   password?: string;
   companyName: string;
-  role?: "owner" | "operator" | "auditor" | "viewer";
+  role?: UserRole;
 }
 
 export interface LoginInput {
@@ -23,7 +34,7 @@ export interface SetupConfigInput {
   botTone: "ejecutivo" | "tecnico" | "didactico";
   botCustomRules?: string;
   approvalLimitAmount: number;
-  currency: "MXN" | "USD";
+  currency?: string;
 }
 
 export interface SqlUploadInput {
@@ -35,23 +46,67 @@ export interface SqlUploadInput {
 /**
  * Permisos por Rol en el sistema:
  */
-export const ROLE_PERMISSIONS = {
+export const ROLE_PERMISSIONS: Record<
+  UserRole,
+  {
+    label: string;
+    description: string;
+    canConfigureBot: boolean;
+    canUploadSql: boolean;
+    canApprovePurchases: boolean;
+    canDispatch: boolean;
+    canReceive: boolean;
+    canManageTeam: boolean;
+    canManageChannels: boolean;
+    canViewDashboard: boolean;
+  }
+> = {
   owner: {
-    label: "Dueño / Propietario (Admin)",
-    description: "Control absoluto: configuración del bot, carga de SQL, umbrales y aprobaciones.",
+    label: "Dueño / Propietario (Owner)",
+    description: "Control absoluto: configuración del bot, equipo, canales, umbrales y aprobaciones.",
     canConfigureBot: true,
     canUploadSql: true,
     canApprovePurchases: true,
-    canExecutePurchases: true,
+    canDispatch: true,
+    canReceive: true,
+    canManageTeam: true,
+    canManageChannels: true,
+    canViewDashboard: true,
+  },
+  admin: {
+    label: "Administrador General",
+    description: "Gestión operativa total: aprobación HITL, despachos, recepción, equipo y canales.",
+    canConfigureBot: true,
+    canUploadSql: true,
+    canApprovePurchases: true,
+    canDispatch: true,
+    canReceive: true,
+    canManageTeam: true,
+    canManageChannels: true,
     canViewDashboard: true,
   },
   operator: {
-    label: "Operador de Compras",
-    description: "Interacción con el agente ReAct, órdenes bajo umbral y consultas operativas.",
+    label: "Operador de Logística y Compras",
+    description: "Despacho de pedidos, recepción de inventario y consultas operativas.",
     canConfigureBot: false,
     canUploadSql: false,
     canApprovePurchases: false,
-    canExecutePurchases: true,
+    canDispatch: true,
+    canReceive: true,
+    canManageTeam: false,
+    canManageChannels: false,
+    canViewDashboard: true,
+  },
+  driver: {
+    label: "Conductor / Transportista",
+    description: "Recepción de mercancía en ruta y consulta de manifiestos de embarque.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: false,
+    canDispatch: false,
+    canReceive: true,
+    canManageTeam: false,
+    canManageChannels: false,
     canViewDashboard: true,
   },
   auditor: {
@@ -60,19 +115,51 @@ export const ROLE_PERMISSIONS = {
     canConfigureBot: false,
     canUploadSql: false,
     canApprovePurchases: true,
-    canExecutePurchases: false,
+    canDispatch: false,
+    canReceive: false,
+    canManageTeam: false,
+    canManageChannels: false,
     canViewDashboard: true,
   },
   viewer: {
     label: "Consultor (Solo Lectura)",
-    description: "Visualización de existencias, reportes generales y analítica sin permisos de compra.",
+    description: "Visualización de existencias, reportes generales y analítica sin permisos de escritura.",
     canConfigureBot: false,
     canUploadSql: false,
     canApprovePurchases: false,
-    canExecutePurchases: false,
+    canDispatch: false,
+    canReceive: false,
+    canManageTeam: false,
+    canManageChannels: false,
     canViewDashboard: true,
   },
-} as const;
+};
+
+export function hasPermission(role: string = "viewer", action: ActionPermission): boolean {
+  const normRole = (role || "viewer").toLowerCase() as UserRole;
+  const perms = ROLE_PERMISSIONS[normRole] || ROLE_PERMISSIONS.viewer;
+
+  switch (action) {
+    case "approve":
+      return perms.canApprovePurchases;
+    case "dispatch":
+      return perms.canDispatch;
+    case "receive":
+      return perms.canReceive;
+    case "manage_team":
+      return perms.canManageTeam;
+    case "manage_channels":
+      return perms.canManageChannels;
+    case "configure_bot":
+      return perms.canConfigureBot;
+    case "upload_sql":
+      return perms.canUploadSql;
+    case "view":
+      return perms.canViewDashboard;
+    default:
+      return false;
+  }
+}
 
 export async function registerUser(input: RegisterInput) {
   const companySlug = input.companyName
@@ -107,6 +194,7 @@ export async function registerUser(input: RegisterInput) {
     });
 
     // 3. Crear configuración por defecto para la empresa
+    const initialCurrency = (input as any).currency || "USD";
     await db
       .insert(businessConfig)
       .values([
@@ -114,21 +202,21 @@ export async function registerUser(input: RegisterInput) {
           companyId: companyId,
           key: "approval_limit_amount",
           value: "10000.00",
-          currency: "MXN",
+          currency: initialCurrency,
           description: "Monto máximo permitido sin requerir aprobación humana",
         },
         {
           companyId: companyId,
           key: "bot_name",
           value: "Mint Autonomous Agent",
-          currency: "MXN",
+          currency: initialCurrency,
           description: "Nombre personalizado del asistente",
         },
         {
           companyId: companyId,
           key: "bot_tone",
           value: "ejecutivo",
-          currency: "MXN",
+          currency: initialCurrency,
           description: "Tono de respuesta del asistente",
         },
       ])
@@ -239,8 +327,8 @@ export async function saveBotSetupConfig(input: SetupConfigInput) {
       {
         companyId: input.companyId,
         key: "currency",
-        value: input.currency,
-        currency: input.currency,
+        value: input.currency || "USD",
+        currency: input.currency || "USD",
         description: "Moneda configurada por la empresa",
       },
     ];

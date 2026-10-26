@@ -12,6 +12,7 @@ export interface NotificationPayload {
   evidenceSummary: string;
   approveToken?: string;
   rejectToken?: string;
+  currency?: string;
 }
 
 export interface SendResult {

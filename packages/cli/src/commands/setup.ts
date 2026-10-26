@@ -148,10 +148,10 @@ export async function setupCommand(options: SetupOptions = {}) {
     drawCard(
       [
         `${theme.dim("Empresa:")}        ${theme.mintBold(companyName)} (${theme.dim(companyId)})`,
-        `${theme.dim("Almacén:")}        ${theme.bold("Almacén Central de Operaciones")} (Bahía Principal)`,
+        `${theme.dim("Almacén:")}        ${theme.bold("Almacén Central de Operaciones")}`,
         `${theme.dim("Catálogo:")}       ${theme.bold(importedCount)} SKUs sincronizados con existencias reales`,
-        `${theme.dim("Proveedores:")}    ${theme.cyanBold("2")} homologados (Express: 1 día / Mayorista: 6 días)`,
-        `${theme.dim("Autonomía:")}      ${theme.badge("ASISTIDO", "mint")} (Compras < $10,000 MXN automáticas)`,
+        `${theme.dim("Proveedores:")}    Directorio listo para alta de proveedores (/suppliers)`,
+        `${theme.dim("Autonomía:")}      ${theme.badge("ASISTIDO", "mint")} (Supervisión HITL activa)`,
         `${theme.dim("Vigilancia:")}     Daemon y sensores de desabasto activos 24/7`,
       ],
       {

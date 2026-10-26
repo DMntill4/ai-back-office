@@ -48,13 +48,14 @@ export interface ActionProposal {
 export type AutonomyLevel = "dry-run" | "assisted" | "auto";
 
 export interface CompanyPolicyRules {
-  approvalLimitAmount?: number; // Límite monetario autónomo (ej: 10,000 MXN)
+  approvalLimitAmount?: number; // Límite monetario autónomo configurado por la empresa
   prohibitedSuppliers?: string[];
   requireHitlOnIrreversible?: boolean;
   minConfidenceThreshold?: number; // ej: 0.80
   maxAutonomousRiskScore?: number; // ej: 0.25
   autonomyLevel?: AutonomyLevel; // dry-run | assisted | auto
   maxDataStalenessHours?: number; // Límite máximo de desfase en horas (ej: 24h)
+  currency?: string; // Divisa oficial de la empresa (USD, COP, MXN, etc.)
 }
 
 export interface PolicyEvaluation {
@@ -144,7 +145,11 @@ export function evaluatePolicy(
 
   // 2. REGLAS DE AUTO-EJECUCIÓN (AUTONOMÍA COMPLETA)
   // Debe cumplir simultáneamente: bajo el umbral, bajo riesgo, alta confianza y proveedor conocido
-  const effectiveLimit = autonomyLevel === "auto" ? Math.max(approvalLimit, 50000) : approvalLimit;
+  const currency = rules.currency || (proposal.evidence as any)?.currency || "USD";
+  const formatMoney = (val: number) =>
+    `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+
+  const effectiveLimit = autonomyLevel === "auto" ? Math.max(approvalLimit, approvalLimit * 1.5) : approvalLimit;
   const isUnderThreshold = proposal.costMxn <= effectiveLimit;
   const isSafeRisk = proposal.riskAssessment.riskScore <= maxRiskForAuto;
   const isHighConfidence = proposal.confidence >= minConfidence;
@@ -156,7 +161,7 @@ export function evaluatePolicy(
     if (autonomyLevel === "dry-run") {
       return {
         policyDecision: "pending_approval",
-        reason: `MODO DRY-RUN ACTIVO: La propuesta califica para auto-ejecución ($${proposal.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN), pero no se ejecutó en base de datos porque el modo activo es dry-run.`,
+        reason: `MODO DRY-RUN ACTIVO: La propuesta califica para auto-ejecución (${formatMoney(proposal.costMxn)}), pero no se ejecutó en base de datos porque el modo activo es dry-run.`,
         matchedRule: "RULE_DRY_RUN_GUARDRAIL",
         requiresHitl: true,
         canExecuteNow: false,
@@ -167,7 +172,7 @@ export function evaluatePolicy(
 
     return {
       policyDecision: "auto_executed",
-      reason: `AUTO-EJECUTADO: El monto ($${proposal.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN) está bajo el umbral de autonomía ($${effectiveLimit.toLocaleString("es-MX")} MXN), con riesgo mínimo (${(proposal.riskAssessment.riskScore * 100).toFixed(0)}%) y confianza sólida (${(proposal.confidence * 100).toFixed(0)}%).`,
+      reason: `AUTO-EJECUTADO: El monto (${formatMoney(proposal.costMxn)}) está bajo el umbral de autonomía (${formatMoney(effectiveLimit)}), con riesgo mínimo (${(proposal.riskAssessment.riskScore * 100).toFixed(0)}%) y confianza sólida (${(proposal.confidence * 100).toFixed(0)}%).`,
       matchedRule: "RULE_AUTONOMOUS_EXECUTION_ELIGIBLE",
       requiresHitl: false,
       canExecuteNow: true,
@@ -179,7 +184,7 @@ export function evaluatePolicy(
   // 3. REGLAS DE ESCALAMIENTO HUMANO (HUMAN-IN-THE-LOOP - BANDEJA DE DECISIONES)
   const hitlReasons: string[] = [];
   if (!isUnderThreshold) {
-    hitlReasons.push(`El monto ($${proposal.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN) excede el umbral de autonomía autorizado de $${approvalLimit.toLocaleString("es-MX")} MXN`);
+    hitlReasons.push(`El monto (${formatMoney(proposal.costMxn)}) excede el umbral de autonomía autorizado de ${formatMoney(approvalLimit)}`);
   }
   if (!proposal.reversible && requireHitlOnIrreversible && proposal.actionType === "crear_orden_compra") {
     hitlReasons.push("La orden de compra es una operación financiera vinculante");

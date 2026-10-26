@@ -3,6 +3,8 @@ import {
   notificationChannels,
   notificationLog,
   decisions,
+  companies,
+  operationalEvents,
 } from "@mint/core";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -52,6 +54,32 @@ export async function listNotificationChannels(companyId: string) {
 }
 
 /**
+ * Registra y propaga un evento de auditoría de decisión autónoma
+ */
+export async function dispatchAuditEvent(params: {
+  companyId: string;
+  phase: "OBSERVE" | "DECIDE" | "EXECUTE" | "VERIFY";
+  detail: string;
+  metadata?: Record<string, any>;
+}): Promise<void> {
+  const { companyId, phase, detail, metadata } = params;
+  try {
+    await db.insert(operationalEvents).values({
+      id: `audit_${Date.now()}_${randomUUID().slice(0, 6)}`,
+      companyId,
+      eventType: `AUDIT_${phase}`,
+      severity: phase === "EXECUTE" ? "HIGH" : "INFO",
+      status: "RESOLVED",
+      title: `[${phase}] ${detail.slice(0, 80)}`,
+      description: detail,
+      payload: metadata || {},
+    });
+  } catch {
+    // Registro no bloqueante
+  }
+}
+
+/**
  * Envía una notificación de decisión con botones interactivos y tokens firmados
  */
 export async function dispatchDecisionNotification(
@@ -71,6 +99,21 @@ export async function dispatchDecisionNotification(
   const dec = decList[0];
   const costNumber = Number(dec.costMxn);
 
+  // Obtener divisa real de la empresa
+  let currency = "USD";
+  try {
+    const compList = await db
+      .select({ currency: companies.currency })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+    if (compList[0]?.currency) {
+      currency = compList[0].currency;
+    }
+  } catch {
+    // Mantener USD si falla consulta
+  }
+
   // 1. Generar tokens firmados de aprobación y rechazo
   const approveTokenObj = generateApprovalToken({
     decisionId,
@@ -86,15 +129,18 @@ export async function dispatchDecisionNotification(
     ttlMinutes: 60,
   });
 
+  const formattedCost = `$${costNumber.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+
   const payload: NotificationPayload = {
     companyId,
     decisionId,
     title: dec.title,
     description: dec.policyReason || "Propuesta de compra lista para aprobación",
     costMxn: costNumber,
+    currency,
     proposingAgent: dec.proposingAgent,
     severity: costNumber > 50000 ? "CRITICAL" : "WARNING",
-    evidenceSummary: `Costo: $${costNumber.toLocaleString("es-MX")} MXN. Razón: ${dec.policyReason || "Supera umbral autónomo."}`,
+    evidenceSummary: `Costo: ${formattedCost}. Razón: ${dec.policyReason || "Supera umbral autónomo."}`,
     approveToken: approveTokenObj.token,
     rejectToken: rejectTokenObj.token,
   };
@@ -102,21 +148,62 @@ export async function dispatchDecisionNotification(
   // 2. Obtener canales configurados
   let channels = await listNotificationChannels(companyId);
 
-  // Si no hay canales registrados en BD, usar los adaptadores con configuración por defecto
+  // Si no hay canales en BD, verificar variables de entorno antes de fallar
   if (channels.length === 0) {
-    channels = [
-      {
-        id: "chan_tg_default",
+    const envChannels: typeof channels = [];
+    if (process.env.DISCORD_WEBHOOK_URL) {
+      envChannels.push({
+        id: "chan_discord_env",
         companyId,
-        type: "telegram",
-        name: "Telegram Bot Oficial",
-        config: {},
+        type: "discord",
+        name: "Discord Webhook (ENV)",
+        config: { webhookUrl: process.env.DISCORD_WEBHOOK_URL },
         isActive: true,
         quietHoursStart: null,
         quietHoursEnd: null,
         createdAt: new Date(),
-      },
-    ];
+      });
+    }
+    if (process.env.SLACK_WEBHOOK_URL) {
+      envChannels.push({
+        id: "chan_slack_env",
+        companyId,
+        type: "slack",
+        name: "Slack Webhook (ENV)",
+        config: { webhookUrl: process.env.SLACK_WEBHOOK_URL },
+        isActive: true,
+        quietHoursStart: null,
+        quietHoursEnd: null,
+        createdAt: new Date(),
+      });
+    }
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+      envChannels.push({
+        id: "chan_tg_env",
+        companyId,
+        type: "telegram",
+        name: "Telegram Bot (ENV)",
+        config: { botToken: process.env.TELEGRAM_BOT_TOKEN, chatId: process.env.TELEGRAM_CHAT_ID },
+        isActive: true,
+        quietHoursStart: null,
+        quietHoursEnd: null,
+        createdAt: new Date(),
+      });
+    }
+
+    if (envChannels.length === 0) {
+      // Sin canales configurados: retornar informe transparente en lugar de simular o inventar
+      return [
+        {
+          success: false,
+          channelType: "discord",
+          messageId: `unconfigured_${Date.now()}`,
+          error: "Sin canales de notificación activos. Configura uno con '/channels add' o exporta DISCORD_WEBHOOK_URL en .env.",
+        },
+      ];
+    }
+
+    channels = envChannels;
   }
 
   const results: SendResult[] = [];
@@ -130,14 +217,14 @@ export async function dispatchDecisionNotification(
     const sendRes = await adapter.send(payload, channel.config as Record<string, any>);
     results.push(sendRes);
 
-    // 3. Registrar en bitácora de notificaciones
+    // 3. Registrar en bitácora inmutable de notificaciones
     await db.insert(notificationLog).values({
       id: `nlog_${randomUUID().slice(0, 8)}`,
       companyId,
       channelId: channel.id,
       decisionId,
       severity: payload.severity,
-      status: "SENT",
+      status: sendRes.success ? "SENT" : "FAILED",
       messageId: sendRes.messageId,
       signedToken: approveTokenObj.token,
       tokenExpiresAt: approveTokenObj.expiresAt,

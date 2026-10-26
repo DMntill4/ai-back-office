@@ -84,47 +84,87 @@ export async function stockCommand(options: { json?: boolean; noExit?: boolean }
   }
 }
 
-export async function ordersCommand(options: { json?: boolean; noExit?: boolean } = {}) {
+export async function ordersCommand(
+  statusOrId?: string,
+  options: { json?: boolean; noExit?: boolean } = {},
+) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
   try {
-    const ordersList = await db
-      .select()
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.companyId, companyId))
-      .orderBy(desc(purchaseOrders.createdAt));
+    const { listCompanyOrders, getCompanyConfig } = await import("@mint/core");
+    const config = await getCompanyConfig(companyId);
 
-    const suppList = await db.select().from(suppliers).where(eq(suppliers.companyId, companyId));
+    const query = statusOrId ? statusOrId.trim() : "";
+    const isStatusFilter = ["open", "abierta", "abiertas", "received", "recibida", "recibidas", "cancelled", "cancelada", "all", "todas"].includes(query.toLowerCase());
 
-    const data = ordersList.map((o) => {
-      const supp = suppList.find((s) => s.id === o.supplierId);
-      return {
-        orderId: o.id,
-        sku: o.productId,
-        productName: o.productId,
-        provider: supp?.name || o.supplierId || "Proveedor Oficial",
-        amountMXN: `$${Number(o.totalAmount).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`,
-        status: o.status,
-        createdAt: o.createdAt ? o.createdAt.toISOString() : new Date().toISOString(),
-      };
-    });
+    const statusFilter = isStatusFilter
+      ? query.toLowerCase().startsWith("open") || query.toLowerCase().startsWith("abiert")
+        ? "abierta"
+        : query.toLowerCase().startsWith("recib")
+          ? "recibida"
+          : query.toLowerCase().startsWith("canc")
+            ? "cancelada"
+            : undefined
+      : undefined;
+
+    const orders = await listCompanyOrders(companyId, statusFilter);
+
+    // Si pasaron un ID específico de orden
+    if (query && !isStatusFilter) {
+      const order = orders.find((o) => o.id.toLowerCase() === query.toLowerCase());
+      if (order) {
+        console.log("\n" + drawDivider(`FICHA DE ORDEN DE COMPRA // ${order.id}`, 84));
+        const statusBadge =
+          order.status === "recibida"
+            ? theme.mintBold("[RECIBIDA]")
+            : order.status === "abierta"
+              ? theme.amberBold("[ABIERTA / EN ESPERA]")
+              : theme.dim("[CANCELADA]");
+
+        const { drawCard } = await import("../ui/box");
+        console.log(
+          drawCard(
+            [
+              `${theme.bold("ESTADO DE LA ORDEN:")} ${statusBadge}`,
+              "",
+              `  - ID de Orden:       ${theme.mintBold(order.id)}`,
+              `  - Proveedor:         ${theme.bold(order.supplierName)} [${order.supplierId}]`,
+              `  - Producto:          ${theme.cyanBold(order.productName)} (SKU: ${order.sku})`,
+              `  - Cantidad:          ${order.quantity} unidades`,
+              `  - Precio Unitario:   $${order.unitPrice.toLocaleString("es-CO", { minimumFractionDigits: 2 })} ${config.currency}`,
+              `  - Total Facturado:   ${theme.mintBold(`$${order.totalAmount.toLocaleString("es-CO", { minimumFractionDigits: 2 })} ${config.currency}`)}`,
+              `  - Fecha Emisión:     ${new Date(order.createdAt).toLocaleDateString()}`,
+              `  - Guía de Transporte: ${order.trackingNumber ? theme.bold(`${order.trackingNumber} (${order.carrier || "En camino"})`) : theme.dim("Sin guía asignada aún")}`,
+              "",
+              `  ${theme.dim("Para registrar la recepción en almacén:")} ${theme.mintBold(`/receive ${order.id}`)}`,
+            ],
+            {
+              title: "DETALLE DE ORDEN",
+              borderColor: theme.mint,
+            },
+          ),
+        );
+        console.log("");
+        return;
+      }
+    }
 
     if (options.json) {
-      console.log(JSON.stringify(data, null, 2));
+      console.log(JSON.stringify(orders, null, 2));
       return;
     }
 
     console.log("\n" + drawDivider(`ÓRDENES DE COMPRA REGISTRADAS [${companyId}]`, 86));
 
-    if (data.length === 0) {
+    if (orders.length === 0) {
       console.log(`\n  ${theme.dim("- No hay ordenes de compra emitidas todavia.")}`);
       console.log(`  ${theme.dim("Cualquier propuesta generada por el agente requerira tu aprobacion en '/inbox'.")}\n`);
       return;
     }
 
-    const rows = data.map((o) => {
-      const date = o.createdAt ? new Date(o.createdAt).toLocaleDateString("es-MX") : "N/A";
+    const rows = orders.map((o) => {
+      const date = o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "N/A";
       const statusBadge =
         o.status === "recibida"
           ? theme.badge("RECIBIDA", "mint")
@@ -132,10 +172,12 @@ export async function ordersCommand(options: { json?: boolean; noExit?: boolean 
             ? theme.badge("ABIERTA", "amber")
             : theme.badge("CANCELADA", "gray");
 
+      const amountFormatted = `$${o.totalAmount.toLocaleString("es-CO", { minimumFractionDigits: 2 })} ${config.currency}`;
+
       return {
-        orderId: theme.bold(o.orderId),
-        provider: (o.provider || "N/A").slice(0, 24),
-        amount: theme.mintBold(o.amountMXN),
+        orderId: theme.bold(o.id),
+        provider: (o.supplierName || "N/A").slice(0, 24),
+        amount: theme.mintBold(amountFormatted),
         status: statusBadge,
         date,
       };
@@ -146,7 +188,7 @@ export async function ordersCommand(options: { json?: boolean; noExit?: boolean 
         [
           { header: "ORDEN ID", key: "orderId", width: 16 },
           { header: "PROVEEDOR", key: "provider", width: 26 },
-          { header: "MONTO MXN", key: "amount", width: 18, align: "right" },
+          { header: `MONTO (${config.currency})`, key: "amount", width: 18, align: "right" },
           { header: "ESTADO", key: "status", width: 14, align: "center" },
           { header: "FECHA", key: "date", width: 12, align: "center" },
         ],
@@ -154,7 +196,7 @@ export async function ordersCommand(options: { json?: boolean; noExit?: boolean 
       ),
     );
 
-    console.log(`\n${theme.dim("Total ordenes:")} ${theme.bold(data.length)}\n`);
+    console.log(`\n${theme.dim("Total ordenes:")} ${theme.bold(orders.length)}  ·  ${theme.dim("Ver detalle:")} ${theme.mintBold("/orders <id>")}  ·  ${theme.dim("Filtrar:")} ${theme.mintBold("/orders [open|received]")}\n`);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));

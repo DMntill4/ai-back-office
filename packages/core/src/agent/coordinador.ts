@@ -10,6 +10,7 @@ import { evaluatePolicy, type ActionProposal, type PolicyEvaluation } from "../p
 import { executeAndVerifyDecision } from "../services/decisionExecutionService";
 import { checkDataFreshness } from "../services/dataFreshnessService";
 import { evaluateWarehouseRebalancing } from "../services/logisticsCoordinatorService";
+import { getProductsWithOpenProposals } from "../events/openProposals";
 
 export interface CoordinatorResult {
   success: boolean;
@@ -18,6 +19,8 @@ export interface CoordinatorResult {
   policyResult?: PolicyEvaluation;
   proposal?: ActionProposal;
   summary: string;
+  /** true si ya existía una propuesta abierta para el producto y no se creó otra. */
+  deduplicated?: boolean;
 }
 
 /**
@@ -37,8 +40,25 @@ export async function coordinateOperationalEvent(params: {
   description?: string;
   payload?: Record<string, any>;
   autonomyLevel?: "dry-run" | "assisted" | "auto";
+  /** Ignora la deduplicación (uso explícito, p. ej. simulaciones). */
+  force?: boolean;
 }): Promise<CoordinatorResult> {
   const companyId = params.companyId || "comp_default";
+
+  // 0. Guardia anti-duplicados: un producto con propuesta abierta no genera otra
+  const earlyProductId = params.productId || params.payload?.productId;
+  if (earlyProductId && !params.force) {
+    const blocked = await getProductsWithOpenProposals(companyId);
+    if (blocked.has(String(earlyProductId))) {
+      return {
+        success: true,
+        caseId: "",
+        deduplicated: true,
+        summary: `Ya existe una propuesta abierta (o rechazada hace menos de 24h) para el producto ${earlyProductId}. No se creó otra.`,
+      };
+    }
+  }
+
   const caseId = `case_${randomUUID().slice(0, 8)}`;
   const decisionId = `dec_${randomUUID().slice(0, 8)}`;
 
@@ -192,10 +212,18 @@ export async function coordinateOperationalEvent(params: {
   const autonomyLevelRaw = configs.find((c) => c.key === "autonomy_level")?.value as any;
   const autonomyLevel = params.autonomyLevel || autonomyLevelRaw || "dry-run";
 
+  let currency = "USD";
+  try {
+    const { companies } = await import("../db/schema");
+    const [c] = await db.select({ currency: companies.currency }).from(companies).where(eq(companies.id, companyId)).limit(1);
+    if (c?.currency) currency = c.currency;
+  } catch {}
+
   // 9. Pasar por el Motor de Políticas Determinista
   const policyResult = evaluatePolicy(proposal, {
     approvalLimitAmount: approvalLimit,
     autonomyLevel,
+    currency,
   });
 
   // 10. Persistir la decisión en la tabla decisions

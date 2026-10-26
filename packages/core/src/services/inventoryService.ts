@@ -9,6 +9,7 @@ import {
   approvals,
   warehouses,
   shipments,
+  companies,
 } from "../db/schema";
 import { db } from "../db/client";
 import { eq, and, or, ilike } from "drizzle-orm";
@@ -158,8 +159,18 @@ export interface CreatePurchaseOrderInput {
 
 export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
   let maxAllowedAmount = 10000.0;
-  let currency = "MXN";
   const effectiveCompanyId = input.companyId || "comp_default";
+  let currency = "USD";
+  try {
+    const [comp] = await db
+      .select({ currency: companies.currency })
+      .from(companies)
+      .where(eq(companies.id, effectiveCompanyId))
+      .limit(1);
+    if (comp?.currency) currency = comp.currency;
+  } catch {
+    // Mantener USD si falla
+  }
 
   // Idempotencia
   const existing = await db
@@ -193,11 +204,11 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
       const parsed = parseFloat(limitConfig.value);
       if (!isNaN(parsed) && parsed > 0) {
         maxAllowedAmount = parsed;
-        currency = limitConfig.currency || "MXN";
+        if (limitConfig.currency) currency = limitConfig.currency;
       }
     }
   } catch {
-    // Si no está configurado, umbral por defecto: $10,000.00 MXN
+    // Si no está configurado, usar umbral por defecto
   }
 
   const supplierProduct = await db
@@ -229,10 +240,10 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
           companyId: effectiveCompanyId,
           name: "Compra Directa / Licitación Abierta (RFQ)",
           email: "compras@proveedor-directo.local",
-          streetAddress: "Centro de Abasto Nacional",
-          city: "Ciudad de México",
-          latitude: "19.4326",
-          longitude: "-99.1332",
+          streetAddress: null,
+          city: null,
+          latitude: null,
+          longitude: null,
         })
         .onConflictDoNothing();
     } catch {

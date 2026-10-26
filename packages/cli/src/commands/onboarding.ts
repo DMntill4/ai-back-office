@@ -155,9 +155,9 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         location: warehouseCity,
         city: whGeo?.city || warehouseCity,
         state: whGeo?.state || null,
-        country: whGeo?.country || "MX",
-        latitude: whGeo ? String(whGeo.latitude) : "19.4326",
-        longitude: whGeo ? String(whGeo.longitude) : "-99.1332",
+        country: whGeo?.country || null,
+        latitude: whGeo ? String(whGeo.latitude) : null,
+        longitude: whGeo ? String(whGeo.longitude) : null,
       })
       .onConflictDoNothing();
 
@@ -305,42 +305,26 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         const registeredSuppIds: string[] = [];
         for (const s of extractedSuppliers) {
           const suppId = `supp_${s.name.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 30)}_${companyId}`;
+          const suppGeo = s.city ? await geocodeAddressOrCity(s.city).catch(() => null) : null;
           await db
             .insert(suppliers)
             .values({
               id: suppId,
               companyId,
               name: s.name,
-              city: s.city || "Monterrey",
-              latitude: "25.6866",
-              longitude: "-100.3161",
+              city: suppGeo?.city || s.city || null,
+              latitude: suppGeo ? String(suppGeo.latitude) : null,
+              longitude: suppGeo ? String(suppGeo.longitude) : null,
               origin: "real",
             })
             .onConflictDoNothing();
           registeredSuppIds.push(suppId);
         }
 
-        if (registeredSuppIds.length === 0) {
-          const fallbackSuppId = `supp_direct_${companyId}`;
-          await db
-            .insert(suppliers)
-            .values({
-              id: fallbackSuppId,
-              companyId,
-              name: "Compra Directa / Licitación Abierta (RFQ)",
-              city: "Querétaro",
-              latitude: "20.5888",
-              longitude: "-100.3899",
-              origin: "real",
-            })
-            .onConflictDoNothing();
-          registeredSuppIds.push(fallbackSuppId);
-        }
-
         if (extracted.length > 0) {
           for (let i = 0; i < extracted.length; i++) {
             const item = extracted[i];
-            const productId = `prod_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+            const productId = `prod_${companyId}_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
             await db
               .insert(products)
               .values({
@@ -640,7 +624,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           `${theme.dim("Organization:")} ${theme.mintBold(companyName)} [${theme.dim(companyId)}]`,
           `${theme.dim("Catalog:")}      ${theme.bold(importedProductsCount)} SKUs connected with real stock`,
           `${theme.dim("Channel:")}      ${theme.bold(channelDescription)}`,
-          `${theme.dim("Autonomy:")}     ${theme.badge(autonomyLevel.toUpperCase(), "mint")} (Restocks < $10k MXN auto-executed)`,
+          `${theme.dim("Autonomy:")}     ${theme.badge(autonomyLevel.toUpperCase(), "mint")} (Operaciones seguras bajo gobernanza)`,
           `${theme.dim("Background:")}   ${theme.mintBold("DAEMON ONLINE")} — Listening for sales & watching stock 24/7`,
         ],
         {

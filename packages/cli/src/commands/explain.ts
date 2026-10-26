@@ -58,6 +58,10 @@ export async function explainCommand(decisionId: string, options: { json?: boole
       return;
     }
 
+    const { getCompanyConfig } = await import("@mint/core");
+    const config = await getCompanyConfig(companyId);
+    const currency = config.currency;
+
     const badgeColor =
       d.policyDecision === "auto_executed" || d.policyDecision === "approved"
         ? "mint"
@@ -65,7 +69,7 @@ export async function explainCommand(decisionId: string, options: { json?: boole
           ? "amber"
           : "red";
 
-    const costStr = `$${Number(d.costMxn).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
+    const costStr = `$${Number(d.costMxn).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`;
     const riskPct = `${(Number(d.riskScore) * 100).toFixed(0)}%`;
 
     console.log("");
@@ -98,7 +102,7 @@ export async function explainCommand(decisionId: string, options: { json?: boole
       `   ${theme.muted("Métricas:")}  Stock Actual: ${evidence.currentStock ?? "N/A"}u ` +
         `│ Déficit: ${evidence.deficit ?? "N/A"}u ` +
         `│ Proveedor: ${evidence.supplierName ?? "N/A"} ` +
-        `│ Costo Unitario: $${evidence.unitCostMxn ?? "N/A"} MXN`,
+        `│ Costo Unitario: $${evidence.unitCostMxn ?? "N/A"} ${currency}`,
     );
 
     console.log(`\n${theme.cyanBold("2. Agente de Riesgo y Auditoría (Adversarial):")}`);

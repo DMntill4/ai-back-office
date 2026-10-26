@@ -162,9 +162,9 @@ export async function getCompanyCurrency(companyId: string): Promise<string> {
       .from(businessConfig)
       .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "currency")))
       .limit(1);
-    return conf?.currency || "MXN";
+    return conf?.currency || "USD";
   } catch {
-    return "MXN";
+    return "USD";
   }
 }
 
@@ -354,8 +354,12 @@ export async function evaluateWarehouseRebalancing(companyId: string): Promise<W
       const qtyToTransfer = Math.min(needed, availableSurplus);
       if (qtyToTransfer <= 0) continue;
 
-      const originGeo = (await resolveNodeGeoPoint(fromWh)) || { latitude: 19.4326, longitude: -99.1332, name: fromWh.name };
-      const destGeo = (await resolveNodeGeoPoint(toWh)) || { latitude: 19.6453, longitude: -99.2081, name: toWh.name };
+      const originGeo = await resolveNodeGeoPoint(fromWh);
+      const destGeo = await resolveNodeGeoPoint(toWh);
+      if (!originGeo || !destGeo) {
+        // No se puede calcular ruta vial sin coordenadas GPS reales de ambas bodegas
+        continue;
+      }
 
       const route = await calculateRealRoute(originGeo, destGeo, { currency });
       const offer = suppProds.find((sp) => sp.productId === prod.id);
@@ -515,23 +519,22 @@ export async function dispatchOutboundShipment(params: {
   }
 
   const destGeocoded = await geocodeAddressOrCity(destinationAddressOrCity);
-  const destGeoPoint: GeoPoint = destGeocoded
-    ? {
-        latitude: destGeocoded.latitude,
-        longitude: destGeocoded.longitude,
-        name: customerName,
-        address: destGeocoded.displayName,
-        city: destGeocoded.city,
-        state: destGeocoded.state,
-        country: destGeocoded.country,
-      }
-    : {
-        latitude: 19.4326,
-        longitude: -99.1332,
-        name: customerName,
-        address: destinationAddressOrCity,
-        city: destinationAddressOrCity,
-      };
+  if (!destGeocoded) {
+    return {
+      success: false,
+      message: `No se pudo geocodificar la ubicación destino '${destinationAddressOrCity}'. Por favor proporciona una ciudad o dirección válida para calcular la ruta vial.`,
+    } as any;
+  }
+
+  const destGeoPoint: GeoPoint = {
+    latitude: destGeocoded.latitude,
+    longitude: destGeocoded.longitude,
+    name: customerName,
+    address: destGeocoded.displayName,
+    city: destGeocoded.city,
+    state: destGeocoded.state,
+    country: destGeocoded.country,
+  };
 
   const [whs, prodInvs] = await Promise.all([
     db.select().from(warehouses).where(eq(warehouses.companyId, companyId)),

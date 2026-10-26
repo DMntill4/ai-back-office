@@ -6,6 +6,8 @@ export class SlackAdapter implements NotifierAdapter {
   async send(payload: NotificationPayload, config: Record<string, any>): Promise<SendResult> {
     const webhookUrl = config.webhookUrl || process.env.SLACK_WEBHOOK_URL;
     const channel = config.channel || "#mint-approvals";
+    const currency = payload.currency || "USD";
+    const formattedAmount = `$${payload.costMxn.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 
     const blocks = [
       {
@@ -21,7 +23,7 @@ export class SlackAdapter implements NotifierAdapter {
         fields: [
           {
             type: "mrkdwn",
-            text: `*Monto:*\n$${payload.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`,
+            text: `*Monto:*\n${formattedAmount}`,
           },
           {
             type: "mrkdwn",
@@ -51,7 +53,7 @@ export class SlackAdapter implements NotifierAdapter {
             type: "button",
             text: {
               type: "plain_text",
-              text: `Aprobar ($${payload.costMxn.toLocaleString("es-MX")} MXN)`,
+              text: `Aprobar (${formattedAmount})`,
               emoji: true,
             },
             style: "primary",

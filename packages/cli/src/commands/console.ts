@@ -1,6 +1,7 @@
 import * as readline from "readline";
 import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
+import { drawFrame, type FrameRow } from "../ui/frame";
 import { getSession } from "../keychain";
 import { getDaemonStatus } from "@mint/daemon";
 import {
@@ -8,12 +9,50 @@ import {
   db,
   products,
   decisions,
-  shipments,
   warehouses,
-  analyzeDynamicCatalogHealth,
-  buildConsolidatedLoadPlans,
+  suppliers,
+  companies,
+  businessConfig,
+  notificationChannels,
+  runPreflightCheck,
 } from "@mint/core";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
+
+async function countRows(table: any, where: any): Promise<number> {
+  const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(table).where(where);
+  return Number(row?.n ?? 0);
+}
+
+/** Carga conteos livianos en paralelo con un tope de tiempo para no bloquear el arranque. */
+async function loadHeaderStats(companyId: string) {
+  const work = Promise.all([
+    countRows(products, eq(products.companyId, companyId)),
+    countRows(suppliers, eq(suppliers.companyId, companyId)),
+    countRows(warehouses, eq(warehouses.companyId, companyId)),
+    countRows(notificationChannels, eq(notificationChannels.companyId, companyId)),
+    countRows(decisions, and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval"))),
+    db.select().from(companies).where(eq(companies.id, companyId)).limit(1),
+    db
+      .select()
+      .from(businessConfig)
+      .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "autonomy_level")))
+      .limit(1),
+  ]);
+  const timeout = new Promise<null>((r) => setTimeout(() => r(null), 2500));
+  const res = await Promise.race([work, timeout]);
+  if (!res) return null;
+  const [prods, supps, whs, chans, pending, comp, autonomy] = res;
+  return {
+    prods,
+    supps,
+    whs,
+    chans,
+    pending,
+    country: (comp[0] as any)?.country as string | undefined,
+    currency: (comp[0] as any)?.currency as string | undefined,
+    autonomy: ((autonomy[0] as any)?.value as string | undefined) ?? "dry-run",
+  };
+}
 
 export async function consoleCommand() {
   let session = await getSession();
@@ -31,45 +70,99 @@ export async function consoleCommand() {
   console.clear();
 
   const daemon = getDaemonStatus();
-  const daemonBadge = daemon.isPaused
-    ? theme.badge("PAUSED", "red")
-    : daemon.isRunning
-      ? theme.badge(`ONLINE (PID ${daemon.pid || process.pid})`, "mint")
-      : theme.badge("STANDBY", "gray");
+  const daemonLabel = daemon.isPaused ? "PAUSADO" : daemon.isRunning ? "ONLINE" : "STANDBY";
+
+  let preflight = null;
+  try {
+    preflight = await runPreflightCheck(companyId);
+  } catch {
+    // Continuar en modo degradado sin bloquear el arranque si la BD está inaccesible
+  }
+
+  const preflightBadgeColor =
+    preflight?.overallStatus === "OK"
+      ? theme.mint
+      : preflight?.overallStatus === "DEGRADADO"
+      ? theme.amber
+      : theme.red;
+
+  const rows: FrameRow[] = [
+    { key: "Empresa", value: companyDisplayName },
+    { key: "Rol", value: session?.role || "sin sesión" },
+  ];
+
+  if (preflight) {
+    const cfg = preflight.components.config.details;
+    const dbStatus = preflight.components.database.status;
+    const dbLatency = preflight.components.database.details?.latencyMs;
+
+    rows.push(
+      {
+        key: "Salud / Preflight",
+        value: `${preflight.overallStatus} (BD: ${dbStatus} ${dbLatency ? `${dbLatency}ms` : ""})`,
+        color: preflightBadgeColor,
+      },
+      {
+        key: "País / Moneda",
+        value: `${cfg.country || "sin definir"} / ${cfg.currency || "USD"} (${cfg.timezone || "America/Bogota"})`,
+        color: cfg.country && cfg.country !== "sin definir" ? undefined : theme.amber,
+      },
+      {
+        key: "Módulos Activos",
+        value: `${preflight.activeModules.length} activos [${preflight.activeModules.join(", ")}]`,
+        color: preflight.activeModules.length > 0 ? theme.cyan : theme.amber,
+      },
+      {
+        key: "Inbox Pendiente",
+        value: preflight.summarySinceLastSession.pendingDecisions > 0
+          ? `${preflight.summarySinceLastSession.pendingDecisions} aprobaciones`
+          : "al día",
+        color: preflight.summarySinceLastSession.pendingDecisions > 0 ? theme.amber : theme.mint,
+      },
+      {
+        key: "Cuarentena / Memoria",
+        value: `${preflight.summarySinceLastSession.quarantinedCount} en cuarentena | ${preflight.summarySinceLastSession.unansweredQuestions} preguntas`,
+        color: preflight.summarySinceLastSession.quarantinedCount > 0 ? theme.amber : undefined,
+      },
+    );
+  } else {
+    rows.push({ key: "Datos", value: "no disponibles (arranque en modo supervivencia)", color: theme.amber });
+  }
+
+  rows.push({ key: "Daemon", value: daemonLabel, color: daemon.isRunning && !daemon.isPaused ? theme.mint : theme.gray });
 
   console.log("");
   console.log(
-    `  ${theme.mintBold("MINT")} ${theme.dim("v2.5.0")}  │  ${theme.bold(companyDisplayName)} [${theme.dim(companyId)}]  │  ${daemonBadge}`,
+    drawFrame({
+      title: `${userName}@${companyId}`,
+      rows,
+      footerLeft: theme.dim("escribe en lenguaje natural o /help"),
+      footerRight: theme.dim(`v2.5.0  ${new Date().toLocaleTimeString()}`),
+    }),
   );
-  console.log(theme.dim("  " + "─".repeat(78)));
 
-  // Resumen compacto de 2 líneas al inicio (sin cajas gigantes ni emojis)
-  try {
-    const [prods, whs, ships, pendingDecs, health, loads] = await Promise.all([
-      db.select().from(products).where(eq(products.companyId, companyId)),
-      db.select().from(warehouses).where(eq(warehouses.companyId, companyId)),
-      db.select().from(shipments).where(eq(shipments.companyId, companyId)),
-      db
-        .select()
-        .from(decisions)
-        .where(and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval"))),
-      analyzeDynamicCatalogHealth(companyId).catch(() => []),
-      buildConsolidatedLoadPlans(companyId).catch(() => []),
-    ]);
-
-    const activeShips = ships.filter((s) => s.status === "en_transito" || s.status === "retrasado");
-    const ropAlerts = health.filter((h) => h.needsReorder);
-    const whCity = whs[0]?.city || whs[0]?.location || "Ciudad de México";
-
+  if (preflight && preflight.degradedModules.length > 0) {
     console.log(
-      `  ${theme.dim("Catalogo:")} ${theme.bold(String(prods.length))} SKUs  │  ${theme.dim("Bodega:")} ${whCity}  │  ${theme.dim("Bajo ROP:")} ${ropAlerts.length > 0 ? theme.amberBold(String(ropAlerts.length)) : theme.mint("0")}  │  ${theme.dim("Guias:")} ${activeShips.length}  │  ${theme.dim("Cargas:")} ${loads.length}  │  ${theme.dim("Inbox:")} ${pendingDecs.length}`,
+      theme.amber(
+        `\n⚠️  MODO DEGRADADO ACTIVO: ${preflight.degradedModules.map((m) => `${m.module} (${m.reason})`).join(" | ")}`
+      )
     );
+  }
+
+  if (preflight && preflight.summarySinceLastSession.quarantinedCount > 0) {
     console.log(
-      `  ${theme.dim("Comandos:")} ${theme.mint("/logistics")}  ${theme.mint("/dispatch")}  ${theme.mint("/consolidate")}  ${theme.mint("/stock")}  ${theme.mint("/inbox")}  ${theme.mint("/db")}  ${theme.mint("/app")}  ${theme.mint("/logout")}  ${theme.mint("/help")}`,
+      theme.amber(
+        `⚠️  CUARENTENA: ${preflight.summarySinceLastSession.quarantinedCount} registros corruptos aislados de clientes. Ejecuta /quarantine para inspeccionar.`
+      )
     );
-    console.log(theme.dim("  " + "─".repeat(78)));
-  } catch {
-    // Continuar si la BD aún no tiene tablas inicializadas
+  }
+
+  if (preflight && preflight.summarySinceLastSession.unansweredQuestions > 0) {
+    console.log(
+      theme.cyan(
+        `ℹ️  VERDAD DE DATOS: ${preflight.summarySinceLastSession.unansweredQuestions} preguntas pendientes para operar con total certeza. Ejecuta /questions.`
+      )
+    );
   }
 
   console.log("");
@@ -134,9 +227,9 @@ export async function consoleCommand() {
         const scan = await runFullOperationalEventScan(companyId);
         const timeStr = new Date().toLocaleTimeString();
 
-        if (!isStartup && (scan.stockDeficitsFound > 0 || scan.delayedShipmentsFound > 0)) {
+        if (!isStartup && scan.processedDecisions.length > 0) {
           console.log(
-            `\n  ${theme.amberBold("[ALERTA]")} ${theme.dim(timeStr)} ${scan.stockDeficitsFound} desabasto(s) / ${scan.delayedShipmentsFound} retraso(s). ${scan.processedDecisions.length} propuesta(s) en /inbox.`,
+            `\n  ${theme.amberBold("[ALERTA]")} ${theme.dim(timeStr)} ${scan.processedDecisions.length} propuesta(s) nueva(s) en /inbox (${scan.stockDeficitsFound} desabasto(s), ${scan.delayedShipmentsFound} retraso(s)).`,
           );
           rl.prompt(true);
         }
@@ -147,7 +240,7 @@ export async function consoleCommand() {
       }
     };
 
-    setTimeout(() => runAutonomousHeartbeat(true), 500);
+    setTimeout(() => runAutonomousHeartbeat(true), 8000);
     const heartbeatTimer = setInterval(() => runAutonomousHeartbeat(false), 45000);
 
     rl.on("close", () => {
@@ -192,17 +285,47 @@ export async function consoleCommand() {
           case "?": {
             console.log("\n" + drawDivider("COMANDOS DEL COORDINADOR LOGISTICO", 80));
             console.log(`  ${theme.mintBold("/logistics")}                Estado de bodegas GPS, embarques y ROP`);
+            console.log(`  ${theme.mintBold("/track <guia|pedido|camion>")} Rastreo en tiempo real, ETA, incidencias y mapa`);
+            console.log(`  ${theme.mintBold("/map [discover|confirm]")}    Convivencia y mapeo seguro de tablas del cliente (Tarea 0)`);
+            console.log(`  ${theme.mintBold("/questions [answer|dismiss]")} Banco de preguntas pendientes (Verdad de datos)`);
+            console.log(`  ${theme.mintBold("/intel [quiebre|overstock|abc]")} Inteligencia: días de quiebre, rotación y sobrestock`);
+            console.log(`  ${theme.mintBold("/fleet [track|drivers]")}     Control de flota, conductores y rastreo de envíos`);
+            console.log(`  ${theme.mintBold("/suppliers [add|<id>]")}      Directorio de proveedores y catálogo de precios`);
+            console.log(`  ${theme.mintBold("/orders [<id>|open|recibida]")} Órdenes de compra emitidas y estado de recepción`);
+            console.log(`  ${theme.mintBold("/customers")}                Demanda de clientes y canales comerciales`);
+            console.log(`  ${theme.mintBold("/reports [briefing|profit|csv]")} Reportes ejecutivos, ganancias y exportación`);
             console.log(`  ${theme.mintBold("/dispatch")}                 Despachar envio a cliente (ruta OSRM + guia)`);
             console.log(`  ${theme.mintBold("/receive <guia|po>")}        Recibir mercancia en almacen y sumar stock`);
             console.log(`  ${theme.mintBold("/consolidate")}              Consolidacion multi-SKU y Landed Cost`);
             console.log(`  ${theme.mintBold("/rebalance")}                Transferencias entre almacenes (Cross-Docking)`);
             console.log(`  ${theme.mintBold("/stock")}                    Tabla de existencias en tiempo real`);
-            console.log(`  ${theme.mintBold("/inbox")}                    Propuestas pendientes de aprobacion`);
-            console.log(`  ${theme.mintBold("/approve <id>")}             Aprobar propuesta y emitir orden + guia`);
+            console.log(`  ${theme.mintBold("/inbox [all|<id>|clean]")}   Propuestas pendientes (lista, todas, detalle o archivar duplicadas)`);
+            console.log(`  ${theme.mintBold("/approve <id>")}             Aprobar propuesta (solo admin distinto al solicitante)`);
+            console.log(`  ${theme.mintBold("/cancel <id>")}              Cancelar propuesta pendiente antes de ejecutarse`);
+            console.log(`  ${theme.mintBold("/audit")}                    Canal en vivo de decisiones autónomas [OBSERVE, DECIDE, EXECUTE, VERIFY]`);
+            console.log(`  ${theme.mintBold("/team [list|invite|remove]")} Control de acceso RBAC y roles de la empresa`);
+            console.log(`  ${theme.mintBold("/config [set|minstock|tz]")}  Configuración, zona horaria y umbrales por producto`);
             console.log(`  ${theme.mintBold("/db [status|sync|switch]")}  Conectar o sincronizar base de datos`);
             console.log(`  ${theme.mintBold("/channels")}                 Gestionar canales Discord / Telegram / Slack`);
-            console.log(`  ${theme.mintBold("/app")}                      Abrir aplicacion de escritorio (Control Tower)`);
-            console.log(`  ${theme.mintBold("/whoami | /logout")}         Ver sesion activa o cerrar sesion\n`);
+            console.log(`  ${theme.mintBold("/data-health")}             Salud de datos por módulo, calidad y compuerta de decisión`);
+            console.log(`  ${theme.mintBold("/quarantine [resolve|ignore]")} Mesa de registros corruptos aislados`);
+            console.log(`  ${theme.mintBold("/shadow [on|off]")}           Modo sombra: simulación sin riesgo y comparación`);
+            console.log(`  ${theme.mintBold("/briefing")}                 Resumen diario ejecutivo: ventas, quiebres y retrasos`);
+            console.log(`  ${theme.mintBold("/reconcile")}                Conciliación 3 vías: ventas vs pagos vs despachos`);
+            console.log(`  ${theme.mintBold("/backup")}                   Exportar copia de seguridad de configuración y memoria`);
+            console.log(`  ${theme.mintBold("/whoami | /logout")}         Ver sesion activa y matriz de permisos o cerrar sesion\n`);
+            break;
+          }
+
+          case "intel":
+          case "rotacion":
+          case "quiebre":
+          case "overstock":
+          case "abc": {
+            const { intelCommand } = require("./intel");
+            const sub = cmd === "intel" ? args[0] : cmd;
+            const target = cmd === "intel" ? args[1] : args[0];
+            await intelCommand(sub, target);
             break;
           }
 
@@ -251,9 +374,17 @@ export async function consoleCommand() {
           }
 
           case "settings":
-          case "config": {
-            const { settingsCommand } = require("./channels");
-            await settingsCommand();
+          case "config":
+          case "thresholds":
+          case "minstock": {
+            const { configCommand } = require("./config");
+            if (cmd === "thresholds") {
+              await configCommand("thresholds");
+            } else if (cmd === "minstock") {
+              await configCommand("minstock", args[0], ...args.slice(1));
+            } else {
+              await configCommand(args[0], args[1], ...args.slice(2));
+            }
             break;
           }
 
@@ -325,12 +456,14 @@ export async function consoleCommand() {
 
             if (hResult.recommendedScenario) {
               const sc = hResult.recommendedScenario;
+              const { getCompanyConfig } = await import("@mint/core");
+              const cfg = await getCompanyConfig(companyId);
               console.log(
                 drawCard(
                   [
                     `${theme.dim("Estrategia:")}  ${theme.bold(sc.title)}`,
                     `${theme.dim("Proveedor:")}   ${theme.cyanBold(sc.supplierName)} (${sc.deliveryDays} dias)`,
-                    `${theme.dim("Monto:")}       $${sc.totalCostMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`,
+                    `${theme.dim("Monto:")}       $${sc.totalCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${cfg.currency}`,
                     `${theme.dim("Riesgo:")}      ${(sc.riskScore * 100).toFixed(0)}%`,
                     `${theme.dim("Veredicto:")}   ${theme.bold(sc.policyDecision.toUpperCase())}`,
                   ],
@@ -350,6 +483,51 @@ export async function consoleCommand() {
             break;
           }
 
+          case "audit":
+          case "auditoria":
+          case "logs": {
+            const { auditCommand } = require("./audit");
+            await auditCommand({ limit: parseInt(args[0], 10) || 20 });
+            break;
+          }
+
+          case "profile":
+          case "perfil": {
+            const { profileCommand } = require("./profile");
+            await profileCommand();
+            break;
+          }
+
+          case "questions":
+          case "preguntas": {
+            const { questionsCommand } = require("./questions");
+            await questionsCommand(args[0], args[1], args.slice(2).join(" "));
+            break;
+          }
+
+          case "track":
+          case "rastreo":
+          case "rastrear": {
+            const { trackCommand } = require("./track");
+            await trackCommand(args[0], args[1]);
+            break;
+          }
+
+          case "map":
+          case "mapping":
+          case "esquema": {
+            const { mappingCommand } = require("./mapping");
+            await mappingCommand(args[0], args[1]);
+            break;
+          }
+
+          case "cancel":
+          case "cancelar": {
+            const { inboxCommand } = require("./inbox");
+            await inboxCommand("cancel", args[0], { noExit: true });
+            break;
+          }
+
           case "status":
           case "dash":
           case "dashboard": {
@@ -358,10 +536,51 @@ export async function consoleCommand() {
             break;
           }
 
-          case "today":
-          case "briefing": {
+          case "today": {
             const { todayCommand } = require("./chat");
             await todayCommand({ noExit: true });
+            break;
+          }
+
+          case "briefing": {
+            const { briefingCommand } = require("./briefing");
+            await briefingCommand();
+            break;
+          }
+
+          case "reconcile":
+          case "conciliar": {
+            const { reconcileCommand } = require("./briefing");
+            await reconcileCommand();
+            break;
+          }
+
+          case "backup":
+          case "respaldo": {
+            const { backupCommand } = require("./briefing");
+            await backupCommand();
+            break;
+          }
+
+          case "data-health":
+          case "datahealth":
+          case "salud": {
+            const { dataHealthCommand } = require("./dataHealth");
+            await dataHealthCommand();
+            break;
+          }
+
+          case "quarantine":
+          case "cuarentena": {
+            const { quarantineCommand } = require("./dataHealth");
+            await quarantineCommand(args);
+            break;
+          }
+
+          case "shadow":
+          case "sombra": {
+            const { shadowCommand } = require("./shadow");
+            await shadowCommand(args);
             break;
           }
 
@@ -371,9 +590,42 @@ export async function consoleCommand() {
             break;
           }
 
-          case "orders": {
+          case "orders":
+          case "pedidos":
+          case "compras": {
             const { ordersCommand } = require("./stock");
-            await ordersCommand({ noExit: true });
+            await ordersCommand(args[0], { noExit: true });
+            break;
+          }
+
+          case "fleet":
+          case "flota":
+          case "shipments":
+          case "envios": {
+            const { fleetCommand } = require("./fleet");
+            await fleetCommand(args[0], args[1]);
+            break;
+          }
+
+          case "suppliers":
+          case "proveedores":
+          case "supplier": {
+            const { suppliersCommand } = require("./suppliers");
+            await suppliersCommand(args[0], args[1], ...args.slice(2));
+            break;
+          }
+
+          case "customers":
+          case "clientes": {
+            const { customersCommand } = require("./customers");
+            await customersCommand();
+            break;
+          }
+
+          case "reports":
+          case "reportes": {
+            const { reportsCommand } = require("./reports");
+            await reportsCommand(args[0], args[1]);
             break;
           }
 
@@ -420,7 +672,10 @@ export async function consoleCommand() {
             console.log(theme.muted("Ejecutando escaneo de stock, ROP y transporte..."));
             const res = await runFullOperationalEventScan(companyId);
             console.log(
-              `  [OK] ${res.stockDeficitsFound} desabastos, ${res.delayedShipmentsFound} retrasos, ${res.processedDecisions.length} propuestas en /inbox.`,
+              `  [OK] ${res.stockDeficitsFound} desabasto(s), ${res.delayedShipmentsFound} retraso(s) detectados.`,
+            );
+            console.log(
+              `  ${res.processedDecisions.length} propuesta(s) nueva(s)  ·  ${res.alreadyOpen} ya tenían propuesta abierta  ·  ${res.deferred} diferida(s) al siguiente ciclo.`,
             );
             break;
           }

@@ -13,10 +13,16 @@ export async function executeAuditarAnomalias(
 ) {
   try {
     const { db } = await import("../db/client");
-    const { products, inventory, supplierProducts, suppliers } = await import("../db/schema");
+    const { products, inventory, supplierProducts, suppliers, companies } = await import("../db/schema");
     const { eq, and, sql } = await import("drizzle-orm");
 
     const effectiveCompanyId = context?.companyId || "comp_default";
+    let currency = "USD";
+    try {
+      const [comp] = await db.select({ currency: companies.currency }).from(companies).where(eq(companies.id, effectiveCompanyId)).limit(1);
+      if (comp?.currency) currency = comp.currency;
+    } catch {}
+
     const anomaliasDetectadas: any[] = [];
 
     if (args.tipo_auditoria === "todo" || args.tipo_auditoria === "descalces_inventario") {
@@ -99,7 +105,7 @@ export async function executeAuditarAnomalias(
                 categoria: "SOBREPRECIO_PROVEEDOR",
                 gravedad: "MEDIA",
                 entidad: `${entry.productName} (${entry.supplier})`,
-                descripcion: `Precio unitario de $${entry.price.toFixed(2)} MXN es +${spreadPercent.toFixed(1)}% más caro que la mejor opción ($${minPrice.toFixed(2)} MXN).`,
+                descripcion: `Precio unitario de $${entry.price.toFixed(2)} ${currency} es +${spreadPercent.toFixed(1)}% más caro que la mejor opción ($${minPrice.toFixed(2)} ${currency}).`,
                 accionSugerida: "Priorizar al proveedor más económico en la próxima compra.",
               });
             }

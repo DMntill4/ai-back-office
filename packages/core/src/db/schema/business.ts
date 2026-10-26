@@ -47,6 +47,8 @@ export const products = pgTable(
     category: text("category").default("general"),
     sku: varchar("sku", { length: 50 }).notNull(),
     minStock: integer("min_stock").notNull().default(10),
+    price: decimal("price", { precision: 10, scale: 2 }),
+    costPrice: decimal("cost_price", { precision: 10, scale: 2 }),
     origin: text("origin", { enum: ["simulado", "real"] })
       .notNull()
       .default("simulado"),

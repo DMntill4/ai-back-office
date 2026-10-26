@@ -67,7 +67,13 @@ export async function startCommand(options: StartOptions = {}) {
     }
   );
 
-  await waitForServer(port, 15);
+  const interactive = !options.headless && !options.json && process.stdin.isTTY;
+  if (interactive) {
+    // Consola interactiva: el servidor de webhooks sube en segundo plano sin bloquear el prompt.
+    void waitForServer(port, 40);
+  } else {
+    await waitForServer(port, 15);
+  }
 
   const daemonState = readDaemonState();
   daemonState.isRunning = true;
@@ -82,9 +88,8 @@ export async function startCommand(options: StartOptions = {}) {
     } catch {}
   }, 30000);
 
-  try {
-    await tickOnce(companyId);
-  } catch {}
+  // Primer ciclo del daemon sin bloquear la consola
+  tickOnce(companyId).catch(() => {});
 
   let cleanedUp = false;
   const cleanup = () => {

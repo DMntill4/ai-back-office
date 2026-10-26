@@ -34,7 +34,7 @@ export async function calculateDemandForecast(
   const effectiveCompanyId = input.companyId || "comp_default";
 
   // 1. Obtener datos actuales del producto y stock en tiempo real
-  const stockInfo = await getStockByProduct(input.productId);
+  const stockInfo = await getStockByProduct(input.productId, effectiveCompanyId);
   const productName =
     stockInfo && !("isFuzzyMatch" in stockInfo)
       ? stockInfo.productName

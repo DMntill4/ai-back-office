@@ -15,6 +15,7 @@ export * from "./agent/especialistas/comprasSpecialist";
 export * from "./agent/especialistas/transporteSpecialist";
 export * from "./agent/especialistas/riesgoSpecialist";
 export * from "./agent/harness";
+export * from "./agent/naturalIntentEngine";
 
 // 2. Herramientas Especializadas (12 Tools)
 export * from "./tools/index";
@@ -42,6 +43,19 @@ export * from "./services/dataFreshnessService";
 export * from "./services/routeCalculator";
 export * from "./services/geocodingService";
 export * from "./services/logisticsCoordinatorService";
+export * from "./services/companyProfileService";
+export * from "./services/configService";
+export * from "./services/inventoryIntelService";
+export * from "./services/fleetAndOrdersService";
+export * from "./services/reportService";
+export * from "./services/schemaDiscoveryService";
+export * from "./services/pendingQuestionsService";
+export * from "./services/trackingService";
+export * from "./services/preflightService";
+export * from "./services/dataHealthService";
+export * from "./services/largeDbAndSyncService";
+export * from "./services/shadowModeService";
+export * from "./services/businessAnalyticsService";
 
 // 7. Cliente LLM
 export * from "./llm/client";

@@ -7,6 +7,8 @@ export class DiscordAdapter implements NotifierAdapter {
     const webhookUrl = config.webhookUrl || process.env.DISCORD_WEBHOOK_URL;
     const severityColor = payload.severity === "CRITICAL" ? 0xef4444 : payload.severity === "WARNING" ? 0xf59e0b : 0x10b981;
 
+    const currency = payload.currency || "USD";
+
     const embed = {
       title: `🍃 MINT DECISION ALERT: ${payload.title}`,
       description: payload.evidenceSummary,
@@ -14,7 +16,7 @@ export class DiscordAdapter implements NotifierAdapter {
       fields: [
         {
           name: "Monto",
-          value: `$${payload.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`,
+          value: `$${payload.costMxn.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`,
           inline: true,
         },
         {

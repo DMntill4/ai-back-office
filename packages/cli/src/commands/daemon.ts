@@ -193,11 +193,15 @@ export async function planTodayCommand(options: { json?: boolean } = {}) {
       ),
     );
 
+    const { getCompanyConfig, formatCompanyDate } = await import("@mint/core");
+    const config = await getCompanyConfig(companyId);
+    const currency = config.currency;
+
     if (plan.decisions.length > 0) {
       console.log(`\n${theme.amberBold("📋 DECISIONES ESPERANDO APROBACIÓN:")}`);
       for (const d of plan.decisions) {
         console.log(
-          `   ${theme.amber("•")} [${theme.bold(d.id)}] ${d.title} (${theme.mintBold(`$${Number(d.costMxn).toLocaleString("es-MX")} MXN`)}) - Por ${theme.cyanBold(d.proposingAgent)}`,
+          `   ${theme.amber("•")} [${theme.bold(d.id)}] ${d.title} (${theme.mintBold(`$${Number(d.costMxn).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`)}) - Por ${theme.cyanBold(d.proposingAgent)}`,
         );
       }
       console.log(`\n${theme.dim("Para autorizar:")} ${theme.mintBold("mint inbox approve <id>")} │ ${theme.dim("Para auditar:")} ${theme.cyanBold("mint explain <id>")}`);
@@ -221,6 +225,10 @@ export async function watchCommand(options: { json?: boolean } = {}) {
   }
 
   try {
+    const { getCompanyConfig, formatCompanyDate } = await import("@mint/core");
+    const config = await getCompanyConfig(companyId);
+    const currency = config.currency;
+
     const recentDecisions = await db
       .select()
       .from(decisions)
@@ -239,7 +247,7 @@ export async function watchCommand(options: { json?: boolean } = {}) {
     }
 
     for (const d of recentDecisions.reverse()) {
-      const timeStr = new Date(d.createdAt).toLocaleTimeString("es-MX");
+      const timeStr = formatCompanyDate(new Date(d.createdAt), config.timezone, true);
       const badgeType =
         d.policyDecision === "auto_executed"
           ? "mint"
@@ -251,7 +259,7 @@ export async function watchCommand(options: { json?: boolean } = {}) {
         `${theme.dim(`[${timeStr}]`)} ${theme.badge(d.policyDecision.toUpperCase(), badgeType)} ${theme.bold(d.title)}`,
       );
       console.log(
-        `   ${theme.dim("Agente:")} ${theme.cyanBold(d.proposingAgent)} │ ${theme.dim("Monto:")} $${Number(d.costMxn).toLocaleString("es-MX")} MXN │ ${theme.dim("Razón:")} ${theme.muted(d.policyReason || "")}\n`,
+        `   ${theme.dim("Agente:")} ${theme.cyanBold(d.proposingAgent)} │ ${theme.dim("Monto:")} $${Number(d.costMxn).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency} │ ${theme.dim("Razón:")} ${theme.muted(d.policyReason || "")}\n`,
       );
     }
   } catch (err: any) {

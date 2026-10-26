@@ -321,7 +321,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
         properties: {
           numero_rastreo: {
             type: "string",
-            description: "Número de guía o tracking (ej: 'TRK-MX-88902')",
+            description: "Número de guía o tracking (ej: 'TRK-FEDEX-88902' o 'TRK-IN-...')",
           },
           orden_id: {
             type: "string",
@@ -425,7 +425,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
         properties: {
           proveedor_id: {
             type: "string",
-            description: "ID, nombre o ciudad del proveedor de origen (ej. 'prov_acme', 'Bosch', 'Monterrey')",
+            description: "ID, nombre o ciudad del proveedor de origen (ej. 'prov_01', 'Proveedor Central')",
           },
           almacen_id: {
             type: "string",
@@ -433,11 +433,11 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
           origen_direccion: {
             type: "string",
-            description: "Ciudad o dirección libre de origen (ej. 'Querétaro', 'Guadalajara')",
+            description: "Ciudad o dirección libre de origen (ej. 'Zona Industrial', 'Calle 26')",
           },
           destino_direccion: {
             type: "string",
-            description: "Ciudad o dirección libre de destino (ej. 'Monterrey', 'CDMX')",
+            description: "Ciudad o dirección libre de destino (ej. 'Almacén Principal', 'Centro Logístico')",
           },
         },
       },
@@ -462,7 +462,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
           destino_direccion: {
             type: "string",
-            description: "Ciudad o dirección de entrega del cliente (ej. 'Monterrey, NL', 'Av. Reforma 222, CDMX')",
+            description: "Ciudad o dirección de entrega del cliente (ej. 'Calle 100 #15-20', 'Zona Rosa', ciudad de entrega)",
           },
           cliente_nombre: {
             type: "string",

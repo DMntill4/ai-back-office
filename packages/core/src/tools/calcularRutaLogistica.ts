@@ -6,7 +6,7 @@ export const calcularRutaLogisticaSchema = z.object({
   proveedor_id: z
     .string()
     .optional()
-    .describe("ID, nombre o ciudad del proveedor de origen (ej. 'prov_acme', 'Bosch', 'Monterrey')"),
+    .describe("ID, nombre o ciudad del proveedor de origen (ej. 'prov_01', 'Proveedor Central')"),
   almacen_id: z
     .string()
     .optional()
@@ -14,11 +14,11 @@ export const calcularRutaLogisticaSchema = z.object({
   origen_direccion: z
     .string()
     .optional()
-    .describe("Ciudad o dirección libre de origen (ej. 'Guadalajara, Jalisco', 'Querétaro')"),
+    .describe("Ciudad o dirección libre de origen (ej. 'Zona Franca', 'Calle 26')"),
   destino_direccion: z
     .string()
     .optional()
-    .describe("Ciudad o dirección libre de destino (ej. 'Monterrey, NL', 'CDMX')"),
+    .describe("Ciudad o dirección libre de destino (ej. 'Almacén Central', 'Bodega Norte')"),
 });
 
 export type CalcularRutaLogisticaInput = z.infer<typeof calcularRutaLogisticaSchema>;

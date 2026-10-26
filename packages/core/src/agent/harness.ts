@@ -148,7 +148,15 @@ export async function runBackOfficeHarness(params: {
       },
     };
 
-    const policyEval = evaluatePolicy(baseProposal, { autonomyLevel });
+    // Detectar divisa corporativa real
+    let currency = "USD";
+    try {
+      const { companies } = await import("../db/schema");
+      const [c] = await db.select({ currency: companies.currency }).from(companies).where(eq(companies.id, companyId)).limit(1);
+      if (c?.currency) currency = c.currency;
+    } catch {}
+
+    const policyEval = evaluatePolicy(baseProposal, { autonomyLevel, currency });
 
     scenarios.push({
       optionId: "opt_primary",
@@ -167,8 +175,15 @@ export async function runBackOfficeHarness(params: {
   const recommendedScenario = scenarios[0] || null;
 
   // 6. Generar árbol ASCII de razonamiento para CLI y Terminal
+  let currency = "USD";
+  try {
+    const { companies } = await import("../db/schema");
+    const [c] = await db.select({ currency: companies.currency }).from(companies).where(eq(companies.id, companyId)).limit(1);
+    if (c?.currency) currency = c.currency;
+  } catch {}
+
   const deficitStr = invResult ? `${invResult.deficit}u (cobertura ${invResult.daysCoverage.toFixed(1)}d)` : "N/A";
-  const vendorStr = purchasingResult?.recommendedOption ? `${purchasingResult.recommendedOption.supplierName} ($${purchasingResult.totalCostMxn} MXN)` : "Sin proveedor";
+  const vendorStr = purchasingResult?.recommendedOption ? `${purchasingResult.recommendedOption.supplierName} ($${purchasingResult.totalCostMxn} ${currency})` : "Sin proveedor";
   const riskStr = riskResult ? `${(riskResult.riskScore * 100).toFixed(0)}% riesgo (${riskResult.redFlags.length} alertas)` : "Evaluación estándar";
   const verdictStr = recommendedScenario ? recommendedScenario.policyDecision.toUpperCase() : "PENDING_REVIEW";
 

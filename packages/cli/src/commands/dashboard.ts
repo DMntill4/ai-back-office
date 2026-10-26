@@ -136,8 +136,12 @@ export async function dashboardCommand(options: { json?: boolean; noExit?: boole
       ? theme.dim("Empty (0 products registered). Drop a database or file to sync.")
       : `${theme.bold(totalProducts)} products  │  ${outOfStock > 0 ? theme.redBold(`${outOfStock} out of stock`) : theme.success("0 out of stock")}  │  ${lowStock > 0 ? theme.amberBold(`${lowStock} low stock`) : theme.success("0 low")}`;
 
+    const { getCompanyConfig } = await import("@mint/core");
+    const config = await getCompanyConfig(companyId);
+    const currency = config.currency;
+
     const inboxStatus = pendingDecisions.length > 0
-      ? theme.amberBold(`${pendingDecisions.length} purchases waiting for review ($${totalValueAtStake.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN)`)
+      ? theme.amberBold(`${pendingDecisions.length} purchases waiting for review ($${totalValueAtStake.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency})`)
       : theme.success("All up to date (0 pending reviews)");
 
     console.log("");

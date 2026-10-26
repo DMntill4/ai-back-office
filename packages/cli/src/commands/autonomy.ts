@@ -20,12 +20,15 @@ export async function autonomyGetCommand(options: { json?: boolean } = {}) {
       return;
     }
 
+    const { getCompanyConfig } = await import("@mint/core");
+    const config = await getCompanyConfig(companyId);
+
     console.log(`\n🛡️ NIVEL DE AUTONOMÍA ACTIVO [Empresa: ${companyId}]`);
     console.log(`   Modo actual:  ${level.toUpperCase()}`);
     if (level === "dry-run") {
       console.log(`   Descripción:  Modo seguro. Las propuestas se generan con evidencia completa pero NUNCA se ejecutan solas.`);
     } else if (level === "assisted") {
-      console.log(`   Descripción:  Asistido. Autoejecuta operaciones seguras bajo el umbral ($10,000 MXN) y escala el resto a HITL.`);
+      console.log(`   Descripción:  Asistido. Autoejecuta operaciones seguras bajo el umbral ($${config.approvalLimitAmount.toLocaleString()} ${config.currency}) y escala el resto a HITL.`);
     } else if (level === "auto") {
       console.log(`   Descripción:  Autónomo total. Autoejecuta órdenes válidas salvo banderas rojas críticas del agente de riesgo.`);
     }

@@ -8,11 +8,13 @@ export class TelegramAdapter implements NotifierAdapter {
     const chatId = config.chatId || process.env.TELEGRAM_CHAT_ID || "123456789";
 
     const severityIcon = payload.severity === "CRITICAL" ? "🔴 [CRÍTICO]" : payload.severity === "WARNING" ? "🟡 [ATENCIÓN]" : "ℹ️ [INFO]";
+    const currency = payload.currency || "USD";
+    const formattedAmount = `$${payload.costMxn.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 
     const messageText = `
 *${severityIcon} MINT DECISION ALERT*
 *Título:* ${payload.title}
-*Monto:* $${payload.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+*Monto:* ${formattedAmount}
 *Agente:* ${payload.proposingAgent}
 
 *Evidencia y Razonamiento:*
@@ -24,7 +26,7 @@ _Por favor confirme o rechace esta operación antes de que expire el token._
     const inlineKeyboard = [
       [
         {
-          text: `✅ Aprobar ($${payload.costMxn.toLocaleString("es-MX")} MXN)`,
+          text: `✅ Aprobar (${formattedAmount})`,
           callback_data: `mint:approve:${payload.approveToken}`,
         },
         {

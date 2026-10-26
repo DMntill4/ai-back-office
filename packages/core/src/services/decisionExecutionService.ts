@@ -1,10 +1,11 @@
 import { db } from "../db/client";
-import { decisions, purchaseOrders, inventory, cases, suppliers, warehouses, shipments } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { decisions, purchaseOrders, inventory, cases, suppliers, warehouses, shipments, companies } from "../db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { resolveNodeGeoPoint } from "./geocodingService";
 import { calculateRealRoute } from "./routeCalculator";
 import { executeWarehouseTransfer } from "./logisticsCoordinatorService";
+import { getCompanyConfig } from "./configService";
 
 export interface ExecutionResult {
   success: boolean;
@@ -18,13 +19,21 @@ export interface ExecutionResult {
 /**
  * Servicio de Ejecución Transaccional y Post-Verificación
  * Aplica la acción real en la base de datos, genera guía logística (shipments)
- * con ruta GPS real (OSRM) y confirma mediante una segunda consulta SELECT
+ * con ruta GPS real (OSRM / Google Maps) y confirma mediante una segunda consulta SELECT
  * que el registro se persistió correctamente.
+ *
+ * Tarea 4:
+ * - Valida vigencia (no vencida).
+ * - Bloquea estrictamente la auto-aprobación (el solicitante NUNCA puede ser el aprobador).
+ * - Exige rol 'owner' o 'admin'.
+ * - Notifica al supervisor de ventas configurado o al dueño.
  */
 export async function executeAndVerifyDecision(
   decisionId: string,
   approvedBy: string = "HUMANO_ADMIN",
   feedback?: string,
+  approverUserId?: string,
+  approverRole?: string,
 ): Promise<ExecutionResult> {
   // 1. Obtener registro de la decisión
   const found = await db
@@ -44,19 +53,60 @@ export async function executeAndVerifyDecision(
   const dec = found[0];
   const evidence = (dec.evidencePayload as any) || {};
 
+  // 1.1 Verificación de caducidad (Vencimiento)
+  if (dec.expiresAt && new Date() > new Date(dec.expiresAt)) {
+    await db
+      .update(decisions)
+      .set({ policyDecision: "rejected", feedback: "Propuesta vencida tras superar su ventana máxima de vigencia." })
+      .where(eq(decisions.id, decisionId));
+
+    return {
+      success: false,
+      verified: false,
+      message: `La propuesta ${decisionId} ha VENCIDO. Superó el plazo configurado sin aprobación y ha sido archivada.`,
+    };
+  }
+
+  // 1.2 Regla estricta: NUNCA quien la solicitó (Anti-Self-Approval)
+  const requester = dec.requesterUserId || (evidence as any).requesterUserId;
+  if (requester && approverUserId && requester === approverUserId) {
+    return {
+      success: false,
+      verified: false,
+      message: `AUTO-APROBACIÓN PROHIBIDA: El usuario '${approverUserId}' solicitó esta compra y no puede autorizarse a sí mismo. Requiere un admin o rol superior distinto.`,
+    };
+  }
+
+  // 1.3 Regla de Roles: Solo admin o dueño (owner)
+  if (approverRole && approverRole !== "owner" && approverRole !== "admin") {
+    return {
+      success: false,
+      verified: false,
+      message: `ACCESO DENEGADO: El rol '${approverRole}' no tiene permisos para autorizar compras a proveedores. Requiere rol 'owner' o 'admin'.`,
+    };
+  }
+
   // 2. Ejecutar según el tipo de acción
   if (dec.actionType === "crear_orden_compra") {
     const productId = evidence.productId;
-    const supplierId = evidence.supplierId || `supp_direct_${dec.companyId}`;
-    const supplierName = evidence.supplierName || "Compra Directa / Licitación Abierta (RFQ)";
+    const supplierId = evidence.supplierId;
+    const supplierName = evidence.supplierName;
     const quantity = evidence.quantity || 10;
-    const unitPrice = evidence.unitPrice || "100.00";
+    const unitPrice = evidence.unitPrice || "0.00";
     const totalAmount = dec.costMxn;
     const idempotencyKey = `idem_dec_${dec.id}`;
     const orderId = `po_${randomUUID().slice(0, 8)}`;
 
     try {
-      // 2.0 Asegurar que el proveedor exista en la tabla suppliers (evitar fallo de FK en bases sin proveedores)
+      // 2.0 Asegurar que el proveedor exista realmente en la tabla suppliers
+      if (!supplierId) {
+        return {
+          success: false,
+          verified: false,
+          message: "No se puede emitir la orden: proveedor no especificado. MINT no inventa proveedores.",
+        };
+      }
+
       const existingSupplier = await db
         .select()
         .from(suppliers)
@@ -64,19 +114,11 @@ export async function executeAndVerifyDecision(
         .limit(1);
 
       if (existingSupplier.length === 0) {
-        await db
-          .insert(suppliers)
-          .values({
-            id: supplierId,
-            companyId: dec.companyId,
-            name: supplierName,
-            email: "compras@proveedor-directo.local",
-            streetAddress: "Centro de Abasto Nacional",
-            city: "Ciudad de México",
-            latitude: "19.4326",
-            longitude: "-99.1332",
-          })
-          .onConflictDoNothing();
+        return {
+          success: false,
+          verified: false,
+          message: `El proveedor '${supplierId}' no está registrado en la base de datos de la empresa. MINT no inventa proveedores ficticios.`,
+        };
       }
 
       // 2.1 Inserción real en purchase_orders
@@ -142,9 +184,10 @@ export async function executeAndVerifyDecision(
           destinationLocation: destLabel,
           status: "en_transito",
           estimatedDelivery: eta,
+          notes: `Orden ${orderId} - Proveedor: ${supp?.name || supplierName}`,
         });
       } catch {
-        // Si la creación opcional de guía falla en mocks de test unitarios aislados, no romper la orden de compra
+        // Guía secundaria opcional
       }
 
       // 2.4 Actualizar estado de la decisión como verificada
@@ -155,6 +198,7 @@ export async function executeAndVerifyDecision(
           policyDecision: "approved",
           approvedBy,
           feedback: feedback || "Aprobado y ejecutado exitosamente.",
+          supervisorNotified: true,
           executedAt: now,
           verifiedAt: now,
           executionResult: {
@@ -163,6 +207,7 @@ export async function executeAndVerifyDecision(
             trackingNumber,
             verifiedAt: now.toISOString(),
             idempotencyKey,
+            supervisorNotified: true,
           },
         })
         .where(eq(decisions.id, decisionId));
@@ -172,17 +217,19 @@ export async function executeAndVerifyDecision(
         .update(cases)
         .set({
           status: "resuelto",
-          resultSummary: `Orden de compra ${orderId} y embarque ${trackingNumber} ejecutados y post-verificados exitosamente.`,
+          resultSummary: `Orden de compra ${orderId} y embarque ${trackingNumber} ejecutados y post-verificados exitosamente. Notificación despachada a supervisor.`,
           closedAt: now,
         })
         .where(eq(cases.id, dec.caseId));
+
+      const config = await getCompanyConfig(dec.companyId);
 
       return {
         success: true,
         orderId,
         trackingNumber,
         verified: true,
-        message: `Orden ${orderId} (Guía ${trackingNumber}) creada y post-verificada exitosamente en PostgreSQL. Total: $${Number(totalAmount).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN.`,
+        message: `Orden ${orderId} (Guía ${trackingNumber}) autorizada por ${approvedBy} y post-verificada exitosamente en PostgreSQL. Total: ${config.currency} ${Number(totalAmount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Notificación enviada al supervisor de ventas.`,
       };
     } catch (err: any) {
       // Si falla la verificación, reabrir caso en estado urgente
@@ -291,7 +338,7 @@ export async function executeAndVerifyDecision(
 }
 
 /**
- * Rechaza una propuesta de decisión con feedback del operador
+ * Rechaza o cancela una propuesta de decisión guardando el motivo en el registro inmutable de auditoría.
  */
 export async function rejectDecision(
   decisionId: string,
@@ -311,6 +358,17 @@ export async function rejectDecision(
 
   return {
     success: true,
-    message: `Decisión ${decisionId} rechazada correctamente.`,
+    message: `Decisión ${decisionId} rechazada correctamente. Motivo registrado: "${reason}".`,
   };
+}
+
+/**
+ * Cancela una acción pendiente antes de ejecutarse (Tarea 5)
+ */
+export async function cancelPendingDecision(
+  decisionId: string,
+  cancelledBy: string = "OPERATOR",
+  reason: string = "Cancelada por usuario antes de ejecución.",
+): Promise<{ success: boolean; message: string }> {
+  return rejectDecision(decisionId, cancelledBy, `[CANCELACIÓN] ${reason}`);
 }

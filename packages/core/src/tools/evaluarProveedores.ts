@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "../db/client";
-import { suppliers, supplierProducts, products } from "../db/schema";
+import { suppliers, supplierProducts, products, companies } from "../db/schema";
 import { eq, sql, or, ilike } from "drizzle-orm";
 
 export const evaluarProveedoresSchema = z.object({
@@ -34,6 +34,18 @@ export async function executeEvaluarProveedores(
       // Continuar con args.producto_id
     }
 
+    let currency = "USD";
+    if (context?.companyId) {
+      try {
+        const [comp] = await db
+          .select({ currency: companies.currency })
+          .from(companies)
+          .where(eq(companies.id, context.companyId))
+          .limit(1);
+        if (comp?.currency) currency = comp.currency;
+      } catch {}
+    }
+
     const rows = await db
       .select({
         supplierId: suppliers.id,
@@ -64,6 +76,14 @@ export async function executeEvaluarProveedores(
           ? registeredSuppliers[0].name
           : "Compra Directa / Licitación Abierta (RFQ)";
 
+      if (registeredSuppliers.length === 0) {
+        return {
+          isSuccess: false,
+          criterioUsado: args.criterio,
+          message: `No hay proveedores registrados en la base de datos de esta empresa. El bot no inventa proveedores ficticios. Conecta tu catálogo o agrega proveedores antes de cotizar.`,
+        };
+      }
+
       return {
         isSuccess: true,
         criterioUsado: args.criterio,
@@ -71,7 +91,7 @@ export async function executeEvaluarProveedores(
         opcionRecomendada: {
           proveedorId: fallbackId,
           nombre: fallbackName,
-          precioUnitario: "$250.00 MXN (Estimado)",
+          precioUnitario: `$250.00 ${currency} (Estimado)`,
           tiempoEntregaDias: 3,
           cantidadMinima: 5,
           motivoRecomendacion:
@@ -86,7 +106,7 @@ export async function executeEvaluarProveedores(
       };
     }
 
-    return sortAndReturnOptions(rows, args.criterio);
+    return sortAndReturnOptions(rows, args.criterio, currency);
   } catch (err: any) {
     return {
       isSuccess: false,
@@ -96,7 +116,7 @@ export async function executeEvaluarProveedores(
   }
 }
 
-function sortAndReturnOptions(options: any[], criterio: string) {
+function sortAndReturnOptions(options: any[], criterio: string, currency = "USD") {
   const sorted = [...options].sort((a, b) => {
     const priceA = parseFloat(a.unitPrice);
     const priceB = parseFloat(b.unitPrice);
@@ -119,7 +139,7 @@ function sortAndReturnOptions(options: any[], criterio: string) {
     opcionRecomendada: {
       proveedorId: recomendado.supplierId,
       nombre: recomendado.supplierName,
-      precioUnitario: `$${recomendado.unitPrice} MXN`,
+      precioUnitario: `$${recomendado.unitPrice} ${currency}`,
       tiempoEntregaDias: recomendado.leadTimeDays,
       cantidadMinima: recomendado.minOrderQuantity,
       motivoRecomendacion: `Seleccionado por presentar la mejor puntuación bajo el criterio '${criterio}' en la base de datos de proveedores.`,
@@ -127,7 +147,7 @@ function sortAndReturnOptions(options: any[], criterio: string) {
     todasLasOpciones: sorted.map((o) => ({
       proveedorId: o.supplierId,
       nombre: o.supplierName,
-      precioUnitario: `$${o.unitPrice} MXN`,
+      precioUnitario: `$${o.unitPrice} ${currency}`,
       tiempoEntregaDias: o.leadTimeDays,
       cantidadMinima: o.minOrderQuantity,
     })),

@@ -1,22 +1,29 @@
-import { db, products, inventory } from "@mint/core";
+import { db, products, inventory, mintSalesOrders } from "@mint/core";
 import { eq, and } from "drizzle-orm";
 import { executeAjustarStock } from "@mint/core";
 import { runBackOfficeHarness, type HarnessExecutionResult } from "@mint/core";
 import { dispatchDecisionNotification } from "./channelManager";
 import { type ChannelType } from "./types";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 export interface IncomingSaleEvent {
-  messageId?: string; // ID del mensaje original del canal (Telegram, Discord, Slack)
+  messageId?: string; // ID del mensaje original del canal (Telegram, Discord, Slack o Webhook)
   idempotencyKey?: string; // Clave única de idempotencia
-  channel: ChannelType | "pos" | "webhook";
-  senderId: string; // Identificador del emisor (ej: telegram user_id, discord user_id)
+  channel: ChannelType | "pos" | "webhook" | "web";
+  senderId: string; // Identificador del emisor
   senderName?: string;
   sku: string;
   quantity: number;
   unitPriceMxn?: number;
   customerName?: string;
+  customerEmail?: string;
+  shippingAddress?: string;
+  paymentStatus?: "paid" | "pending" | "refunded";
   companyId?: string;
-  authorizedSenders?: string[]; // Lista blanca de IDs autorizados para registrar ventas
+  signature?: string; // Firma HMAC SHA-256
+  rawPayload?: string;
+  webhookSecret?: string;
+  authorizedSenders?: string[]; // Lista blanca de IDs autorizados
 }
 
 export interface SaleExecutionResult {
@@ -31,6 +38,11 @@ export interface SaleExecutionResult {
   remainingStock: number;
   minStock: number;
   isStockDeficit: boolean;
+  customerName: string;
+  shippingAddress: string;
+  totalAmount: number;
+  paymentStatus: string;
+  signatureVerified: boolean;
   replenishmentDecision?: {
     harnessId: string;
     decisionId?: string;
@@ -54,17 +66,68 @@ function cleanupExpiredIdempotencyKeys() {
 }
 
 /**
- * Procesa y ejecuta automáticamente una venta registrada desde canales externos (Telegram, Slack, Discord o POS).
- * Con garantías de seguridad:
- * 1. Control de acceso: Valida que el emisor (senderId) esté en la lista blanca autorizada.
- * 2. Idempotencia estricta: Previene que reintentos de red del bot ejecuten la venta dos veces.
- * 3. Descuenta el inventario real en PostgreSQL.
- * 4. Si el stock cae bajo el mínimo de seguridad, dispara orquestación multi-agente de compra.
+ * Valida la firma criptográfica HMAC-SHA256 del webhook
+ */
+export function verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
+  try {
+    const hmac = createHmac("sha256", secret);
+    const digest = Buffer.from(hmac.update(payload).digest("hex"), "utf8");
+    const sigBuffer = Buffer.from(signature.replace(/^sha256=/, ""), "utf8");
+    if (digest.length !== sigBuffer.length) return false;
+    return timingSafeEqual(digest, sigBuffer);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reintentos con Backoff Exponencial y detección de modo degradado
+ */
+export async function executeWithExponentialBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelayMs: number = 200,
+): Promise<{ result?: T; degradedMode: boolean; error?: string }> {
+  let delay = initialDelayMs;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await fn();
+      return { result, degradedMode: false };
+    } catch (err: any) {
+      if (attempt === maxRetries) {
+        return { degradedMode: true, error: err.message };
+      }
+      await new Promise((res) => setTimeout(res, delay));
+      delay *= 2;
+    }
+  }
+  return { degradedMode: true, error: "Reintentos agotados" };
+}
+
+/**
+ * Procesa y ejecuta automáticamente una venta registrada desde canales externos o webhooks.
+ * Con garantías de seguridad de la Tarea 1.1:
+ * 1. Validación de firma HMAC criptográfica.
+ * 2. Idempotencia estricta en memoria y en PostgreSQL (mint_sales_orders).
+ * 3. Guarda comprador, destino, monto, productos y cantidades, fecha, estado de pago y envío.
+ * 4. Descuenta el inventario real en las tablas de MINT sin tocar tablas del cliente sin permiso.
+ * 5. Si el stock cae bajo el mínimo de seguridad, dispara orquestación multi-agente de compra.
  */
 export async function processIncomingSale(event: IncomingSaleEvent): Promise<SaleExecutionResult> {
   const companyId = event.companyId || "comp_default";
 
-  // 1. Control de Acceso y Validación de Identidad del Emisor
+  // 1. Control de Firma Criptográfica si es webhook o si se proveyó firma
+  let signatureVerified = false;
+  if (event.signature && event.rawPayload) {
+    const secret = event.webhookSecret || process.env.WEBHOOK_SECRET || "mint_default_webhook_secret";
+    const isValid = verifyWebhookSignature(event.rawPayload, event.signature, secret);
+    if (!isValid) {
+      throw new Error("ACCESO DENEGADO: Firma HMAC SHA-256 de webhook inválida o manipulada.");
+    }
+    signatureVerified = true;
+  }
+
+  // 2. Control de Acceso y Validación de Identidad del Emisor
   if (!event.senderId || typeof event.senderId !== "string" || event.senderId.trim() === "") {
     throw new Error("Identidad de emisor obligatoria: 'senderId' no puede estar vacío.");
   }
@@ -80,7 +143,7 @@ export async function processIncomingSale(event: IncomingSaleEvent): Promise<Sal
     );
   }
 
-  // 2. Garantía de Idempotencia: Verificar si el mensaje ya fue procesado
+  // 3. Garantía de Idempotencia: Verificar si el mensaje ya fue procesado en memoria o en PostgreSQL
   const deduplicationKey = event.idempotencyKey || event.messageId;
   if (deduplicationKey) {
     cleanupExpiredIdempotencyKeys();
@@ -92,9 +155,39 @@ export async function processIncomingSale(event: IncomingSaleEvent): Promise<Sal
         isDuplicate: true,
       };
     }
+
+    // Verificar en BD mint_sales_orders
+    const dbExisting = await db
+      .select()
+      .from(mintSalesOrders)
+      .where(eq(mintSalesOrders.idempotencyKey, deduplicationKey))
+      .limit(1);
+
+    if (dbExisting.length > 0) {
+      const row = dbExisting[0];
+      return {
+        success: true,
+        isDuplicate: true,
+        saleId: row.id,
+        productId: (row.itemsPayload as any)?.[0]?.productId || "prod_unknown",
+        productName: (row.itemsPayload as any)?.[0]?.name || "Producto",
+        sku: (row.itemsPayload as any)?.[0]?.sku || event.sku,
+        quantitySold: (row.itemsPayload as any)?.[0]?.quantity || event.quantity,
+        previousStock: 0,
+        remainingStock: 0,
+        minStock: 0,
+        isStockDeficit: false,
+        customerName: row.customerName,
+        shippingAddress: row.shippingAddress,
+        totalAmount: parseFloat(row.totalAmount?.toString() || "0"),
+        paymentStatus: row.paymentStatus,
+        signatureVerified: row.signatureVerified,
+        channelReceipt: `Venta duplicada ya registrada previamente con ID ${row.id}.`,
+      };
+    }
   }
 
-  // 3. Buscar producto por SKU
+  // 4. Buscar producto por SKU en el catálogo de MINT
   const found = await db
     .select()
     .from(products)
@@ -107,13 +200,16 @@ export async function processIncomingSale(event: IncomingSaleEvent): Promise<Sal
 
   const product = found[0];
   const saleId = `sale_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const customerName = event.customerName || event.senderName || "Cliente Web Final";
+  const shippingAddress = event.shippingAddress || "Entrega en domicilio registrado del cliente";
+  const paymentStatus = event.paymentStatus || "paid";
 
-  // 4. Ajustar inventario descontando la cantidad vendida
+  // 5. Ajustar inventario descontando la cantidad vendida en las tablas de MINT (nunca toca tablas del cliente)
   const adjustResult = await executeAjustarStock(
     {
       producto_id: product.id,
       cantidad_delta: -event.quantity,
-      motivo: `Venta ejecutada desde canal ${event.channel.toUpperCase()} por usuario ${event.senderName || event.senderId}`,
+      motivo: `Venta ejecutada desde canal ${event.channel.toUpperCase()} por ${customerName}`,
     },
     { companyId }
   );
@@ -124,9 +220,38 @@ export async function processIncomingSale(event: IncomingSaleEvent): Promise<Sal
 
   const { previousStock, newStock, minStock, isBelowMinimum } = adjustResult.data;
 
+  // 6. Registrar la venta con metadatos completos en mint_sales_orders
+  const unitPrice = event.unitPriceMxn || 100;
+  const totalAmount = Number((unitPrice * event.quantity).toFixed(2));
+
+  await db.insert(mintSalesOrders).values({
+    id: saleId,
+    companyId,
+    externalOrderId: deduplicationKey || saleId,
+    customerName,
+    customerEmail: event.customerEmail || null,
+    shippingAddress,
+    totalAmount: totalAmount.toString(),
+    currency: "USD",
+    channel: event.channel,
+    paymentStatus,
+    shippingStatus: "pending",
+    idempotencyKey: deduplicationKey || null,
+    signatureVerified,
+    itemsPayload: [
+      {
+        productId: product.id,
+        sku: product.sku,
+        name: product.name,
+        quantity: event.quantity,
+        unitPrice,
+      },
+    ],
+  });
+
   let replenishmentDecision: SaleExecutionResult["replenishmentDecision"];
 
-  // 5. Si el stock cayó por debajo del mínimo de seguridad, disparar respuesta autónoma
+  // 7. Si el stock cayó por debajo del mínimo de seguridad, disparar respuesta autónoma
   if (isBelowMinimum) {
     try {
       const harnessResult: HarnessExecutionResult = await runBackOfficeHarness({
@@ -157,20 +282,28 @@ export async function processIncomingSale(event: IncomingSaleEvent): Promise<Sal
     }
   }
 
-  // 6. Formatear comprobante de venta para el canal
+  // 8. Formatear comprobante de venta para el canal
+  let currency = "USD";
+  try {
+    const { companies } = await import("@mint/core");
+    const [c] = await db.select({ currency: companies.currency }).from(companies).where(eq(companies.id, companyId)).limit(1);
+    if (c?.currency) currency = c.currency;
+  } catch {}
+
   const replenishmentText = replenishmentDecision
     ? `\n🤖 *ACCIÓN AUTÓNOMA DE REABASTECIMIENTO:*` +
-      `\n   • Estado: ${replenishmentDecision.policyDecision === "auto_executed" ? "✅ Orden de compra emitida automáticamente" : "⏳ Escalado a bandeja HITL para firma"}` +
-      `\n   • Costo reposición: $${replenishmentDecision.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN` +
+      `\n   • Estado: ${replenishmentDecision.policyDecision === "auto_executed" ? "✅ Orden emitida automáticamente" : "⏳ Escalado a bandeja HITL para firma"}` +
+      `\n   • Costo reposición: $${replenishmentDecision.costMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}` +
       `\n   • Detalle: ${replenishmentDecision.reason}`
     : `\n📦 *Estado de existencias:* Seguro (> ${minStock} u).`;
 
   const receipt = `
-🛒 *VENTA EJECUTADA EN SISTEMA [Canal: ${event.channel.toUpperCase()}]*
+🛒 *VENTA REGISTRADA [Canal: ${event.channel.toUpperCase()}]*
 • ID Venta: \`${saleId}\`
-• Operador: *${event.senderName || event.senderId}*
+• Cliente: *${customerName}*
+• Destino: *${shippingAddress}*
 • Producto: *${product.name}* (SKU: \`${product.sku}\`)
-• Cantidad Vendida: *${event.quantity} u*
+• Cantidad: *${event.quantity} u*  | Total: *$${totalAmount.toFixed(2)} ${currency}* [Pago: ${paymentStatus.toUpperCase()}]
 • Stock Anterior: ${previousStock} u ➔ *Stock Restante: ${newStock} u*
 ${replenishmentText}
 `.trim();
@@ -187,6 +320,11 @@ ${replenishmentText}
     remainingStock: newStock,
     minStock,
     isStockDeficit: isBelowMinimum,
+    customerName,
+    shippingAddress,
+    totalAmount,
+    paymentStatus,
+    signatureVerified,
     replenishmentDecision,
     channelReceipt: receipt,
   };
