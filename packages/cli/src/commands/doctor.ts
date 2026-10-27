@@ -63,7 +63,7 @@ export async function doctorCommand(options: { json?: boolean } = {}) {
       process.exit(report.compatible ? 0 : 1);
     }
 
-    console.log(`\n${theme.mintBold("🩺 DIAGNÓSTICO INTEGRAL DE SISTEMA [MINT DOCTOR v2.5.0]")}`);
+    console.log(`\n${theme.mintBold("[DOCTOR] DIAGNÓSTICO INTEGRAL DE SISTEMA [MINT DOCTOR v2.5.0]")}`);
     console.log("─".repeat(84));
 
     // 1. Entorno de Ejecución
@@ -118,10 +118,10 @@ export async function doctorCommand(options: { json?: boolean } = {}) {
     console.log(`\n${theme.bold("6. Convivencia con Base de Datos del Cliente (Tarea 0):")}`);
     console.log(`   Protección:    ${theme.badge("SOLO LECTURA ESTRICTA", "mint")} (DROP, ALTER y TRUNCATE bloqueados)`);
     console.log(`   Tablas Cliente: ${discovery.tables.length > 0 ? `${discovery.tables.length} tabla(s) detectada(s) (ver con 'mint map')` : "0 tablas externas (BD limpia de MINT)"}`);
-    console.log(`   Colisiones:    ${theme.badge("0 COLISIONES", "mint")} (dry-run verificado)`);
+    console.log(`   Colisiones:    ${theme.badge("NO VERIFICADO", "amber")} (este comando no ejecuta prueba de colision; las tablas cliente se tratan como solo lectura)`);
 
     console.log("─".repeat(84));
-    console.log(`${theme.mintBold("✔ Diagnóstico completado. El back office de MINT está listo para operar.")}\n`);
+    console.log(`${theme.mintBold("[OK] Diagnóstico completado. El back office de MINT está listo para operar.")}\n`);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }, null, 2));

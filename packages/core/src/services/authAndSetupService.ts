@@ -198,13 +198,7 @@ export async function registerUser(input: RegisterInput) {
     await db
       .insert(businessConfig)
       .values([
-        {
-          companyId: companyId,
-          key: "approval_limit_amount",
-          value: "10000.00",
-          currency: initialCurrency,
-          description: "Monto máximo permitido sin requerir aprobación humana",
-        },
+        // approval_limit_amount NO se siembra: la empresa debe definirlo (MINT no asume un monto)
         {
           companyId: companyId,
           key: "bot_name",

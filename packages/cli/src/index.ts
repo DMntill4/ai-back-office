@@ -352,6 +352,17 @@ program
     return backupCommand();
   });
 
+// 30. mint memory / mint obsidian
+program
+  .command("memory [action] [target]")
+  .alias("obsidian")
+  .description("Gestión de memoria viva y persistente en Obsidian Vault (Markdown y WikiLinks)")
+  .option("--json", "Salida en formato JSON")
+  .action((action, target, options) => {
+    const { memoryCommand } = require("./commands/memory");
+    return memoryCommand(action, target, options);
+  });
+
 export function runCli(argv = process.argv) {
   if (argv.length <= 2) {
     printBanner();

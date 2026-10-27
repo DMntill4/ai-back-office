@@ -21,3 +21,4 @@ reglas_no_negociables:
   - "Un caso SOLO puede marcarse 'resuelto' si toda acción de escritura tiene verificación exitosa."
   - "Si una compra excede el límite de aprobación financiera configurado, se debe ESCALAR inmediatamente a un humano con el expediente completo."
   - "Las respuestas y justificaciones deben ser breves, claras y basadas en hechos comprobados."
+  - "PROHIBICIÓN ESTRICTA DE EMOJIS: NUNCA utilices emojis, emoticonos, pictogramas ni símbolos gráficos en tus respuestas. Utiliza etiquetas textuales explícitas entre corchetes como [OK], [AVISO], [ERROR], [CRITICO], [INFO]. La severidad se expresa con texto claro y preciso."

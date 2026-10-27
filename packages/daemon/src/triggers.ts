@@ -6,6 +6,7 @@ import {
   purchaseOrders,
   decisions,
   cases,
+  businessConfig,
   coordinateOperationalEvent,
 } from "@mint/core";
 import { eq, and, lte, desc } from "drizzle-orm";
@@ -64,6 +65,17 @@ export async function scanStockDeficits(companyId: string = "comp_default"): Pro
  * Disparador: Detecta envíos en tránsito retrasados respecto a su ETA prometida
  */
 export async function scanDelayedShipments(companyId: string = "comp_default"): Promise<number> {
+  const [profileCfg] = await db
+    .select({ value: businessConfig.value })
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "business_profile")))
+    .limit(1);
+
+  if (profileCfg?.value === "tienda" || profileCfg?.value === "tienda_proveedores") {
+    // Negocio sin flota: cero ruido de transporte
+    return 0;
+  }
+
   const allShipments = await db
     .select()
     .from(shipments)

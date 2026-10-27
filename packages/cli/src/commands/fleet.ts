@@ -8,6 +8,24 @@ export async function fleetCommand(action?: string, arg1?: string) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
+  // Si opera sin flota (Solo Tienda o Tienda con Proveedores), silenciar módulo de flota
+  const { db, businessConfig } = await import("@mint/core");
+  const { eq, and } = await import("drizzle-orm");
+  const [profileCfg] = await db
+    .select({ value: businessConfig.value })
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "business_profile")))
+    .limit(1)
+    .catch(() => []);
+
+  if (profileCfg?.value === "tienda" || profileCfg?.value === "tienda_proveedores") {
+    console.log(`\n  ${theme.amberBold("[MÓDULO SILENCIADO - SIN FLOTA]")}`);
+    console.log(`  El módulo de Flota y Rastreo GPS está desactivado para tu modelo de negocio actual.`);
+    console.log(`  MINT elimina el ruido de camiones y conductores para negocios sin transporte propio.`);
+    console.log(`  ${theme.dim("Para habilitarlo, cambia tu perfil a 'Logística Completa' ejecutando:")} ${theme.mintBold("/config set business_profile logistica_completa")}\n`);
+    return;
+  }
+
   const sub = action ? action.trim().toLowerCase() : "";
 
   // 1. Subcomando: Conductores de la empresa (/fleet drivers)

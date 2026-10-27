@@ -73,10 +73,10 @@ export const theme = {
   // Canal de Auditoría Autónoma Visible
   audit(phase: "OBSERVE" | "DECIDE" | "EXECUTE" | "VERIFY", detail: string): string {
     const badges: Record<string, string> = {
-      OBSERVE: wrap("\x1b[1m\x1b[38;2;92;207;230m", "\x1b[22m\x1b[39m")("[👁 OBSERVE]"),
-      DECIDE: wrap("\x1b[1m\x1b[38;2;229;192;123m", "\x1b[22m\x1b[39m")("[🧠 DECIDE] "),
-      EXECUTE: wrap("\x1b[1m\x1b[38;2;140;207;126m", "\x1b[22m\x1b[39m")("[⚡ EXECUTE]"),
-      VERIFY: wrap("\x1b[1m\x1b[38;2;224;108;117m", "\x1b[22m\x1b[39m")("[🛡 VERIFY] "),
+      OBSERVE: wrap("\x1b[1m\x1b[38;2;92;207;230m", "\x1b[22m\x1b[39m")("[OBSERVE]"),
+      DECIDE: wrap("\x1b[1m\x1b[38;2;229;192;123m", "\x1b[22m\x1b[39m")("[[SISTEMA] DECIDE] "),
+      EXECUTE: wrap("\x1b[1m\x1b[38;2;140;207;126m", "\x1b[22m\x1b[39m")("[[ACCION] EXECUTE]"),
+      VERIFY: wrap("\x1b[1m\x1b[38;2;224;108;117m", "\x1b[22m\x1b[39m")("[[SEGURIDAD] VERIFY] "),
     };
     const time = new Date().toLocaleTimeString("es-CO", { hour12: false });
     const timeStr = wrap("\x1b[38;2;75;82;99m", "\x1b[39m")(time);

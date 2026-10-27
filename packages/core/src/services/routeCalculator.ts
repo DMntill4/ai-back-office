@@ -4,6 +4,42 @@
  * para calcular distancias viales reales, tiempos de conducción y costos de transporte en cualquier parte del mundo.
  */
 
+import { and, eq, inArray } from "drizzle-orm";
+import { db } from "../db/client";
+import { businessConfig } from "../db/schema";
+import { addPendingQuestion } from "./pendingQuestionsService";
+
+/** Lee las tarifas de flete que la empresa configuro (business_config). Sin valor = undefined. */
+async function loadFreightTariffs(companyId: string): Promise<{
+  baseRate?: number;
+  ratePerKm?: number;
+  tollRatePerKm?: number;
+}> {
+  try {
+    const rows = await db
+      .select()
+      .from(businessConfig)
+      .where(
+        and(
+          eq(businessConfig.companyId, companyId),
+          inArray(businessConfig.key, ["freight_base_rate", "freight_rate_per_km", "freight_toll_rate_per_km"]),
+        ),
+      );
+    const num = (key: string): number | undefined => {
+      const v = rows.find((r) => r.key === key)?.value;
+      const n = v !== undefined ? Number(v) : NaN;
+      return Number.isFinite(n) && n >= 0 ? n : undefined;
+    };
+    return {
+      baseRate: num("freight_base_rate"),
+      ratePerKm: num("freight_rate_per_km"),
+      tollRatePerKm: num("freight_toll_rate_per_km"),
+    };
+  } catch {
+    return {};
+  }
+}
+
 export interface GeoPoint {
   latitude: number;
   longitude: number;
@@ -16,8 +52,11 @@ export interface GeoPoint {
 
 export interface RouteCalculationOptions {
   currency?: string;
+  /** Empresa dueña de la tarifa; si no se pasan tarifas explícitas se leen de business_config */
+  companyId?: string;
   baseRate?: number;
   ratePerKm?: number;
+  tollRatePerKm?: number;
 }
 
 export interface RouteCalculationResult {
@@ -28,15 +67,16 @@ export interface RouteCalculationResult {
   durationMinutes: number;
   durationHours: number;
   durationFormatted: string;
-  costoFleteEstimado: number;
-  estimatedFreightCostMxn: number;
+  /** null cuando la empresa no configuro tarifas: MINT no inventa el flete */
+  costoFleteEstimado: number | null;
+  estimatedFreightCostMxn: number | null;
   costoFleteFormatted: string;
   moneda: string;
   desgloseCostos: {
     tarifaBase: number;
     costoPorDistancia: number;
     peajesYTasasTransito: number;
-  };
+  } | null;
   origenNombre: string;
   destinoNombre: string;
   motorUtilizado: "OSRM_GLOBAL_ROUTING_ENGINE" | "HAVERSINE_CORRIDOR_FALLBACK";
@@ -102,32 +142,34 @@ export async function calculateRealRoute(
     motor = "HAVERSINE_CORRIDOR_FALLBACK";
   }
 
-  // Modelo de costos logísticos estandarizado por divisa:
-  const currUpper = currency.toUpperCase();
-  const isMxn = currUpper === "MXN";
-  const isCop = currUpper === "COP";
+  // Tarifas: explicitas > configuradas por la empresa > desconocidas (nunca por divisa fija)
+  let tarifaBase = options.baseRate;
+  let tarifaKm = options.ratePerKm;
+  let tarifaPeajeKm = options.tollRatePerKm;
 
-  let defaultBaseRate = 50;
-  let defaultRateKm = 1.25;
-  let defaultTollFactor = 0.2;
-
-  if (isMxn) {
-    defaultBaseRate = 850;
-    defaultRateKm = 16.5;
-    defaultTollFactor = 2.8;
-  } else if (isCop) {
-    defaultBaseRate = 180000;
-    defaultRateKm = 4500;
-    defaultTollFactor = 800;
+  if ((tarifaBase === undefined || tarifaKm === undefined) && options.companyId) {
+    const cfg = await loadFreightTariffs(options.companyId);
+    tarifaBase = tarifaBase ?? cfg.baseRate;
+    tarifaKm = tarifaKm ?? cfg.ratePerKm;
+    tarifaPeajeKm = tarifaPeajeKm ?? cfg.tollRatePerKm;
   }
 
-  const tarifaBase = options.baseRate ?? defaultBaseRate;
-  const tarifaKm = options.ratePerKm ?? defaultRateKm;
-  const factorPeaje = defaultTollFactor;
+  let totalFlete: number | null = null;
+  let desglose: RouteCalculationResult["desgloseCostos"] = null;
 
-  const costoDistancia = Math.round(distanceKm * tarifaKm);
-  const peajesTransito = distanceKm > 60 ? Math.round(distanceKm * factorPeaje) : 0;
-  const totalFlete = tarifaBase + costoDistancia + peajesTransito;
+  if (tarifaBase !== undefined && tarifaKm !== undefined) {
+    const costoDistancia = Math.round(distanceKm * tarifaKm);
+    const peajesTransito = tarifaPeajeKm !== undefined ? Math.round(distanceKm * tarifaPeajeKm) : 0;
+    totalFlete = tarifaBase + costoDistancia + peajesTransito;
+    desglose = { tarifaBase, costoPorDistancia: costoDistancia, peajesYTasasTransito: peajesTransito };
+  } else if (options.companyId) {
+    await addPendingQuestion(
+      options.companyId,
+      "freight_tariff_missing",
+      "No tengo este dato: cual es la tarifa base y la tarifa por km de flete (en la divisa de la empresa)? Configura freight_base_rate y freight_rate_per_km.",
+      {},
+    ).catch(() => {});
+  }
 
   const hours = Math.floor(durationMinutes / 60);
   const mins = durationMinutes % 60;
@@ -144,13 +186,12 @@ export async function calculateRealRoute(
     durationFormatted,
     costoFleteEstimado: totalFlete,
     estimatedFreightCostMxn: totalFlete,
-    costoFleteFormatted: `$${totalFlete.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`,
+    costoFleteFormatted:
+      totalFlete === null
+        ? "sin tarifa configurada"
+        : `$${totalFlete.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`,
     moneda: currency,
-    desgloseCostos: {
-      tarifaBase,
-      costoPorDistancia: costoDistancia,
-      peajesYTasasTransito: peajesTransito,
-    },
+    desgloseCostos: desglose,
     origenNombre: origin.name || `${origin.city || "Origen"}${origin.state ? `, ${origin.state}` : ""}`,
     destinoNombre: destination.name || `${destination.city || "Destino"}${destination.state ? `, ${destination.state}` : ""}`,
     motorUtilizado: motor,

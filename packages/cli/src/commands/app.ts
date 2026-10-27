@@ -44,7 +44,7 @@ export async function appCommand(options: { open?: boolean } = { open: true }) {
 
   const isServerUp = await checkPort(4200);
   if (!isServerUp) {
-    console.log(`  ${theme.mint("🚀 Iniciando Motor de la App de Escritorio...")} (Puerto 4200)`);
+    console.log(`  ${theme.mint("[INICIO] Iniciando Motor de la App de Escritorio...")} (Puerto 4200)`);
     const serverProc = spawn("npx", ["tsx", "packages/app/server.ts"], {
       cwd: process.cwd(),
       detached: true,
@@ -54,12 +54,12 @@ export async function appCommand(options: { open?: boolean } = { open: true }) {
     serverProc.unref();
     await new Promise((r) => setTimeout(r, 1200));
   } else {
-    console.log(`  ${theme.success("✔")} Motor de la App de Escritorio activo y enlazado.`);
+    console.log(`  ${theme.success("[OK]")} Motor de la App de Escritorio activo y enlazado.`);
   }
 
   const appUrl = "http://localhost:4200";
   if (options.open !== false) {
-    console.log(`  ${theme.cyanBold("🖥️  Abriendo Ventana Nativa de la App de Escritorio...")}`);
+    console.log(`  ${theme.cyanBold("[APP] Abriendo Ventana Nativa de la App de Escritorio...")}`);
     launchDesktopAppWindow(appUrl);
   }
 
@@ -75,7 +75,7 @@ export async function appCommand(options: { open?: boolean } = { open: true }) {
         `${theme.dim("Persistencia:")}   Directa en PostgreSQL (Drizzle ORM) por empresa y usuario.`,
       ],
       {
-        title: "🍃 MINT DESKTOP APP INICIADA",
+        title: "[MINT] MINT DESKTOP APP INICIADA",
         borderColor: theme.mint,
       },
     ),

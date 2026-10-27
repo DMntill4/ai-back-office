@@ -184,7 +184,7 @@ export async function analyzePurchasingOptions(
       if (origGeo) {
         const route = await calculateRealRoute(origGeo, destGeo).catch(() => null);
         if (route) {
-          freightCostMxn = route.estimatedFreightCostMxn;
+          freightCostMxn = route.estimatedFreightCostMxn ?? 0;
           distanceKm = route.distanceKm;
         }
       }

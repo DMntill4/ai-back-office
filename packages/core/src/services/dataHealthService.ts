@@ -123,6 +123,24 @@ export async function quarantineRecord(params: {
       status: "quarantined",
       createdAt: new Date(),
     });
+
+    try {
+      const { recordQuarantineNote } = await import("./obsidianMemoryService");
+      await recordQuarantineNote({
+        id,
+        companyId: params.companyId,
+        entityType: params.entityType,
+        sourceTable: params.sourceTable,
+        recordIdentifier: params.recordIdentifier,
+        violationType: params.violationType,
+        reason: params.reason,
+        severity: params.severity || "ERROR",
+        rawPayload: params.rawPayload || {},
+        createdAt: new Date(),
+      });
+    } catch {
+      // Continuar silenciosamente si Obsidian no esta disponible
+    }
   } catch (err: any) {
     // Si ya existe o falla por restricción temporal, loguear sin tumbar el hilo principal
     console.warn(`[QUARANTINE_WARN] Fallo al aislar registro ${params.recordIdentifier}:`, err.message);
@@ -636,3 +654,27 @@ export async function updateQuarantineStatus(
     })
     .where(eq(mintQuarantineRecords.id, id));
 }
+
+/**
+ * Marca TODOS los registros en cuarentena pendientes de una empresa como resueltos o ignorados.
+ */
+export async function updateAllQuarantineStatus(
+  companyId: string,
+  status: "reviewed" | "ignored" | "resolved",
+  reviewer: string,
+) {
+  return db
+    .update(mintQuarantineRecords)
+    .set({
+      status,
+      reviewedBy: reviewer,
+      reviewedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(mintQuarantineRecords.companyId, companyId),
+        eq(mintQuarantineRecords.status, "quarantined")
+      )
+    );
+}
+

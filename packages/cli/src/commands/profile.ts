@@ -92,7 +92,7 @@ export async function profileCommand(options: { json?: boolean } = {}) {
     console.log("\n" + drawDivider("BANCO DE PREGUNTAS PENDIENTES // DATOS FALTANTES", 88));
 
     if (profile.pendingQuestions.length === 0) {
-      console.log(`  ${theme.mintBold("✔")} ${theme.bold("Verdad de datos al 100%:")} La empresa cuenta con todos los datos necesarios.`);
+      console.log(`  ${theme.mintBold("[OK]")} ${theme.bold("Verdad de datos al 100%:")} La empresa cuenta con todos los datos necesarios.`);
       console.log(`  ${theme.dim("El bot no asumirá ni inventará ninguna ubicación ni proveedor ficticio.\n")}`);
       return;
     }
@@ -114,6 +114,6 @@ export async function profileCommand(options: { json?: boolean } = {}) {
     }
 
   } catch (err: any) {
-    console.error(theme.redBold(`\n❌ Error al cargar perfil de empresa: ${err.message}\n`));
+    console.error(theme.redBold(`\n[ERROR] Error al cargar perfil de empresa: ${err.message}\n`));
   }
 }

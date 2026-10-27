@@ -1,4 +1,4 @@
-import { auditDataHealth, listQuarantinedRecords, updateQuarantineStatus } from "@mint/core";
+import { auditDataHealth, listQuarantinedRecords, updateQuarantineStatus, updateAllQuarantineStatus } from "@mint/core";
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { drawFrame } from "../ui/frame";
@@ -68,11 +68,11 @@ export async function dataHealthCommand(options: { json?: boolean } = {}) {
   }
 
   if (report.decisionGateStatus.blockedModules.length > 0) {
-    console.log(theme.redBold(`\n⚠️  ATENCIÓN: MINT ha apagado la autonomía en los módulos: [${report.decisionGateStatus.blockedModules.join(", ")}] hasta corregir datos.`));
+    console.log(theme.redBold(`\n[AVISO] ATENCIÓN: MINT ha apagado la autonomía en los módulos: [${report.decisionGateStatus.blockedModules.join(", ")}] hasta corregir datos.`));
   } else if (report.decisionGateStatus.requiresDoubtfulBadge) {
-    console.log(theme.amber(`\n⚠️  MODO DUDOSO ACTIVO: Las sugerencias operativas llevarán la marca [DATOS DUDOSOS] y no se ejecutarán automáticamente.`));
+    console.log(theme.amber(`\n[AVISO] MODO DUDOSO ACTIVO: Las sugerencias operativas llevarán la marca [DATOS DUDOSOS] y no se ejecutarán automáticamente.`));
   } else {
-    console.log(theme.mint(`\n✅  COMPUERTA DESPEJADA: Todos los módulos superaron el umbral de confianza y operan con normalidad.`));
+    console.log(theme.mint(`\n[OK]  COMPUERTA DESPEJADA: Todos los módulos superaron el umbral de confianza y operan con normalidad.`));
   }
   console.log("");
 }
@@ -81,25 +81,35 @@ export async function quarantineCommand(args: string[] = []) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
-  const action = args[0]; // ej: 'review', 'ignore'
+  const action = args[0]?.toLowerCase(); // ej: 'resolve', 'ignore'
   const targetId = args[1];
 
   if (action === "resolve" && targetId) {
-    await updateQuarantineStatus(targetId, "resolved", session?.name || "operator");
-    console.log(theme.mint(`\n✅ Registro en cuarentena '${targetId}' marcado como RESUELTO.\n`));
+    if (targetId.toLowerCase() === "all") {
+      await updateAllQuarantineStatus(companyId, "resolved", session?.name || "operator");
+      console.log(theme.mint(`\n[OK] Todos los registros en cuarentena pendientes fueron marcados como RESUELTOS.\n`));
+    } else {
+      await updateQuarantineStatus(targetId, "resolved", session?.name || "operator");
+      console.log(theme.mint(`\n[OK] Registro en cuarentena '${targetId}' marcado como RESUELTO.\n`));
+    }
     return;
   }
 
   if (action === "ignore" && targetId) {
-    await updateQuarantineStatus(targetId, "ignored", session?.name || "operator");
-    console.log(theme.gray(`\nRegistro en cuarentena '${targetId}' marcado como IGNORADO.\n`));
+    if (targetId.toLowerCase() === "all") {
+      await updateAllQuarantineStatus(companyId, "ignored", session?.name || "operator");
+      console.log(theme.gray(`\nTodos los registros en cuarentena pendientes fueron marcados como IGNORADOS.\n`));
+    } else {
+      await updateQuarantineStatus(targetId, "ignored", session?.name || "operator");
+      console.log(theme.gray(`\nRegistro en cuarentena '${targetId}' marcado como IGNORADO.\n`));
+    }
     return;
   }
 
   const quarantined = await listQuarantinedRecords(companyId, 25);
 
   if (quarantined.length === 0) {
-    console.log(theme.mint("\n✅ La mesa de cuarentena está vacía. No hay registros hostiles ni corruptos pendientes de revisión.\n"));
+    console.log(theme.mint("\n[OK] La mesa de cuarentena está vacía. No hay registros hostiles ni corruptos pendientes de revisión.\n"));
     return;
   }
 

@@ -261,7 +261,7 @@ export async function configCommand(action?: string, arg1?: string, ...rest: str
         "",
         `${theme.bold("GOBERNANZA FINANCIERA & AUTONOMÍA:")}`,
         `  - Nivel Operativo:    ${autonomyBadge}`,
-        `  - Límite de Compra:   $${config.approvalLimitAmount.toLocaleString()} ${config.currency} sin aprobación manual`,
+        `  - Límite de Compra:   ${config.approvalLimitAmount === null ? "sin definir" : `$${config.approvalLimitAmount.toLocaleString()} ${config.currency}`} sin aprobación manual`,
         `  - Política de Riesgo: Toda propuesta fuera de rango requiere autorización humana en ${theme.mintBold("/inbox")}.`,
         "",
         `${theme.bold("ASISTENTE Y REGLAS DE NEGOCIO:")}`,

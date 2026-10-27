@@ -15,13 +15,13 @@ export async function teamCommand(
   // 1. Invitar nuevo miembro al equipo
   if (action === "invite") {
     if (!hasPermission(session?.role, "manage_team")) {
-      console.error(theme.redBold(`\n❌ Permiso denegado: tu rol '${session?.role}' no tiene permiso para invitar miembros al equipo. Se requiere 'owner' o 'admin'.\n`));
+      console.error(theme.redBold(`\n[ERROR] Permiso denegado: tu rol '${session?.role}' no tiene permiso para invitar miembros al equipo. Se requiere 'owner' o 'admin'.\n`));
       return;
     }
 
     const email = targetArg;
     if (!email) {
-      console.error(theme.redBold("❌ Debes indicar el correo electrónico. Ejemplo: mint team invite colega@empresa.com --name 'Carlos' --role operator"));
+      console.error(theme.redBold("[ERROR] Debes indicar el correo electrónico. Ejemplo: mint team invite colega@empresa.com --name 'Carlos' --role operator"));
       return;
     }
     const name = options.name || email.split("@")[0];
@@ -39,9 +39,9 @@ export async function teamCommand(
         console.log(JSON.stringify(res, null, 2));
       } else {
         if (res.success) {
-          console.log(`\n${theme.success("✔")} ${theme.bold(res.message)}\n`);
+          console.log(`\n${theme.success("[OK]")} ${theme.bold(res.message)}\n`);
         } else {
-          console.error(theme.redBold(`❌ Error: ${res.message}`));
+          console.error(theme.redBold(`[ERROR] Error: ${res.message}`));
         }
       }
       return;
@@ -49,7 +49,7 @@ export async function teamCommand(
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: err.message }));
       } else {
-        console.error(theme.redBold(`❌ Error al invitar usuario: ${err.message}`));
+        console.error(theme.redBold(`[ERROR] Error al invitar usuario: ${err.message}`));
       }
       return;
     }
@@ -58,13 +58,13 @@ export async function teamCommand(
   // 2. Eliminar miembro del equipo
   if (action === "remove") {
     if (!hasPermission(session?.role, "manage_team")) {
-      console.error(theme.redBold(`\n❌ Permiso denegado: tu rol '${session?.role}' no tiene permiso para eliminar miembros del equipo. Se requiere 'owner' o 'admin'.\n`));
+      console.error(theme.redBold(`\n[ERROR] Permiso denegado: tu rol '${session?.role}' no tiene permiso para eliminar miembros del equipo. Se requiere 'owner' o 'admin'.\n`));
       return;
     }
 
     const userId = targetArg;
     if (!userId) {
-      console.error(theme.redBold("❌ Debes indicar el ID del usuario a eliminar. Ejemplo: mint team remove usr_12345"));
+      console.error(theme.redBold("[ERROR] Debes indicar el ID del usuario a eliminar. Ejemplo: mint team remove usr_12345"));
       return;
     }
 
@@ -74,9 +74,9 @@ export async function teamCommand(
         console.log(JSON.stringify(res, null, 2));
       } else {
         if (res.success) {
-          console.log(`\n${theme.success("✔")} ${theme.bold(res.message)}\n`);
+          console.log(`\n${theme.success("[OK]")} ${theme.bold(res.message)}\n`);
         } else {
-          console.error(theme.redBold(`❌ Error: ${res.message}`));
+          console.error(theme.redBold(`[ERROR] Error: ${res.message}`));
         }
       }
       return;
@@ -84,7 +84,7 @@ export async function teamCommand(
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: err.message }));
       } else {
-        console.error(theme.redBold(`❌ Error al eliminar usuario: ${err.message}`));
+        console.error(theme.redBold(`[ERROR] Error al eliminar usuario: ${err.message}`));
       }
       process.exit(1);
     }
@@ -149,7 +149,7 @@ export async function teamCommand(
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error al listar miembros: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error al listar miembros: ${err.message}`));
     }
     process.exit(1);
   }

@@ -13,14 +13,14 @@ export async function shadowCommand(args: string[] = []) {
   if (subCommand === "on") {
     const days = parseInt(args[1] || "14", 10);
     await configureShadowMode(companyId, true, days);
-    console.log(theme.mint(`\n✅ Modo Sombra ACTIVADO para '${companyId}' por ${days} días.`));
+    console.log(theme.mint(`\n[OK] Modo Sombra ACTIVADO para '${companyId}' por ${days} días.`));
     console.log(theme.dim("   MINT observará y simulará decisiones sin alterar producción ni notificar.\n"));
     return;
   }
 
   if (subCommand === "off") {
     await configureShadowMode(companyId, false, 0);
-    console.log(theme.amber(`\n⚠️ Modo Sombra DESACTIVADO para '${companyId}'. Autonomía estándar reanudada.\n`));
+    console.log(theme.amber(`\n[AVISO] Modo Sombra DESACTIVADO para '${companyId}'. Autonomía estándar reanudada.\n`));
     return;
   }
 

@@ -82,7 +82,7 @@ export async function trackCommand(
 
   if (tracking.incident) {
     lines.push("");
-    lines.push(`${theme.redBold("⚠ INCIDENCIA DE RUTA DETECTADA:")}`);
+    lines.push(`${theme.redBold("[AVISO] INCIDENCIA DE RUTA DETECTADA:")}`);
     lines.push(`  • Motivo: ${tracking.incident.reason}`);
     lines.push(`  • Retraso estimado: +${tracking.incident.delayMinutes} minutos`);
     lines.push(`  • Ruta Alternativa propuesta: Lista para revisión`);

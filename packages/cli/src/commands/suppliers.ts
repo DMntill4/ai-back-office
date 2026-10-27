@@ -15,6 +15,24 @@ export async function suppliersCommand(action?: string, arg1?: string, ...rest: 
   const companyId = session?.companyId || "comp_default";
   const role = (session?.role || "viewer").toLowerCase() as UserRole;
 
+  // Si opera en Solo Tienda, silenciar módulo de proveedores
+  const { db, businessConfig } = await import("@mint/core");
+  const { eq, and } = await import("drizzle-orm");
+  const [profileCfg] = await db
+    .select({ value: businessConfig.value })
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "business_profile")))
+    .limit(1)
+    .catch(() => []);
+
+  if (profileCfg?.value === "tienda") {
+    console.log(`\n  ${theme.amberBold("[MÓDULO SILENCIADO - SOLO TIENDA]")}`);
+    console.log(`  El módulo de Proveedores y Compras está desactivado para tu modelo de negocio.`);
+    console.log(`  MINT opera en modo exclusivo de tienda (catálogo, ventas y ganancias sin ruido de proveedores).`);
+    console.log(`  ${theme.dim("Para habilitarlo, cambia tu perfil a 'Tienda con Proveedores' ejecutando:")} ${theme.mintBold("/config set business_profile tienda_proveedores")}\n`);
+    return;
+  }
+
   const sub = action ? action.trim() : "";
 
   // 1. Subcomando: Agregar proveedor (/suppliers add <nombre> [email] [tel] [ciudad])

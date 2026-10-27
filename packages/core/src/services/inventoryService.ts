@@ -158,7 +158,8 @@ export interface CreatePurchaseOrderInput {
 }
 
 export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
-  let maxAllowedAmount = 10000.0;
+  // Sin limite configurado no se asume ninguno: toda orden requiere aprobacion humana
+  let maxAllowedAmount: number | null = null;
   const effectiveCompanyId = input.companyId || "comp_default";
   let currency = "USD";
   try {
@@ -225,36 +226,28 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
   let unitPrice = 0;
   if (supplierProduct.length > 0) {
     unitPrice = parseFloat(supplierProduct[0].unitPrice);
-  } else if (
-    input.supplierId.startsWith("supp_direct_") ||
-    input.supplierId === "compra_directa" ||
-    input.estimatedUnitPrice
-  ) {
-    // Permitir Compra Directa / RFQ en tiendas sin tabla supplier_products
-    unitPrice = input.estimatedUnitPrice || 250.0;
-    try {
-      await db
-        .insert(suppliers)
-        .values({
-          id: input.supplierId,
-          companyId: effectiveCompanyId,
-          name: "Compra Directa / Licitación Abierta (RFQ)",
-          email: "compras@proveedor-directo.local",
-          streetAddress: null,
-          city: null,
-          latitude: null,
-          longitude: null,
-        })
-        .onConflictDoNothing();
-    } catch {
-      // Ignorar en mocks
+  } else if (input.estimatedUnitPrice && input.estimatedUnitPrice > 0) {
+    // Precio aportado explicitamente por el solicitante; el proveedor debe existir en la BD de la empresa
+    const [knownSupplier] = await db
+      .select({ id: suppliers.id })
+      .from(suppliers)
+      .where(and(eq(suppliers.id, input.supplierId), eq(suppliers.companyId, effectiveCompanyId)))
+      .limit(1);
+    if (!knownSupplier) {
+      return {
+        success: false,
+        requiresApproval: false,
+        verified: false,
+        message: `No tengo este dato: el proveedor '${input.supplierId}' no esta registrado en la empresa. No se crea proveedor ni orden.`,
+      };
     }
+    unitPrice = input.estimatedUnitPrice;
   } else {
     return {
       success: false,
       requiresApproval: false,
       verified: false,
-      message: `El proveedor '${input.supplierId}' no ofrece el producto '${input.productId}' en la base de datos de cotizaciones.`,
+      message: `No tengo este dato: no hay precio registrado de '${input.supplierId}' para '${input.productId}'. No se fija ningun precio.`,
     };
   }
 
@@ -274,7 +267,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
   }
 
   // 1. Compra autónoma bajo umbral
-  if (totalAmount <= maxAllowedAmount) {
+  if (maxAllowedAmount !== null && totalAmount <= maxAllowedAmount) {
     const orderId = `po_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const [order] = await db
       .insert(purchaseOrders)
@@ -331,6 +324,10 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
   }
 
   // 2. Requiere Aprobación Humana (HITL) por superar umbral
+  const limitText =
+    maxAllowedAmount === null
+      ? "No hay limite de aprobacion configurado; se requiere aprobacion humana."
+      : `Excede limite autonomo de $${maxAllowedAmount.toFixed(2)} ${currency}.`;
   const approvalId = `appr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   await db.insert(approvals).values({
     id: approvalId,
@@ -339,7 +336,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     actionType: "crear_orden_compra",
     amount: totalAmount.toFixed(2),
     currency,
-    reason: `Solicitud de compra generada por el agente para ${input.quantity} unidades de ${input.productId} al proveedor ${input.supplierId}. Total: $${totalAmount.toFixed(2)} ${currency}. Excede límite autónomo de $${maxAllowedAmount.toFixed(2)} ${currency}.`,
+    reason: `Solicitud de compra generada por el agente para ${input.quantity} unidades de ${input.productId} al proveedor ${input.supplierId}. Total: $${totalAmount.toFixed(2)} ${currency}. ${limitText}`,
     status: "pendiente",
   });
 
@@ -350,7 +347,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     approvalId,
     totalAmount,
     threshold: maxAllowedAmount,
-    message: `El agente ha generado la solicitud de compra por $${totalAmount.toFixed(2)} ${currency}. Excede el límite autónomo de $${maxAllowedAmount.toFixed(2)} ${currency}. Pendiente de aprobación humana en Supabase/Postgres.`,
+    message: `El agente ha generado la solicitud de compra por $${totalAmount.toFixed(2)} ${currency}. ${limitText} Pendiente de aprobación humana.`,
   };
 }
 

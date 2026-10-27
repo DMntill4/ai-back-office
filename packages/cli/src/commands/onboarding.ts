@@ -11,12 +11,15 @@ import {
   products,
   inventory,
   businessConfig,
+  discoverCustomerSchema,
+  saveConfirmedTableMapping,
+  addPendingQuestion,
+  inspectAndDiagnoseDatabaseAutonomously,
+  resolveLocaleAutonomously,
+  resolveCurrencyFromTextOrSymbol,
+  type AutonomousInspectionResult,
 } from "@mint/core";
 import {
-  discoverLocalSources,
-  parseCsvFile,
-  proposeColumnMapping,
-  syncDataSource,
   searchProjectDatabase,
   scanLocalWorkspaceProjects,
   extractProductsFromSqlFile,
@@ -29,24 +32,55 @@ import { addNotificationChannel } from "@mint/notifiers";
 import { saveSession, type StoredSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+
+export function sanitizeText(input: string, maxLen = 80): string {
+  if (!input) return "";
+  return input
+    .replace(/\u001b\[.*?m/g, "") // strip ansi
+    .replace(/[\x00-\x1F\x7F]/g, "") // strip control characters
+    .replace(/<[^>]*>/g, "") // strip html/script injection
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "") // strip emojis
+    .trim()
+    .slice(0, maxLen);
+}
+
+export function cleanSlug(input: string, prefix = "", maxLen = 20): string {
+  const normalized = (input || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // elimina diacríticos: á -> a, ñ -> n, ü -> u
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, maxLen)
+    .replace(/_+$/g, "");
+
+  const fallback = Math.random().toString(36).slice(2, 8);
+  const slug = normalized || fallback;
+  return prefix ? `${prefix}_${slug}` : slug;
+}
+
+export function cleanCurrencyCode(input: string, country = ""): string {
+  return resolveCurrencyFromTextOrSymbol(input, country);
+}
 
 function ask(rl: readline.Interface, question: string, defaultValue = ""): Promise<string> {
   return new Promise((resolve) => {
     const formatted = defaultValue ? `${question} [${theme.mintBold(defaultValue)}]: ` : `${question}: `;
     rl.question(formatted, (answer) => {
-      resolve(answer.trim() || defaultValue);
+      resolve(sanitizeText(answer.trim(), 120) || defaultValue);
     });
   });
 }
 
 /**
- * Friendly Interactive First-Time Onboarding in English
- * Guides the user through:
- * 1. Operator profile & company setup
- * 2. Automated data source discovery & connection
- * 3. Sales channel connection (Telegram / Slack / Discord)
- * 4. Autonomy governance policy
+ * Asistente de Inicio y Login de MINT 100% centrado en el cliente (Español).
+ * Guía al usuario a través de:
+ * 1. Perfil del operador y empresa (sin restricciones forzadas de correo).
+ * 2. Tipo de negocio (Solo Tienda vs Proveedores vs Logística Completa).
+ * 3. Conexión a Base de Datos y Convivencia Segura de Esquema (Tarea 0).
+ * 4. Gobernanza de compras y canales de alerta.
  */
 export async function runOnboardingWizard(): Promise<StoredSession> {
   const rl = readline.createInterface({
@@ -56,7 +90,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
 
   console.clear();
 
-  // Polished Mint Logo & Welcome Greeting
+  // Logo MINT elegante y sin emojis
   const logo = [
     "  ███╗   ███╗██╗███╗   ██╗████████╗",
     "  ████╗ ████║██║████╗  ██║╚══██╔══╝",
@@ -72,23 +106,23 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
   }
   console.log(
     theme.dim("  ┌─ ") +
-      theme.cyanBold("MINT AUTONOMOUS BACK-OFFICE") +
+      theme.cyanBold("MINT BACK-OFFICE AUTÓNOMO") +
       theme.dim(" // ") +
-      theme.muted("ZERO-HASSLE ONBOARDING WIZARD") +
+      theme.muted("CONFIGURACIÓN INICIAL DEL CLIENTE") +
       theme.dim(" ─┐\n"),
   );
 
   console.log(
     drawCard(
       [
-        `Hello and welcome! I am your autonomous back-office coordinator.`,
-        `I run in the background to monitor stock, connect to your real database,`,
-        `and automatically execute incoming sales and reorders from your messaging channels.`,
+        `¡Bienvenido a MINT! Tu back office autónomo para comercio, inventario y logística.`,
+        `MINT vigila en segundo plano tus ventas, stock y operaciones con compras aprobadas.`,
+        `Garantía de seguridad: MINT nunca sobrescribe ni altera tus bases de datos existentes.`,
         ``,
-        `Let's complete a quick 4-step interactive setup so I can start working for you.`,
+        `Completemos una configuración guiada de 3 pasos para poner a operar tu back-office.`,
       ],
       {
-        title: "WELCOME TO MINT",
+        title: "BIENVENIDO A MINT",
         borderColor: theme.mint,
       },
     ),
@@ -97,70 +131,332 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
 
   try {
     // -------------------------------------------------------------
-    // STEP 1: IDENTITY & COMPANY
+    // PASO 1: IDENTIDAD DEL OPERADOR Y DE LA EMPRESA (SIN ASUMIR NADA)
     // -------------------------------------------------------------
-    console.log(drawDivider("STEP 1 OF 4: OPERATOR & COMPANY IDENTITY", 76));
-    const userName = await ask(rl, `  ${theme.bold("1.1 What's your name or operator handle?")}`, "Dale");
-    const companyName = await ask(rl, `  ${theme.bold("1.2 What's your company or business name?")}`, "My Logistics Co.");
+    console.log(drawDivider("PASO 1 DE 3: IDENTIDAD DEL OPERADOR Y EMPRESA", 76));
+    const userName = await ask(rl, `  ${theme.bold("1.1 Tu nombre o identificador de operador")}`, "Admin");
+    const companyName = await ask(rl, `  ${theme.bold("1.2 Nombre de tu empresa o marca")}`, "Mi Empresa");
 
-    // Validate Gmail email address
-    const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@g(oogle)?mail\.com$/i;
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     let email = "";
     while (true) {
       email = await ask(
         rl,
-        `  ${theme.bold("1.3 Account Gmail address (required for Google notifications)")}`,
-        "dalej@gmail.com",
+        `  ${theme.bold("1.3 Correo electrónico de contacto y alertas")}`,
+        "admin@empresa.com",
       );
-      if (GMAIL_REGEX.test(email)) {
+      email = email.trim().toLowerCase();
+      if (EMAIL_REGEX.test(email)) {
         break;
       }
-      console.log(`  ${theme.redBold("[ERROR] Invalid email:")} Only Gmail accounts (e.g. yourname@gmail.com) are accepted for automated operational alerts.\n`);
+      console.log(`  ${theme.redBold("[ERROR] Correo inválido:")} Ingresa un formato de correo válido (ej: admin@empresa.com).\n`);
     }
 
-    // Validate operator password
     let password = "";
     while (true) {
       password = await ask(
         rl,
-        `  ${theme.bold("1.4 Operator password (min 6 characters)")}`,
-        "password123",
+        `  ${theme.bold("1.4 Contraseña de acceso al back-office (mínimo 4 caracteres)")}`,
+        "admin123",
       );
-      if (password.length >= 6) {
+      if (password.length >= 4) {
         break;
       }
-      console.log(`  ${theme.redBold("[ERROR] Password too short:")} Must be at least 6 characters.\n`);
+      console.log(`  ${theme.redBold("[ERROR] Contraseña corta:")} Debe tener al menos 4 caracteres.\n`);
     }
 
-    const warehouseCity = await ask(
-      rl,
-      `  ${theme.bold("1.5 Main warehouse city or location (for GPS & freight routing)")}`,
-      "Ciudad de México",
-    );
+    const companyId = cleanSlug(companyName, "comp", 20);
+    const userId = cleanSlug(userName, "usr", 20);
 
-    const companyId = `comp_${companyName.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 16) || "main"}`;
-    const userId = `usr_${userName.toLowerCase().replace(/[^a-z0-9]/g, "_") || "admin"}`;
+    // -------------------------------------------------------------
+    // PASO 2: CONEXIÓN Y AUTODESCUBRIMIENTO INTELIGENTE (TAREA 0)
+    // MINT toma el control: detecta modelo, divisa, territorio y errores
+    // -------------------------------------------------------------
+    console.log(drawDivider("PASO 2 DE 3: CONEXIÓN Y AUTODESCUBRIMIENTO DE TUS DATOS (TAREA 0)", 76));
+    console.log(`  ¿Cómo deseas conectar o iniciar tus datos?`);
+    console.log(`    ${theme.mintBold("[1] Usar Base de Datos PostgreSQL existente (MINT autodescubre modelo, divisa y errores)")}`);
+    console.log(`    ${theme.cyanBold("[2] Buscar automáticamente archivos en tu equipo (.sql, .db, .sqlite, .csv)")}`);
+    console.log(`    ${theme.dim("[3] Ingresar ruta a archivo local (.sql, .csv, .sqlite)")}`);
+    console.log(`    ${theme.dim("[4] Iniciar en blanco (Catálogo limpio)")}\n`);
+
+    const sourceChoice = await ask(rl, `  Elige una opción [1/2/3/4]`, "1");
+
+    let country = "Internacional";
+    let currency = "USD";
+    let timezone = "UTC";
+    let warehouseCity = "Sede Central";
+    let businessProfile: "tienda" | "tienda_proveedores" | "logistica_completa" = "tienda";
+    let activeModules: string[] = ["inventario", "ventas", "finanzas"];
+    let selectedSourceLabel = "Catálogo Inicial";
+    let diagnosis: AutonomousInspectionResult | null = null;
+
+    if (sourceChoice === "2") {
+      const querySearch = await ask(rl, `  ¿Dónde o qué deseas buscar?`, "downloads");
+      console.log(`\n  Buscando fuentes de datos para '${theme.mintBold(querySearch)}'...`);
+      const found = await searchProjectDatabase(querySearch);
+
+      if (found.length > 0) {
+        console.log(`\n  ${theme.mintBold(`[OK] MINT identificó ${found.length} fuente(s) de datos:`)}\n`);
+        found.slice(0, 5).forEach((proj: DiscoveredProject, idx: number) => {
+          console.log(`    ${theme.cyanBold(`[#${idx + 1}]`)} ${theme.bold(proj.projectName)} (${proj.framework})`);
+          console.log(`        Ubicación: ${theme.dim(proj.projectPath)}`);
+        });
+
+        const selectProjNum = await ask(rl, `  Selecciona el número a conectar (1-${Math.min(found.length, 5)}) o '0' para continuar`, "1");
+        const idx = parseInt(selectProjNum, 10) - 1;
+        if (!isNaN(idx) && idx >= 0 && idx < found.length) {
+          const chosen = found[idx];
+          selectedSourceLabel = chosen.projectName;
+
+          for (const sqlFile of chosen.sqlFiles) {
+            if (fs.existsSync(sqlFile)) {
+              const fileItems = extractProductsFromSqlFile(sqlFile);
+              for (const item of fileItems) {
+                const productId = `prod_${companyId}_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+                await db
+                  .insert(products)
+                  .values({
+                    id: productId,
+                    companyId,
+                    sku: item.sku,
+                    name: item.name,
+                    category: item.category,
+                    minStock: item.minStock,
+                    origin: "real",
+                  })
+                  .onConflictDoNothing();
+
+                if (Number.isFinite(item.stock) && item.stock >= 0) {
+                  await db
+                    .insert(inventory)
+                    .values({
+                      id: `inv_${companyId}_${productId}`,
+                      companyId,
+                      productId,
+                      warehouseId: `alm_central_${companyId}`,
+                      stock: item.stock,
+                    })
+                    .onConflictDoNothing();
+                } else {
+                  // Sin dato real de existencias: no se inventa, se pregunta al operador
+                  await addPendingQuestion(
+                    companyId,
+                    "stock_missing",
+                    `El producto ${item.sku} (${item.name}) no trae existencias en la fuente. Cuantas unidades hay?`,
+                    { sku: item.sku, source: selectedSourceLabel },
+                  ).catch(() => {});
+                }
+              }
+            }
+          }
+        }
+      }
+    } else if (sourceChoice === "3") {
+      const filePath = await ask(rl, `  Ingresa la ruta absoluta o relativa al archivo`);
+      if (fs.existsSync(filePath)) {
+        selectedSourceLabel = path.basename(filePath);
+        console.log(`  ${theme.mintBold("[OK]")} Archivo '${path.basename(filePath)}' detectado y enlazado.\n`);
+      }
+    }
+
+    if (sourceChoice !== "4") {
+      console.log(`\n  ${theme.cyan("MINT Brain está analizando tu base de datos de forma autónoma...")}`);
+      try {
+        diagnosis = await inspectAndDiagnoseDatabaseAutonomously(companyId);
+
+        // Guardar mapeos de esquema seguros (Tarea 0)
+        for (const prop of diagnosis.tableProposals) {
+          await saveConfirmedTableMapping({
+            companyId,
+            sourceTable: prop.sourceTable,
+            targetEntity: prop.targetEntity,
+            columnMappings: prop.columnMappings,
+            isConfirmed: true,
+            isReadOnly: true,
+            writeRoles: [],
+          });
+        }
+
+        console.log("");
+        console.log(
+          drawCard(
+            [
+              `${theme.bold("MODELO DEDUCIDO:")}      ${theme.mintBold(diagnosis.inferredProfile.toUpperCase())}`,
+              `  ${theme.dim("Motivo:")} ${diagnosis.profileReason}`,
+              "",
+              `${theme.bold("DIVISA DETECTADA:")}     ${theme.bold(diagnosis.inferredLocale.currency)} (${diagnosis.inferredLocale.currencySymbol})`,
+              `${theme.bold("TERRITORIO / SEDE:")}    ${theme.bold(diagnosis.inferredLocale.country)} (${diagnosis.inferredLocale.timezone})`,
+              `${theme.bold("CIUDAD PRINCIPAL:")}     ${theme.bold(diagnosis.inferredLocale.suggestedCity)}`,
+              `${theme.bold("TABLAS CLIENTE:")}       ${theme.bold(String(diagnosis.tableProposals.length))} detectadas (Tratadas como Solo Lectura - Tarea 0)`,
+              "",
+              `${theme.bold("SALUD DE DATOS:")}       ${diagnosis.dataHealthScore >= 80 ? theme.mintBold(`${diagnosis.dataHealthScore}% [ÓPTIMA]`) : theme.amberBold(`${diagnosis.dataHealthScore}% [ATENCIÓN]`)}`,
+              `${theme.bold("ANOMALÍAS AISLADAS:")}   ${diagnosis.detectedErrors.length > 0 ? theme.amberBold(`${diagnosis.detectedErrors.length} registro(s) en /quarantine`) : theme.mint("0 errores")}`,
+            ],
+            {
+              title: "DIAGNÓSTICO AUTÓNOMO DE TUS DATOS (CERO SUPOSICIONES)",
+              borderColor: theme.mint,
+            },
+          ),
+        );
+
+        if (diagnosis.detectedErrors.length > 0) {
+          console.log(`\n  ${theme.amberBold("[RECONOCIMIENTO AUTÓNOMO DE ERRORES]")}`);
+          diagnosis.detectedErrors.slice(0, 3).forEach((err) => {
+            console.log(`  • ${theme.amber(err.description)}`);
+          });
+          console.log(`  ${theme.dim("Los registros corruptos fueron aislados en /quarantine para proteger tus decisiones de compra.")}\n`);
+        }
+
+        const confirmAuto = await ask(rl, `  ¿Confirmar este perfil y configuración autónoma? [S/n]`, "S");
+        if (confirmAuto.toLowerCase() !== "n") {
+          businessProfile = diagnosis.inferredProfile;
+          currency = diagnosis.inferredLocale.currency;
+          country = diagnosis.inferredLocale.country;
+          timezone = diagnosis.inferredLocale.timezone;
+          warehouseCity = diagnosis.inferredLocale.suggestedCity;
+        } else {
+          // Ajuste manual si el cliente desea cambiar algo
+          console.log(`\n  Selecciona tu modelo preferido manualmente:`);
+          console.log(`    [1] Solo Tienda | [2] Tienda con Proveedores | [3] Logística Completa`);
+          const manualModel = await ask(rl, `  Modelo [1/2/3]`, "1");
+          businessProfile = manualModel === "3" ? "logistica_completa" : manualModel === "2" ? "tienda_proveedores" : "tienda";
+
+          const locInput = await ask(rl, `  País o Ciudad sede`, diagnosis.inferredLocale.country);
+          const resolved = resolveLocaleAutonomously(locInput);
+          country = resolved.country;
+          currency = resolved.currency;
+          timezone = resolved.timezone;
+          warehouseCity = resolved.suggestedCity;
+        }
+      } catch (err: any) {
+        console.log(`  ${theme.amber("Nota de diagnóstico:")} ${err.message}`);
+      }
+    } else {
+      // Opción 4: Catálogo en blanco (Detección global dinámica sin hardcoding)
+      console.log(`\n  ${theme.mintBold("[INICIO EN BLANCO]")}`);
+      const locInput = await ask(rl, `  ¿En qué país o ciudad opera tu negocio? (ej: Madrid, Buenos Aires, Santiago, Ciudad de México, Miami)`, "Internacional");
+      const resolved = resolveLocaleAutonomously(locInput);
+      country = resolved.country;
+      currency = resolved.currency;
+      timezone = resolved.timezone;
+      warehouseCity = resolved.suggestedCity;
+
+      if (resolved.confidence < 0.5) {
+        console.log(`  ${theme.amber("[AVISO]")} No pude identificar el territorio '${locInput}'. Uso USD/UTC de forma provisional y lo dejo como pregunta pendiente (/questions).`);
+        await addPendingQuestion(
+          companyId,
+          "locale_unconfirmed",
+          `Territorio '${locInput}' no reconocido. Cual es el pais, la divisa y la zona horaria reales de la empresa?`,
+          { input: locInput, provisional: { currency, timezone } },
+        ).catch(() => {});
+      }
+
+      console.log(`  ${theme.dim(`Territorio resuelto autónomamente: ${country} | Divisa ISO: ${currency} | Zona: ${timezone}`)}\n`);
+
+      console.log(`  ¿Qué tipo de negocio deseas operar?`);
+      console.log(`    [1] Solo Tienda (Catálogo, ventas y ganancias sin ruido de flota)`);
+      console.log(`    [2] Tienda con Proveedores (Catálogo + compras aprobadas a suplidores)`);
+      console.log(`    [3] Logística Completa (Tienda + Proveedores + Flota con GPS)`);
+      const modelChoice = await ask(rl, `  Modelo [1/2/3]`, "1");
+      businessProfile = modelChoice === "3" ? "logistica_completa" : modelChoice === "2" ? "tienda_proveedores" : "tienda";
+    }
+
+    // Configurar módulos según perfil deducido o confirmado
+    if (businessProfile === "logistica_completa") {
+      activeModules = ["inventario", "ventas", "finanzas", "compras_proveedores", "flota", "logistica"];
+    } else if (businessProfile === "tienda_proveedores") {
+      activeModules = ["inventario", "ventas", "finanzas", "compras_proveedores"];
+    } else {
+      activeModules = ["inventario", "ventas", "finanzas"];
+    }
+
+    if (businessProfile === "tienda") {
+      try {
+        const { listPendingQuestions, dismissPendingQuestion } = await import("@mint/core");
+        const existingQs = await listPendingQuestions(companyId, "pending").catch(() => []);
+        for (const q of existingQs) {
+          if (
+            q.topic === "supplier_missing" ||
+            q.topic === "logistics_missing" ||
+            q.topic.includes("carrier") ||
+            q.topic.includes("fleet")
+          ) {
+            await dismissPendingQuestion(q.id).catch(() => {});
+          }
+        }
+      } catch {}
+    }
 
     const { geocodeAddressOrCity } = await import("@mint/core");
     const whGeo = await geocodeAddressOrCity(warehouseCity).catch(() => null);
 
-    // Register Company, Central Warehouse with real GPS coordinates, and User in DB
-    await db.insert(companies).values({ id: companyId, name: companyName }).onConflictDoNothing();
+    // Registrar Empresa y Almacén Central
+    await db
+      .insert(companies)
+      .values({
+        id: companyId,
+        name: companyName,
+        country,
+        currency,
+      })
+      .onConflictDoUpdate({
+        target: [companies.id],
+        set: { name: companyName, country, currency },
+      });
+
+    await db
+      .insert(businessConfig)
+      .values({
+        companyId,
+        key: "timezone",
+        value: timezone,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [businessConfig.companyId, businessConfig.key],
+        set: { value: timezone, updatedAt: new Date() },
+      });
+
+    await db
+      .insert(businessConfig)
+      .values({
+        companyId,
+        key: "active_modules",
+        value: JSON.stringify(activeModules),
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [businessConfig.companyId, businessConfig.key],
+        set: { value: JSON.stringify(activeModules), updatedAt: new Date() },
+      });
+
+    await db
+      .insert(businessConfig)
+      .values({
+        companyId,
+        key: "business_profile",
+        value: businessProfile,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [businessConfig.companyId, businessConfig.key],
+        set: { value: businessProfile, updatedAt: new Date() },
+      });
+
     await db
       .insert(warehouses)
       .values({
         id: `alm_central_${companyId}`,
         companyId,
-        name: "Central Operations Warehouse",
+        name: `Almacén Central ${warehouseCity}`,
         location: warehouseCity,
         city: whGeo?.city || warehouseCity,
         state: whGeo?.state || null,
-        country: whGeo?.country || null,
+        country: whGeo?.country || country,
         latitude: whGeo ? String(whGeo.latitude) : null,
         longitude: whGeo ? String(whGeo.longitude) : null,
       })
       .onConflictDoNothing();
-
 
     await db
       .insert(users)
@@ -173,413 +469,33 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         passwordHash: password,
         setupCompleted: true,
       })
-      .onConflictDoNothing();
-
-    // Auto-register Gmail notification channel so alerts can be sent directly
-    await addNotificationChannel({
-      companyId,
-      type: "gmail",
-      name: `Gmail Alerts (${email})`,
-      config: { email },
-    }).catch(() => null);
-
-    // Real suppliers are populated from database/project SQL schemas in Step 2 without fabricating fake vendors
-    console.log(`\n  [OK] Profile registered & verified with Gmail: ${theme.mintBold(email)}.\n`);
-
-    // -------------------------------------------------------------
-    // STEP 2: CONNECT REAL DATA SOURCE (DATABASE / INVENTORY)
-    // -------------------------------------------------------------
-    console.log(drawDivider("STEP 2 OF 4: DATA SOURCE & INVENTORY CONNECTION", 76));
-
-    // Dynamic pre-scan of current host computer's developer directories
-    const localProjects = scanLocalWorkspaceProjects();
-
-    if (localProjects.length > 0) {
-      console.log(`  ${theme.mintBold("● Detected software project(s) on this computer:")}`);
-      localProjects.slice(0, 5).forEach((proj, idx) => {
-        const dbInfo = proj.databaseName
-          ? ` [DB: ${proj.databaseName} (${proj.dbType.toUpperCase()})]`
-          : proj.sqlFiles.length > 0
-          ? " [SQL Scripts]"
-          : "";
-        console.log(`    ${theme.cyanBold(`[#${idx + 1}]`)} ${theme.bold(proj.projectName)} ${theme.dim(`(${proj.framework})${dbInfo}`)}`);
-      });
-      console.log("");
-    } else {
-      console.log(`  ${theme.dim("○ No software projects detected automatically in standard developer folders.")}\n`);
-    }
-
-    console.log(`  How would you like to connect your database or catalog?`);
-    if (localProjects.length > 0) {
-      console.log(`    ${theme.mintBold(`[1] Quick connect a detected project (select 1-${localProjects.length})`)}`);
-      console.log(`    ${theme.cyanBold(`[2] Chat with AI to find anywhere (e.g. "busca en downloads mi proyecto...", "está en D:\\repos")`)}`);
-      console.log(`    ${theme.dim("[3] Enter file path or database URI (.sqlite, .db, .sql, .csv)")}`);
-      console.log(`    ${theme.dim("[4] Skip for now (start with a clean, empty catalog)")}`);
-    } else {
-      console.log(`    ${theme.cyanBold(`[1] Chat with AI to find your project (e.g. "busca en downloads mi proyecto...", "está en C:\\work")`)}`);
-      console.log(`    ${theme.dim("[2] Enter file path or database URI (.sqlite, .db, .sql, .csv)")}`);
-      console.log(`    ${theme.dim("[3] Skip for now (start with a clean, empty catalog)")}`);
-    }
-
-    const sourceChoice = await ask(rl, `\n  Choose an option`, "1");
-    let importedProductsCount = 0;
-    let selectedSourceLabel = "Empty (0 products)";
-    let foundProjects: DiscoveredProject[] = [];
-
-    const isQuickSelect = localProjects.length > 0 && sourceChoice === "1";
-    const isChatAiSearch = (localProjects.length > 0 && sourceChoice === "2") || (localProjects.length === 0 && sourceChoice === "1");
-    const isCustomPath = (localProjects.length > 0 && sourceChoice === "3") || (localProjects.length === 0 && sourceChoice === "2");
-
-    if (isQuickSelect) {
-      const queryPrompt = `  ${theme.bold(`Enter project number (1-${localProjects.length}) or project name`)}`;
-      const selected = await ask(rl, queryPrompt, "1");
-      const selectedNum = parseInt(selected, 10);
-      if (!isNaN(selectedNum) && selectedNum >= 1 && selectedNum <= localProjects.length) {
-        foundProjects = [localProjects[selectedNum - 1]];
-      } else {
-        console.log(`\n  Searching your PC with Mint AI Brain for "${theme.mintBold(selected)}"...`);
-        foundProjects = await searchProjectDatabase(selected);
-      }
-    } else if (isChatAiSearch) {
-      console.log(`\n  ${theme.cyanBold("Mint AI Location & Project Discovery:")}`);
-      console.log(`  You can name any project and give location hints (e.g. "busca en downloads mi proyecto...", "está en D:\\repos\\app")`);
-      const chatQuery = await ask(
-        rl,
-        `  ${theme.bold("Tell Mint AI what to find and where to look")}`,
-        localProjects.length > 0 ? localProjects[0].projectName : "",
-      );
-
-      if (chatQuery) {
-        console.log(`\n  Mint AI Brain is searching across target locations for "${theme.mintBold(chatQuery)}"...`);
-        foundProjects = await searchProjectDatabase(chatQuery);
-      }
-    }
-
-    if (foundProjects.length > 0) {
-      console.log(`\n  [OK] Mint AI identified ${theme.bold(foundProjects.length)} project(s):\n`);
-      foundProjects.forEach((proj: DiscoveredProject, idx: number) => {
-        console.log(`    ${theme.mintBold(`[#${idx + 1}] ${proj.projectName}`)} (${proj.framework})`);
-        console.log(`        Location:   ${theme.dim(proj.projectPath)}`);
-        if (proj.databaseName) {
-          console.log(`        Database:   ${theme.cyanBold(proj.databaseName)} (${proj.dbType.toUpperCase()}) on ${proj.host}:${proj.port}`);
-        }
-        if (proj.sqlFiles.length > 0) {
-          const sqlNames = proj.sqlFiles.map((f: string) => path.basename(f)).join(", ");
-          console.log(`        SQL Data:   ${theme.bold(sqlNames)}`);
-        }
-        if (proj.aiReasoning) {
-          console.log(`        AI Decision: ${theme.mint(proj.aiReasoning)}`);
-        }
-        console.log("");
+      .onConflictDoUpdate({
+        target: [users.id],
+        set: { name: userName, email, role: "owner", passwordHash: password },
       });
 
-      const projToUse = foundProjects[0];
-      const confirmSync = await ask(
-        rl,
-        `  Would you like to sync items from '${theme.bold(projToUse.projectName)}'? [Y/n]`,
-        "Y",
-      );
-
-      if (confirmSync.toLowerCase() !== "n") {
-        // Check for data SQL files in the project
-        const extracted: ExtractedProductItem[] = [];
-        const extractedSuppliers: ExtractedSupplierItem[] = [];
-
-        for (const sqlFile of projToUse.sqlFiles) {
-          if (fs.existsSync(sqlFile)) {
-            const fileItems = extractProductsFromSqlFile(sqlFile);
-            if (fileItems.length > 0) {
-              console.log(`  Extracting catalog and inventory items from ${theme.bold(path.basename(sqlFile))}... (${fileItems.length} items found)`);
-              extracted.push(...fileItems);
-            }
-
-            const fileSuppliers = extractSuppliersFromSqlFile(sqlFile);
-            if (fileSuppliers.length > 0) {
-              console.log(`  Extracting verified suppliers from ${theme.bold(path.basename(sqlFile))}... (${fileSuppliers.length} suppliers found)`);
-              extractedSuppliers.push(...fileSuppliers);
-            }
-          }
-        }
-
-        // Insert real suppliers from the project (if present) or register Open RFQ fallback
-        const registeredSuppIds: string[] = [];
-        for (const s of extractedSuppliers) {
-          const suppId = `supp_${s.name.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 30)}_${companyId}`;
-          const suppGeo = s.city ? await geocodeAddressOrCity(s.city).catch(() => null) : null;
-          await db
-            .insert(suppliers)
-            .values({
-              id: suppId,
-              companyId,
-              name: s.name,
-              city: suppGeo?.city || s.city || null,
-              latitude: suppGeo ? String(suppGeo.latitude) : null,
-              longitude: suppGeo ? String(suppGeo.longitude) : null,
-              origin: "real",
-            })
-            .onConflictDoNothing();
-          registeredSuppIds.push(suppId);
-        }
-
-        if (extracted.length > 0) {
-          for (let i = 0; i < extracted.length; i++) {
-            const item = extracted[i];
-            const productId = `prod_${companyId}_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
-            await db
-              .insert(products)
-              .values({
-                id: productId,
-                companyId,
-                sku: item.sku,
-                name: item.name,
-                category: item.category,
-                minStock: item.minStock,
-                origin: "real",
-              })
-              .onConflictDoUpdate({
-                target: [products.companyId, products.sku],
-                set: { name: item.name, category: item.category, minStock: item.minStock },
-              });
-
-            const invId = `inv_${companyId}_${productId}`;
-            await db
-              .insert(inventory)
-              .values({
-                id: invId,
-                companyId,
-                productId,
-                warehouseId: `alm_central_${companyId}`,
-                stock: item.stock,
-              })
-              .onConflictDoUpdate({
-                target: inventory.id,
-                set: { stock: item.stock, updatedAt: new Date() },
-              });
-
-            const assignedSuppId = registeredSuppIds[i % registeredSuppIds.length];
-            const spId = `sp_${productId}_${assignedSuppId}`.slice(0, 60);
-            await db
-              .insert(supplierProducts)
-              .values({
-                id: spId,
-                companyId,
-                supplierId: assignedSuppId,
-                productId,
-                unitPrice: (item.price || 150).toFixed(2),
-                leadTimeDays: 3,
-                minOrderQuantity: Math.max(2, item.minStock),
-              })
-              .onConflictDoNothing();
-
-            importedProductsCount++;
-          }
-
-
-          selectedSourceLabel = `${projToUse.projectName} (${importedProductsCount} items)`;
-          console.log(`  [OK] Successfully synced ${theme.bold(importedProductsCount)} real items from ${theme.mintBold(projToUse.projectName)}.\n`);
-        } else {
-          console.log(`  ${theme.dim("Project registered. Database ready for live connection.")}\n`);
-          selectedSourceLabel = `${projToUse.projectName} (Live DB)`;
-        }
-      }
-    } else if (isChatAiSearch || isQuickSelect) {
-      console.log(`  ${theme.amber("No project matching that query was found on this computer.")} Starting with empty catalog.\n`);
-    } else if (isCustomPath) {
-      const customPath = await ask(rl, `  Enter path to file (.sqlite, .db, .sql, .csv)`);
-      if (customPath && fs.existsSync(customPath)) {
-        const ext = path.extname(customPath).toLowerCase();
-        if (ext === ".sql") {
-          const extracted = extractProductsFromSqlFile(customPath);
-          for (const item of extracted) {
-            const productId = `prod_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
-            await db
-              .insert(products)
-              .values({
-                id: productId,
-                companyId,
-                sku: item.sku,
-                name: item.name,
-                category: item.category,
-                minStock: item.minStock,
-                origin: "real",
-              })
-              .onConflictDoNothing();
-
-            const invId = `inv_${companyId}_${productId}`;
-            await db
-              .insert(inventory)
-              .values({
-                id: invId,
-                companyId,
-                productId,
-                warehouseId: `alm_central_${companyId}`,
-                stock: item.stock,
-              })
-              .onConflictDoUpdate({
-                target: inventory.id,
-                set: { stock: item.stock, updatedAt: new Date() },
-              });
-
-            importedProductsCount++;
-          }
-          selectedSourceLabel = `${path.basename(customPath)} (${importedProductsCount} items)`;
-          console.log(`  [OK] Imported ${theme.bold(importedProductsCount)} items from SQL file.\n`);
-        } else if (ext === ".csv") {
-          const parsed = parseCsvFile(customPath);
-          const mapping = proposeColumnMapping(parsed.headers);
-          const syncRes = await syncDataSource({
-            companyId,
-            sourceName: path.basename(customPath),
-            sourceType: "csv",
-            uriOrPath: customPath,
-            currentHeaders: parsed.headers,
-            rows: parsed.rows,
-            explicitMappings: mapping.mappings,
-          });
-          importedProductsCount = syncRes.importedRows;
-          selectedSourceLabel = `${path.basename(customPath)} (${importedProductsCount} items)`;
-          console.log(`  [OK] Imported ${theme.bold(importedProductsCount)} items from CSV file.\n`);
-        }
-      } else {
-        console.log(`  ${theme.dim("File not found or skipped. Starting with empty catalog.")}\n`);
-      }
-    } else {
-      console.log(`  ${theme.dim("Skipped. Starting with a clean, empty catalog for your company.")}\n`);
-    }
+    console.log(`\n  ${theme.mintBold("[OK]")} Empresa '${theme.bold(companyName)}' registrada con sede en ${theme.bold(warehouseCity)} (${country}, ${currency}).\n`);
 
     // -------------------------------------------------------------
-    // STEP 3: CANAL DE COMUNICACIÓN Y ALERTAS
+    // PASO 3: GOBERNANZA DE AUTONOMÍA Y ALERTAS
     // -------------------------------------------------------------
-    console.log(drawDivider("STEP 3 OF 4: CANAL DE COMUNICACION Y ALERTAS", 76));
-    console.log(`  Elige la plataforma donde tu equipo recibira las notificaciones autonomas:`);
-    console.log(`    ${theme.mintBold("[1] Discord")} (Webhooks para canal de texto o categorias)`);
-    console.log(`    ${theme.cyanBold("[2] Slack")} (Webhooks para canal #operaciones / #logistica)`);
-    console.log(`    ${theme.violet("[3] Telegram")} (Bot con aprobacion interactiva de compras)`);
-    console.log(`    ${theme.amberBold(`[4] Gmail`)} (Alertas directas a ${email})`);
-    console.log(`    ${theme.bold("[5] Mint Desktop App")} (Configurar y probar canales visualmente en la App)`);
-
-    let channelDescription = "None";
-    const chanChoice = await ask(rl, `\n  Selecciona tu plataforma (1-5)`, "1");
-
-    if (chanChoice === "1" || chanChoice === "2") {
-      const isDiscord = chanChoice === "1";
-      const platformName = isDiscord ? "Discord" : "Slack";
-      const platformType = isDiscord ? "discord" : "slack";
-
-      console.log(`\n  Como deseas organizar los canales de ${platformName}?`);
-      console.log(`    ${theme.mintBold("[1]")} Webhook unificado (un solo canal para logs, stock, pedidos y alertas)`);
-      console.log(`    ${theme.cyanBold("[2]")} Canales dedicados por categoria (logs, stock, pedidos, alertas criticas)`);
-
-      const modeChoice = await ask(rl, `  Elige estructura`, "1");
-
-      if (modeChoice === "2") {
-        console.log(`\n  ${theme.dim("Configura las URLs de los canales de " + platformName + " (presiona Enter para omitir alguno):")}`);
-        const logHook = await ask(rl, `    - Webhook para Logs y Auditoria`);
-        const stockHook = await ask(rl, `    - Webhook para Stock y Updates`);
-        const orderHook = await ask(rl, `    - Webhook para Logistica y Pedidos`);
-        const critHook = await ask(rl, `    - Webhook para Alertas Criticas`);
-
-        if (logHook) {
-          await addNotificationChannel({
-            companyId,
-            type: platformType as any,
-            name: `${platformName} - Logs & Auditoría`,
-            config: { webhookUrl: logHook, topics: ["logs"] },
-          });
-        }
-        if (stockHook) {
-          await addNotificationChannel({
-            companyId,
-            type: platformType as any,
-            name: `${platformName} - Stock & Updates`,
-            config: { webhookUrl: stockHook, topics: ["stock"] },
-          });
-        }
-        if (orderHook) {
-          await addNotificationChannel({
-            companyId,
-            type: platformType as any,
-            name: `${platformName} - Logística & Pedidos`,
-            config: { webhookUrl: orderHook, topics: ["logistics", "orders"] },
-          });
-        }
-        if (critHook) {
-          await addNotificationChannel({
-            companyId,
-            type: platformType as any,
-            name: `${platformName} - Alertas Críticas`,
-            config: { webhookUrl: critHook, topics: ["critical"] },
-          });
-        }
-
-        channelDescription = `${platformName} (Canales Dedicados)`;
-        console.log(`\n  [OK] Canales dedicados de ${platformName} registrados con exito.\n`);
-      } else {
-        const webhook = await ask(rl, `  Ingresa la URL del Webhook de ${platformName}`);
-        if (webhook && webhook.startsWith("http")) {
-          await addNotificationChannel({
-            companyId,
-            type: platformType as any,
-            name: `${platformName} Alertas Generales`,
-            config: { webhookUrl: webhook, topics: ["logs", "stock", "logistics", "critical"] },
-          });
-          channelDescription = `${platformName} Webhook`;
-          console.log(`  [OK] Webhook de ${platformName} configurado y activo.\n`);
-        } else {
-          console.log(`  ${theme.amber("URL omitida. Podras agregarla mas adelante desde la Desktop App.")}\n`);
-        }
-      }
-    } else if (chanChoice === "3") {
-      console.log(`\n  ${theme.cyanBold("Configuracion de Telegram Bot:")}`);
-      console.log(`  1. Habla con @BotFather en Telegram y crea un bot para obtener el Bot Token.`);
-      console.log(`  2. Anade el bot a tu grupo/canal y obten el Chat ID (ej: -100123456789 o @tu_canal).`);
-
-      const token = await ask(rl, `  Ingresa el Bot Token`);
-      const chatId = await ask(rl, `  Ingresa el Chat ID`);
-
-      if (token && chatId) {
-        await addNotificationChannel({
-          companyId,
-          type: "telegram",
-          name: `Telegram Bot (@${chatId})`,
-          config: { botToken: token, chatId, topics: ["logs", "stock", "logistics", "critical"] },
-        });
-        channelDescription = `Telegram Bot (@${chatId})`;
-        console.log(`  [OK] Bot de Telegram vinculado y listo para aprobacion de compras.\n`);
-      } else {
-        console.log(`  ${theme.amber("Credenciales de Telegram omitidas por ahora.")}\n`);
-      }
-    } else if (chanChoice === "4") {
-      await addNotificationChannel({
-        companyId,
-        type: "gmail",
-        name: `Gmail Alerts (${email})`,
-        config: { email, topics: ["logs", "stock", "logistics", "critical"] },
-      });
-      channelDescription = `Gmail Alerts (${email})`;
-      console.log(`  [OK] Notificaciones por correo electronico vinculadas a ${theme.bold(email)}.\n`);
-    } else {
-      channelDescription = "Mint Desktop App (Gestion Visual)";
-      console.log(`  [OK] Configuracion de canales diferida a la Mint Desktop App.`);
-      console.log(`  ${theme.dim("Ejecuta 'mint app' o '/app' en la consola para conectar y probar canales.")}\n`);
-    }
-
-    // -------------------------------------------------------------
-    // STEP 4: AUTONOMY GOVERNANCE
-    // -------------------------------------------------------------
-    console.log(drawDivider("STEP 4 OF 4: AUTONOMY GOVERNANCE LEVEL", 76));
-    console.log(`  How should Mint handle inventory deficits when stock falls below safety levels?`);
+    console.log(drawDivider("PASO 3 DE 3: GOBERNANZA DE COMPRAS Y ALERTAS", 76));
+    console.log(`  ¿Cómo debe actuar MINT ante desabastos o alertas operativas?`);
     console.log(
-      `    ${theme.mintBold("[1] Supervised / Human Approval First (Recommended for Production)")} — Generates restocking proposals for your 1-click review in /inbox; zero unauthorized purchases.`,
+      `    ${theme.mintBold("[1] Supervisado / Aprobación Humana Obligatoria (Recomendado)")}\n` +
+      `        MINT detecta stock bajo, calcula el pedido, cotiza y genera un borrador en /inbox.\n` +
+      `        Solo un administrador puede aprobar la compra (Tarea 4). Cero compras automáticas sin permiso.\n`
     );
     console.log(
-      `    ${theme.cyanBold("[2] Assisted / Low-Stock Alerts & Auto-Drafting")} — Proactively alerts your team on Discord/Gmail and drafts purchase orders with supplier comparisons.`,
+      `    ${theme.cyanBold("[2] Asistido / Alertas en vivo y borradores")}\n` +
+      `        Genera borradores y notifica a tu equipo por los canales configurados.\n`
     );
     console.log(
-      `    ${theme.dim("[3] Autonomous (Policy-Governed)")} — Automatically restocks under strict budget policy with vetted suppliers.`,
+      `    ${theme.dim("[3] Autónomo bajo presupuesto")}\n` +
+      `        Reabastece automáticamente solo productos bajo el umbral de seguridad.\n`
     );
 
-    const autoChoice = await ask(rl, `\n  Select autonomy mode`, "1");
+    const autoChoice = await ask(rl, `  Selecciona el nivel de autonomía [1/2/3]`, "1");
     let autonomyLevel = "dry-run";
     if (autoChoice === "2") autonomyLevel = "assisted";
     if (autoChoice === "3") autonomyLevel = "auto";
@@ -597,10 +513,44 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         set: { value: autonomyLevel, updatedAt: new Date() },
       });
 
-    console.log(`  [OK] Autonomy policy set to ${theme.mintBold(autonomyLevel.toUpperCase())}.\n`);
+    // Canal de alertas opcional
+    console.log(`  ¿Deseas configurar un canal de alertas ahora o continuar a la terminal?`);
+    console.log(`    ${theme.mintBold("[1] Continuar directo a la terminal de control (Recomendado)")}`);
+    console.log(`    ${theme.dim("[2] Conectar Webhook de Discord o Slack")}`);
+    console.log(`    ${theme.dim("[3] Conectar Bot de Telegram")}`);
+
+    const chanChoice = await ask(rl, `  Opción`, "1");
+    let channelDescription = "Alertas en Terminal y Log Inmutable";
+
+    if (chanChoice === "2") {
+      const webhook = await ask(rl, `  Ingresa la URL del Webhook`);
+      if (webhook && webhook.startsWith("http")) {
+        await addNotificationChannel({
+          companyId,
+          type: "discord",
+          name: "Canal de Alertas",
+          config: { webhookUrl: webhook, topics: ["logs", "stock", "sales", "critical"] },
+        });
+        channelDescription = "Webhook Activo";
+        console.log(`  ${theme.mintBold("[OK]")} Webhook configurado con éxito.\n`);
+      }
+    } else if (chanChoice === "3") {
+      const token = await ask(rl, `  Ingresa el Bot Token`);
+      const chatId = await ask(rl, `  Ingresa el Chat ID`);
+      if (token && chatId) {
+        await addNotificationChannel({
+          companyId,
+          type: "telegram",
+          name: `Telegram Bot (@${chatId})`,
+          config: { botToken: token, chatId, topics: ["logs", "stock", "sales", "critical"] },
+        });
+        channelDescription = `Telegram Bot (@${chatId})`;
+        console.log(`  ${theme.mintBold("[OK]")} Bot de Telegram conectado.\n`);
+      }
+    }
 
     // -------------------------------------------------------------
-    // FINALIZE & SAVE SESSION IN SECURE KEYCHAIN
+    // GUARDAR SESIÓN CIFRADA Y RESUMEN FINAL
     // -------------------------------------------------------------
     const session: StoredSession = {
       token: `mint_token_${companyId}_${Date.now()}`,
@@ -615,31 +565,28 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
 
     await saveSession(session);
 
-    // Summary Card
     console.log("");
     console.log(
       drawCard(
         [
-          `${theme.dim("Operator:")}     ${theme.bold(userName)} (${theme.cyan("OWNER")})`,
-          `${theme.dim("Organization:")} ${theme.mintBold(companyName)} [${theme.dim(companyId)}]`,
-          `${theme.dim("Catalog:")}      ${theme.bold(importedProductsCount)} SKUs connected with real stock`,
-          `${theme.dim("Channel:")}      ${theme.bold(channelDescription)}`,
-          `${theme.dim("Autonomy:")}     ${theme.badge(autonomyLevel.toUpperCase(), "mint")} (Operaciones seguras bajo gobernanza)`,
-          `${theme.dim("Background:")}   ${theme.mintBold("DAEMON ONLINE")} — Listening for sales & watching stock 24/7`,
+          `${theme.dim("Operador:")}     ${theme.bold(userName)} (${theme.cyan("DUEÑO / OWNER")})`,
+          `${theme.dim("Empresa:")}      ${theme.mintBold(companyName)} [${theme.dim(companyId)}]`,
+          `${theme.dim("País / Moneda:")} ${theme.bold(country)} / ${theme.bold(currency)}`,
+          `${theme.dim("Modelo:")}       ${theme.bold(businessProfile.toUpperCase())} (${activeModules.join(", ")})`,
+          `${theme.dim("Fuente Datos:")} ${theme.bold(selectedSourceLabel)}`,
+          `${theme.dim("Gobernanza:")}   ${theme.badge(autonomyLevel.toUpperCase(), "mint")} (Aprobación estricta)`,
+          `${theme.dim("Daemon:")}       ${theme.mintBold("ONLINE")} — Vigilancia de stock y ventas en tiempo real`,
         ],
         {
-          title: "SETUP COMPLETE — AGENT IS READY TO OPERATE",
-          badge: "ONLINE",
+          title: "CONFIGURACIÓN COMPLETADA — MINT LISTO PARA OPERAR",
+          badge: "ACTIVO",
           badgeColor: "mint",
           borderColor: theme.mint,
         },
       ),
     );
 
-    console.log(`\n${theme.mintBold("Everything is configured.")} Mint is running autonomously.`);
-    console.log(`Whenever a sale comes through your channel, Mint automatically updates your database and restocks.`);
-    console.log(`You can close this terminal anytime, or type ${theme.cyanBold("/status")} to inspect live activity.\n`);
-
+    console.log(`\n${theme.mintBold("Todo configurado.")} Ingresando a la consola interactiva...\n`);
     return session;
   } finally {
     rl.close();

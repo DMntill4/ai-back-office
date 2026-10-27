@@ -104,7 +104,7 @@ export async function consoleCommand() {
       },
       {
         key: "País / Moneda",
-        value: `${cfg.country || "sin definir"} / ${cfg.currency || "USD"} (${cfg.timezone || "America/Bogota"})`,
+        value: `${cfg.country || "sin definir"} / ${cfg.currency || "sin definir"} (${cfg.timezone || "sin definir"})`,
         color: cfg.country && cfg.country !== "sin definir" ? undefined : theme.amber,
       },
       {
@@ -144,7 +144,7 @@ export async function consoleCommand() {
   if (preflight && preflight.degradedModules.length > 0) {
     console.log(
       theme.amber(
-        `\n⚠️  MODO DEGRADADO ACTIVO: ${preflight.degradedModules.map((m) => `${m.module} (${m.reason})`).join(" | ")}`
+        `\n[AVISO] MODO DEGRADADO ACTIVO: ${preflight.degradedModules.map((m) => `${m.module} (${m.reason})`).join(" | ")}`
       )
     );
   }
@@ -152,7 +152,7 @@ export async function consoleCommand() {
   if (preflight && preflight.summarySinceLastSession.quarantinedCount > 0) {
     console.log(
       theme.amber(
-        `⚠️  CUARENTENA: ${preflight.summarySinceLastSession.quarantinedCount} registros corruptos aislados de clientes. Ejecuta /quarantine para inspeccionar.`
+        `[AVISO] CUARENTENA: ${preflight.summarySinceLastSession.quarantinedCount} registros corruptos aislados de clientes. Ejecuta /quarantine para inspeccionar.`
       )
     );
   }
@@ -160,7 +160,7 @@ export async function consoleCommand() {
   if (preflight && preflight.summarySinceLastSession.unansweredQuestions > 0) {
     console.log(
       theme.cyan(
-        `ℹ️  VERDAD DE DATOS: ${preflight.summarySinceLastSession.unansweredQuestions} preguntas pendientes para operar con total certeza. Ejecuta /questions.`
+        `[INFO] VERDAD DE DATOS: ${preflight.summarySinceLastSession.unansweredQuestions} preguntas pendientes para operar con total certeza. Ejecuta /questions.`
       )
     );
   }
@@ -171,6 +171,24 @@ export async function consoleCommand() {
 
   return new Promise<void>((resolve) => {
     const slashCommands = [
+      "/feed",
+      "/live",
+      "/audit",
+      "/sales",
+      "/profit",
+      "/reports",
+      "/track",
+      "/map",
+      "/questions",
+      "/doctor",
+      "/data-health",
+      "/quarantine",
+      "/briefing",
+      "/reconcile",
+      "/intel",
+      "/fleet",
+      "/suppliers",
+      "/customers",
       "/logistics",
       "/dispatch",
       "/receive",
@@ -189,6 +207,7 @@ export async function consoleCommand() {
       "/inbox",
       "/approve",
       "/reject",
+      "/cancel",
       "/explain",
       "/simulate",
       "/scan",
@@ -219,6 +238,7 @@ export async function consoleCommand() {
 
     // Pulso silencioso en segundo plano (solo imprime si hay alerta nueva)
     let isScanning = false;
+    let lastHeartbeatError: string | undefined;
     const runAutonomousHeartbeat = async (isStartup = false) => {
       if (isScanning) return;
       isScanning = true;
@@ -233,8 +253,13 @@ export async function consoleCommand() {
           );
           rl.prompt(true);
         }
-      } catch {
-        // Ignorar errores de red transitorios
+      } catch (err: any) {
+        // No se oculta el fallo: se avisa una vez por mensaje distinto
+        if (lastHeartbeatError !== err?.message) {
+          lastHeartbeatError = err?.message;
+          console.log(`\n  ${theme.amberBold("[AVISO]")} Heartbeat fallo: ${err?.message || "error desconocido"}`);
+          rl.prompt(true);
+        }
       } finally {
         isScanning = false;
       }
@@ -483,6 +508,14 @@ export async function consoleCommand() {
             break;
           }
 
+          case "feed":
+          case "live":
+          case "watch": {
+            const { watchCommand } = require("./daemon");
+            await watchCommand();
+            break;
+          }
+
           case "audit":
           case "auditoria":
           case "logs": {
@@ -626,6 +659,27 @@ export async function consoleCommand() {
           case "reportes": {
             const { reportsCommand } = require("./reports");
             await reportsCommand(args[0], args[1]);
+            break;
+          }
+
+          case "sales":
+          case "ventas": {
+            const { reportsCommand } = require("./reports");
+            await reportsCommand("sales", args[0]);
+            break;
+          }
+
+          case "profit":
+          case "ganancias":
+          case "margen": {
+            const { reportsCommand } = require("./reports");
+            await reportsCommand("profit", args[0]);
+            break;
+          }
+
+          case "doctor": {
+            const { doctorCommand } = require("./doctor");
+            await doctorCommand();
             break;
           }
 

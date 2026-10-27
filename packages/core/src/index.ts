@@ -56,6 +56,9 @@ export * from "./services/dataHealthService";
 export * from "./services/largeDbAndSyncService";
 export * from "./services/shadowModeService";
 export * from "./services/businessAnalyticsService";
+export * from "./services/universalLocaleEngine";
+export * from "./services/autonomousInspectionService";
+export * from "./services/obsidianMemoryService";
 
 // 7. Cliente LLM
 export * from "./llm/client";

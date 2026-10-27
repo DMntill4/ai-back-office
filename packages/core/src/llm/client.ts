@@ -42,20 +42,33 @@ export class GrokClient {
   private defaultModel: string;
 
   constructor() {
-    const apiKey = getLlmApiKey() || "dummy_grok_key_for_test_environment";
+    // El SDK exige una cadena al construir; la ausencia de key real se rechaza al llamar.
+    this.hasRealKey = Boolean(getLlmApiKey());
     this.client = new OpenAI({
-      apiKey,
+      apiKey: getLlmApiKey() || "unset",
       baseURL: env.GROK_BASE_URL,
     });
     this.defaultModel = env.GROK_MODEL || "grok-4.6";
   }
 
+  private hasRealKey: boolean;
+
+  private assertKey(): void {
+    if (!this.hasRealKey) {
+      throw new Error(
+        "LLM no configurado: falta la API key (revisa .env). MINT no responde sin modelo real para no inventar.",
+      );
+    }
+  }
+
   async listModels(): Promise<any[]> {
+    this.assertKey();
     const list = await this.client.models.list();
     return list.data;
   }
 
   async chatCompletion(options: LLMCallOptions): Promise<LLMCallResult> {
+    this.assertKey();
     const startTime = Date.now();
 
     const response = await this.executeWithRetry(() =>

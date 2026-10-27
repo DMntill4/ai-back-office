@@ -1,4 +1,4 @@
-# ⚡ SKILL MARKDOWN: SUPPLY CHAIN CRISIS
+# [ACCION] SKILL MARKDOWN: SUPPLY CHAIN CRISIS
 
 ## PROTOCOLO DE GESTIÓN DE CRISIS Y DESABASTECIMIENTO
 1. **Evaluación Inmediata de Riesgo:**
@@ -11,4 +11,4 @@
    - Genera la solicitud de orden de reabastecimiento urgente de inmediato.
 
 3. **Comunicación de Emergencia:**
-   - Encabeza la respuesta con un aviso claro de nivel de riesgo (ej: `🚨 RIESGO CRÍTICO DE DESABASTECIMIENTO`).
+   - Encabeza la respuesta con un aviso claro de nivel de riesgo (ej: `[CRITICO] RIESGO CRÍTICO DE DESABASTECIMIENTO`).

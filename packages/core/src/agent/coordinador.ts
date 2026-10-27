@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db/client";
 import { decisions, operationalEvents, cases, businessConfig } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { analyzeInventoryForProduct } from "./especialistas/inventarioSpecialist";
 import { analyzePurchasingOptions } from "./especialistas/comprasSpecialist";
 import { analyzeShipmentsForProduct } from "./especialistas/transporteSpecialist";
@@ -111,6 +111,31 @@ export async function coordinateOperationalEvent(params: {
   const isUrgent = invAnalysis.daysCoverage < 3 || transportAnalysis.hasDelayedShipment;
   const targetQuantity = Math.max(invAnalysis.deficit, 10);
 
+  // 3.1 Verificar modelo de negocio: Si es 'Solo Tienda', silenciar proveedores y compras
+  const [profileCfg] = await db
+    .select({ value: businessConfig.value })
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "business_profile")))
+    .limit(1);
+
+  if (profileCfg?.value === "tienda") {
+    await db
+      .update(cases)
+      .set({
+        status: "resuelto",
+        resultSummary: `Existencias bajas en tienda para ${invAnalysis.productName} (${invAnalysis.currentStock}u restantes).`,
+        resolutionReason: `Modo 'Solo Tienda' activo: reposición física manual en tienda; módulos de proveedores y compras desactivados.`,
+        updatedAt: new Date(),
+      })
+      .where(eq(cases.id, caseId));
+
+    return {
+      success: true,
+      caseId,
+      summary: `Alerta registrada: Existencias bajas en ${invAnalysis.productName} (${invAnalysis.currentStock}u). Como operas en 'Solo Tienda', no se emiten órdenes a proveedores externos.`,
+    };
+  }
+
   // 4. Especialista en Compras: Buscar la mejor cotización real (con fallback resiliente)
   const purchasingAnalysis = await analyzePurchasingOptions(
     targetProductId,
@@ -208,7 +233,17 @@ export async function coordinateOperationalEvent(params: {
     .where(eq(businessConfig.companyId, companyId));
 
   const approvalLimitRaw = configs.find((c) => c.key === "approval_limit_amount")?.value;
-  const approvalLimit = approvalLimitRaw ? Number(approvalLimitRaw) : 10000;
+  const parsedLimit = approvalLimitRaw ? Number(approvalLimitRaw) : NaN;
+  const approvalLimit: number | undefined = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : undefined;
+  if (approvalLimit === undefined) {
+    const { addPendingQuestion } = await import("../services/pendingQuestionsService");
+    await addPendingQuestion(
+      companyId,
+      "approval_limit_missing",
+      "No tengo este dato: cual es el monto maximo que MINT puede autoejecutar sin aprobacion (en la divisa de la empresa)? Mientras tanto toda propuesta pasa a /inbox.",
+      {},
+    ).catch(() => {});
+  }
   const autonomyLevelRaw = configs.find((c) => c.key === "autonomy_level")?.value as any;
   const autonomyLevel = params.autonomyLevel || autonomyLevelRaw || "dry-run";
 
@@ -243,6 +278,29 @@ export async function coordinateOperationalEvent(params: {
     policyReason: policyResult.reason,
     decidedAt: new Date(),
   });
+
+  // 10.0 Persistir nota en memoria viva de Obsidian (Markdown y WikiLinks)
+  try {
+    const { recordDecisionNote } = await import("../services/obsidianMemoryService");
+    await recordDecisionNote({
+      id: decisionId,
+      companyId,
+      caseId,
+      actionType: proposal.actionType,
+      proposingAgent: proposal.proposingAgent,
+      title: proposal.title,
+      costMxn: proposal.costMxn,
+      riskScore: proposal.riskAssessment.riskScore,
+      reversible: proposal.reversible,
+      policyDecision: policyResult.policyDecision,
+      policyReason: policyResult.reason,
+      evidencePayload: proposal.evidence,
+      riskPayload: proposal.riskAssessment,
+      decidedAt: new Date(),
+    });
+  } catch {
+    // Continuar silenciosamente si Obsidian no esta disponible
+  }
 
   // 10.1 Despachar notificación proactiva a Discord / Telegram / Slack si hay canales activos
   try {

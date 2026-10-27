@@ -83,7 +83,7 @@ export async function reconcileCommand() {
       console.log(theme.dim(`   → Conflicto: ${d.issue}`));
     }
   } else {
-    console.log(theme.mint("\n✅ Todas las ventas, pagos y despachos coinciden exactamente sin discrepancias.\n"));
+    console.log(theme.mint("\n[OK] Todas las ventas, pagos y despachos coinciden exactamente sin discrepancias.\n"));
   }
   console.log("");
 }
@@ -102,6 +102,6 @@ export async function backupCommand() {
   const fullPath = path.join(targetDir, filename);
   fs.writeFileSync(fullPath, JSON.stringify(backupData, null, 2), "utf8");
 
-  console.log(theme.mintBold(`\n✅ Respaldo completo de configuración y memoria exportado exitosamente.`));
+  console.log(theme.mintBold(`\n[OK] Respaldo completo de configuración y memoria exportado exitosamente.`));
   console.log(theme.dim(`   Archivo guardado en: ${fullPath}\n`));
 }

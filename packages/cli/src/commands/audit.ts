@@ -23,7 +23,7 @@ export async function auditCommand(options: { limit?: number; json?: boolean } =
     }
 
     console.log("\n" + drawDivider(`CANAL DE AUDITORÍA AUTÓNOMA // LOGS INMUTABLES [${companyId}]`, 88));
-    console.log(`  ${theme.dim("Ciclo autónomo continuo: [👁 OBSERVE] → [🧠 DECIDE] → [⚡ EXECUTE] → [🛡 VERIFY]")}\n`);
+    console.log(`  ${theme.dim("Ciclo autónomo continuo: [OBSERVE] → [[SISTEMA] DECIDE] → [[ACCION] EXECUTE] → [[SEGURIDAD] VERIFY]")}\n`);
 
     if (events.length === 0) {
       console.log(`  ${theme.dim("Sin eventos registrados aún. El motor autónomo registra cada ciclo cada 45s.")}`);
@@ -54,6 +54,6 @@ export async function auditCommand(options: { limit?: number; json?: boolean } =
 
     console.log(`\n  ${theme.dim(`Mostrando ${events.length} evento(s) reciente(s). Presiona Enter para continuar.`)}\n`);
   } catch (err: any) {
-    console.error(theme.redBold(`\n❌ Error al consultar bitácora de auditoría: ${err.message}\n`));
+    console.error(theme.redBold(`\n[ERROR] Error al consultar bitácora de auditoría: ${err.message}\n`));
   }
 }

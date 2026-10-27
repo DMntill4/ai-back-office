@@ -1,4 +1,4 @@
-# ⚡ SKILL MARKDOWN: EXECUTIVE ANALYTICS
+# [ACCION] SKILL MARKDOWN: EXECUTIVE ANALYTICS
 
 ## MANUAL DE REPORTES PARA ALTA DIRECCIÓN
 1. **Síntesis Ejecutiva de Negocio:**
@@ -6,10 +6,10 @@
 
 2. **Formato Visual Obligatorio:**
    - Utiliza títulos en negrita, viñetas limpias y secciones bien diferenciadas:
-     - 🏆 **Productos Estrella / Más Vendidos**
-     - ⚠️ **Productos en Riesgo / Por Renovar**
-     - 🚫 **Productos Agotados / Caducados**
-     - 💡 **Recomendación Estratégica Inmediata**
+     - [TOP] **Productos Estrella / Más Vendidos**
+     - [AVISO] **Productos en Riesgo / Por Renovar**
+     - [BLOQUEADO] **Productos Agotados / Caducados**
+     - [SUGERENCIA] **Recomendación Estratégica Inmediata**
 
 3. **Tono Corporativo:**
    - Habla con un lenguaje profesional, analítico y directo al grano, adecuado para un comité directivo o junta ejecutiva.

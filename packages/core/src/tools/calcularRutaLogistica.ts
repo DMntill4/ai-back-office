@@ -187,11 +187,17 @@ export async function executeCalcularRutaLogistica(
         tiempoEstimadoTransito: route.durationFormatted,
         costoFleteEstimado: route.costoFleteFormatted,
         moneda: currency,
-        desgloseFlete: {
-          tarifaBaseManiobra: formatCost(route.desgloseCostos.tarifaBase),
-          costoPorDistancia: formatCost(route.desgloseCostos.costoPorDistancia),
-          peajesYTasasTransito: formatCost(route.desgloseCostos.peajesYTasasTransito),
-        },
+        desgloseFlete: route.desgloseCostos
+          ? {
+              tarifaBaseManiobra: formatCost(route.desgloseCostos.tarifaBase),
+              costoPorDistancia: formatCost(route.desgloseCostos.costoPorDistancia),
+              peajesYTasasTransito: formatCost(route.desgloseCostos.peajesYTasasTransito),
+            }
+          : {
+              tarifaBaseManiobra: "Tarifa no configurada",
+              costoPorDistancia: "Tarifa no configurada",
+              peajesYTasasTransito: "Tarifa no configurada",
+            },
         motorCartografico: route.motorUtilizado,
       },
     };

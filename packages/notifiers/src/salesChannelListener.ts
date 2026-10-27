@@ -291,14 +291,14 @@ export async function processIncomingSale(event: IncomingSaleEvent): Promise<Sal
   } catch {}
 
   const replenishmentText = replenishmentDecision
-    ? `\n🤖 *ACCIÓN AUTÓNOMA DE REABASTECIMIENTO:*` +
-      `\n   • Estado: ${replenishmentDecision.policyDecision === "auto_executed" ? "✅ Orden emitida automáticamente" : "⏳ Escalado a bandeja HITL para firma"}` +
+    ? `\n[AGENTE] *ACCIÓN AUTÓNOMA DE REABASTECIMIENTO:*` +
+      `\n   • Estado: ${replenishmentDecision.policyDecision === "auto_executed" ? "[OK] Orden emitida automáticamente" : "[PENDIENTE] Escalado a bandeja HITL para firma"}` +
       `\n   • Costo reposición: $${replenishmentDecision.costMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}` +
       `\n   • Detalle: ${replenishmentDecision.reason}`
-    : `\n📦 *Estado de existencias:* Seguro (> ${minStock} u).`;
+    : `\n[PAQUETE] *Estado de existencias:* Seguro (> ${minStock} u).`;
 
   const receipt = `
-🛒 *VENTA REGISTRADA [Canal: ${event.channel.toUpperCase()}]*
+[VENTA] *VENTA REGISTRADA [Canal: ${event.channel.toUpperCase()}]*
 • ID Venta: \`${saleId}\`
 • Cliente: *${customerName}*
 • Destino: *${shippingAddress}*

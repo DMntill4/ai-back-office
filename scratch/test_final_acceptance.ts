@@ -36,7 +36,7 @@ import { createHmac } from "node:crypto";
 
 async function runAcceptanceTests() {
   console.log("\n========================================================");
-  console.log("🚀 MINT CLI: BATERÍA COMPLETA DE PRUEBAS DE ACEPTACIÓN");
+  console.log("[INICIO] MINT CLI: BATERÍA COMPLETA DE PRUEBAS DE ACEPTACIÓN");
   console.log("========================================================\n");
 
   const client = await pool.connect();
@@ -82,8 +82,8 @@ async function runAcceptanceTests() {
     if (!guiasTable || !guiasProposal) {
       testErrors.push("FAIL 1.1: Descubrimiento de esquema no detectó la tabla 'guias'.");
     } else {
-      console.log(`  ✔ Tabla 'guias' detectada con equivalencia MINT: '${guiasProposal.targetEntity}' (Confianza: ${(guiasProposal.confidence * 100).toFixed(0)}%)`);
-      console.log(`  ✔ Mapeo detectado: trackingNumber -> ${guiasProposal.columnMappings.trackingNumber}, carrier -> ${guiasProposal.columnMappings.carrier}`);
+      console.log(`  [OK] Tabla 'guias' detectada con equivalencia MINT: '${guiasProposal.targetEntity}' (Confianza: ${(guiasProposal.confidence * 100).toFixed(0)}%)`);
+      console.log(`  [OK] Mapeo detectado: trackingNumber -> ${guiasProposal.columnMappings.trackingNumber}, carrier -> ${guiasProposal.columnMappings.carrier}`);
     }
 
     // Confirmar y guardar mapeo
@@ -96,7 +96,7 @@ async function runAcceptanceTests() {
         isConfirmed: true,
         isReadOnly: true,
       });
-      console.log("  ✔ Mapeo confirmado y persistido en memoria de MINT (mint_table_mappings).");
+      console.log("  [OK] Mapeo confirmado y persistido en memoria de MINT (mint_table_mappings).");
     }
 
     // Probar protección de Solo Lectura
@@ -104,7 +104,7 @@ async function runAcceptanceTests() {
     if (writeCheck.allowed) {
       testErrors.push("FAIL 1.2: Tabla del cliente no bloqueó la escritura no autorizada.");
     } else {
-      console.log(`  ✔ Protección activa: ${writeCheck.reason}`);
+      console.log(`  [OK] Protección activa: ${writeCheck.reason}`);
     }
 
     // Probar simulación de colisiones de migraciones
@@ -112,7 +112,7 @@ async function runAcceptanceTests() {
     if (collisionCheck.safe) {
       testErrors.push("FAIL 1.3: Detección de colisiones debió alertar que 'guias' ya existía sin company_id.");
     } else {
-      console.log(`  ✔ Detección de colisiones efectiva: ${collisionCheck.message}`);
+      console.log(`  [OK] Detección de colisiones efectiva: ${collisionCheck.message}`);
     }
 
     // Verificar que NINGÚN registro de 'guias' fue alterado
@@ -121,7 +121,7 @@ async function runAcceptanceTests() {
     if (countBefore !== countAfter || sample.destinatario !== "Corporativo Alfa SA") {
       testErrors.push("FAIL 1.4: La base de datos del cliente fue alterada o modificada.");
     } else {
-      console.log(`  ✔ Integridad 100%: 0 registros del cliente alterados. Filas antes: ${countBefore}, después: ${countAfter}.`);
+      console.log(`  [OK] Integridad 100%: 0 registros del cliente alterados. Filas antes: ${countBefore}, después: ${countAfter}.`);
     }
 
     // ---------------------------------------------------------
@@ -161,7 +161,7 @@ async function runAcceptanceTests() {
     if (!isValidSig || isInvalidSig) {
       testErrors.push("FAIL 2.1: Validador de firma criptográfica HMAC falló.");
     } else {
-      console.log("  ✔ Firma HMAC SHA-256 verificada correctamente.");
+      console.log("  [OK] Firma HMAC SHA-256 verificada correctamente.");
     }
 
     // Procesar venta 1
@@ -183,7 +183,7 @@ async function runAcceptanceTests() {
       webhookSecret,
     });
 
-    console.log(`  ✔ Venta 1 procesada: ID ${saleRes1.saleId} | Stock anterior: ${saleRes1.previousStock}u ➔ restante: ${saleRes1.remainingStock}u`);
+    console.log(`  [OK] Venta 1 procesada: ID ${saleRes1.saleId} | Stock anterior: ${saleRes1.previousStock}u ➔ restante: ${saleRes1.remainingStock}u`);
 
     // Procesar venta 2 con IDÉNTICA clave de idempotencia (simulando reintento de red)
     const saleRes2 = await processIncomingSale({
@@ -199,7 +199,7 @@ async function runAcceptanceTests() {
     if (!saleRes2.isDuplicate) {
       testErrors.push("FAIL 2.2: Idempotencia falló: la venta repetida no fue detectada como duplicada.");
     } else {
-      console.log(`  ✔ Idempotencia garantizada: Venta duplicada interceptada. Stock NO se volvió a descontar.`);
+      console.log(`  [OK] Idempotencia garantizada: Venta duplicada interceptada. Stock NO se volvió a descontar.`);
     }
 
     // Verificar persistencia en mint_sales_orders
@@ -207,7 +207,7 @@ async function runAcceptanceTests() {
     if (!savedOrder || savedOrder.customerName !== "Empresa Minera del Sur") {
       testErrors.push("FAIL 2.3: La venta no se guardó en mint_sales_orders con metadatos completos.");
     } else {
-      console.log(`  ✔ Venta persistida en mint_sales_orders: Cliente: ${savedOrder.customerName}, Destino: ${savedOrder.shippingAddress}`);
+      console.log(`  [OK] Venta persistida en mint_sales_orders: Cliente: ${savedOrder.customerName}, Destino: ${savedOrder.shippingAddress}`);
     }
 
     // ---------------------------------------------------------
@@ -236,7 +236,7 @@ async function runAcceptanceTests() {
     if (!intentSupp.response.includes("no tengo este dato")) {
       testErrors.push(`FAIL 3.1: Negocio solo tienda no debió inventar proveedores. Respuesta: ${intentSupp.response}`);
     } else {
-      console.log(`  ✔ Respuesta veraz en tienda sin proveedores: "${intentSupp.response}"`);
+      console.log(`  [OK] Respuesta veraz en tienda sin proveedores: "${intentSupp.response}"`);
     }
 
     // Preguntar por camiones/flota
@@ -244,7 +244,7 @@ async function runAcceptanceTests() {
     if (!intentFleet.response.includes("no tengo este dato")) {
       testErrors.push(`FAIL 3.2: Negocio solo tienda no debió inventar camiones. Respuesta: ${intentFleet.response}`);
     } else {
-      console.log(`  ✔ Respuesta veraz en tienda sin flota: "${intentFleet.response}"`);
+      console.log(`  [OK] Respuesta veraz en tienda sin flota: "${intentFleet.response}"`);
     }
 
     // Verificar que se registró en mint_pending_questions
@@ -252,7 +252,7 @@ async function runAcceptanceTests() {
     if (questions.length === 0) {
       testErrors.push("FAIL 3.3: No se registró la pregunta faltante en el banco de pendientes.");
     } else {
-      console.log(`  ✔ Pregunta pendiente registrada automáticamente en banco de preguntas (ID: ${questions[0].id}).`);
+      console.log(`  [OK] Pregunta pendiente registrada automáticamente en banco de preguntas (ID: ${questions[0].id}).`);
     }
 
     // ---------------------------------------------------------
@@ -299,19 +299,19 @@ async function runAcceptanceTests() {
     if (!rowWithCost || !rowNoCost) {
       testErrors.push("FAIL 4.1: Filas del reporte de ganancias no encontradas.");
     } else {
-      console.log(`  ✔ Producto con costo registrado: Costo: ${rowWithCost[3]} | Origen: ${rowWithCost[8]}`);
+      console.log(`  [OK] Producto con costo registrado: Costo: ${rowWithCost[3]} | Origen: ${rowWithCost[8]}`);
       if (rowNoCost[3] !== "costo no registrado" || rowNoCost[5] !== "N/A") {
         testErrors.push(`FAIL 4.2: Producto sin costo debió mostrar 'costo no registrado' y margen 'N/A'. Mostró: ${rowNoCost[3]}, ${rowNoCost[5]}`);
       } else {
-        console.log(`  ✔ Producto sin costo: Costo: '${rowNoCost[3]}' | Margen: '${rowNoCost[5]}' (MINT nunca estima costos).`);
+        console.log(`  [OK] Producto sin costo: Costo: '${rowNoCost[3]}' | Margen: '${rowNoCost[5]}' (MINT nunca estima costos).`);
       }
     }
 
     // Probar exportación a CSV y PDF
     const csvExp = await exportReportToCsv("test_ganancias", profitReport.headers, profitReport.rows);
     const pdfExp = await exportReportToPdf("test_ganancias", "Reporte Financiero Platica", profitReport.headers, profitReport.rows);
-    console.log(`  ✔ Exportación CSV generada: ${csvExp.filename} (${csvExp.totalRows} filas).`);
-    console.log(`  ✔ Exportación PDF generada: ${pdfExp.filename} (${pdfExp.totalRows} filas).`);
+    console.log(`  [OK] Exportación CSV generada: ${csvExp.filename} (${csvExp.totalRows} filas).`);
+    console.log(`  [OK] Exportación PDF generada: ${pdfExp.filename} (${pdfExp.totalRows} filas).`);
 
     // ---------------------------------------------------------
     // TEST 5: Nuevo Flujo de Compras a Proveedores con Aprobación Estricta
@@ -322,7 +322,7 @@ async function runAcceptanceTests() {
     if (purchasePropNoSupp !== null) {
       testErrors.push("FAIL 5.1: Se propuso compra para una empresa sin proveedores registrados.");
     } else {
-      console.log("  ✔ Sin proveedor: MINT NO inventa proveedores, retorna null y registra pendiente.");
+      console.log("  [OK] Sin proveedor: MINT NO inventa proveedores, retorna null y registra pendiente.");
     }
 
     // 2. Producto con proveedor y precio
@@ -330,7 +330,7 @@ async function runAcceptanceTests() {
     if (!purchaseProp) {
       testErrors.push("FAIL 5.2: analyzePurchasingOptions falló en producto con proveedor.");
     } else {
-      console.log(`  ✔ Propuesta generada: Proveedor: ${purchaseProp.recommendedOption.supplierName} | Cantidad: ${purchaseProp.recommendedQuantity}u | Total: $${purchaseProp.totalCostMxn} | Estabilidad: ${purchaseProp.recommendedOption.priceStatus}`);
+      console.log(`  [OK] Propuesta generada: Proveedor: ${purchaseProp.recommendedOption.supplierName} | Cantidad: ${purchaseProp.recommendedQuantity}u | Total: $${purchaseProp.totalCostMxn} | Estabilidad: ${purchaseProp.recommendedOption.priceStatus}`);
 
       // Insertar en decisions como pending_approval
       const decId = `dec_test_${Date.now()}`;
@@ -366,7 +366,7 @@ async function runAcceptanceTests() {
       if (selfApproveRes.success) {
         testErrors.push("FAIL 5.3: El sistema permitió que el solicitante se auto-aprobara la compra.");
       } else {
-        console.log(`  ✔ Bloqueo de Auto-Aprobación exitoso: ${selfApproveRes.message}`);
+        console.log(`  [OK] Bloqueo de Auto-Aprobación exitoso: ${selfApproveRes.message}`);
       }
 
       // 4. Intento de aprobación por rol sin permisos (operator)
@@ -374,7 +374,7 @@ async function runAcceptanceTests() {
       if (nonAdminRes.success) {
         testErrors.push("FAIL 5.4: El sistema permitió que un rol 'operator' aprobara la compra.");
       } else {
-        console.log(`  ✔ Control de Rol exitoso: ${nonAdminRes.message}`);
+        console.log(`  [OK] Control de Rol exitoso: ${nonAdminRes.message}`);
       }
 
       // 5. Aprobación legítima por Admin distinto
@@ -382,8 +382,8 @@ async function runAcceptanceTests() {
       if (!legitApproveRes.success || !legitApproveRes.orderId) {
         testErrors.push(`FAIL 5.5: Falló la aprobación legítima: ${legitApproveRes.message}`);
       } else {
-        console.log(`  ✔ Aprobación legítima completada: ${legitApproveRes.message}`);
-        console.log(`  ✔ Orden de compra emitida: ${legitApproveRes.orderId} con guía logística: ${legitApproveRes.trackingNumber}`);
+        console.log(`  [OK] Aprobación legítima completada: ${legitApproveRes.message}`);
+        console.log(`  [OK] Orden de compra emitida: ${legitApproveRes.orderId} con guía logística: ${legitApproveRes.trackingNumber}`);
       }
     }
 
@@ -411,9 +411,9 @@ async function runAcceptanceTests() {
     if (!trackRes.found || trackRes.carrier !== "Transportes Andinos SA") {
       testErrors.push("FAIL 6.1: trackShipmentOrOrder no encontró el embarque.");
     } else {
-      console.log(`  ✔ Guía rastreada: ${trackRes.trackingNumber} | Transportista: ${trackRes.carrier} | Conductor: ${trackRes.driverName}`);
-      console.log(`  ✔ Dónde va: ${trackRes.currentLocation} ➔ Destino: ${trackRes.destinationLocation} | ETA: ${trackRes.etaStr} (Distancia: ${trackRes.distanceKm} km)`);
-      console.log(`  ✔ URL en navegador: ${trackRes.browserMapUrl}`);
+      console.log(`  [OK] Guía rastreada: ${trackRes.trackingNumber} | Transportista: ${trackRes.carrier} | Conductor: ${trackRes.driverName}`);
+      console.log(`  [OK] Dónde va: ${trackRes.currentLocation} ➔ Destino: ${trackRes.destinationLocation} | ETA: ${trackRes.etaStr} (Distancia: ${trackRes.distanceKm} km)`);
+      console.log(`  [OK] URL en navegador: ${trackRes.browserMapUrl}`);
     }
 
     // Probar guía sin ubicación física
@@ -432,7 +432,7 @@ async function runAcceptanceTests() {
     if (noLocRes.currentLocation !== "sin ubicación disponible") {
       testErrors.push(`FAIL 6.2: Sin ubicación debió mostrar 'sin ubicación disponible'. Mostró: ${noLocRes.currentLocation}`);
     } else {
-      console.log(`  ✔ Guía sin ubicación: Estado verídico -> '${noLocRes.currentLocation}'.`);
+      console.log(`  [OK] Guía sin ubicación: Estado verídico -> '${noLocRes.currentLocation}'.`);
     }
 
     // Simular incidencia de ruta y propuesta de ruta alternativa
@@ -446,14 +446,14 @@ async function runAcceptanceTests() {
       newRouteDetails: { via: "Chiquinquirá - Vélez", distanceKm: 280, etaMinutes: 340 },
     });
 
-    console.log(`  ✔ Incidencia registrada: ${incRes.incidentId}. Ruta alternativa propuesta.`);
+    console.log(`  [OK] Incidencia registrada: ${incRes.incidentId}. Ruta alternativa propuesta.`);
 
     // Aprobar ruta alternativa
     const approveIncRes = await approveAlternativeRoute(incRes.incidentId, "Admin Logístico");
     if (!approveIncRes.success) {
       testErrors.push(`FAIL 6.3: Falló la aprobación de la ruta alternativa: ${approveIncRes.message}`);
     } else {
-      console.log(`  ✔ ${approveIncRes.message}`);
+      console.log(`  [OK] ${approveIncRes.message}`);
     }
 
     // ---------------------------------------------------------
@@ -467,7 +467,7 @@ async function runAcceptanceTests() {
     if (leaked) {
       testErrors.push("FAIL 7.1: Filtración de datos detectada entre comp_platica y comp_store_only.");
     } else {
-      console.log(`  ✔ Aislamiento 100%: comp_platica (${platicaProds.length} productos) y ${storeOnlyCompId} (${storeOnlyProds.length} productos) completamente estancos.`);
+      console.log(`  [OK] Aislamiento 100%: comp_platica (${platicaProds.length} productos) y ${storeOnlyCompId} (${storeOnlyProds.length} productos) completamente estancos.`);
     }
 
   } finally {
@@ -476,11 +476,11 @@ async function runAcceptanceTests() {
 
   console.log("\n========================================================");
   if (testErrors.length === 0) {
-    console.log("🎉 TODAS LAS PRUEBAS DE ACEPTACIÓN PASARON SATISFACTORIAMENTE (0 ERRORES)");
+    console.log("[EXITO] TODAS LAS PRUEBAS DE ACEPTACIÓN PASARON SATISFACTORIAMENTE (0 ERRORES)");
     console.log("========================================================\n");
     process.exit(0);
   } else {
-    console.error("❌ SE ENCONTRARON FALLOS EN LA BATERÍA DE PRUEBAS:");
+    console.error("[ERROR] SE ENCONTRARON FALLOS EN LA BATERÍA DE PRUEBAS:");
     for (const err of testErrors) {
       console.error(`  • ${err}`);
     }

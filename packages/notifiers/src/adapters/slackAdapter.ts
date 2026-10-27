@@ -14,7 +14,7 @@ export class SlackAdapter implements NotifierAdapter {
         type: "header",
         text: {
           type: "plain_text",
-          text: `🚨 Mint Decision: ${payload.title}`,
+          text: `[CRITICO] Mint Decision: ${payload.title}`,
           emoji: true,
         },
       },

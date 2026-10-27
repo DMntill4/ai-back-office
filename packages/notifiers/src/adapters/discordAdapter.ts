@@ -10,7 +10,7 @@ export class DiscordAdapter implements NotifierAdapter {
     const currency = payload.currency || "USD";
 
     const embed = {
-      title: `🍃 MINT DECISION ALERT: ${payload.title}`,
+      title: `[MINT] MINT DECISION ALERT: ${payload.title}`,
       description: payload.evidenceSummary,
       color: severityColor,
       fields: [

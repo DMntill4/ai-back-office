@@ -75,7 +75,11 @@ export function evaluatePolicy(
   proposal: ActionProposal,
   rules: CompanyPolicyRules = {},
 ): PolicyEvaluation {
-  const approvalLimit = rules.approvalLimitAmount ?? 10000;
+  // Sin limite configurado por la empresa NO se asume ninguno: nada se autoejecuta
+  const approvalLimit: number | undefined =
+    typeof rules.approvalLimitAmount === "number" && rules.approvalLimitAmount > 0
+      ? rules.approvalLimitAmount
+      : undefined;
   const minConfidence = rules.minConfidenceThreshold ?? 0.80;
   const maxRiskForAuto = rules.maxAutonomousRiskScore ?? 0.25;
   const requireHitlOnIrreversible = rules.requireHitlOnIrreversible ?? true;
@@ -149,8 +153,8 @@ export function evaluatePolicy(
   const formatMoney = (val: number) =>
     `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 
-  const effectiveLimit = autonomyLevel === "auto" ? Math.max(approvalLimit, approvalLimit * 1.5) : approvalLimit;
-  const isUnderThreshold = proposal.costMxn <= effectiveLimit;
+  const effectiveLimit = approvalLimit;
+  const isUnderThreshold = effectiveLimit !== undefined && proposal.costMxn <= effectiveLimit;
   const isSafeRisk = proposal.riskAssessment.riskScore <= maxRiskForAuto;
   const isHighConfidence = proposal.confidence >= minConfidence;
   const isReversibleOrAllowed = proposal.reversible || !requireHitlOnIrreversible || autonomyLevel === "auto";
@@ -172,7 +176,7 @@ export function evaluatePolicy(
 
     return {
       policyDecision: "auto_executed",
-      reason: `AUTO-EJECUTADO: El monto (${formatMoney(proposal.costMxn)}) está bajo el umbral de autonomía (${formatMoney(effectiveLimit)}), con riesgo mínimo (${(proposal.riskAssessment.riskScore * 100).toFixed(0)}%) y confianza sólida (${(proposal.confidence * 100).toFixed(0)}%).`,
+      reason: `AUTO-EJECUTADO: El monto (${formatMoney(proposal.costMxn)}) está bajo el umbral de autonomía (${formatMoney(effectiveLimit as number)}), con riesgo mínimo (${(proposal.riskAssessment.riskScore * 100).toFixed(0)}%) y confianza sólida (${(proposal.confidence * 100).toFixed(0)}%).`,
       matchedRule: "RULE_AUTONOMOUS_EXECUTION_ELIGIBLE",
       requiresHitl: false,
       canExecuteNow: true,
@@ -183,7 +187,9 @@ export function evaluatePolicy(
 
   // 3. REGLAS DE ESCALAMIENTO HUMANO (HUMAN-IN-THE-LOOP - BANDEJA DE DECISIONES)
   const hitlReasons: string[] = [];
-  if (!isUnderThreshold) {
+  if (approvalLimit === undefined) {
+    hitlReasons.push("No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana");
+  } else if (!isUnderThreshold) {
     hitlReasons.push(`El monto (${formatMoney(proposal.costMxn)}) excede el umbral de autonomía autorizado de ${formatMoney(approvalLimit)}`);
   }
   if (!proposal.reversible && requireHitlOnIrreversible && proposal.actionType === "crear_orden_compra") {

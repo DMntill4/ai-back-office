@@ -159,7 +159,7 @@ export async function runPreflightCheck(companyId: string = "comp_default"): Pro
 
     const country = comp?.country || "sin definir";
     const currency = cfgMap.get("currency") || comp?.currency || "USD";
-    const timezone = cfgMap.get("timezone") || "America/Bogota";
+    const timezone = cfgMap.get("timezone") || "UTC";
     const supervisor = cfgMap.get("supervisor_email") || "no configurado";
 
     components.config.details = {

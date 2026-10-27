@@ -1,4 +1,5 @@
-import { listPendingQuestions, answerPendingQuestion, dismissPendingQuestion } from "@mint/core";
+import { listPendingQuestions, answerPendingQuestion, dismissPendingQuestion, db, businessConfig } from "@mint/core";
+import { eq, and } from "drizzle-orm";
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
@@ -36,7 +37,26 @@ export async function questionsCommand(
   }
 
   // 3. Listar preguntas pendientes
-  const questions = await listPendingQuestions(companyId, "pending");
+  const allQuestions = await listPendingQuestions(companyId, "pending");
+
+  // Si opera en Solo Tienda, silenciar preguntas sobre proveedores y flota
+  const [profileCfg] = await db
+    .select({ value: businessConfig.value })
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "business_profile")))
+    .limit(1)
+    .catch(() => [{ value: "tienda" }]);
+
+  const isStoreOnly = profileCfg?.value === "tienda";
+  const questions = isStoreOnly
+    ? allQuestions.filter(
+        (q) =>
+          q.topic !== "supplier_missing" &&
+          q.topic !== "logistics_missing" &&
+          !q.topic.includes("carrier") &&
+          !q.topic.includes("fleet"),
+      )
+    : allQuestions;
 
   if (options.json) {
     console.log(JSON.stringify(questions, null, 2));

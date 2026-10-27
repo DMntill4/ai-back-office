@@ -55,6 +55,21 @@ export async function addPendingQuestion(
     status: "pending",
   });
 
+  try {
+    const { recordPendingQuestionNote } = await import("./obsidianMemoryService");
+    await recordPendingQuestionNote({
+      id,
+      companyId,
+      topic,
+      question,
+      context,
+      status: "pending",
+      createdAt: new Date(),
+    });
+  } catch {
+    // Continuar silenciosamente si Obsidian no esta disponible
+  }
+
   return { id, created: true };
 }
 
@@ -101,15 +116,42 @@ export async function answerPendingQuestion(
   answer: string,
   answeredBy: string = "HUMAN_OPERATOR",
 ): Promise<boolean> {
-  const res = await db
+  const now = new Date();
+  await db
     .update(mintPendingQuestions)
     .set({
       status: "answered",
       answer,
       answeredBy,
-      answeredAt: new Date(),
+      answeredAt: now,
     })
     .where(eq(mintPendingQuestions.id, id));
+
+  try {
+    const [q] = await db
+      .select()
+      .from(mintPendingQuestions)
+      .where(eq(mintPendingQuestions.id, id))
+      .limit(1);
+
+    if (q) {
+      const { recordPendingQuestionNote } = await import("./obsidianMemoryService");
+      await recordPendingQuestionNote({
+        id: q.id,
+        companyId: q.companyId,
+        topic: q.topic,
+        question: q.question,
+        context: (q.context as Record<string, any>) || {},
+        status: "answered",
+        answer,
+        answeredBy,
+        createdAt: q.createdAt,
+        answeredAt: now,
+      });
+    }
+  } catch {
+    // Continuar silenciosamente si Obsidian no esta disponible
+  }
 
   return true;
 }

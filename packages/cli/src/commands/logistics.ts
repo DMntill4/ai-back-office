@@ -34,6 +34,25 @@ function ask(rl: readline.Interface, question: string, defaultValue = ""): Promi
 export async function logisticsCommand(subcommand?: string, args: string[] = []) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
+
+  // Si opera en Solo Tienda, silenciar logística y flota
+  const { businessConfig } = await import("@mint/core");
+  const { and } = await import("drizzle-orm");
+  const [profileCfg] = await db
+    .select({ value: businessConfig.value })
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "business_profile")))
+    .limit(1)
+    .catch(() => []);
+
+  if (profileCfg?.value === "tienda") {
+    console.log(`\n  ${theme.amberBold("[MÓDULO SILENCIADO - SOLO TIENDA]")}`);
+    console.log(`  El módulo de Logística y Despachos de Flota está desactivado para tu modelo de negocio.`);
+    console.log(`  MINT opera en modo exclusivo de tienda (catálogo, ventas y existencias sin ruido logístico).`);
+    console.log(`  ${theme.dim("Para habilitarlo, cambia tu perfil a 'Logística Completa' ejecutando:")} ${theme.mintBold("/config set business_profile logistica_completa")}\n`);
+    return;
+  }
+
   const sub = (subcommand || "overview").toLowerCase();
 
   if (sub === "dispatch" || sub === "despachar") {
@@ -263,14 +282,23 @@ export async function consolidateCliFlow(companyId: string) {
         `  - [${i.sku.padEnd(12)}] ${i.productName.slice(0, 30).padEnd(30)} | ${String(i.quantity).padStart(4)}u | $${i.unitPrice.toFixed(2)}/u = $${i.lineCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`,
     );
 
+    const freightStr =
+      plan.freightCostMxn !== null
+        ? `$${plan.freightCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}${plan.consolidationSavingsMxn !== null ? ` (Ahorro: $${plan.consolidationSavingsMxn.toFixed(2)} ${currency})` : ""}`
+        : "Tarifa no configurada";
+    const landedCostStr =
+      plan.totalLandedCostMxn !== null
+        ? `$${plan.totalLandedCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`
+        : `$${plan.productsCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency} (+ flete)`;
+
     console.log(
       drawCard(
         [
           `${theme.dim("Proveedor:")}          ${theme.bold(plan.supplierName)} (${plan.supplierCity})`,
           `${theme.dim("Ruta Vial:")}          ${plan.distanceKm} km (${plan.durationFormatted})`,
           `${theme.dim("Subtotal Productos:")} $${plan.productsCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`,
-          `${theme.dim("Flete Consolidado:")}  $${plan.freightCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency} (Ahorro: $${plan.consolidationSavingsMxn.toFixed(2)} ${currency})`,
-          `${theme.dim("LANDED COST TOTAL:")}  ${theme.mintBold(`$${plan.totalLandedCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`)}`,
+          `${theme.dim("Flete Consolidado:")}  ${freightStr}`,
+          `${theme.dim("LANDED COST TOTAL:")}  ${theme.mintBold(landedCostStr)}`,
           theme.dim("─".repeat(78)),
           ...itemLines,
         ],

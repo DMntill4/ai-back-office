@@ -35,7 +35,7 @@
 
 ---
 
-## 🏛️ Arquitectura Monorepo
+## Arquitectura Monorepo
 
 El proyecto está organizado como un **Monorepo limpio** con `npm workspaces`:
 
@@ -50,12 +50,12 @@ El proyecto está organizado como un **Monorepo limpio** con `npm workspaces`:
 
 ---
 
-## 💻 Mint CLI: Comandos Principales
+## Mint CLI: Comandos Principales
 
 Ejecuta el CLI mediante `npm start`, `npm run mint -- <comando>` o enlazando el binario global `mint`:
 
 ```bash
-# 🚀 INICIO UNIFICADO (100% AUTÓNOMO / CERO FRONTEND WEB)
+# [INICIO] INICIO UNIFICADO (100% AUTÓNOMO / CERO FRONTEND WEB)
 npm start                          # Inicia TODO: Servidor API, Daemon de fondo y Consola Interactiva
 npm run agent                      # Alias de inicio rápido sin frontend web
 npm run agent:headless             # Modo headless continuo (ideal para servidores en segundo plano)
@@ -117,7 +117,7 @@ mint notify test telegram          # Envía notificación de prueba con botones 
 
 ---
 
-## 🤖 Red Multi-Agente y Motor de Políticas
+## [AGENTE] Red Multi-Agente y Motor de Políticas
 
 ```
            [ Disparador: Archivo Modificado / Stock Bajo / Envío Retrasado ]

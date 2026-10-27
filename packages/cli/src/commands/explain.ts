@@ -6,7 +6,7 @@ import { getSession } from "../keychain";
 
 export async function explainCommand(decisionId: string, options: { json?: boolean } = {}) {
   if (!decisionId) {
-    console.error(theme.redBold("❌ Debes especificar el ID de la decisión. Ejemplo: mint explain dec_12345"));
+    console.error(theme.redBold("[ERROR] Debes especificar el ID de la decisión. Ejemplo: mint explain dec_12345"));
     process.exit(1);
   }
 
@@ -24,7 +24,7 @@ export async function explainCommand(decisionId: string, options: { json?: boole
       if (options.json) {
         console.log(JSON.stringify({ error: `Decisión ${decisionId} no encontrada.` }));
       } else {
-        console.error(theme.redBold(`❌ No se encontró la decisión '${decisionId}' en la empresa ${companyId}.`));
+        console.error(theme.redBold(`[ERROR] No se encontró la decisión '${decisionId}' en la empresa ${companyId}.`));
       }
       process.exit(1);
     }
@@ -113,7 +113,7 @@ export async function explainCommand(decisionId: string, options: { json?: boole
         console.log(`   ${theme.redBold("•")} ${flag}`);
       }
     } else {
-      console.log(`   ${theme.success("✔")} Sin objeciones de seguridad ni duplicidad detectadas.`);
+      console.log(`   ${theme.success("[OK]")} Sin objeciones de seguridad ni duplicidad detectadas.`);
     }
 
     console.log("\n" + drawDivider("MOTOR DE POLÍTICAS DETERMINISTA"));
@@ -131,7 +131,7 @@ export async function explainCommand(decisionId: string, options: { json?: boole
     }
     if (d.verifiedAt) {
       console.log(
-        `   ${theme.success("✔ Post-Verificación en PostgreSQL confirmada:")} ${new Date(d.verifiedAt).toLocaleString("es-MX")}`,
+        `   ${theme.success("[OK] Post-Verificación en PostgreSQL confirmada:")} ${new Date(d.verifiedAt).toLocaleString("es-MX")}`,
       );
     }
 
@@ -152,7 +152,7 @@ export async function explainCommand(decisionId: string, options: { json?: boole
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));
     } else {
-      console.error(theme.redBold(`❌ Error al explicar decisión: ${err.message}`));
+      console.error(theme.redBold(`[ERROR] Error al explicar decisión: ${err.message}`));
     }
     process.exit(1);
   }

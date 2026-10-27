@@ -1,4 +1,4 @@
-# 🛡️ DIRECTIVAS DE SEGURIDAD Y GUARDRAILS ESTRUCTURALES
+# [SEGURIDAD] DIRECTIVAS DE SEGURIDAD Y GUARDRAILS ESTRUCTURALES
 
 ## 1. PRINCIPOS DE SEGURIDAD INVIOLABLES
 - **Human-in-the-Loop Financiero Obligatorio:** NUNCA generes órdenes de compra recibidas o autorizadas directamente. Toda orden creada DEBE quedar registrada en estado `pendiente` con su correspondiente ticket de aprobación (`appr_`).

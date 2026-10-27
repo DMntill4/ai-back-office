@@ -20,7 +20,7 @@ import {
 } from "../schema";
 
 export async function runSeed() {
-  console.log("🚀 Iniciando siembra masiva de datos logísticos e industriales...");
+  console.log("[INICIO] Iniciando siembra masiva de datos logísticos e industriales...");
 
   // 0. Empresa Base (Multi-tenant)
   await db
@@ -481,7 +481,7 @@ export async function runSeed() {
     ])
     .onConflictDoNothing();
 
-  console.log("✅ Datos logísticos de prueba sembrados exitosamente en Supabase.");
+  console.log("[OK] Datos logísticos de prueba sembrados exitosamente en Supabase.");
 }
 
 if (require.main === module) {

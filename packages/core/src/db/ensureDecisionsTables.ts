@@ -292,9 +292,9 @@ export async function ensureDecisionsTables(): Promise<void> {
       ALTER TABLE products ADD COLUMN IF NOT EXISTS price NUMERIC(10, 2);
       ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(10, 2);
     `);
-    console.log("✅ Tablas e infraestructura física/geográfica verificadas en PostgreSQL.");
+    console.log("[OK] Tablas e infraestructura física/geográfica verificadas en PostgreSQL.");
   } catch (err) {
-    console.warn("⚠️ Aviso al asegurar tablas de decisiones:", (err as Error).message);
+    console.warn("[AVISO] Aviso al asegurar tablas de decisiones:", (err as Error).message);
   } finally {
     client.release();
   }

@@ -35,16 +35,17 @@ export interface DynamicInventoryHealth {
   totalStock: number;
   inTransitQuantity: number;
   minStockStatic: number;
-  dailyBurnRate: number;
-  daysOfCoverage: number;
-  daysCoverage: number;
-  leadTimeDays: number;
+  dailyBurnRate: number; // 0 si no hay ventas registradas (ver hasSalesData)
+  hasSalesData: boolean;
+  daysOfCoverage: number | null;
+  daysCoverage: number | null;
+  leadTimeDays: number | null;
   safetyStockDynamic: number;
   reorderPointDynamic: number; // ROP = (BurnRate * LeadTime) + SafetyStock
   dynamicRop: number;
   needsReorder: boolean;
-  suggestedOrderQty: number;
-  unitCostEstimate: number;
+  suggestedOrderQty: number | null;
+  unitCostEstimate: number | null;
   status: "OPTIMO" | "ATENCION_ROP" | "BAJO" | "AGOTADO";
   hasSupplierAssigned: boolean;
   preferredSupplierName?: string;
@@ -85,7 +86,7 @@ export interface OutboundDispatchResult {
   originWarehouse: string;
   distanceKm: number;
   durationFormatted: string;
-  freightCostMxn: number;
+  freightCostMxn: number | null;
   estimatedDelivery: string;
   remainingStock: number;
   selectedWarehouse: {
@@ -110,7 +111,7 @@ export interface OutboundDispatchResult {
     distanceKm: number;
     durationFormatted: string;
     freightCostFormatted: string;
-    freightCost: number;
+    freightCost: number | null;
     carrier: string;
     estimatedDelivery: string;
   };
@@ -138,15 +139,15 @@ export interface ConsolidatedLoadPlan {
   }>;
   subtotalProducts: number;
   productsCostMxn: number;
-  estimatedFreightCost: number;
-  freightCostMxn: number;
-  consolidationSavingsMxn: number;
-  totalLandedCost: number;
-  totalLandedCostMxn: number;
-  freightSharePercentage: number;
+  estimatedFreightCost: number | null;
+  freightCostMxn: number | null;
+  consolidationSavingsMxn: number | null;
+  totalLandedCost: number | null;
+  totalLandedCostMxn: number | null;
+  freightSharePercentage: number | null;
   distanceKm: number;
   durationFormatted: string;
-  leadTimeDays: number;
+  leadTimeDays: number | null;
   currency: string;
 }
 
@@ -249,35 +250,37 @@ export async function analyzeDynamicCatalogHealth(companyId: string): Promise<Dy
     const prodSales = sales.filter((s) => s.productId === p.id);
     const soldLast30d = prodSales.reduce((acc, s) => acc + s.quantity, 0);
 
-    let dailyBurnRate = 0.5;
-    if (soldLast30d > 0) {
-      dailyBurnRate = Math.round((soldLast30d / 30) * 100) / 100;
-    } else if (totalSalesCount > 0) {
-      dailyBurnRate = Math.round((totalSalesCount / 30) * 100) / 100;
-    } else {
-      dailyBurnRate = Math.max(0.2, Math.round((Math.max(1, p.minStock) / 10) * 100) / 100);
-    }
+    // Velocidad de venta SOLO desde ventas reales registradas; sin ventas = 0 y hasSalesData=false
+    const hasSalesData = soldLast30d > 0 || totalSalesCount > 0;
+    const dailyBurnRate = soldLast30d > 0
+      ? Math.round((soldLast30d / 30) * 100) / 100
+      : totalSalesCount > 0
+        ? Math.round((totalSalesCount / 30) * 100) / 100
+        : 0;
 
     const prodOffers = suppProds
       .filter((sp) => sp.productId === p.id)
       .sort((a, b) => parseFloat(a.unitPrice) - parseFloat(b.unitPrice));
 
     const bestOffer = prodOffers[0];
-    const leadTimeDays = bestOffer ? bestOffer.leadTimeDays : 3;
-    const unitCostEstimate = bestOffer ? parseFloat(bestOffer.unitPrice) : 250;
-    const preferredSupplierName = bestOffer ? suppMap.get(bestOffer.supplierId)?.name : supps[0]?.name;
+    const leadTimeDays: number | null = bestOffer ? bestOffer.leadTimeDays : null;
+    const unitCostEstimate: number | null = bestOffer ? parseFloat(bestOffer.unitPrice) : null;
+    const preferredSupplierName = bestOffer ? suppMap.get(bestOffer.supplierId)?.name : undefined;
 
     // ROP = (Demanda Diaria * Lead Time) + Stock de Seguridad
-    const safetyStockDynamic = Math.max(p.minStock, Math.ceil(dailyBurnRate * 3));
-    const reorderPointDynamic = Math.ceil(dailyBurnRate * leadTimeDays) + safetyStockDynamic;
+    // Stock de seguridad = minimo configurado por producto (sin multiplicadores inventados)
+    const safetyStockDynamic = p.minStock;
+    const reorderPointDynamic =
+      (leadTimeDays !== null ? Math.ceil(dailyBurnRate * leadTimeDays) : 0) + safetyStockDynamic;
 
     const effectiveStock = totalStock + inTransitQuantity;
-    const daysOfCoverage = dailyBurnRate > 0 ? Math.round((totalStock / dailyBurnRate) * 10) / 10 : 99;
+    const daysOfCoverage =
+      hasSalesData && dailyBurnRate > 0 ? Math.round((totalStock / dailyBurnRate) * 10) / 10 : null;
 
-    const suggestedOrderQty = Math.max(
-      bestOffer?.minOrderQuantity || 5,
-      reorderPointDynamic - effectiveStock + Math.ceil(dailyBurnRate * 14),
-    );
+    // Cantidad = faltante real hasta el punto de reorden; respeta el minimo de compra solo si el proveedor lo informa
+    const shortfall = reorderPointDynamic - effectiveStock;
+    const suggestedOrderQty: number | null =
+      shortfall > 0 ? Math.max(shortfall, bestOffer?.minOrderQuantity ?? 0) : null;
 
     let status: DynamicInventoryHealth["status"] = "OPTIMO";
     if (totalStock === 0) status = "AGOTADO";
@@ -303,6 +306,7 @@ export async function analyzeDynamicCatalogHealth(companyId: string): Promise<Dy
       inTransitQuantity,
       minStockStatic: p.minStock,
       dailyBurnRate,
+      hasSalesData,
       daysOfCoverage,
       daysCoverage: daysOfCoverage,
       leadTimeDays,
@@ -310,10 +314,10 @@ export async function analyzeDynamicCatalogHealth(companyId: string): Promise<Dy
       reorderPointDynamic,
       dynamicRop: reorderPointDynamic,
       needsReorder: status !== "OPTIMO",
-      suggestedOrderQty: Math.max(1, suggestedOrderQty),
+      suggestedOrderQty,
       unitCostEstimate,
       status,
-      hasSupplierAssigned: Boolean(bestOffer || supps.length > 0),
+      hasSupplierAssigned: Boolean(bestOffer),
       preferredSupplierName,
       warehouseBreakdown,
     };
@@ -361,9 +365,10 @@ export async function evaluateWarehouseRebalancing(companyId: string): Promise<W
         continue;
       }
 
-      const route = await calculateRealRoute(originGeo, destGeo, { currency });
+      const route = await calculateRealRoute(originGeo, destGeo, { currency, companyId });
       const offer = suppProds.find((sp) => sp.productId === prod.id);
-      const unitPrice = offer ? parseFloat(offer.unitPrice) : 300;
+      if (!offer || route.costoFleteEstimado === null) continue; // sin precio o tarifa reales no se calcula ahorro
+      const unitPrice = parseFloat(offer.unitPrice);
       const externalCost = Math.round(unitPrice * qtyToTransfer);
       const netSavings = Math.max(0, externalCost - route.costoFleteEstimado);
 
@@ -560,16 +565,11 @@ export async function dispatchOutboundShipment(params: {
   } | null = null;
 
   for (const inv of eligibleWarehouses) {
-    const wh = whs.find((w) => w.id === inv.warehouseId) || whs[0];
-    const originGeo =
-      (wh ? await resolveNodeGeoPoint(wh) : null) || {
-        latitude: 19.6453,
-        longitude: -99.2081,
-        name: wh?.name || "Almacén Central",
-        city: wh?.city || "Base Operativa",
-      };
+    const wh = whs.find((w) => w.id === inv.warehouseId);
+    const originGeo = wh ? await resolveNodeGeoPoint(wh) : null;
+    if (!originGeo) continue; // sin ubicacion real del almacen no se calcula ruta
 
-    const route = await calculateRealRoute(originGeo, destGeoPoint, { currency });
+    const route = await calculateRealRoute(originGeo, destGeoPoint, { currency, companyId });
     if (!bestCandidate || route.distanceKm < bestCandidate.route.distanceKm) {
       bestCandidate = { inv, wh, route, originGeo };
     }
@@ -626,7 +626,7 @@ export async function dispatchOutboundShipment(params: {
   });
 
   const manifestSummary = [
-    `📦 MANIFIESTO DE DESPACHO #${trackingNumber}`,
+    `[PAQUETE] MANIFIESTO DE DESPACHO #${trackingNumber}`,
     `• Producto: ${prod.name} (SKU: ${prod.sku}) × ${quantity} unidades`,
     `• Nodo Origen: ${originLabel} [GPS: ${bestCandidate.originGeo.latitude.toFixed(4)}, ${bestCandidate.originGeo.longitude.toFixed(4)}]`,
     `• Destino Final: ${destLabel} [GPS: ${destGeoPoint.latitude.toFixed(4)}, ${destGeoPoint.longitude.toFixed(4)}]`,
@@ -819,7 +819,7 @@ export async function receiveInboundShipment(params: {
     shipmentId: shp.id,
     orderId: shp.purchaseOrderId,
     productUpdated,
-    message: `✔ Recepción confirmada para guía ${shp.trackingNumber}.${stockMsg}`,
+    message: `[OK] Recepción confirmada para guía ${shp.trackingNumber}.${stockMsg}`,
   };
 }
 
@@ -828,7 +828,7 @@ export async function receiveInboundShipment(params: {
  */
 export async function buildConsolidatedLoadPlans(companyId: string): Promise<ConsolidatedLoadPlan[]> {
   const healthList = await analyzeDynamicCatalogHealth(companyId);
-  const itemsNeedingRestock = healthList.filter((h) => h.status !== "OPTIMO" && h.inTransitQuantity === 0);
+  const itemsNeedingRestock = healthList.filter((h) => h.status !== "OPTIMO" && h.inTransitQuantity === 0 && h.suggestedOrderQty !== null && h.suggestedOrderQty > 0);
 
   if (itemsNeedingRestock.length === 0) return [];
 
@@ -840,12 +840,8 @@ export async function buildConsolidatedLoadPlans(companyId: string): Promise<Con
 
   const currency = await getCompanyCurrency(companyId);
   const mainWh = whs[0];
-  const destGeo =
-    (mainWh ? await resolveNodeGeoPoint(mainWh) : null) || {
-      latitude: 19.6453,
-      longitude: -99.2081,
-      name: mainWh?.name || "Almacén Central",
-    };
+  const destGeo = mainWh ? await resolveNodeGeoPoint(mainWh) : null;
+  if (!destGeo) return []; // sin ubicacion real del almacen no se calcula ruta
 
   const groupedBySupplier = new Map<
     string,
@@ -854,7 +850,7 @@ export async function buildConsolidatedLoadPlans(companyId: string): Promise<Con
       items: Array<{
         health: DynamicInventoryHealth;
         unitPrice: number;
-        leadTimeDays: number;
+        leadTimeDays: number | null;
       }>;
     }
   >();
@@ -872,11 +868,10 @@ export async function buildConsolidatedLoadPlans(companyId: string): Promise<Con
       chosenSupp = supps.find((s) => s.id === offers[0].supplierId) || null;
       unitPrice = parseFloat(offers[0].unitPrice);
       leadTimeDays = offers[0].leadTimeDays;
-    } else if (supps.length > 0) {
-      chosenSupp = supps[0];
     }
 
-    const groupKey = chosenSupp ? chosenSupp.id : "unassigned_open_rfq";
+    if (!chosenSupp || unitPrice === null) continue; // sin proveedor/precio real no se planifica
+    const groupKey = chosenSupp.id;
     if (!groupedBySupplier.has(groupKey)) {
       groupedBySupplier.set(groupKey, { supplier: chosenSupp, items: [] });
     }
@@ -887,17 +882,14 @@ export async function buildConsolidatedLoadPlans(companyId: string): Promise<Con
 
   for (const [suppKey, group] of groupedBySupplier.entries()) {
     const supp = group.supplier;
-    const originGeo =
-      (supp ? await resolveNodeGeoPoint(supp) : null) || {
-        latitude: 20.5888,
-        longitude: -100.3899,
-        name: supp?.name || "Hub de Abastecimiento Regional",
-      };
+    const originGeo = supp ? await resolveNodeGeoPoint(supp) : null;
+    if (!originGeo) continue; // proveedor sin ubicacion real: no se inventa origen
 
-    const route = await calculateRealRoute(originGeo, destGeo, { currency });
+    const route = await calculateRealRoute(originGeo, destGeo, { currency, companyId });
 
     const planItems = group.items.map(({ health, unitPrice }) => {
-      const subtotal = Math.round(health.suggestedOrderQty * unitPrice * 100) / 100;
+      const qty = health.suggestedOrderQty ?? 0;
+      const subtotal = Math.round(qty * unitPrice * 100) / 100;
       return {
         productId: health.productId,
         sku: health.sku,
@@ -905,8 +897,8 @@ export async function buildConsolidatedLoadPlans(companyId: string): Promise<Con
         productName: health.name,
         currentStock: health.totalStock,
         reorderPoint: health.reorderPointDynamic,
-        quantityToOrder: health.suggestedOrderQty,
-        quantity: health.suggestedOrderQty,
+        quantityToOrder: qty,
+        quantity: qty,
         unitPrice,
         subtotalProductCost: subtotal,
         lineCostMxn: subtotal,
@@ -915,17 +907,20 @@ export async function buildConsolidatedLoadPlans(companyId: string): Promise<Con
 
     const subtotalProducts = planItems.reduce((acc, i) => acc + i.subtotalProductCost, 0);
     const estimatedFreightCost = route.costoFleteEstimado;
-    const totalLandedCost = subtotalProducts + estimatedFreightCost;
+    const totalLandedCost = estimatedFreightCost === null ? null : subtotalProducts + estimatedFreightCost;
     const freightSharePercentage =
-      totalLandedCost > 0 ? Math.round((estimatedFreightCost / totalLandedCost) * 1000) / 10 : 0;
-    const consolidationSavingsMxn = Math.max(0, (planItems.length - 1) * estimatedFreightCost);
+      estimatedFreightCost === null || totalLandedCost === null || totalLandedCost <= 0
+        ? null
+        : Math.round((estimatedFreightCost / totalLandedCost) * 1000) / 10;
+    const consolidationSavingsMxn =
+      estimatedFreightCost === null ? null : Math.max(0, (planItems.length - 1) * estimatedFreightCost);
     const supplierCity = supp?.city
       ? `${supp.city}${supp.state ? `, ${supp.state}` : ""}`
       : originGeo.name || "Centro Logístico";
 
     plans.push({
       supplierId: suppKey,
-      supplierName: supp ? supp.name : "Licitación Abierta (RFQ / Sin Proveedor Fijo en BD)",
+      supplierName: supp ? supp.name : suppKey,
       supplierLocation: supplierCity,
       supplierCity,
       destinationWarehouseName: mainWh?.name || "Almacén Central",
@@ -940,7 +935,10 @@ export async function buildConsolidatedLoadPlans(companyId: string): Promise<Con
       freightSharePercentage,
       distanceKm: route.distanceKm,
       durationFormatted: route.durationFormatted,
-      leadTimeDays: Math.max(...group.items.map((i) => i.leadTimeDays), 2),
+      leadTimeDays: (() => {
+        const known = group.items.map((i) => i.leadTimeDays).filter((v): v is number => v !== null);
+        return known.length > 0 ? Math.max(...known) : null;
+      })(),
       currency,
     });
   }

@@ -12,6 +12,7 @@
   "scripts": {
     "test": "vitest run tests",
     "typecheck": "tsc --noEmit",
+    "lint:emojis": "tsx scratch/check_no_emojis.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",

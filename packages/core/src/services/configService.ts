@@ -7,7 +7,7 @@ export interface CompanyConfig {
   companyName: string;
   timezone: string;
   currency: string;
-  approvalLimitAmount: number;
+  approvalLimitAmount: number | null;
   botName: string;
   botTone: string;
   botCustomRules: string;
@@ -61,11 +61,11 @@ export function isValidTimezone(tz: string): boolean {
  */
 export function formatCompanyDate(
   date: Date | string | number = new Date(),
-  timezone: string = "America/Bogota",
+  timezone: string = "UTC",
   includeTime: boolean = true,
 ): string {
   const d = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
-  const effectiveTz = isValidTimezone(timezone) ? timezone : "America/Bogota";
+  const effectiveTz = isValidTimezone(timezone) ? timezone : "UTC";
 
   try {
     const options: Intl.DateTimeFormatOptions = {
@@ -102,7 +102,7 @@ export async function getCompanyTimezone(companyId: string = "comp_default"): Pr
     return record[0].value;
   }
 
-  return "America/Bogota";
+  return "UTC";
 }
 
 /**
@@ -121,8 +121,9 @@ export async function getCompanyConfig(companyId: string = "comp_default"): Prom
 
   const companyName = comp[0]?.name || companyId;
   const currency = raw["currency"] || comp[0]?.currency || "USD";
-  const timezone = raw["timezone"] && isValidTimezone(raw["timezone"]) ? raw["timezone"] : "America/Bogota";
-  const approvalLimitAmount = parseFloat(raw["approval_limit_amount"] || "10000.00") || 10000;
+  const timezone = raw["timezone"] && isValidTimezone(raw["timezone"]) ? raw["timezone"] : "UTC";
+  const parsedLimit = raw["approval_limit_amount"] ? parseFloat(raw["approval_limit_amount"]) : NaN;
+  const approvalLimitAmount: number | null = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
   const botName = raw["bot_name"] || "Mint Autonomous Agent";
   const botTone = raw["bot_tone"] || "ejecutivo";
   const botCustomRules = raw["bot_custom_rules"] || "";

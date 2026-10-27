@@ -62,7 +62,7 @@ export async function whoamiCommand(options: { json?: boolean } = {}) {
     return;
   }
 
-  const permIcon = (has: boolean) => (has ? theme.mint("  [✔]") : theme.dim("  [✖]"));
+  const permIcon = (has: boolean) => (has ? theme.mint("  [OK]") : theme.dim("  [ERROR]"));
 
   console.log("");
   console.log(

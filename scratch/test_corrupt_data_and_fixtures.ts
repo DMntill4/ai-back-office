@@ -71,7 +71,7 @@ async function runFixtureTest(
       durationMs,
       details: res.details,
     });
-    console.log(`  ✅ [PASS] ${id}: ${name} (${durationMs}ms)`);
+    console.log(`  [OK] [PASS] ${id}: ${name} (${durationMs}ms)`);
   } catch (err: any) {
     const durationMs = Math.round(performance.now() - start);
     reportItems.push({
@@ -83,7 +83,7 @@ async function runFixtureTest(
       passed: false,
       durationMs,
     });
-    console.error(`  ❌ [FAIL] ${id}: ${name} (${durationMs}ms) - ${err.message}`);
+    console.error(`  [ERROR] [FAIL] ${id}: ${name} (${durationMs}ms) - ${err.message}`);
   }
 }
 
@@ -519,10 +519,10 @@ async function main() {
   console.log("================================================================================\n");
 
   if (failedCount > 0) {
-    console.error(`❌ ${failedCount} pruebas fallaron.`);
+    console.error(`[ERROR] ${failedCount} pruebas fallaron.`);
     process.exit(1);
   } else {
-    console.log("🌟 TODAS LAS 15 PRUEBAS DE DATOS CORRUPTOS, SEGURIDAD Y ESCALABILIDAD PASARON CON ÉXITO.");
+    console.log("[EXITO] TODAS LAS 15 PRUEBAS DE DATOS CORRUPTOS, SEGURIDAD Y ESCALABILIDAD PASARON CON ÉXITO.");
     process.exit(0);
   }
 }

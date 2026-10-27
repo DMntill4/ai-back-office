@@ -336,7 +336,7 @@ export async function resolveNaturalLanguageIntent(
     return {
       intent: "CONFIG_QUERY",
       handledDeterministically: true,
-      response: `Configuración de ${config.companyName} [${config.companyId}]:\n• Zona Horaria: ${config.timezone} (Hora actual: ${formatCompanyDate(new Date(), config.timezone, true)})\n• Divisa Oficial: ${config.currency}\n• Límite Aprobación HITL: $${config.approvalLimitAmount.toLocaleString()} ${config.currency}\n• Nivel de Autonomía: ${config.autonomyLevel.toUpperCase()}\n• Tono del Asistente: ${config.botTone}\n\nPuedes modificar cualquier parámetro con /config set <clave> <valor>.`,
+      response: `Configuración de ${config.companyName} [${config.companyId}]:\n• Zona Horaria: ${config.timezone} (Hora actual: ${formatCompanyDate(new Date(), config.timezone, true)})\n• Divisa Oficial: ${config.currency}\n• Límite Aprobación HITL: ${config.approvalLimitAmount === null ? "sin definir" : `$${config.approvalLimitAmount.toLocaleString()} ${config.currency}`}\n• Nivel de Autonomía: ${config.autonomyLevel.toUpperCase()}\n• Tono del Asistente: ${config.botTone}\n\nPuedes modificar cualquier parámetro con /config set <clave> <valor>.`,
       suggestedAction: "Ver /config",
       data: config,
     };

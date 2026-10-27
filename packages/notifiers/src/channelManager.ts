@@ -253,7 +253,7 @@ export async function testNotificationChannel(
     decisionId: "dec_test_ping",
     title: "Prueba de Canal de Notificación Mint",
     description: "Este es un mensaje de verificación para confirmar la conectividad.",
-    costMxn: 12500,
+    costMxn: 0,
     proposingAgent: "compras_agent",
     severity: "INFO",
     evidenceSummary: "Ping de prueba desde 'mint notify test'.",
