@@ -8,6 +8,7 @@ import {
   cases,
   businessConfig,
   coordinateOperationalEvent,
+  getProductsWithOpenProposals,
 } from "@mint/core";
 import { eq, and, lte, desc } from "drizzle-orm";
 
@@ -20,24 +21,30 @@ export interface ScanResult {
 
 /**
  * Disparador: Busca existencias agotadas o bajo el mínimo y abre casos autónomos
+ * Idempotente: nunca procesa productos con propuestas abiertas ni satura APIs cartográficas.
  */
 export async function scanStockDeficits(companyId: string = "comp_default"): Promise<number> {
-  const stockRows = await db
-    .select({
-      productId: products.id,
-      sku: products.sku,
-      name: products.name,
-      minStock: products.minStock,
-      stock: inventory.stock,
-    })
-    .from(products)
-    .innerJoin(inventory, eq(products.id, inventory.productId))
-    .where(and(eq(products.companyId, companyId), eq(inventory.companyId, companyId)));
+  const [stockRows, blocked] = await Promise.all([
+    db
+      .select({
+        productId: products.id,
+        sku: products.sku,
+        name: products.name,
+        minStock: products.minStock,
+        stock: inventory.stock,
+      })
+      .from(products)
+      .innerJoin(inventory, eq(products.id, inventory.productId))
+      .where(and(eq(products.companyId, companyId), eq(inventory.companyId, companyId))),
+    getProductsWithOpenProposals(companyId).catch(() => new Set<string>()),
+  ]);
 
-  const deficits = stockRows.filter((r) => r.stock <= r.minStock);
+  const deficits = stockRows.filter((r) => r.stock <= r.minStock && !blocked.has(r.productId));
+  // Limitar a maximo 5 por ciclo para evitar tormentas de peticiones fantasma
+  const batch = deficits.slice(0, 5);
   let triggeredCount = 0;
 
-  for (const item of deficits) {
+  for (const item of batch) {
     try {
       await coordinateOperationalEvent({
         eventType: "STOCK_BELOW_MIN",
@@ -52,6 +59,7 @@ export async function scanStockDeficits(companyId: string = "comp_default"): Pro
           minStock: item.minStock,
         },
       });
+      blocked.add(item.productId);
       triggeredCount++;
     } catch (err: any) {
       console.error(`[DAEMON TRIGGER] Error evaluando desabasto de ${item.sku}: ${err.message}`);

@@ -231,6 +231,22 @@ export async function dispatchDecisionNotification(
       isUsed: false,
       payload: { sendResult: sendRes },
     });
+
+    // 4. Si falló la entrega, encolar en la cola persistente de reintentos
+    if (!sendRes.success) {
+      try {
+        const { enqueueOutboxItem } = await import("./outboxQueueService");
+        enqueueOutboxItem({
+          companyId,
+          channelType: channel.type as ChannelType,
+          channelConfig: channel.config as Record<string, any>,
+          payload,
+          error: sendRes.error,
+        });
+      } catch {
+        // Continuar si la cola falla
+      }
+    }
   }
 
   return results;

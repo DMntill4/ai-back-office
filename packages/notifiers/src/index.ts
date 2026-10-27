@@ -7,3 +7,4 @@ export * from "./adapters/slackAdapter";
 export * from "./adapters/gmailAdapter";
 export * from "./adapters/discordAdapter";
 export * from "./salesChannelListener";
+export * from "./outboxQueueService";

@@ -7,6 +7,7 @@ import {
   suppliers,
   shipments,
   companies,
+  notificationChannels,
 } from "../db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { getCompanyConfig, formatCompanyDate } from "../services/configService";
@@ -23,6 +24,7 @@ export type DetectedIntentType =
   | "SUPPLIERS_QUERY"
   | "REPORTS_QUERY"
   | "CONFIG_QUERY"
+  | "MEMORY_QUERY"
   | "SIMULATE_SCENARIO"
   | "GENERAL_ASSISTANCE";
 
@@ -56,11 +58,70 @@ export async function resolveNaturalLanguageIntent(
 ): Promise<IntentResolutionResult> {
   const norm = normalizeText(rawInput);
 
+  // 0. DETECCIÓN DE PREGUNTAS ABIERTAS O CONVERSACIONALES
+  // Si el usuario hace una pregunta (¿...?, eres capaz..., como..., puedes..., que pasa si..., por que...)
+  // JAMÁS interceptar con respuestas deterministas fijas. Se delega al agente de IA con su contexto de base de datos.
+  const isQuestionOrConversational =
+    rawInput.includes("?") ||
+    rawInput.includes("¿") ||
+    /^(eres capaz|puedes|como|por que|porque|que pasa|explicame|explica|dime|sera que|se puede|es posible|ayudame|cual|quien|cuando|donde|que opinas|que sugieres|notificas|envias)/i.test(norm) ||
+    (norm.split(/\s+/).length > 4 && !/^(ver|mostrar|listar|consultar|dame|sacame)\b/i.test(norm));
+
+  if (isQuestionOrConversational) {
+    return {
+      intent: "GENERAL_ASSISTANCE",
+      handledDeterministically: false,
+      response: "",
+    };
+  }
+
   // 1. FAST PATH: Saludos y cortesía (Smalltalk)
   const isGreeting =
     /^(hola|holi|buenas|buenos dias|buenas tardes|buenas noches|hey|hi|hello|que tal|saludos|que hubo)[\s,!.¡¿?-]*$/i.test(norm) ||
     /^(hola[\s,]+(buenos dias|buenas tardes|buenas noches|que tal|como estas|como te va|mint|equipo|amigo))[\s,!.¡¿?-]*$/i.test(norm) ||
     /^(buenos dias|buenas tardes|buenas noches)[\s,]+(hola|mint|a todos|equipo)[\s,!.¡¿?-]*$/i.test(norm);
+
+  // 1.1 FAST PATH: Capacidades y ayuda interactiva (Comando explícito)
+  const isCapabilitiesQuery =
+    /^(que puedes hacer|que sabes hacer|capacidades|ayuda|comandos|help)$/i.test(norm);
+
+  if (isCapabilitiesQuery) {
+    const config = await getCompanyConfig(companyId);
+    let numProds = 0;
+    let suppsCount = 0;
+    let chansCount = 0;
+    try {
+      const [[prodCount], supps, chans] = await Promise.all([
+        db.select({ n: sql<number>`count(*)::int` }).from(products).where(eq(products.companyId, companyId)),
+        db.select({ id: suppliers.id }).from(suppliers).where(eq(suppliers.companyId, companyId)),
+        db.select({ id: notificationChannels.id }).from(notificationChannels).where(eq(notificationChannels.companyId, companyId)),
+      ]);
+      numProds = Number(prodCount?.n ?? 0);
+      suppsCount = supps.length;
+      chansCount = chans.length;
+    } catch {}
+
+    let res = `Soy ${config.botName}, director operativo y de back-office de ${config.companyName}.\n\n`;
+    res += `Estado actual de tu empresa:\n`;
+    res += `• Catálogo Activo: ${numProds > 0 ? `${numProds} productos registrados` : "0 productos (ingresa '/source' para vincular tu archivo CSV o base de datos)"}.\n`;
+    res += `• Proveedores: ${suppsCount > 0 ? `${suppsCount} registrados en base de datos` : "Sin proveedores registrados (usa '/suppliers' para agregar proveedores)"}.\n`;
+    res += `• Canales de Alerta: ${chansCount > 0 ? `${chansCount} canal(es) activo(s)` : "Solo consola (agrega Discord o Telegram con '/channels')"}.\n`;
+    res += `• Gobernanza: ${config.autonomyLevel.toUpperCase()} (CERO compras unilaterales; 100% supervisado en /inbox).\n\n`;
+    res += `Mis capacidades principales:\n`;
+    res += `1. Monitoreo de Stock: Reviso quiebres y días de cobertura (/stock o '¿qué stock tenemos?').\n`;
+    res += `2. Recomendaciones de Compra: Cotizo y formulo propuestas en /inbox sin desembolsar fondos por mi cuenta.\n`;
+    res += `3. Logística y Rutas: Calculo distancias viales y fletes reales OSRM (/logistics o 'calcular ruta').\n`;
+    res += `4. Memoria Viva Obsidian: Consulto notas de decisiones y auditorías (/memory o '¿qué recuerdas?').\n`;
+    res += `5. Finanzas y Margen: Conciliación de ventas vs cobros y margen de ganancia (/reports o /reconcile).\n\n`;
+    res += `Escribe cualquier consulta en lenguaje natural o escribe /help para ver la lista completa de comandos.`;
+
+    return {
+      intent: "GENERAL_ASSISTANCE",
+      handledDeterministically: true,
+      response: res,
+      suggestedAction: "Ver /help o /stock",
+    };
+  }
 
   if (isGreeting) {
     const config = await getCompanyConfig(companyId);
@@ -81,17 +142,15 @@ export async function resolveNaturalLanguageIntent(
     };
   }
 
-  // 2. INTENCIÓN: Consulta de Inventario / Stock / Quiebres
-  if (
-    norm.includes("stock") ||
-    norm.includes("inventario") ||
-    norm.includes("existencias") ||
-    norm.includes("quiebre") ||
-    norm.includes("desabasto") ||
-    norm.includes("se van a agotar") ||
-    norm.includes("cuanto tenemos de") ||
-    norm.includes("catalogo")
-  ) {
+  // 2. INTENCIÓN: Consulta de Inventario / Stock / Quiebres (Comando explícito)
+  const isExplicitStockCommand =
+    /^(ver|mostrar|listar|consultar|dame el)?\s*(stock|inventario|existencias|quiebres|desabastos|catalogo)(\s+(general|actual|completo))?$/i.test(norm) ||
+    norm === "stock" ||
+    norm === "inventario" ||
+    norm === "existencias" ||
+    norm === "quiebres";
+
+  if (isExplicitStockCommand) {
     const intel = await getInventoryIntelligence(companyId);
     const critical = intel.items.filter((i) => i.daysUntilStockout <= 7 || i.currentStock === 0);
 
@@ -339,6 +398,53 @@ export async function resolveNaturalLanguageIntent(
       response: `Configuración de ${config.companyName} [${config.companyId}]:\n• Zona Horaria: ${config.timezone} (Hora actual: ${formatCompanyDate(new Date(), config.timezone, true)})\n• Divisa Oficial: ${config.currency}\n• Límite Aprobación HITL: ${config.approvalLimitAmount === null ? "sin definir" : `$${config.approvalLimitAmount.toLocaleString()} ${config.currency}`}\n• Nivel de Autonomía: ${config.autonomyLevel.toUpperCase()}\n• Tono del Asistente: ${config.botTone}\n\nPuedes modificar cualquier parámetro con /config set <clave> <valor>.`,
       suggestedAction: "Ver /config",
       data: config,
+    };
+  }
+
+  // 8.1 INTENCIÓN: Memoria Viva y Bóveda Obsidian (Búsqueda y estado de memoria)
+  if (
+    norm.includes("memoria") ||
+    norm.includes("obsidian") ||
+    norm.includes("recuerdas") ||
+    norm.includes("que notas") ||
+    norm.includes("que sabes") ||
+    norm.includes("que aprendiste") ||
+    norm.includes("historial de decisiones") ||
+    norm.includes("que compraste") ||
+    norm.includes("que decidiste")
+  ) {
+    const { getVaultStats, searchObsidianMemory } = await import("../services/obsidianMemoryService");
+    const stats = await getVaultStats(companyId).catch(() => null);
+    const recent = await db
+      .select({
+        id: decisions.id,
+        title: decisions.title,
+        policyDecision: decisions.policyDecision,
+        costMxn: decisions.costMxn,
+      })
+      .from(decisions)
+      .where(eq(decisions.companyId, companyId))
+      .orderBy(desc(decisions.createdAt))
+      .limit(3);
+
+    let msg = `Memoria Viva y Bóveda de Conocimiento (Obsidian Cloud + Supabase PostgreSQL):\n`;
+    if (stats) {
+      msg += `• Bóveda Obsidian: ${stats.vaultPath}\n`;
+      msg += `• Notas en Vault: ${stats.totalNotas} (${stats.totalDecisiones} decisiones, ${stats.totalCuarentena} cuarentenas, ${stats.totalPreguntas} preguntas, ${stats.totalAuditorias} auditorías).\n`;
+      msg += `• Sincronización Cloud: Carpeta sincronizada en tiempo real mediante OneDrive / Cloud Sync.\n`;
+    }
+    if (recent.length > 0) {
+      msg += `\nÚltimas Decisiones Recordadas:\n`;
+      msg += recent.map((d) => `• [${d.id}] ${d.title} (Estado: ${d.policyDecision}, Costo: $${d.costMxn})`).join("\n");
+    }
+    msg += `\nPuedes explorar notas con 'mint memory search <termino>' o sincronizar con 'mint memory sync'.`;
+
+    return {
+      intent: "MEMORY_QUERY",
+      handledDeterministically: true,
+      response: msg,
+      suggestedAction: "Ejecutar /memory o 'mint memory search'",
+      data: { stats, recent },
     };
   }
 

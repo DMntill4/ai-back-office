@@ -2,6 +2,7 @@ import { db } from "../db/client";
 import { businessConfig } from "../db/schema";
 import { mintShadowDecisions } from "../db/schema/mintEntities";
 import { eq, and, desc } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 
 export interface ShadowModeConfig {
   enabled: boolean;
@@ -101,7 +102,7 @@ export async function recordShadowDecision(params: {
   evidencePayload?: Record<string, any>;
   predictedOutcome?: Record<string, any>;
 }): Promise<string> {
-  const id = `shadow_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const id = `shadow_${randomUUID().slice(0, 8)}`;
 
   await db.insert(mintShadowDecisions).values({
     id,

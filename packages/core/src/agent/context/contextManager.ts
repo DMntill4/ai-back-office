@@ -22,26 +22,36 @@ export const TOKEN_BUDGETS = {
 export function compactStockFacts(data: {
   product: { id: string; name: string; sku: string; minStock: number };
   stock: number;
-  burnRate: number;
-  daysCoverage: number;
+  burnRate: number | null;
+  daysCoverage: number | null;
   salesCountLast30Days?: number;
 }): string {
   const deficit = Math.max(0, data.product.minStock - data.stock);
   const status =
     data.stock === 0
       ? "QUIEBRE_TOTAL"
-      : data.daysCoverage < 3
+      : data.daysCoverage !== null && data.daysCoverage < 3
         ? "CRÍTICO_INMINENTE"
         : data.stock < data.product.minStock
           ? "BAJO_STOCK_SEGURIDAD"
           : "ÓPTIMO";
 
+  const burnRateText =
+    data.burnRate !== null
+      ? `${data.burnRate.toFixed(1)} uds/día (basado en ${data.salesCountLast30Days ?? 30} ventas analizadas)`
+      : `Historial de ventas insuficiente (0 ventas registradas). No se pronostica cobertura ni burn rate sin datos históricos.`;
+
+  const coverageText =
+    data.daysCoverage !== null
+      ? `${data.daysCoverage.toFixed(1)} días antes de agotar existencias`
+      : `Sin proyección de cobertura por falta de historial de consumo.`;
+
   return `[FACTS_INVENTARIO_REAL]
 - Producto: "${data.product.name}" (ID: ${data.product.id}, SKU: ${data.product.sku})
 - Stock Físico: ${data.stock} uds | Stock Mínimo Requerido: ${data.product.minStock} uds
 - Déficit Actual: ${deficit} uds | Estado: ${status}
-- Tasa de Consumo (Burn Rate): ${data.burnRate.toFixed(1)} uds/día (basado en ${data.salesCountLast30Days ?? 30} ventas analizadas)
-- Cobertura Proyectada: ${data.daysCoverage.toFixed(1)} días antes de agotar existencias`;
+- Tasa de Consumo (Burn Rate): ${burnRateText}
+- Cobertura Proyectada: ${coverageText}`;
 }
 
 /**

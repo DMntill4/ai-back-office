@@ -171,6 +171,8 @@ export async function consoleCommand() {
 
   return new Promise<void>((resolve) => {
     const slashCommands = [
+      "/agents",
+      "/orchestrate",
       "/feed",
       "/live",
       "/audit",
@@ -338,6 +340,8 @@ export async function consoleCommand() {
             console.log(`  ${theme.mintBold("/briefing")}                 Resumen diario ejecutivo: ventas, quiebres y retrasos`);
             console.log(`  ${theme.mintBold("/reconcile")}                Conciliación 3 vías: ventas vs pagos vs despachos`);
             console.log(`  ${theme.mintBold("/backup")}                   Exportar copia de seguridad de configuración y memoria`);
+            console.log(`  ${theme.mintBold("/demo [enter|exit]")}         Modo demo sandbox con datos aislados de prueba`);
+            console.log(`  ${theme.mintBold("/selftest")}                 Verificación integral del sistema [OK/ERROR] con evidencia`);
             console.log(`  ${theme.mintBold("/whoami | /logout")}         Ver sesion activa y matriz de permisos o cerrar sesion\n`);
             break;
           }
@@ -508,6 +512,15 @@ export async function consoleCommand() {
             break;
           }
 
+          case "agents":
+          case "agentes":
+          case "orchestrate":
+          case "orquestador": {
+            const { agentsCommand } = require("./agents");
+            await agentsCommand(args[0]);
+            break;
+          }
+
           case "feed":
           case "live":
           case "watch": {
@@ -520,7 +533,25 @@ export async function consoleCommand() {
           case "auditoria":
           case "logs": {
             const { auditCommand } = require("./audit");
-            await auditCommand({ limit: parseInt(args[0], 10) || 20 });
+            let limit = 50;
+            let user: string | undefined;
+            let date: string | undefined;
+            let moduleName: string | undefined;
+
+            for (let i = 0; i < args.length; i++) {
+              const arg = args[i];
+              if (arg === "--user" && args[i + 1]) {
+                user = args[++i];
+              } else if (arg === "--date" && args[i + 1]) {
+                date = args[++i];
+              } else if (arg === "--module" && args[i + 1]) {
+                moduleName = args[++i];
+              } else if (!isNaN(parseInt(arg, 10)) && limit === 50) {
+                limit = parseInt(arg, 10);
+              }
+            }
+
+            await auditCommand({ limit, user, date, module: moduleName });
             break;
           }
 
@@ -583,8 +614,15 @@ export async function consoleCommand() {
 
           case "reconcile":
           case "conciliar": {
-            const { reconcileCommand } = require("./briefing");
+            const { reconcileCommand } = require("./reconcile");
             await reconcileCommand();
+            break;
+          }
+
+          case "customers":
+          case "clientes": {
+            const { customersCommand } = require("./customers");
+            await customersCommand();
             break;
           }
 
@@ -674,6 +712,19 @@ export async function consoleCommand() {
           case "margen": {
             const { reportsCommand } = require("./reports");
             await reportsCommand("profit", args[0]);
+            break;
+          }
+
+          case "selftest":
+          case "test": {
+            const { selftestCommand } = require("./selftest");
+            await selftestCommand();
+            break;
+          }
+
+          case "demo": {
+            const { demoCommand } = require("./demo");
+            await demoCommand(args[0]);
             break;
           }
 

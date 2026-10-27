@@ -52,6 +52,46 @@ export async function fleetCommand(action?: string, arg1?: string) {
     return;
   }
 
+  const isDriver = session?.role === "driver";
+
+  // Subcomando: Actualizar estado de entrega por conductor (/fleet deliver <guia>)
+  if (sub === "deliver" || sub === "entregar") {
+    const trackingQuery = arg1 || "";
+    if (!trackingQuery) {
+      console.log(`\n  ${theme.amberBold("[USO]")} /fleet deliver <NUMERO_GUIA_O_ID>\n`);
+      return;
+    }
+
+    const fleet = await listCompanyFleet(companyId);
+    const ship = fleet.activeShipments.find(
+      (s) =>
+        s.trackingNumber.toLowerCase() === trackingQuery.toLowerCase() ||
+        s.id.toLowerCase() === trackingQuery.toLowerCase(),
+    );
+
+    if (!ship) {
+      console.log(`\n  ${theme.amber(`No se encontró ningún embarque con guía o ID '${trackingQuery}'.`)}\n`);
+      return;
+    }
+
+    if (isDriver) {
+      const driverIdentifier = (session?.name || "").toLowerCase();
+      const driverId = (session?.userId || "").toLowerCase();
+      const isAssigned =
+        ship.carrier.toLowerCase().includes(driverIdentifier) ||
+        (ship.notes && (ship.notes.toLowerCase().includes(driverId) || ship.notes.toLowerCase().includes(driverIdentifier)));
+      if (!isAssigned) {
+        console.log(`\n  ${theme.redBold("[ACCESO DENEGADO]")} Como conductor, solo puedes actualizar tus propias entregas asignadas.\n`);
+        return;
+      }
+    }
+
+    const { confirmDeliveryReception } = await import("@mint/core");
+    const res = await confirmDeliveryReception(ship.id, companyId);
+    console.log(`\n  ${res.success ? theme.mintBold("[OK]") : theme.redBold("[ERROR]")} ${res.message}\n`);
+    return;
+  }
+
   // 2. Subcomando: Rastrear envío (/fleet track <guia>)
   if (sub === "track" || sub === "rastrear" || (sub && sub !== "list" && sub !== "all")) {
     const trackingQuery = (sub === "track" || sub === "rastrear" ? arg1 : sub) || "";
@@ -70,6 +110,18 @@ export async function fleetCommand(action?: string, arg1?: string) {
     if (!ship) {
       console.log(`\n  ${theme.amber(`No se encontró ningún embarque con guía o ID '${trackingQuery}'.`)}\n`);
       return;
+    }
+
+    if (isDriver) {
+      const driverIdentifier = (session?.name || "").toLowerCase();
+      const driverId = (session?.userId || "").toLowerCase();
+      const isAssigned =
+        ship.carrier.toLowerCase().includes(driverIdentifier) ||
+        (ship.notes && (ship.notes.toLowerCase().includes(driverId) || ship.notes.toLowerCase().includes(driverIdentifier)));
+      if (!isAssigned) {
+        console.log(`\n  ${theme.redBold("[ACCESO DENEGADO]")} Como conductor, solo tienes acceso a tus propias entregas asignadas.\n`);
+        return;
+      }
     }
 
     console.log("\n" + drawDivider(`RASTREO EN TIEMPO REAL // GUÍA ${ship.trackingNumber}`, 84));
@@ -107,9 +159,18 @@ export async function fleetCommand(action?: string, arg1?: string) {
     return;
   }
 
-  // 3. Vista general de Flota y Envíos (/fleet)
   console.log("\n" + drawDivider("CONTROL DE FLOTA, TRANSPORTISTAS & GUÍAS DE ENVÍO", 86));
   const fleet = await listCompanyFleet(companyId);
+
+  if (isDriver) {
+    const driverIdentifier = (session?.name || "").toLowerCase();
+    const driverId = (session?.userId || "").toLowerCase();
+    fleet.activeShipments = fleet.activeShipments.filter(
+      (s) =>
+        s.carrier.toLowerCase().includes(driverIdentifier) ||
+        (s.notes && (s.notes.toLowerCase().includes(driverId) || s.notes.toLowerCase().includes(driverIdentifier))),
+    );
+  }
 
   console.log(
     drawCard(

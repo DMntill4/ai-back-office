@@ -1,6 +1,7 @@
 import { db } from "../db/client";
-import { businessConfig, companies, products, inventory } from "../db/schema";
+import { businessConfig, companies, products, inventory, operationalEvents } from "../db/schema";
 import { eq, and, sql, or } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 
 export interface CompanyConfig {
   companyId: string;
@@ -209,6 +210,22 @@ export async function setCompanyConfig(
       .where(eq(companies.id, companyId));
   }
 
+  // Registrar auditoría del cambio en operational_events
+  await db
+    .insert(operationalEvents)
+    .values({
+      id: `ev_cfg_${randomUUID().slice(0, 8)}`,
+      companyId,
+      eventType: "CONFIG_CHANGE",
+      severity: "LOW",
+      status: "RESOLVED",
+      title: `Ajuste de configuración: ${targetKey}`,
+      description: `El parámetro '${targetKey}' fue actualizado a '${trimmedValue}'.`,
+      payload: { key: targetKey, value: trimmedValue },
+      resolvedAt: new Date(),
+    })
+    .catch(() => {});
+
   return {
     success: true,
     message: `Parámetro '${targetKey}' actualizado a '${trimmedValue}' con éxito en base de datos.`,
@@ -267,6 +284,22 @@ export async function updateProductMinStock(
     .update(products)
     .set({ minStock: newMinStock })
     .where(and(eq(products.companyId, companyId), eq(products.id, prod.id)));
+
+  // Registrar auditoría del cambio de umbral ROP en operational_events
+  await db
+    .insert(operationalEvents)
+    .values({
+      id: `ev_rop_${randomUUID().slice(0, 8)}`,
+      companyId,
+      eventType: "THRESHOLD_CHANGE",
+      severity: "LOW",
+      status: "RESOLVED",
+      title: `Umbral de stock ROP actualizado: ${prod.sku}`,
+      description: `El stock mínimo para '${prod.name}' (${prod.sku}) fue modificado de ${oldMinStock} a ${newMinStock} unidades.`,
+      payload: { productId: prod.id, sku: prod.sku, oldMinStock, newMinStock },
+      resolvedAt: new Date(),
+    })
+    .catch(() => {});
 
   return {
     success: true,

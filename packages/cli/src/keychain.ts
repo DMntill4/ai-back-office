@@ -12,6 +12,7 @@ export interface StoredSession {
   companyId: string;
   companyName: string;
   savedAt: string;
+  expiresAt?: string;
 }
 
 function getConfigDir(): string {
@@ -43,6 +44,11 @@ export async function saveSession(session: StoredSession): Promise<void> {
 
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
+  }
+
+  // TTL por defecto: 8 horas si no se especificó expiración
+  if (!session.expiresAt) {
+    session.expiresAt = new Date(Date.now() + 8 * 3600 * 1000).toISOString();
   }
 
   const key = getEncryptionKey();
@@ -77,6 +83,7 @@ export async function getSession(): Promise<StoredSession | null> {
       companyId: process.env.MINT_COMPANY_ID,
       companyName: "Default Company",
       savedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 8 * 3600 * 1000).toISOString(),
     };
   }
 
@@ -98,10 +105,30 @@ export async function getSession(): Promise<StoredSession | null> {
       decipher.final(),
     ]);
 
-    return JSON.parse(decrypted.toString("utf8")) as StoredSession;
+    const session = JSON.parse(decrypted.toString("utf8")) as StoredSession;
+
+    // Control de expiración de sesión (8 horas TTL)
+    if (session.expiresAt && Date.now() > new Date(session.expiresAt).getTime()) {
+      await deleteSession();
+      return null;
+    }
+
+    return session;
   } catch {
     return null;
   }
+}
+
+/**
+ * Cambia la empresa/proyecto activo para la sesión actual
+ */
+export async function switchCompanySession(newCompanyId: string, newCompanyName?: string): Promise<boolean> {
+  const current = await getSession();
+  if (!current) return false;
+  current.companyId = newCompanyId;
+  current.companyName = newCompanyName || newCompanyId;
+  await saveSession(current);
+  return true;
 }
 
 /**

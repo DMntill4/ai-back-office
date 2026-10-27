@@ -8,7 +8,7 @@ import {
   writeDaemonState,
 } from "@mint/daemon";
 import { getSession } from "../keychain";
-import { db, decisions } from "@mint/core";
+import { db, decisions, operationalEvents } from "@mint/core";
 import { eq, desc } from "drizzle-orm";
 import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
@@ -229,38 +229,60 @@ export async function watchCommand(options: { json?: boolean } = {}) {
     const config = await getCompanyConfig(companyId);
     const currency = config.currency;
 
-    const recentDecisions = await db
-      .select()
-      .from(decisions)
-      .where(eq(decisions.companyId, companyId))
-      .orderBy(desc(decisions.createdAt))
-      .limit(8);
+    const [recentDecisions, recentEvents] = await Promise.all([
+      db
+        .select()
+        .from(decisions)
+        .where(eq(decisions.companyId, companyId))
+        .orderBy(desc(decisions.createdAt))
+        .limit(6),
+      db
+        .select()
+        .from(operationalEvents)
+        .where(eq(operationalEvents.companyId, companyId))
+        .orderBy(desc(operationalEvents.createdAt))
+        .limit(6),
+    ]);
 
     if (options.json) {
-      console.log(JSON.stringify(recentDecisions, null, 2));
+      console.log(JSON.stringify({ decisions: recentDecisions, events: recentEvents }, null, 2));
       return;
     }
 
-    if (recentDecisions.length === 0) {
-      console.log(theme.dim("   (Aún no hay decisiones registradas en el feed)\n"));
-      return;
+    if (recentEvents.length > 0) {
+      console.log(`${theme.cyanBold("EVENTOS OPERATIVOS CAPTADOS POR EL CANAL DE ESCUCHA:")}`);
+      for (const ev of recentEvents.reverse()) {
+        const timeStr = formatCompanyDate(new Date(ev.createdAt), config.timezone, true);
+        const sevColor = ev.severity === "CRITICAL" ? "red" : ev.severity === "HIGH" ? "amber" : "cyan";
+        console.log(`  ${theme.dim(`[${timeStr}]`)} ${theme.badge(ev.eventType, sevColor)} ${theme.bold(ev.title)}`);
+        console.log(`      ${theme.dim(ev.description || "")}`);
+      }
+      console.log("");
     }
 
-    for (const d of recentDecisions.reverse()) {
-      const timeStr = formatCompanyDate(new Date(d.createdAt), config.timezone, true);
-      const badgeType =
-        d.policyDecision === "auto_executed"
-          ? "mint"
-          : d.policyDecision === "pending_approval"
-            ? "amber"
-            : "red";
+    if (recentDecisions.length > 0) {
+      console.log(`${theme.mintBold("DECISIONES FORMULADAS POR EL ORQUESTADOR MULTI-AGENTE:")}`);
+      for (const d of recentDecisions.reverse()) {
+        const timeStr = formatCompanyDate(new Date(d.createdAt), config.timezone, true);
+        const badgeType =
+          d.policyDecision === "auto_executed"
+            ? "mint"
+            : d.policyDecision === "pending_approval"
+              ? "amber"
+              : "red";
 
-      console.log(
-        `${theme.dim(`[${timeStr}]`)} ${theme.badge(d.policyDecision.toUpperCase(), badgeType)} ${theme.bold(d.title)}`,
-      );
-      console.log(
-        `   ${theme.dim("Agente:")} ${theme.cyanBold(d.proposingAgent)} │ ${theme.dim("Monto:")} $${Number(d.costMxn).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency} │ ${theme.dim("Razón:")} ${theme.muted(d.policyReason || "")}\n`,
-      );
+        console.log(
+          `  ${theme.dim(`[${timeStr}]`)} ${theme.badge(d.policyDecision.toUpperCase(), badgeType)} ${theme.bold(d.title)}`,
+        );
+        console.log(
+          `      ${theme.dim("Agente:")} ${theme.cyanBold(d.proposingAgent)} │ ${theme.dim("Monto:")} $${Number(d.costMxn).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency} │ ${theme.dim("Razón:")} ${theme.muted(d.policyReason || "")}`,
+        );
+      }
+      console.log("");
+    }
+
+    if (recentEvents.length === 0 && recentDecisions.length === 0) {
+      console.log(theme.dim("   (Aún no hay eventos ni decisiones registradas en el feed)\n"));
     }
   } catch (err: any) {
     console.error(theme.redBold(`[ERROR] Error en feed en vivo: ${err.message}`));

@@ -534,6 +534,47 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "consultar_memoria_obsidian",
+      description:
+        "Consulta y busca en las notas de memoria viva de Obsidian sincronizadas en la nube (Decisiones, Cuarentena, Preguntas pendientes y Auditoría diaria).",
+      parameters: {
+        type: "object",
+        properties: {
+          termino_busqueda: {
+            type: "string",
+            description:
+              "Palabra clave o concepto a buscar en la memoria viva (ej: 'stock', 'valvula', 'decision', 'proveedor')",
+          },
+        },
+        required: ["termino_busqueda"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "consultar_historial_decisiones",
+      description:
+        "Consulta el registro histórico de decisiones tomadas por MINT en la base de datos Supabase (compras, reasignaciones, cotizaciones, bloqueos y aprobaciones).",
+      parameters: {
+        type: "object",
+        properties: {
+          estado: {
+            type: "string",
+            enum: ["todas", "pending_approval", "approved", "rejected", "auto_executed", "blocked"],
+            description: "Filtrar por estado de la decisión (por defecto 'todas')",
+          },
+          limite: {
+            type: "number",
+            description: "Cantidad máxima de decisiones a recuperar (por defecto 5)",
+          },
+        },
+      },
+    },
+  },
 ];
 
 export async function dispatchToolCall(
@@ -864,6 +905,70 @@ export async function dispatchToolCall(
         isClosingAction: true,
         closingType: "escalado",
       };
+
+    case "consultar_memoria_obsidian": {
+      const { searchObsidianMemory, getVaultStats } = await import("../services/obsidianMemoryService");
+      const term = parsedArgs.termino_busqueda || "";
+      const [matches, stats] = await Promise.all([
+        searchObsidianMemory(term, effectiveCompanyId),
+        getVaultStats(effectiveCompanyId).catch(() => null),
+      ]);
+      return {
+        result: {
+          isSuccess: true,
+          termino: term,
+          totalCoincidencias: matches.length,
+          coincidencias: matches,
+          bovedaObsidian: stats
+            ? {
+                totalNotas: stats.totalNotas,
+                decisiones: stats.totalDecisiones,
+                cuarentena: stats.totalCuarentena,
+                preguntas: stats.totalPreguntas,
+              }
+            : undefined,
+          mensaje:
+            matches.length > 0
+              ? `Se encontraron ${matches.length} notas en Obsidian para '${term}'.`
+              : `No se encontraron notas en Obsidian para '${term}'.`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "consultar_historial_decisiones": {
+      const { desc, eq, and } = await import("drizzle-orm");
+      const limit = Math.min(Math.max(Number(parsedArgs.limite) || 5, 1), 20);
+      const estado = parsedArgs.estado || "todas";
+      const conditions: any[] = [eq(decisions.companyId, effectiveCompanyId)];
+      if (estado !== "todas") {
+        conditions.push(eq(decisions.policyDecision, estado as any));
+      }
+      const history = await db
+        .select({
+          id: decisions.id,
+          title: decisions.title,
+          actionType: decisions.actionType,
+          policyDecision: decisions.policyDecision,
+          costMxn: decisions.costMxn,
+          createdAt: decisions.createdAt,
+          policyReason: decisions.policyReason,
+        })
+        .from(decisions)
+        .where(and(...conditions))
+        .orderBy(desc(decisions.createdAt))
+        .limit(limit);
+
+      return {
+        result: {
+          isSuccess: true,
+          total: history.length,
+          filtroEstado: estado,
+          decisiones: history,
+        },
+        isClosingAction: false,
+      };
+    }
 
     default:
       return {

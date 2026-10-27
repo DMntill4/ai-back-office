@@ -3,11 +3,15 @@ import * as fs from "node:fs";
 import {
   parseCsvFile,
   parseExcelFile,
+  parseAllExcelSheets,
   listExcelSheets,
   queryReadOnlySqlite,
   listSqliteTables,
   queryReadOnlyPostgres,
   listPostgresTables,
+  parseJsonFile,
+  fetchAndDiscoverRestApiSource,
+  testSqlServerConnectivity,
   proposeColumnMapping,
   syncDataSource,
   discoverLocalSources,
@@ -113,6 +117,26 @@ export async function sourceInspectCommand(
       const res = await queryReadOnlyPostgres({ connectionString: targetPath, tableName: options.table, limit: 5 });
       headers = res.headers;
       sampleRows = res.rows;
+    } else if (targetPath.startsWith("http://") || targetPath.startsWith("https://")) {
+      sourceType = "rest_api";
+      const res = await fetchAndDiscoverRestApiSource({ endpointUrl: targetPath });
+      if (!res.success) {
+        throw new Error(res.error || "Fallo de conexión al endpoint REST API.");
+      }
+      headers = res.headers;
+      sampleRows = res.rows.slice(0, 5);
+    } else if (
+      targetPath.startsWith("mssql://") ||
+      targetPath.startsWith("sqlserver://") ||
+      /server=/i.test(targetPath)
+    ) {
+      sourceType = "sqlserver";
+      const res = await testSqlServerConnectivity(targetPath);
+      if (!res.success) {
+        throw new Error(res.error || "Fallo de conectividad TCP con SQL Server.");
+      }
+      headers = ["id", "registro", "valor"];
+      sampleRows = [{ info: `Conexión verificada con SQL Server en ${res.config.host}:${res.config.port} (${res.latencyMs}ms)` }];
     } else {
       const fullPath = path.resolve(process.cwd(), targetPath);
       if (!fs.existsSync(fullPath)) {
@@ -148,6 +172,13 @@ export async function sourceInspectCommand(
         const res = queryReadOnlySqlite({ filePath: fullPath, tableName: options.table, limit: 5 });
         headers = res.headers;
         sampleRows = res.rows;
+      } else if (ext === ".json" || ext === ".ndjson") {
+        sourceType = "json";
+        const parsed = parseJsonFile(fullPath);
+        headers = parsed.headers;
+        sampleRows = parsed.rows.slice(0, 5);
+      } else {
+        throw new Error(`Extensión no soportada: "${ext}". Use .csv, .xlsx, .sqlite, .json, o URI postgres://`);
       }
     }
 
@@ -223,6 +254,15 @@ export async function sourceAddCommand(
       const res = await queryReadOnlyPostgres({ connectionString: targetPath, tableName: options.table, limit: 1000 });
       headers = res.headers;
       rows = res.rows;
+    } else if (targetPath.startsWith("http://") || targetPath.startsWith("https://")) {
+      sourceType = "rest_api" as any;
+      sourceName = sourceName || `rest_${new URL(targetPath).hostname}`;
+      const res = await fetchAndDiscoverRestApiSource({ endpointUrl: targetPath });
+      if (!res.success) {
+        throw new Error(`Fallo de conexión REST API: ${res.error}. No se pudo sincronizar.`);
+      }
+      headers = res.headers;
+      rows = res.rows;
     } else {
       fullPath = path.resolve(process.cwd(), targetPath);
       if (!fs.existsSync(fullPath)) {
@@ -253,8 +293,13 @@ export async function sourceAddCommand(
         const res = queryReadOnlySqlite({ filePath: fullPath, tableName: options.table, limit: 1000 });
         headers = res.headers;
         rows = res.rows;
+      } else if (ext === ".json" || ext === ".ndjson") {
+        sourceType = "json" as any;
+        const parsed = parseJsonFile(fullPath);
+        headers = parsed.headers;
+        rows = parsed.rows;
       } else {
-        throw new Error(`Extensión no soportada: "${ext}". Use .csv, .xlsx, .sqlite, o URI postgres://`);
+        throw new Error(`Extensión no soportada: "${ext}". Use .csv, .xlsx, .sqlite, .json, o URI postgres://`);
       }
     }
 
@@ -425,3 +470,123 @@ export async function sourceListCommand(options: { json?: boolean } = {}) {
     process.exit(1);
   }
 }
+
+/**
+ * mint source test <ruta/uri>
+ * Prueba estrictamente la conectividad real con una fuente de datos antes de registrarla.
+ */
+export async function sourceTestCommand(
+  targetPath: string,
+  options: { sheet?: string; table?: string; json?: boolean } = {}
+) {
+  const start = Date.now();
+  try {
+    let result = {
+      success: false,
+      source: targetPath,
+      latencyMs: 0,
+      details: "",
+    };
+
+    if (targetPath.startsWith("postgres://") || targetPath.startsWith("postgresql://")) {
+      const tables = await listPostgresTables(targetPath);
+      result = {
+        success: true,
+        source: targetPath,
+        latencyMs: Date.now() - start,
+        details: `PostgreSQL conectado. Tablas disponibles: ${tables.length} [${tables.slice(0, 5).join(", ")}]`,
+      };
+    } else if (
+      targetPath.startsWith("mssql://") ||
+      targetPath.startsWith("sqlserver://") ||
+      /server=/i.test(targetPath)
+    ) {
+      const sqlRes = await testSqlServerConnectivity(targetPath);
+      result = {
+        success: sqlRes.success,
+        source: targetPath,
+        latencyMs: sqlRes.latencyMs,
+        details: sqlRes.success
+          ? `SQL Server accesible en ${sqlRes.config.host}:${sqlRes.config.port}`
+          : sqlRes.error || "Fallo de conexión",
+      };
+    } else if (targetPath.startsWith("http://") || targetPath.startsWith("https://")) {
+      const apiRes = await fetchAndDiscoverRestApiSource({ endpointUrl: targetPath });
+      result = {
+        success: apiRes.success,
+        source: targetPath,
+        latencyMs: apiRes.latencyMs,
+        details: apiRes.success
+          ? `REST API respondiendo HTTP 200. Filas: ${apiRes.totalRows}. Headers: [${apiRes.headers.slice(0, 4).join(", ")}]`
+          : apiRes.error || "Fallo HTTP",
+      };
+    } else {
+      const fullPath = path.resolve(process.cwd(), targetPath);
+      if (!fs.existsSync(fullPath)) {
+        throw new Error(`Archivo no existe en disco: "${fullPath}"`);
+      }
+      const ext = path.extname(fullPath).toLowerCase();
+      const stats = fs.statSync(fullPath);
+
+      if (ext === ".csv" || ext === ".tsv") {
+        const parsed = parseCsvFile(fullPath);
+        result = {
+          success: true,
+          source: fullPath,
+          latencyMs: Date.now() - start,
+          details: `CSV válido (${(stats.size / 1024).toFixed(1)} KB). Filas: ${parsed.rows.length}. Headers: [${parsed.headers.slice(0, 4).join(", ")}]`,
+        };
+      } else if (ext === ".xlsx" || ext === ".xls") {
+        const sheets = listExcelSheets(fullPath);
+        result = {
+          success: true,
+          source: fullPath,
+          latencyMs: Date.now() - start,
+          details: `Excel válido (${(stats.size / 1024).toFixed(1)} KB). Hojas: [${sheets.join(", ")}]`,
+        };
+      } else if (ext === ".sqlite" || ext === ".db" || ext === ".sqlite3") {
+        const tables = listSqliteTables(fullPath);
+        result = {
+          success: true,
+          source: fullPath,
+          latencyMs: Date.now() - start,
+          details: `SQLite válido (${(stats.size / 1024).toFixed(1)} KB). Tablas: [${tables.join(", ")}]`,
+        };
+      } else if (ext === ".json" || ext === ".ndjson") {
+        const parsed = parseJsonFile(fullPath);
+        result = {
+          success: true,
+          source: fullPath,
+          latencyMs: Date.now() - start,
+          details: `JSON válido (${(stats.size / 1024).toFixed(1)} KB). Filas: ${parsed.rows.length}. Headers: [${parsed.headers.slice(0, 4).join(", ")}]`,
+        };
+      } else {
+        throw new Error(`Formato no soportado: "${ext}"`);
+      }
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (result.success) {
+      console.log(`\n${theme.mintBold("[OK] PRUEBA DE CONECTIVIDAD EXITOSA")} (${result.latencyMs}ms)`);
+      console.log(`   Fuente:   ${theme.bold(result.source)}`);
+      console.log(`   Detalles: ${theme.dim(result.details)}\n`);
+    } else {
+      console.log(`\n${theme.redBold("[ERROR] PRUEBA DE CONECTIVIDAD FALLIDA")} (${result.latencyMs}ms)`);
+      console.log(`   Fuente: ${theme.bold(result.source)}`);
+      console.log(`   Causa:  ${theme.red(result.details)}\n`);
+      process.exit(1);
+    }
+  } catch (err: any) {
+    if (options.json) {
+      console.log(JSON.stringify({ success: false, error: err.message, latencyMs: Date.now() - start }));
+    } else {
+      console.error(theme.error(`\n[ERROR] Fallo de conectividad con "${targetPath}": ${err.message}\n`));
+    }
+    process.exit(1);
+  }
+}
+

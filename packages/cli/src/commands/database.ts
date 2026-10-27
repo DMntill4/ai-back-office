@@ -55,6 +55,54 @@ export async function databaseCommand(args: string[] = []) {
     return;
   }
 
+  if (sub === "query" || sub === "sql") {
+    const rawQuery = args.slice(1).filter((a) => a !== "--force").join(" ");
+    if (!rawQuery) {
+      console.log(theme.amber("\n  Especifica la consulta SQL a ejecutar. Ej: /db sql SELECT * FROM products LIMIT 5;\n"));
+      return;
+    }
+    const { executeSafeSqlQuery } = await import("@mint/core");
+    const res = await executeSafeSqlQuery({
+      companyId,
+      sqlQuery: rawQuery,
+      userRole: session?.role,
+      userName: session?.name || session?.email,
+      confirmed: args.includes("--force"),
+    });
+
+    if (!res.success) {
+      if (res.requiresConfirmation) {
+        console.log(theme.redBold(`\n${res.destructiveWarning}`));
+        console.log(theme.dim("  Para forzar la ejecución: /db sql <query> --force\n"));
+      } else {
+        console.error(theme.redBold(`\n[ERROR] ${res.message}\n`));
+      }
+      return;
+    }
+
+    if (res.isReadOnly) {
+      console.log(`\n${theme.mintBold("[OK] CONSULTA SQL (SOLO LECTURA)")} (${res.latencyMs}ms, ${res.rowCount} filas)`);
+      if (res.rows.length === 0) {
+        console.log(theme.dim("  (0 filas devueltas)\n"));
+        return;
+      }
+      console.log("─".repeat(85));
+      console.log(res.headers.map((h) => h.toUpperCase().padEnd(16)).join(" "));
+      console.log("─".repeat(85));
+      for (const row of res.rows.slice(0, 20)) {
+        console.log(res.headers.map((h) => String(row[h] ?? "").slice(0, 14).padEnd(16)).join(" "));
+      }
+      if (res.rows.length > 20) {
+        console.log(theme.dim(`\n  ... y ${res.rows.length - 20} filas más.`));
+      }
+      console.log("");
+    } else {
+      console.log(`\n${theme.mintBold("[OK] ESCRITURA TRANSACCIONAL EJECUTADA")} (${res.latencyMs}ms)`);
+      console.log(`  ${res.message}\n`);
+    }
+    return;
+  }
+
   // Interactive menu
   console.log("\n" + drawDivider(`GESTION DE BASE DE DATOS Y CATALOGO [${companyId}]`, 84));
   console.log(`  ${theme.bold("Selecciona una opcion:")}`);

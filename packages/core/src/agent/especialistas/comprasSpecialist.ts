@@ -7,6 +7,9 @@ import { calculateRealRoute } from "../../services/routeCalculator";
 import { addPendingQuestion } from "../../services/pendingQuestionsService";
 import { getCompanyConfig } from "../../services/configService";
 
+// Cache en memoria para evitar tormentas de peticiones HTTP a OSRM/geocodificacion
+const routeCalcCache = new Map<string, { freightCostMxn: number; distanceKm: number; expiresAt: number }>();
+
 export interface SupplierOption {
   supplierId: string;
   supplierName: string;
@@ -47,6 +50,7 @@ export async function analyzePurchasingOptions(
   companyId: string = "comp_default",
   isUrgent: boolean = false,
   requesterUserId: string = "agent_compras",
+  force: boolean = false,
 ): Promise<PurchasingProposal | null> {
   const config = await getCompanyConfig(companyId);
 
@@ -108,20 +112,22 @@ export async function analyzePurchasingOptions(
   }
 
   // 3. Verificar si ya existe una propuesta abierta (en borrador o pendiente de aprobación) para este producto
-  const existingPending = await db
-    .select()
-    .from(decisions)
-    .where(
-      and(
-        eq(decisions.companyId, companyId),
-        eq(decisions.policyDecision, "pending_approval"),
-        eq(decisions.actionType, "crear_orden_compra"),
-      ),
-    );
+  if (!force) {
+    const existingPending = await db
+      .select()
+      .from(decisions)
+      .where(
+        and(
+          eq(decisions.companyId, companyId),
+          eq(decisions.policyDecision, "pending_approval"),
+          eq(decisions.actionType, "crear_orden_compra"),
+        ),
+      );
 
-  const alreadyOpen = existingPending.find((d) => (d.evidencePayload as any)?.productId === productId);
-  if (alreadyOpen) {
-    return null; // Regla: Una sola solicitud abierta por producto y proveedor
+    const alreadyOpen = existingPending.find((d) => (d.evidencePayload as any)?.productId === productId);
+    if (alreadyOpen) {
+      return null; // Regla: Una sola solicitud abierta por producto y proveedor
+    }
   }
 
   // 4. Evaluar opciones y estabilidad de precio
@@ -173,19 +179,31 @@ export async function analyzePurchasingOptions(
     let distanceKm = 0;
 
     if (destGeo) {
-      const origGeo = await resolveNodeGeoPoint({
-        latitude: opt.supplierLat,
-        longitude: opt.supplierLon,
-        city: opt.supplierCity,
-        location: opt.supplierLocation,
-        name: opt.supplierName,
-      }).catch(() => null);
+      const cacheKey = `${opt.supplierId || opt.supplierName}->${destGeo.latitude},${destGeo.longitude}`;
+      const cached = routeCalcCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        freightCostMxn = cached.freightCostMxn;
+        distanceKm = cached.distanceKm;
+      } else {
+        const origGeo = await resolveNodeGeoPoint({
+          latitude: opt.supplierLat,
+          longitude: opt.supplierLon,
+          city: opt.supplierCity,
+          location: opt.supplierLocation,
+          name: opt.supplierName,
+        }).catch(() => null);
 
-      if (origGeo) {
-        const route = await calculateRealRoute(origGeo, destGeo).catch(() => null);
-        if (route) {
-          freightCostMxn = route.estimatedFreightCostMxn ?? 0;
-          distanceKm = route.distanceKm;
+        if (origGeo) {
+          const route = await calculateRealRoute(origGeo, destGeo).catch(() => null);
+          if (route) {
+            freightCostMxn = route.estimatedFreightCostMxn ?? 0;
+            distanceKm = route.distanceKm;
+            routeCalcCache.set(cacheKey, {
+              freightCostMxn,
+              distanceKm,
+              expiresAt: Date.now() + 10 * 60 * 1000,
+            });
+          }
         }
       }
     }

@@ -268,7 +268,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
 
   // 1. Compra autónoma bajo umbral
   if (maxAllowedAmount !== null && totalAmount <= maxAllowedAmount) {
-    const orderId = `po_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const orderId = `po_${randomUUID().slice(0, 8)}`;
     const [order] = await db
       .insert(purchaseOrders)
       .values({
@@ -328,7 +328,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     maxAllowedAmount === null
       ? "No hay limite de aprobacion configurado; se requiere aprobacion humana."
       : `Excede limite autonomo de $${maxAllowedAmount.toFixed(2)} ${currency}.`;
-  const approvalId = `appr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const approvalId = `appr_${randomUUID().slice(0, 8)}`;
   await db.insert(approvals).values({
     id: approvalId,
     companyId: effectiveCompanyId,

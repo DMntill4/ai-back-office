@@ -254,14 +254,18 @@ program
     return settingsCommand();
   });
 
-// 20. mint orders
+// 20. mint orders -> Redirigido a propuestas de recomendacion en inbox
 program
   .command("orders")
-  .description("Consulta las órdenes de compra emitidas a proveedores homologados")
+  .description("Consulta las propuestas y recomendaciones de reabastecimiento en el Inbox")
   .option("--json", "Salida en formato JSON")
   .action((options) => {
-    const { ordersCommand } = require("./commands/stock");
-    return ordersCommand(options);
+    if (!options.json) {
+      console.log(theme.dim("\n[AVISO] MINT no emite órdenes ni contacta directamente a proveedores."));
+      console.log(theme.mint("Mostrando propuestas de recomendación de reabastecimiento en el Inbox:\n"));
+    }
+    const { inboxCommand } = require("./commands/inbox");
+    return inboxCommand("list", undefined, options);
   });
 
 // 21. mint inbox
@@ -316,6 +320,27 @@ program
     return quarantineCommand([action, id].filter(Boolean));
   });
 
+// mint feed / live
+program
+  .command("feed")
+  .alias("live")
+  .description("Canal de escucha reactivo: Live feed de eventos y decisiones autónomas en tiempo real")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { watchCommand } = require("./commands/daemon");
+    return watchCommand(options);
+  });
+
+// mint agents [action]
+program
+  .command("agents [action]")
+  .alias("agentes")
+  .description("Panel de control y ejecución de orquestación de los 4 subagentes especialistas")
+  .action((action) => {
+    const { agentsCommand } = require("./commands/agents");
+    return agentsCommand(action);
+  });
+
 // 26. mint shadow [action] [days]
 program
   .command("shadow [action] [days]")
@@ -337,9 +362,10 @@ program
 // 28. mint reconcile
 program
   .command("reconcile")
+  .alias("conciliar")
   .description("Conciliación de 3 vías: ventas vs cobros vs despachos")
   .action(() => {
-    const { reconcileCommand } = require("./commands/briefing");
+    const { reconcileCommand } = require("./commands/reconcile");
     return reconcileCommand();
   });
 
@@ -361,6 +387,85 @@ program
   .action((action, target, options) => {
     const { memoryCommand } = require("./commands/memory");
     return memoryCommand(action, target, options);
+  });
+
+// 31. mint source [subcommand] [target]
+program
+  .command("source [subcommand] [target]")
+  .description("Gestión e ingestión de fuentes de datos (discover, inspect, add, status, list, test)")
+  .option("--sheet <sheet>", "Nombre de hoja de Excel")
+  .option("--table <table>", "Nombre de tabla SQLite o PostgreSQL")
+  .option("--name <name>", "Nombre personalizado para la fuente")
+  .option("--force", "Aceptar cambio de esquema (drift)")
+  .option("--json", "Salida en formato JSON")
+  .action((subcommand, target, options) => {
+    const {
+      sourceDiscoverCommand,
+      sourceInspectCommand,
+      sourceAddCommand,
+      sourceStatusCommand,
+      sourceListCommand,
+      sourceTestCommand,
+    } = require("./commands/source");
+
+    const sub = (subcommand || "list").toLowerCase();
+    if (sub === "discover") return sourceDiscoverCommand(target, options);
+    if (sub === "inspect") return sourceInspectCommand(target, options);
+    if (sub === "add") return sourceAddCommand(target, options);
+    if (sub === "status") return sourceStatusCommand(options);
+    if (sub === "test") return sourceTestCommand(target, options);
+    return sourceListCommand(options);
+  });
+
+// 32. mint demo [action]
+program
+  .command("demo [action]")
+  .description("Modo demo sandbox con datos aislados de prueba (enter, exit)")
+  .option("--json", "Salida en formato JSON")
+  .action((action, options) => {
+    const { demoCommand } = require("./commands/demo");
+    return demoCommand(action, options);
+  });
+
+// 33. mint selftest
+program
+  .command("selftest")
+  .description("Verificación y aserción de producción: BD, memoria, canales, roles y agentes [OK/ERROR]")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { selftestCommand } = require("./commands/selftest");
+    return selftestCommand(options);
+  });
+
+// 34. mint audit
+program
+  .command("audit")
+  .alias("auditoria")
+  .description("Canal de auditoría inmutable de eventos y decisiones operativas")
+  .option("--limit <number>", "Límite de registros a mostrar", "50")
+  .option("--user <name>", "Filtrar por usuario o actor")
+  .option("--date <YYYY-MM-DD>", "Filtrar por fecha específica")
+  .option("--module <module>", "Filtrar por módulo (stock, ventas, logistica, compras, config)")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { auditCommand } = require("./commands/audit");
+    return auditCommand({
+      limit: parseInt(options.limit, 10) || 50,
+      user: options.user,
+      date: options.date,
+      module: options.module,
+      json: options.json,
+    });
+  });
+
+// 35. mint customers
+program
+  .command("customers")
+  .alias("clientes")
+  .description("Cartera de clientes, clientes en riesgo de abandono y top de mayor valor")
+  .action(() => {
+    const { customersCommand } = require("./commands/customers");
+    return customersCommand();
   });
 
 export function runCli(argv = process.argv) {

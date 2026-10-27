@@ -264,6 +264,21 @@ export async function saveConfirmedTableMapping(input: {
 }): Promise<void> {
   const id = `map_${input.companyId}_${input.sourceTable}`;
 
+  try {
+    const { companies } = await import("../db/schema/business");
+    await db
+      .insert(companies)
+      .values({
+        id: input.companyId,
+        name: input.companyId,
+        country: "Internacional",
+        currency: "USD",
+      })
+      .onConflictDoNothing();
+  } catch {
+    // Continuar si ya existe
+  }
+
   const existing = await db
     .select()
     .from(mintTableMappings)

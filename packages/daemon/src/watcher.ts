@@ -90,6 +90,7 @@ export async function processFileChange(
       importedRows: importSummary.importedRows,
       failedRows: importSummary.failedRows,
     },
+    force: true,
   });
 
   return {

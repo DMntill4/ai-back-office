@@ -497,3 +497,137 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 `;
 }
+
+/**
+ * Envía o genera un código de verificación de correo de 6 dígitos.
+ */
+export async function sendEmailVerificationCode(
+  companyId: string,
+  email: string,
+): Promise<{ success: boolean; code: string; message: string; expiresAt: Date }> {
+  const normEmail = email.toLowerCase().trim();
+  const code = Math.floor(100000 + (parseInt(randomUUID().slice(0, 4), 16) % 900000)).toString();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+
+  const payload = JSON.stringify({
+    code,
+    expiresAt: expiresAt.toISOString(),
+    verified: false,
+  });
+
+  await db
+    .insert(businessConfig)
+    .values({
+      companyId,
+      key: `email_verification_${normEmail}`,
+      value: payload,
+      currency: "USD",
+      description: `Código de verificación para ${normEmail}`,
+    })
+    .onConflictDoUpdate({
+      target: [businessConfig.companyId, businessConfig.key],
+      set: {
+        value: payload,
+        updatedAt: new Date(),
+      },
+    });
+
+  return {
+    success: true,
+    code,
+    expiresAt,
+    message: `Código de verificación generado para ${normEmail}. Expira en 15 minutos.`,
+  };
+}
+
+/**
+ * Valida el código de verificación ingresado por el usuario.
+ */
+export async function verifyEmailCode(
+  companyId: string,
+  email: string,
+  inputCode: string,
+): Promise<{ success: boolean; message: string }> {
+  const normEmail = email.toLowerCase().trim();
+  const key = `email_verification_${normEmail}`;
+
+  const [record] = await db
+    .select()
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, key)))
+    .limit(1);
+
+  if (!record || !record.value) {
+    return {
+      success: false,
+      message: `No se encontró solicitud de verificación pendiente para '${normEmail}'.`,
+    };
+  }
+
+  try {
+    const data = JSON.parse(record.value);
+    if (new Date() > new Date(data.expiresAt)) {
+      return {
+        success: false,
+        message: "El código de verificación ha expirado. Solicita un nuevo código.",
+      };
+    }
+
+    if (data.code !== inputCode.trim()) {
+      return {
+        success: false,
+        message: "Código de verificación incorrecto.",
+      };
+    }
+
+    data.verified = true;
+    data.verifiedAt = new Date().toISOString();
+
+    await db
+      .update(businessConfig)
+      .set({
+        value: JSON.stringify(data),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, key)));
+
+    await db
+      .update(users)
+      .set({ setupCompleted: true })
+      .where(and(eq(users.companyId, companyId), eq(users.email, normEmail)));
+
+    return {
+      success: true,
+      message: `Correo '${normEmail}' verificado exitosamente. Cuenta habilitada para alertas oficiales.`,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Error al procesar verificación: ${err.message}`,
+    };
+  }
+}
+
+/**
+ * Comprueba si un correo está verificado
+ */
+export async function isEmailVerified(companyId: string, email: string): Promise<boolean> {
+  const normEmail = email.toLowerCase().trim();
+  const key = `email_verification_${normEmail}`;
+
+  const [record] = await db
+    .select()
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, key)))
+    .limit(1);
+
+  if (!record || !record.value) return false;
+
+  try {
+    const data = JSON.parse(record.value);
+    return Boolean(data.verified);
+  } catch {
+    return false;
+  }
+}
+

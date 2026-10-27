@@ -4,7 +4,7 @@ import { executeAjustarStock } from "@mint/core";
 import { runBackOfficeHarness, type HarnessExecutionResult } from "@mint/core";
 import { dispatchDecisionNotification } from "./channelManager";
 import { type ChannelType } from "./types";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 
 export interface IncomingSaleEvent {
   messageId?: string; // ID del mensaje original del canal (Telegram, Discord, Slack o Webhook)
@@ -199,7 +199,7 @@ export async function processIncomingSale(event: IncomingSaleEvent): Promise<Sal
   }
 
   const product = found[0];
-  const saleId = `sale_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const saleId = `sale_${randomUUID().slice(0, 8)}`;
   const customerName = event.customerName || event.senderName || "Cliente Web Final";
   const shippingAddress = event.shippingAddress || "Entrega en domicilio registrado del cliente";
   const paymentStatus = event.paymentStatus || "paid";

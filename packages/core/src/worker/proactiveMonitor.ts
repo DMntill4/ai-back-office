@@ -1,4 +1,5 @@
 import { EventEmitter as NodeEventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
 
 export interface ProactiveAlert {
   id: string;
@@ -37,7 +38,7 @@ export async function runProactiveAuditCycle(): Promise<ProactiveAlert[]> {
         if (item.categoria === "SISTEMA_SALUDABLE") continue;
 
         const alert: ProactiveAlert = {
-          id: `alt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          id: `alt_${randomUUID().slice(0, 8)}`,
           type: item.categoria === "DESCALCE_STOCK" ? "STOCK_CRITICO" : "PROVEEEDOR_ANOMALIA",
           severity: item.gravedad === "CRÍTICA" ? "CRITICAL" : item.gravedad === "ALTA" ? "HIGH" : "MEDIUM",
           title: `Alerta Logística: ${item.entidad}`,
@@ -56,7 +57,7 @@ export async function runProactiveAuditCycle(): Promise<ProactiveAlert[]> {
       for (const foodItem of expiryRes.data) {
         const food = foodItem as any;
         const alert: ProactiveAlert = {
-          id: `alt_exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          id: `alt_exp_${randomUUID().slice(0, 8)}`,
           type: "CADUCIDAD_PROXIMA",
           severity: food.dias_restantes <= 2 ? "CRITICAL" : "HIGH",
           title: `Alerta de Caducidad: ${food.nombre}`,
@@ -113,7 +114,7 @@ export async function triggerStockAlertIfLow(
   if (currentStock >= minStock) return null;
 
   const alert: ProactiveAlert = {
-    id: `alt_stock_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    id: `alt_stock_${randomUUID().slice(0, 8)}`,
     type: "STOCK_CRITICO",
     severity: currentStock === 0 ? "CRITICAL" : "HIGH",
     title: `¡Desabasto Crítico en Tiempo Real! (${productId})`,

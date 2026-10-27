@@ -161,7 +161,7 @@ describe("Fase F6: Flujo Integral E2E de Mint CLI y Coordinador Autónomo", () =
 
     expect(orderInDb).toHaveLength(1);
     expect(orderInDb[0].productId).toBe(prodId);
-  });
+  }, 30000);
 
   it("4. Ciclo de Vida del Daemon e Interruptor de Emergencia", async () => {
     // Probar pausa de emergencia

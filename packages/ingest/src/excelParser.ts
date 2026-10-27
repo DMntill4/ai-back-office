@@ -70,3 +70,11 @@ export function parseExcelFile(filePath: string, sheetName?: string): ParsedExce
     totalRows: rows.length,
   };
 }
+
+/**
+ * Parsea todas las hojas de un archivo Excel a colecciones tabulares independientes
+ */
+export function parseAllExcelSheets(filePath: string): ParsedExcelSheet[] {
+  const sheets = listExcelSheets(filePath);
+  return sheets.map((name) => parseExcelFile(filePath, name));
+}

@@ -108,7 +108,10 @@ export async function coordinateOperationalEvent(params: {
   const matchingRebalance = rebalancingProposals.find((r) => r.productId === targetProductId);
 
   // 3. Determinar necesidad de aprovisionamiento
-  const isUrgent = invAnalysis.daysCoverage < 3 || transportAnalysis.hasDelayedShipment;
+  const isUrgent =
+    invAnalysis.currentStock === 0 ||
+    (invAnalysis.daysCoverage !== null && invAnalysis.daysCoverage < 3) ||
+    transportAnalysis.hasDelayedShipment;
   const targetQuantity = Math.max(invAnalysis.deficit, 10);
 
   // 3.1 Verificar modelo de negocio: Si es 'Solo Tienda', silenciar proveedores y compras
@@ -142,6 +145,8 @@ export async function coordinateOperationalEvent(params: {
     targetQuantity,
     companyId,
     isUrgent,
+    "agent_compras",
+    params.force,
   );
 
   if (!purchasingAnalysis) {
@@ -186,8 +191,8 @@ export async function coordinateOperationalEvent(params: {
       currentStock: invAnalysis.currentStock,
       minStock: invAnalysis.minStock,
       deficit: invAnalysis.deficit,
-      burnRate: invAnalysis.burnRate,
-      daysCoverage: invAnalysis.daysCoverage,
+      burnRate: invAnalysis.burnRate ?? undefined,
+      daysCoverage: invAnalysis.daysCoverage ?? undefined,
       supplierId: recommendedOption.supplierId,
       supplierName: recommendedOption.supplierName,
       unitPrice: recommendedOption.unitPrice,

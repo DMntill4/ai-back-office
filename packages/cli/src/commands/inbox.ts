@@ -161,8 +161,25 @@ export async function inboxCommand(
         console.log(JSON.stringify(res));
       } else {
         if (res.success) {
-          console.log(`\n  [OK] Decisión ${theme.bold(targetId)} ${theme.mintBold("APROBADA")}.`);
-          console.log(`  ${res.message}\n`);
+          const { dispatchDecisionNotification } = await import("@mint/notifiers");
+          const channelRes = await dispatchDecisionNotification(targetId, companyId).catch(() => []);
+
+          const anySuccess = channelRes.some((r: any) => r.success);
+          if (anySuccess) {
+            await db
+              .update(decisions)
+              .set({ policyDecision: "approved", feedback: "Aprobada y enviada exitosamente a los canales de mensajería (HTTP 200)." })
+              .where(eq(decisions.id, targetId));
+            console.log(`\n  [OK] Propuesta ${theme.bold(targetId)} ${theme.mintBold("APROBADA Y ENVIADA")} al canal configurado (HTTP 200).`);
+            console.log(`  ${theme.dim("El comprador puede proceder con la orden fuera de MINT.")}\n`);
+          } else {
+            await db
+              .update(decisions)
+              .set({ policyDecision: "approved", feedback: "Aprobada en base de datos. Sin canal activo para envío externo." })
+              .where(eq(decisions.id, targetId));
+            console.log(`\n  [OK] Propuesta ${theme.bold(targetId)} ${theme.mintBold("APROBADA EN BASE DE DATOS")}.`);
+            console.log(theme.amber(`  [AVISO] No hay canales activos configurados. La recomendación permanece en la bandeja hasta configurar uno con /channels add.\n`));
+          }
         } else {
           console.error(theme.redBold(`  [ERROR] Falló la aprobación: ${res.message}`));
         }
@@ -198,6 +215,35 @@ export async function inboxCommand(
         console.log(JSON.stringify({ success: true, message: `Decisión ${targetId} cancelada exitosamente.` }));
       } else {
         console.log(`\n  ${theme.mintBold("[OK]")} Decisión ${theme.bold(targetId)} ${theme.amberBold("CANCELADA")} antes de ejecutarse.\n`);
+      }
+      return;
+    } catch (err: any) {
+      if (options.json) {
+        console.log(JSON.stringify({ success: false, error: err.message }));
+      } else {
+        console.error(theme.redBold(`  [ERROR] ${err.message}`));
+      }
+      return;
+    }
+  }
+
+  // 1.2 Posponer / Snooze
+  if ((action === "snooze" || action === "posponer") && targetId) {
+    try {
+      const hours = 24;
+      const newExpiresAt = new Date(Date.now() + hours * 3600 * 1000);
+      await db
+        .update(decisions)
+        .set({
+          expiresAt: newExpiresAt,
+          feedback: `Pospuesta por ${hours}h por ${session?.name || "usuario"}.`,
+        })
+        .where(eq(decisions.id, targetId));
+
+      if (options.json) {
+        console.log(JSON.stringify({ success: true, message: `Decisión ${targetId} pospuesta 24h.` }));
+      } else {
+        console.log(`\n  ${theme.mintBold("[OK]")} Decisión ${theme.bold(targetId)} ${theme.cyanBold("POSPUESTA")} por 24 horas.\n`);
       }
       return;
     } catch (err: any) {

@@ -462,8 +462,53 @@ export async function exportReportToPdf(
 }
 
 /**
+ * 6. Genera datos para el informe exportable de salud de datos y cuarentena (E3.3)
+ */
+export async function generateDataHealthReportData(
+  companyId: string = "comp_default",
+): Promise<{
+  headers: string[];
+  rows: (string | number)[][];
+  summary: {
+    overallHealth: string;
+    averageScorePercent: number;
+    quarantinedCount: number;
+  };
+}> {
+  const { auditDataHealth } = await import("./dataHealthService");
+  const health = await auditDataHealth(companyId);
+
+  const headers = [
+    "MODULO",
+    "NIVEL_CONFIANZA",
+    "PUNTAJE_CALIDAD",
+    "TOTAL_AUDITADOS",
+    "REGISTROS_CORRUPTOS",
+    "ACCION_RECOMENDADA",
+  ];
+
+  const rows: (string | number)[][] = Object.values(health.modules).map((m: any) => [
+    String(m.module).toUpperCase(),
+    String(m.confidenceLevel),
+    `${m.scorePercent}%`,
+    m.totalRecordsAudited,
+    m.corruptRecordsCount,
+    (m.suggestedFixes || []).join(" | ") || "Sin acciones requeridas",
+  ]);
+
+  return {
+    headers,
+    rows,
+    summary: {
+      overallHealth: health.overallHealth,
+      averageScorePercent: health.averageScorePercent,
+      quarantinedCount: health.quarantinedTotal,
+    },
+  };
+}
+
+/**
  * 7. Exporta cualquier conjunto de datos a un archivo CSV estructurado con BOM UTF-8
- * 5. Exporta cualquier conjunto de datos a un archivo CSV estructurado con BOM UTF-8
  */
 export async function exportReportToCsv(
   filenamePrefix: string,

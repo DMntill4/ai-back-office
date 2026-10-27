@@ -130,6 +130,7 @@ describe("Fase F3: Multi-Agente + Motor de Políticas en modo dry-run", () => {
       title: "Riesgo de desabasto: Envío retrasado de Sensores PT-100",
       description: `La guía ${trackingNumber} presenta demora crítica y el inventario actual (3u) está bajo el mínimo (20u).`,
       autonomyLevel: "dry-run",
+      force: true,
     });
 
     expect(result.success).toBe(true);

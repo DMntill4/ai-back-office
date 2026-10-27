@@ -87,8 +87,28 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
       }
       customBlock += `\n- Asistente: ${botName} (Tono: ${botTone})`;
       customBlock += `\n- Gobernanza: HUMAN-IN-THE-LOOP 100%. CERO compras automáticas unilaterales.`;
-      if (customRules) customBlock += `\nDirectivas adicionales de gobernanza:\n${customRules}`;
-      customBlock += `\nIMPORTANTE: Los productos cargados provienen de la base de datos real del cliente. Muestra siempre fidelidad a esos datos y CERO datos inventados ni simulados.`;
+      try {
+        const { decisions } = await import("../db/schema");
+        const { desc } = await import("drizzle-orm");
+        const recentDecs = await db
+          .select({
+            id: decisions.id,
+            title: decisions.title,
+            actionType: decisions.actionType,
+            policyDecision: decisions.policyDecision,
+            costMxn: decisions.costMxn,
+          })
+          .from(decisions)
+          .where(eq(decisions.companyId, companyId))
+          .orderBy(desc(decisions.createdAt))
+          .limit(4);
+
+        if (recentDecs.length > 0) {
+          customBlock += `\n- Memoria de Decisiones Recientes en Supabase:\n` + recentDecs.map((d) => `  * [${d.id}] ${d.title} (Acción: ${d.actionType}, Estado: ${d.policyDecision}, Costo: $${d.costMxn})`).join("\n");
+        }
+      } catch {
+        // Fallback si falla decisions
+      }
 
       prompt += customBlock;
     } catch {
@@ -161,28 +181,39 @@ export async function runAgentLoop(
   const companyId = caseRecord?.companyId || "comp_default";
   const systemPrompt = await loadSystemPrompt(companyId);
 
-  // 3.1 Cargar memoria conversacional previa de la empresa (últimos diálogos)
+  // 3.1 Cargar memoria conversacional previa de la empresa (últimos diálogos reales)
   const previousDialogues: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
   try {
-    const { ne, desc, and } = await import("drizzle-orm");
-    const prevCases = await db
+    const { ne, desc, and, like } = await import("drizzle-orm");
+    // Priorizar casos conversacionales que empiezan por chat_
+    let prevCases = await db
       .select()
       .from(cases)
-      .where(and(eq(cases.companyId, companyId), ne(cases.id, caseId)))
+      .where(and(eq(cases.companyId, companyId), ne(cases.id, caseId), like(cases.id, "chat_%")))
       .orderBy(desc(cases.createdAt))
-      .limit(3);
+      .limit(4);
+
+    // Si no hay casos con prefijo chat_, usar los últimos casos con resumen no vacío
+    if (prevCases.length === 0) {
+      prevCases = await db
+        .select()
+        .from(cases)
+        .where(and(eq(cases.companyId, companyId), ne(cases.id, caseId)))
+        .orderBy(desc(cases.createdAt))
+        .limit(2);
+    }
 
     for (const prev of prevCases.reverse()) {
       if (prev.description) {
         previousDialogues.push({
           role: "user",
-          content: prev.description.slice(0, 200),
+          content: prev.description.slice(0, 300),
         });
       }
       if (prev.resultSummary) {
         previousDialogues.push({
           role: "assistant",
-          content: prev.resultSummary.slice(0, 250) + "...",
+          content: prev.resultSummary.slice(0, 400),
         });
       }
     }
@@ -332,7 +363,27 @@ Instrucciones de ejecución:
           }
         }
 
-        // Registrar ejecución en la bitácora
+        // Registrar ejecución en la tabla formal de herramientas tool_calls y en la bitácora
+        try {
+          const { toolCalls } = await import("../db/schema");
+          const inputArgsObj = typeof toolArgs === "object" ? toolArgs : (typeof toolArgs === "string" ? JSON.parse(toolArgs || "{}") : {});
+          await db.insert(toolCalls).values({
+            id: `tc_${randomUUID().slice(0, 12)}`,
+            caseId,
+            toolName,
+            inputArgs: inputArgsObj,
+            outputResult: result,
+            isSuccess: Boolean(result?.isSuccess ?? true),
+            errorMessage: result?.errorMessage || (result?.isSuccess === false ? result?.message : null),
+            verified: Boolean(result?.verified ?? false),
+            verificationDetails: result?.verificationDetails || result?.message || null,
+            durationMs: 0,
+          });
+        } catch {
+          // No detener loop si falla log de tool_calls
+        }
+
+        // Registrar ejecución en la bitácora de eventos
         db.insert(caseEvents)
           .values({
             id: `evt_${randomUUID()}`,

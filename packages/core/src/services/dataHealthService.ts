@@ -14,6 +14,7 @@ import {
 } from "../db/schema/mintEntities";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { performance } from "node:perf_hooks";
+import { randomUUID } from "node:crypto";
 
 export type ModuleConfidenceLevel = "CONFIABLE" | "DUDOSO" | "NO_CONFIABLE";
 
@@ -108,7 +109,7 @@ export async function quarantineRecord(params: {
   severity?: "WARNING" | "ERROR" | "CRITICAL";
   rawPayload?: Record<string, any>;
 }): Promise<void> {
-  const id = `quar_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const id = `quar_${randomUUID().slice(0, 8)}`;
   try {
     await db.insert(mintQuarantineRecords).values({
       id,

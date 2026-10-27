@@ -824,6 +824,16 @@ export async function receiveInboundShipment(params: {
 }
 
 /**
+ * Confirmación de entrega por ID o tracking
+ */
+export async function confirmDeliveryReception(
+  trackingOrShipmentId: string,
+  companyId: string = "comp_default",
+) {
+  return receiveInboundShipment({ companyId, trackingOrShipmentId });
+}
+
+/**
  * 5. CONSOLIDACIÓN DE CARGA MULTI-SKU Y LANDED COST (Producto + Flete OSRM)
  */
 export async function buildConsolidatedLoadPlans(companyId: string): Promise<ConsolidatedLoadPlan[]> {

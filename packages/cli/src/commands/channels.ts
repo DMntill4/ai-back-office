@@ -55,9 +55,20 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
 
       const statusBadge = ch.isActive ? theme.badge("ACTIVO", "mint") : theme.badge("PAUSADO", "gray");
       const cfg = (ch.config as any) || {};
-      const target = cfg.webhookUrl
-        ? `${cfg.webhookUrl.slice(0, 45)}...`
-        : cfg.email || cfg.chatId || "Configurado";
+      let target = cfg.email || cfg.chatId || "Configurado";
+      if (cfg.webhookUrl) {
+        try {
+          const u = new URL(cfg.webhookUrl);
+          const parts = u.pathname.split("/").filter(Boolean);
+          target = parts.length > 2
+            ? `${u.origin}/${parts[0]}/${parts[1]}/***`
+            : `${u.origin}/***`;
+        } catch {
+          target = `${cfg.webhookUrl.slice(0, 20)}/***`;
+        }
+      } else if (cfg.botToken) {
+        target = `${String(cfg.botToken).slice(0, 6)}...*** (Chat ID: ${cfg.chatId || "N/A"})`;
+      }
       const topics = (cfg.topics || ["todos"]).join(", ");
 
       lines.push(`${theme.bold(`#${idx + 1}`)} ${typeBadge} ${theme.bold(ch.name)} │ ${statusBadge}`);
@@ -108,29 +119,29 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
     }
 
     const channelName = `${type.toUpperCase()} Alertas (${targetUrl.slice(0, 25)}...)`;
-    console.log(theme.muted(`Guardando canal ${type.toUpperCase()} en PostgreSQL...`));
-
-    const created = await addNotificationChannel({
-      companyId,
-      type,
-      name: channelName,
-      config,
-    });
-
-    console.log(`\n  ${theme.success("[OK]")} Canal registrado con exito en base de datos.`);
-    console.log(`  ${theme.dim("Enviando mensaje de prueba de conectividad...")}`);
+    console.log(theme.muted(`Validando conectividad en vivo con ${type.toUpperCase()}...`));
 
     try {
       const pingRes = await testNotificationChannel(type, config);
-      if (pingRes.success) {
-        console.log(`  ${theme.success("[OK]")} ${theme.mintBold("Mensaje entregado con exito al canal")} (Status: 200/204)`);
-      } else {
-        console.log(`  ${theme.amberBold("[AVISO] El canal se guardo, pero el ping devolvio:")} ${pingRes.error || "No se pudo verificar"}`);
+      if (!pingRes.success) {
+        console.log(`\n  ${theme.redBold("[ERROR]")} La conexión al canal falló: ${pingRes.error || "Destino inválido o inalcanzable"}.`);
+        console.log(`  ${theme.amber("Regla de Verdad de Datos: Una conexión que falla NO se guarda como válida.")}\n`);
+        return;
       }
+
+      console.log(`  ${theme.mint("[OK]")} Conexión validada exitosamente con la API del canal.`);
+      const created = await addNotificationChannel({
+        companyId,
+        type,
+        name: channelName,
+        config,
+      });
+
+      console.log(`\n  ${theme.mintBold("[OK]")} Canal ${theme.bold(channelName)} verificado y registrado en base de datos.\n`);
     } catch (err: any) {
-      console.log(`  ${theme.redBold("[ERROR] Error al probar entrega:")} ${err.message}`);
+      console.log(`\n  ${theme.redBold("[ERROR] Error al validar canal:")} ${err.message}`);
+      console.log(`  ${theme.amber("El canal NO fue guardado.")}\n`);
     }
-    console.log("");
     return;
   }
 

@@ -81,7 +81,9 @@ export async function runBackOfficeHarness(params: {
   ]);
 
   const targetQuantity = invResult ? Math.max(invResult.deficit, 10) : 25;
-  const isUrgent = invResult ? invResult.daysCoverage < 3 : true;
+  const isUrgent = invResult
+    ? invResult.currentStock === 0 || (invResult.daysCoverage !== null && invResult.daysCoverage < 3)
+    : true;
 
   // 3. Compras y evaluación de proveedores
   const purchasingResult = await analyzePurchasingOptions(
@@ -182,7 +184,11 @@ export async function runBackOfficeHarness(params: {
     if (c?.currency) currency = c.currency;
   } catch {}
 
-  const deficitStr = invResult ? `${invResult.deficit}u (cobertura ${invResult.daysCoverage.toFixed(1)}d)` : "N/A";
+  const deficitStr = invResult
+    ? invResult.daysCoverage !== null
+      ? `${invResult.deficit}u (cobertura ${invResult.daysCoverage.toFixed(1)}d)`
+      : `${invResult.deficit}u (historial insuficiente)`
+    : "N/A";
   const vendorStr = purchasingResult?.recommendedOption ? `${purchasingResult.recommendedOption.supplierName} ($${purchasingResult.totalCostMxn} ${currency})` : "Sin proveedor";
   const riskStr = riskResult ? `${(riskResult.riskScore * 100).toFixed(0)}% riesgo (${riskResult.redFlags.length} alertas)` : "Evaluación estándar";
   const verdictStr = recommendedScenario ? recommendedScenario.policyDecision.toUpperCase() : "PENDING_REVIEW";

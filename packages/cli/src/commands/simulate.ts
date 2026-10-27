@@ -81,6 +81,7 @@ export async function simulateCommand(
           title,
           description,
           autonomyLevel: "dry-run",
+          force: true,
         });
       },
     );

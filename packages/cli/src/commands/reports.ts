@@ -235,6 +235,63 @@ export async function reportsCommand(type?: string, format?: string) {
     return;
   }
 
+  // 4.2 Reporte de Salud de Datos y Cuarentena (E3.3)
+  if (cleanType === "health" || cleanType === "salud" || cleanType === "quarantine" || cleanType === "cuarentena") {
+    console.log("\n" + drawDivider("INFORME DE SALUD DE DATOS Y AISLAMIENTO EN CUARENTENA", 86));
+    const { generateDataHealthReportData, exportReportToCsv } = await import("@mint/core");
+    const data = await generateDataHealthReportData(companyId);
+
+    if (isCsv || format === "csv") {
+      const exportRes = await exportReportToCsv("salud_datos", data.headers, data.rows);
+      console.log(`\n  ${theme.success("[OK]")} Informe de salud de datos exportado en formato CSV.`);
+      console.log(`  ${theme.dim("Módulos Auditados:")} ${exportRes.totalRows}.`);
+      console.log(`  ${theme.dim("Archivo:")}           ${theme.mintBold(exportRes.filepath)}\n`);
+      return;
+    }
+
+    console.log(
+      drawCard(
+        [
+          `${theme.bold("ESTADO DE INTEGRIDAD DE DATOS:")} ${data.summary.overallHealth === "CONFIABLE" ? theme.mintBold("[CONFIABLE]") : data.summary.overallHealth === "DUDOSO" ? theme.amberBold("[DUDOSO - ACCIONES LIMITADAS]") : theme.redBold("[NO CONFIABLE - BLOQUEADO]")}`,
+          `  - Calidad Promedio:      ${data.summary.averageScorePercent}%`,
+          `  - Registros en Cuarentena: ${data.summary.quarantinedCount > 0 ? theme.amberBold(`${data.summary.quarantinedCount} aislados`) : theme.mintBold("0 errores")}`,
+          `  - Política de Protección: Registros inválidos aislados en mint_quarantine_records sin alterar tablas originales del cliente.`,
+        ],
+        {
+          title: "RESUMEN DE SALUD DE DATOS",
+          borderColor: data.summary.overallHealth === "CONFIABLE" ? theme.mint : theme.amber,
+        },
+      ),
+    );
+
+    const cols: ColumnDef[] = [
+      { header: "MÓDULO", key: "0", width: 14, format: (v) => theme.bold(String(v)) },
+      {
+        header: "CONFIANZA",
+        key: "1",
+        width: 16,
+        format: (v) => (v === "CONFIABLE" ? theme.mint("[CONFIABLE]") : v === "DUDOSO" ? theme.amberBold("[DUDOSO]") : theme.redBold("[NO CONFIABLE]")),
+      },
+      { header: "SCORE", key: "2", width: 10, align: "right" },
+      { header: "AUDITADOS", key: "3", width: 12, align: "right" },
+      { header: "CORRUPTOS", key: "4", width: 12, align: "right", format: (v) => (Number(v) > 0 ? theme.amberBold(String(v)) : theme.dim("0")) },
+      { header: "ACCIÓN SUGERIDA", key: "5", width: 34, format: (v) => theme.dim(String(v)) },
+    ];
+
+    const rowObjects = data.rows.map((row) => {
+      const obj: Record<string, any> = {};
+      row.forEach((val, idx) => {
+        obj[String(idx)] = val;
+      });
+      return obj;
+    });
+
+    console.log("\n" + theme.bold("DESGLOSE POR MÓDULO OPERATIVO:"));
+    console.log(renderTable(cols, rowObjects));
+    console.log(`\n  ${theme.dim("Exportar a CSV:")} ${theme.mintBold("/reports health csv")}\n`);
+    return;
+  }
+
   // 5. Menú General de Reportes (/reports)
   console.log("\n" + drawDivider("CENTRO DE REPORTES OPERATIVOS & EXPORTACIÓN", 86));
   console.log(
@@ -253,6 +310,12 @@ export async function reportsCommand(type?: string, format?: string) {
         "",
         `  4. ${theme.mintBold("/reports orders [csv]")}`,
         `     Historial completo de órdenes de compra emitidas a proveedores y landed cost.`,
+        "",
+        `  5. ${theme.mintBold("/reports profit [csv|pdf]")}`,
+        `     Ganancia y margen unitario por producto con costo real registrado.`,
+        "",
+        `  6. ${theme.mintBold("/reports health [csv]")}`,
+        `     Evaluación de calidad de fuentes y auditoría de registros en cuarentena.`,
         "",
         `${theme.dim("Nota: Al incluir 'csv' el archivo se genera en la carpeta ./reports con codificación UTF-8 BOM compatible con Excel.")}`,
       ],

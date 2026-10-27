@@ -8,3 +8,6 @@ export * from "./excelParser";
 export * from "./localDiscovery";
 export * from "./syncEngine";
 export * from "./projectDiscovery";
+export * from "./jsonSource";
+export * from "./restApiSource";
+export * from "./sqlServerSource";

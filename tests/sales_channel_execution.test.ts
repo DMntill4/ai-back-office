@@ -90,7 +90,7 @@ describe("Ejecución Autónoma de Ventas desde Canales Externos (@mint/notifiers
     expect(saleResult.quantitySold).toBe(quantityToSell);
     expect(saleResult.previousStock).toBe(50);
     expect(saleResult.remainingStock).toBe(45);
-    expect(saleResult.channelReceipt).toContain("VENTA EJECUTADA EN SISTEMA [Canal: DISCORD]");
+    expect(saleResult.channelReceipt).toContain("VENTA REGISTRADA [Canal: DISCORD]");
     expect(saleResult.channelReceipt).toContain(testSku);
 
     // Verificar persistencia directa en base de datos PostgreSQL
@@ -104,7 +104,7 @@ describe("Ejecución Autónoma de Ventas desde Canales Externos (@mint/notifiers
   });
 
   it("3. Idempotencia estricta: reintento de mensaje procesado no descuenta inventario dos veces", async () => {
-    const messageId = "msg_discord_repeat_12345";
+    const messageId = `msg_discord_repeat_${Date.now()}`;
 
     // Primera llamada con messageId
     const firstSale = await processIncomingSale({

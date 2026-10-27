@@ -8,6 +8,7 @@ import {
   users,
   salesHistory,
   companies,
+  mintSalesOrders,
 } from "../db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { getCompanyConfig } from "./configService";
@@ -412,6 +413,89 @@ export async function listCompanySalesSummary(
     channels,
     totalRevenue: parseFloat(totalRevenue.toFixed(2)),
     totalUnits,
+    currency: config.currency,
+  };
+}
+
+export interface CustomerPortfolioSummary {
+  customerName: string;
+  customerEmail: string | null;
+  totalOrders: number;
+  totalSpent: number;
+  lastOrderDate: Date;
+  daysSinceLastOrder: number;
+  status: "ACTIVO" | "EN_RIESGO" | "INACTIVO";
+}
+
+export async function getCustomersPortfolio(
+  companyId: string = "comp_default",
+): Promise<{
+  customers: CustomerPortfolioSummary[];
+  topValuedCustomers: CustomerPortfolioSummary[];
+  atRiskCustomers: CustomerPortfolioSummary[];
+  currency: string;
+}> {
+  const config = await getCompanyConfig(companyId);
+  const orders = await db
+    .select()
+    .from(mintSalesOrders)
+    .where(eq(mintSalesOrders.companyId, companyId))
+    .orderBy(desc(mintSalesOrders.createdAt));
+
+  const customerMap = new Map<string, {
+    name: string;
+    email: string | null;
+    totalOrders: number;
+    totalSpent: number;
+    lastOrderDate: Date;
+  }>();
+
+  const now = Date.now();
+
+  for (const o of orders) {
+    const key = (o.customerEmail || o.customerName || "desconocido").trim().toLowerCase();
+    const amount = parseFloat(o.totalAmount?.toString() || "0");
+    const existing = customerMap.get(key) || {
+      name: o.customerName,
+      email: o.customerEmail || null,
+      totalOrders: 0,
+      totalSpent: 0,
+      lastOrderDate: o.createdAt || new Date(),
+    };
+
+    existing.totalOrders += 1;
+    existing.totalSpent += amount;
+    if (o.createdAt && o.createdAt.getTime() > existing.lastOrderDate.getTime()) {
+      existing.lastOrderDate = o.createdAt;
+    }
+    customerMap.set(key, existing);
+  }
+
+  const customers: CustomerPortfolioSummary[] = Array.from(customerMap.values()).map((c) => {
+    const daysSinceLastOrder = Math.max(0, Math.floor((now - c.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const status: "ACTIVO" | "EN_RIESGO" | "INACTIVO" =
+      daysSinceLastOrder >= 45 ? "INACTIVO" : daysSinceLastOrder >= 30 ? "EN_RIESGO" : "ACTIVO";
+
+    return {
+      customerName: c.name,
+      customerEmail: c.email,
+      totalOrders: c.totalOrders,
+      totalSpent: parseFloat(c.totalSpent.toFixed(2)),
+      lastOrderDate: c.lastOrderDate,
+      daysSinceLastOrder,
+      status,
+    };
+  });
+
+  const topValuedCustomers = [...customers].sort((a, b) => b.totalSpent - a.totalSpent);
+  const atRiskCustomers = customers
+    .filter((c) => c.status === "EN_RIESGO" || c.status === "INACTIVO")
+    .sort((a, b) => b.daysSinceLastOrder - a.daysSinceLastOrder);
+
+  return {
+    customers,
+    topValuedCustomers,
+    atRiskCustomers,
     currency: config.currency,
   };
 }

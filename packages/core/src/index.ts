@@ -25,6 +25,7 @@ export * from "./db/client";
 export * from "./db/schema/index";
 export * from "./db/supabase";
 export * from "./db/ensureDecisionsTables";
+export * from "./db/safeQueryEngine";
 
 // 4. Motor de Políticas Determinista
 export * from "./policy/policyEngine";

@@ -451,7 +451,8 @@ export async function syncVaultFromDatabase(companyId: string): Promise<{
       .select()
       .from(decisions)
       .where(eq(decisions.companyId, companyId))
-      .orderBy(desc(decisions.createdAt));
+      .orderBy(desc(decisions.createdAt))
+      .limit(50);
 
     for (const d of dbDecisions) {
       await recordDecisionNote({

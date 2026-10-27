@@ -58,6 +58,23 @@ export async function trackCommand(
     return;
   }
 
+  if (session?.role === "driver") {
+    const driverIdentifier = (session?.name || "").toLowerCase();
+    const driverId = (session?.userId || "").toLowerCase();
+    const isAssigned =
+      (tracking.driverName && tracking.driverName.toLowerCase().includes(driverIdentifier)) ||
+      tracking.carrier.toLowerCase().includes(driverIdentifier) ||
+      tracking.carrier.toLowerCase().includes(driverId);
+    if (!isAssigned) {
+      if (options.json) {
+        console.log(JSON.stringify({ error: "[ACCESO DENEGADO] Como conductor, solo puedes consultar y actualizar tus propias entregas asignadas." }));
+      } else {
+        console.log(`\n  ${theme.redBold("[ACCESO DENEGADO]")} Como conductor, solo tienes acceso a tus propias entregas asignadas.\n`);
+      }
+      return;
+    }
+  }
+
   console.log("\n" + drawDivider(`SEGUIMIENTO LOGÍSTICO // ${tracking.trackingNumber}`, 86));
 
   const statusBadge =
