@@ -188,7 +188,8 @@ export async function coordinateOperationalEvent(params: {
     .where(eq(businessConfig.companyId, companyId));
 
   const approvalLimitRaw = configs.find((c) => c.key === "approval_limit_amount")?.value;
-  const approvalLimit = approvalLimitRaw ? Number(approvalLimitRaw) : 10000;
+  const approvalLimit = approvalLimitRaw ? Number(approvalLimitRaw) : 5000000;
+  const currencyRaw = configs.find((c) => c.key === "approval_limit_amount")?.currency || "COP";
   const autonomyLevelRaw = configs.find((c) => c.key === "autonomy_level")?.value as any;
   const autonomyLevel = params.autonomyLevel || autonomyLevelRaw || "dry-run";
 
@@ -196,6 +197,7 @@ export async function coordinateOperationalEvent(params: {
   const policyResult = evaluatePolicy(proposal, {
     approvalLimitAmount: approvalLimit,
     autonomyLevel,
+    currency: currencyRaw,
   });
 
   // 10. Persistir la decisión en la tabla decisions

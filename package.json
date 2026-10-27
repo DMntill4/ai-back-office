@@ -25,7 +25,11 @@
     "agent:headless": "tsx packages/cli/src/index.ts start --headless",
     "dev": "tsx packages/cli/src/index.ts start",
     "console": "tsx packages/cli/src/index.ts console",
-    "mint": "tsx packages/cli/src/index.ts"
+    "mint": "tsx packages/cli/src/index.ts",
+    "api": "tsx packages/api/src/index.ts",
+    "web": "npm run dev --workspace=@mint/web",
+    "web:build": "npm run build --workspace=@mint/web",
+    "studio": "npm run dev --workspace=@mint/web"
   },
   "repository": {
     "type": "git",
@@ -43,6 +47,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.4",
     "@types/pg": "^8.23.1",
+    "@types/ws": "^8.18.2",
     "@typescript-eslint/eslint-plugin": "^8.71.1",
     "@typescript-eslint/parser": "^8.71.1",
     "concurrently": "^10.0.6",
@@ -57,6 +62,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",
+    "@fastify/static": "^10.1.7",
     "@supabase/supabase-js": "^2.118.0",
     "commander": "^15.0.0",
     "dotenv": "^18.0.6",

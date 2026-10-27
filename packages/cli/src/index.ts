@@ -18,8 +18,12 @@ import { triggerScanApi } from "./client";
 import { getSession } from "./keychain";
 import { theme } from "./ui/theme";
 import { printBanner } from "./ui/banner";
+import { graphCommand } from "./commands/graph";
+import { memoryCommand } from "./commands/memory";
 
 export const program = new Command();
+program.addCommand(graphCommand);
+program.addCommand(memoryCommand);
 
 program
   .name("mint")

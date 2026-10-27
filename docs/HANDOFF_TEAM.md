@@ -135,3 +135,10 @@ ai-back-office/
   - Aprobaciones remotas con firma HMAC-SHA256 de un solo uso.
   - Ejecucion e idempotencia en canal de ventas.
   - Benchmark cuantitativo vs baseline basico determinista.
+
+---
+
+## 5. Plan de Remediación Técnica (Auditoría Bot & Gobernanza)
+
+Para consultar el diagnóstico de causas raíz y el plan de refactorización en 6 fases aprobado tras la auditoría técnica, ver:
+- [Plan de Acción y Remediación Técnica](file:///docs/PLAN_ACCION_AUDITORIA_BOT.md)

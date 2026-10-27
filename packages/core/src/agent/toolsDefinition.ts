@@ -25,6 +25,7 @@ import {
 import { updateLogisticsNodeLocation } from "../services/geocodingService";
 import { db } from "../db/client";
 import { decisions } from "../db/schema";
+import { telemetryPublisher } from "../telemetry/telemetryPublisher";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -561,19 +562,44 @@ export async function dispatchToolCall(
   const effectiveCompanyId = context?.companyId || "comp_default";
 
   switch (name) {
-    case "consultar_stock":
+    case "consultar_stock": {
+      telemetryPublisher.emitDatabaseOperation(
+        { id: "agent_mint", label: "Mint Autonomous Coordinator", group: "agent" },
+        "products",
+        "query",
+        "success",
+        1,
+        { sku: parsedArgs.producto_id }
+      );
       return {
         result: await executeConsultarStock(parsedArgs, context),
         isClosingAction: false,
       };
+    }
 
-    case "ver_ordenes_abiertas":
+    case "ver_ordenes_abiertas": {
+      telemetryPublisher.emitDatabaseOperation(
+        { id: "agent_mint", label: "Mint Autonomous Coordinator", group: "agent" },
+        "purchase_orders",
+        "query",
+        "success",
+        5
+      );
       return {
         result: await executeVerOrdenesAbiertas(parsedArgs),
         isClosingAction: false,
       };
+    }
 
-    case "crear_orden_compra":
+    case "crear_orden_compra": {
+      telemetryPublisher.emitDatabaseOperation(
+        { id: "agent_mint", label: "Mint Autonomous Coordinator", group: "agent" },
+        "purchase_orders",
+        "write",
+        "success",
+        1,
+        { sku: parsedArgs.producto_id, qty: parsedArgs.cantidad }
+      );
       return {
         result: await executeCrearOrdenCompra(
           {
@@ -584,12 +610,22 @@ export async function dispatchToolCall(
         ),
         isClosingAction: false,
       };
+    }
 
-    case "pronosticar_demanda":
+    case "pronosticar_demanda": {
+      telemetryPublisher.emitDatabaseOperation(
+        { id: "agent_mint", label: "Mint Autonomous Coordinator", group: "agent" },
+        "demand_history",
+        "query",
+        "success",
+        60,
+        { sku: parsedArgs.producto_id }
+      );
       return {
         result: await executePronosticarDemanda(parsedArgs, context),
         isClosingAction: false,
       };
+    }
 
     case "consultar_envios":
       return {

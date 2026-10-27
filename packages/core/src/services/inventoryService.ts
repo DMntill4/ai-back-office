@@ -9,10 +9,13 @@ import {
   approvals,
   warehouses,
   shipments,
+  decisions,
 } from "../db/schema";
 import { db } from "../db/client";
-import { eq, and, or, ilike } from "drizzle-orm";
+import { eq, and, or, ilike, desc } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { evaluatePolicy, type ActionProposal } from "../policy/policyEngine";
+import { checkDataFreshness } from "./dataFreshnessService";
 
 // Algoritmo de distancia de Levenshtein simple para Fuzzy Search
 function getLevenshteinDistance(a: string, b: string): number {
@@ -157,8 +160,8 @@ export interface CreatePurchaseOrderInput {
 }
 
 export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
-  let maxAllowedAmount = 10000.0;
-  let currency = "MXN";
+  let maxAllowedAmount = 5000000.0;
+  let currency = "COP";
   const effectiveCompanyId = input.companyId || "comp_default";
 
   // Idempotencia
@@ -179,7 +182,8 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     };
   }
 
-  // Consultar umbral configurado por la empresa en la BD real
+  // Consultar configuración real de la empresa (umbral, moneda y nivel de autonomía)
+  let autonomyLevel: "dry-run" | "assisted" | "auto" = "assisted";
   try {
     const configs = await db
       .select()
@@ -193,11 +197,17 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
       const parsed = parseFloat(limitConfig.value);
       if (!isNaN(parsed) && parsed > 0) {
         maxAllowedAmount = parsed;
-        currency = limitConfig.currency || "MXN";
+        currency = limitConfig.currency || "COP";
       }
     }
+    const autoLevelConfig = configs.find((c) => c.key === "autonomy_level");
+    if (autoLevelConfig?.value) {
+      autonomyLevel = autoLevelConfig.value as any;
+    }
   } catch {
-    // Si no está configurado, umbral por defecto: $10,000.00 MXN
+    // Si no está configurado, umbral por defecto: $5,000,000 COP
+    maxAllowedAmount = 5000000;
+    currency = "COP";
   }
 
   const supplierProduct = await db
@@ -260,84 +270,210 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
       .onConflictDoNothing();
   }
 
-  // 1. Compra autónoma bajo umbral
-  if (totalAmount <= maxAllowedAmount) {
-    const orderId = `po_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    const [order] = await db
-      .insert(purchaseOrders)
-      .values({
-        id: orderId,
-        companyId: effectiveCompanyId,
-        caseId: input.caseId,
-        productId: input.productId,
-        supplierId: input.supplierId,
-        quantity: input.quantity,
-        unitPrice: unitPrice.toFixed(2),
-        totalAmount: totalAmount.toFixed(2),
-        idempotencyKey: input.idempotencyKey,
-        status: "abierta",
-      })
-      .returning();
+  // 1. Obtener contexto adicional para formulación de la propuesta (ActionProposal)
+  let prodName = input.productId;
+  let prodSku = input.productId;
+  let suppName = input.supplierId;
+  let isDuplicate = false;
 
-    // Crear guía de entrada automática (Inbound Shipment)
-    const trackingNumber = `TRK-IN-${randomUUID().slice(0, 6).toUpperCase()}`;
-    try {
-      const [suppRows, whRows] = await Promise.all([
-        db.select().from(suppliers).where(eq(suppliers.id, input.supplierId)).limit(1),
-        db.select().from(warehouses).where(eq(warehouses.companyId, effectiveCompanyId)).limit(1),
-      ]);
-      const originLabel = suppRows[0]?.city || suppRows[0]?.streetAddress || suppRows[0]?.name || "Planta Proveedor";
-      const destLabel = whRows[0]?.city || whRows[0]?.location || whRows[0]?.name || "Almacén Central";
-      const leadDays = supplierProduct[0]?.leadTimeDays || 3;
+  try {
+    const [pRows, sRows, recentPos] = await Promise.all([
+      db.select().from(products).where(eq(products.id, input.productId)).limit(1),
+      db.select().from(suppliers).where(eq(suppliers.id, input.supplierId)).limit(1),
+      db
+        .select()
+        .from(purchaseOrders)
+        .where(
+          and(
+            eq(purchaseOrders.companyId, effectiveCompanyId),
+            eq(purchaseOrders.productId, input.productId),
+            eq(purchaseOrders.supplierId, input.supplierId),
+          ),
+        )
+        .orderBy(desc(purchaseOrders.createdAt))
+        .limit(1),
+    ]);
 
-      await db.insert(shipments).values({
-        id: `ship_${randomUUID().slice(0, 8)}`,
-        companyId: effectiveCompanyId,
-        trackingNumber,
-        purchaseOrderId: orderId,
-        carrier: "Mint Inbound Freight",
-        originLocation: originLabel,
-        destinationLocation: destLabel,
-        status: "en_transito",
-        estimatedDelivery: new Date(Date.now() + leadDays * 24 * 3600 * 1000),
-      });
-    } catch {
-      // Continuar si la creación de shipment falla en mocks
+    if (pRows[0]) {
+      prodName = pRows[0].name;
+      prodSku = pRows[0].sku;
     }
+    if (sRows[0]) {
+      suppName = sRows[0].name;
+    }
+    if (recentPos[0]?.createdAt) {
+      const hoursAgo = (Date.now() - new Date(recentPos[0].createdAt).getTime()) / (1000 * 3600);
+      if (hoursAgo < 72) {
+        isDuplicate = true;
+      }
+    }
+  } catch {}
 
-    return {
-      success: true,
-      requiresApproval: false,
-      verified: true,
-      order,
-      trackingNumber,
-      totalAmount,
-      threshold: maxAllowedAmount,
-      message: `Orden de compra emitida autónomamente por $${totalAmount.toFixed(2)} ${currency} (dentro del umbral de $${maxAllowedAmount.toFixed(2)} ${currency}). Guía de embarque generada: ${trackingNumber}.`,
-    };
-  }
+  const freshnessResult = await checkDataFreshness(effectiveCompanyId).catch(() => null);
 
-  // 2. Requiere Aprobación Humana (HITL) por superar umbral
-  const approvalId = `appr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  await db.insert(approvals).values({
-    id: approvalId,
+  const proposal: ActionProposal = {
+    id: `prop_${randomUUID().slice(0, 8)}`,
     companyId: effectiveCompanyId,
     caseId: input.caseId,
     actionType: "crear_orden_compra",
-    amount: totalAmount.toFixed(2),
+    title: `Reabastecimiento preventivo: ${input.quantity} uds de ${prodName}`,
+    proposingAgent: "compras_agent",
+    costMxn: totalAmount,
+    reversible: true,
+    confidence: 0.95,
+    evidence: {
+      productId: input.productId,
+      productName: prodName,
+      sku: prodSku,
+      quantity: input.quantity,
+      unitPrice,
+      supplierId: input.supplierId,
+      supplierName: suppName,
+      idempotencyKey: input.idempotencyKey,
+      dataFreshness: freshnessResult
+        ? {
+            isFresh: freshnessResult.isFresh,
+            lastSyncedAt: freshnessResult.newestSyncAt ? freshnessResult.newestSyncAt.toISOString() : null,
+            hoursSinceLastSync: freshnessResult.hoursSinceLastSync,
+            sourceStatus: freshnessResult.status,
+            reason: freshnessResult.reason,
+          }
+        : undefined,
+    },
+    riskAssessment: {
+      riskScore: isDuplicate ? 0.85 : totalAmount >= maxAllowedAmount ? 0.35 : 0.1,
+      redFlags: isDuplicate ? ["Orden de compra idéntica activa dentro de las últimas 72 horas"] : [],
+      isDuplicate,
+      supplierVerified: true,
+      objections: [],
+    },
+  };
+
+  // 2. Evaluación DETERMINISTA obligatoria en el Motor de Políticas
+  const policyResult = evaluatePolicy(proposal, {
+    approvalLimitAmount: maxAllowedAmount,
+    autonomyLevel,
+    maxDataStalenessHours: 24,
     currency,
-    reason: `Solicitud de compra generada por el agente para ${input.quantity} unidades de ${input.productId} al proveedor ${input.supplierId}. Total: $${totalAmount.toFixed(2)} ${currency}. Excede límite autónomo de $${maxAllowedAmount.toFixed(2)} ${currency}.`,
-    status: "pendiente",
   });
+
+  const decisionId = `dec_${randomUUID().slice(0, 8)}`;
+
+  // 3. Persistir propuesta en la tabla decisions (fuente única de verdad en Season 2)
+  try {
+    await db.insert(decisions).values({
+      id: decisionId,
+      companyId: effectiveCompanyId,
+      caseId: input.caseId,
+      actionType: proposal.actionType,
+      proposingAgent: proposal.proposingAgent,
+      title: proposal.title,
+      costMxn: proposal.costMxn.toString(),
+      riskScore: proposal.riskAssessment.riskScore.toString(),
+      reversible: proposal.reversible,
+      evidencePayload: proposal.evidence,
+      riskPayload: proposal.riskAssessment,
+      policyDecision: policyResult.policyDecision,
+      policyReason: policyResult.reason,
+      decidedAt: new Date(),
+    });
+  } catch {}
+
+  // 4. Bloqueo determinista
+  if (policyResult.policyDecision === "blocked") {
+    return {
+      success: false,
+      requiresApproval: false,
+      verified: false,
+      decisionId,
+      policyDecision: "blocked",
+      matchedRule: policyResult.matchedRule,
+      message: `BLOQUEO DETERMINISTA (${policyResult.matchedRule}): ${policyResult.reason}`,
+    };
+  }
+
+  // 5. Escalamiento a Human-in-the-Loop (Bandeja /inbox)
+  if (policyResult.policyDecision === "pending_approval") {
+    // Registro retrocompatible en tabla approvals para pruebas legadas
+    try {
+      await db.insert(approvals).values({
+        id: decisionId,
+        companyId: effectiveCompanyId,
+        caseId: input.caseId,
+        actionType: "crear_orden_compra",
+        amount: totalAmount.toFixed(2),
+        currency,
+        reason: policyResult.reason,
+        status: "pendiente",
+      });
+    } catch {}
+
+    return {
+      success: true,
+      requiresApproval: true,
+      verified: false,
+      approvalId: decisionId,
+      decisionId,
+      totalAmount,
+      threshold: maxAllowedAmount,
+      matchedRule: policyResult.matchedRule,
+      message: `Propuesta de orden de compra #${decisionId} formulada por $${totalAmount.toFixed(2)} ${currency}. ${policyResult.reason}. Escalada a /inbox para aprobación del operador humano.`,
+    };
+  }
+
+  // 6. Auto-ejecución autorizada bajo umbral en modo auto
+  const orderId = `po_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const [order] = await db
+    .insert(purchaseOrders)
+    .values({
+      id: orderId,
+      companyId: effectiveCompanyId,
+      caseId: input.caseId,
+      productId: input.productId,
+      supplierId: input.supplierId,
+      quantity: input.quantity,
+      unitPrice: unitPrice.toFixed(2),
+      totalAmount: totalAmount.toFixed(2),
+      idempotencyKey: input.idempotencyKey,
+      status: "abierta",
+    })
+    .returning();
+
+  // Crear guía de entrada automática (Inbound Shipment)
+  const trackingNumber = `TRK-IN-${randomUUID().slice(0, 6).toUpperCase()}`;
+  try {
+    const [suppRows, whRows] = await Promise.all([
+      db.select().from(suppliers).where(eq(suppliers.id, input.supplierId)).limit(1),
+      db.select().from(warehouses).where(eq(warehouses.companyId, effectiveCompanyId)).limit(1),
+    ]);
+    const originLabel = suppRows[0]?.city || suppRows[0]?.streetAddress || suppRows[0]?.name || "Planta Proveedor";
+    const destLabel = whRows[0]?.city || whRows[0]?.location || whRows[0]?.name || "Almacén Central";
+    const leadDays = supplierProduct[0]?.leadTimeDays || 3;
+
+    await db.insert(shipments).values({
+      id: `ship_${randomUUID().slice(0, 8)}`,
+      companyId: effectiveCompanyId,
+      trackingNumber,
+      purchaseOrderId: orderId,
+      carrier: "Mint Inbound Freight",
+      originLocation: originLabel,
+      destinationLocation: destLabel,
+      status: "en_transito",
+      estimatedDelivery: new Date(Date.now() + leadDays * 24 * 3600 * 1000),
+    });
+  } catch {
+    // Continuar si la creación de shipment falla en mocks
+  }
 
   return {
     success: true,
-    requiresApproval: true,
-    verified: false,
-    approvalId,
+    requiresApproval: false,
+    verified: true,
+    order,
+    trackingNumber,
     totalAmount,
     threshold: maxAllowedAmount,
-    message: `El agente ha generado la solicitud de compra por $${totalAmount.toFixed(2)} ${currency}. Excede el límite autónomo de $${maxAllowedAmount.toFixed(2)} ${currency}. Pendiente de aprobación humana en PostgreSQL / Inbox.`,
+    message: `Orden de compra emitida autónomamente por $${totalAmount.toFixed(2)} ${currency} (dentro del umbral de $${maxAllowedAmount.toFixed(2)} ${currency}). Guía de embarque generada: ${trackingNumber}.`,
   };
 }
 

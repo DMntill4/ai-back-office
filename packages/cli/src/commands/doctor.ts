@@ -51,9 +51,34 @@ export async function doctorCommand(options: { json?: boolean } = {}) {
       console.log(`   ${theme.cyan("•")} ${src}`);
     }
 
-    // 4. Diagnósticos / Advertencias
+    // 4. Memoria Cognitiva Persistente (Vault Obsidian)
+    console.log(`\n${theme.bold("4. Memoria Cognitiva Persistente (Obsidian Vault):")}`);
+    try {
+      const { getSession } = await import("../keychain");
+      const { getVaultStatus } = await import("../memory");
+      const session = await getSession();
+      const companyId = session ? session.companyId : "comp_default";
+      const memReport = await getVaultStatus(companyId);
+
+      const memBadge = memReport.totalNotes > 0
+        ? `${theme.badge("ACTIVO", "mint")} ${memReport.totalNotes} notas indexadas`
+        : `${theme.badge("VACÍO", "cyan")} 0 notas (esperando actividad real)`;
+      console.log(`   Estado:        ${memBadge}`);
+      console.log(`   Ubicación:     ${memReport.vaultPath}`);
+      console.log(`   Obsidian:      ${memReport.isObsidianConfigured ? theme.mint("Configurado (.obsidian/graph.json sincronizado)") : theme.amber("Pendiente")}`);
+      if (memReport.hypothesesPending > 0) {
+        console.log(`   Hipótesis:     ${theme.amber(memReport.hypothesesPending + " pendientes de confirmación")}`);
+      }
+      if (memReport.contradictedNotes > 0) {
+        console.log(`   Contradicciones: ${theme.red(memReport.contradictedNotes + " notas discrepantes con BD")}`);
+      }
+    } catch {
+      console.log(`   Estado:        ${theme.badge("NO INICIALIZADO", "amber")}`);
+    }
+
+    // 5. Diagnósticos / Advertencias
     if (report.diagnostics.length > 0) {
-      console.log(`\n${theme.bold("4. Avisos y Diagnósticos:")}`);
+      console.log(`\n${theme.bold("5. Avisos y Diagnósticos:")}`);
       for (const diag of report.diagnostics) {
         if (diag.startsWith("[ERROR]")) {
           console.log(`   ${theme.red(diag)}`);
