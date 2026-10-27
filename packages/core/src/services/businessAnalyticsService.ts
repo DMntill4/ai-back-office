@@ -326,3 +326,193 @@ export async function exportMintBackup(companyId: string = "comp_default"): Prom
     notificationChannels: channels,
   };
 }
+
+export interface WeeklyProfitAnalysis {
+  companyId: string;
+  currency: string;
+  currentWeek: {
+    ordersCount: number;
+    revenue: number;
+    cost: number;
+    profit: number;
+    marginPercent: number | null;
+  };
+  previousWeek: {
+    ordersCount: number;
+    revenue: number;
+    cost: number;
+    profit: number;
+    marginPercent: number | null;
+  };
+  profitDelta: number;
+  profitDeltaPercent: number | null;
+  revenueDelta: number;
+  productsWithoutCostCount: number;
+  topImpactProducts: Array<{
+    sku: string;
+    name: string;
+    quantityThisWeek: number;
+    quantityLastWeek: number;
+    profitThisWeek: number;
+    profitLastWeek: number;
+    profitChange: number;
+  }>;
+  explanation: string;
+}
+
+/**
+ * Analiza la variación de ganancias semanales basada en órdenes reales de venta y costos de productos.
+ */
+export async function analyzeWeeklyProfitVariation(companyId: string = "comp_default"): Promise<WeeklyProfitAnalysis> {
+  const [comp] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+  const currency = comp?.currency || "USD";
+
+  const now = Date.now();
+  const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+  const fourteenDaysAgo = new Date(now - 14 * 24 * 60 * 60 * 1000);
+
+  // Consultar órdenes de venta de los últimos 14 días
+  const orders = await db
+    .select()
+    .from(mintSalesOrders)
+    .where(and(eq(mintSalesOrders.companyId, companyId), gte(mintSalesOrders.createdAt, fourteenDaysAgo)))
+    .limit(1000);
+
+  // Consultar catálogo para costos unitarios de productos
+  const allProds = await db.select().from(products).where(eq(products.companyId, companyId));
+  const productCostMap = new Map<string, number | null>();
+  const productNameMap = new Map<string, string>();
+  for (const p of allProds) {
+    productCostMap.set(p.id, p.costPrice !== null ? Number(p.costPrice) : null);
+    if (p.sku) productCostMap.set(p.sku, p.costPrice !== null ? Number(p.costPrice) : null);
+    productNameMap.set(p.id, p.name);
+    if (p.sku) productNameMap.set(p.sku, p.name);
+  }
+
+  let currRev = 0, currCost = 0, currOrders = 0;
+  let prevRev = 0, prevCost = 0, prevOrders = 0;
+  let missingCostCount = 0;
+
+  const productStats = new Map<string, {
+    sku: string;
+    name: string;
+    qtyCurr: number;
+    qtyPrev: number;
+    profCurr: number;
+    profPrev: number;
+  }>();
+
+  for (const ord of orders) {
+    const isCurrent = new Date(ord.createdAt) >= sevenDaysAgo;
+    const amount = Number(ord.totalAmount) || 0;
+    if (isCurrent) {
+      currRev += amount;
+      currOrders++;
+    } else {
+      prevRev += amount;
+      prevOrders++;
+    }
+
+    const items = (ord.itemsPayload as any[]) || [];
+    for (const it of items) {
+      const pKey = it.productId || it.sku || "prod_unknown";
+      const cost = productCostMap.get(pKey);
+      const qty = Number(it.quantity) || 1;
+      const unitPrice = Number(it.unitPrice) || (amount / Math.max(1, qty));
+      const lineCost = cost !== null && cost !== undefined ? cost * qty : null;
+      const lineProfit = lineCost !== null ? (unitPrice * qty) - lineCost : unitPrice * qty;
+
+      if (cost === null || cost === undefined) {
+        missingCostCount++;
+      }
+
+      if (!productStats.has(pKey)) {
+        productStats.set(pKey, {
+          sku: it.sku || pKey,
+          name: it.name || productNameMap.get(pKey) || "Producto",
+          qtyCurr: 0,
+          qtyPrev: 0,
+          profCurr: 0,
+          profPrev: 0,
+        });
+      }
+
+      const st = productStats.get(pKey)!;
+      if (isCurrent) {
+        if (lineCost !== null) currCost += lineCost;
+        st.qtyCurr += qty;
+        st.profCurr += lineProfit;
+      } else {
+        if (lineCost !== null) prevCost += lineCost;
+        st.qtyPrev += qty;
+        st.profPrev += lineProfit;
+      }
+    }
+  }
+
+  const currProfit = currRev - currCost;
+  const prevProfit = prevRev - prevCost;
+  const profitDelta = currProfit - prevProfit;
+  const profitDeltaPercent = prevProfit !== 0 ? ((profitDelta / Math.abs(prevProfit)) * 100) : null;
+  const revenueDelta = currRev - prevRev;
+
+  const topImpactProducts = Array.from(productStats.values())
+    .map(p => ({
+      sku: p.sku,
+      name: p.name,
+      quantityThisWeek: p.qtyCurr,
+      quantityLastWeek: p.qtyPrev,
+      profitThisWeek: Math.round(p.profCurr * 100) / 100,
+      profitLastWeek: Math.round(p.profPrev * 100) / 100,
+      profitChange: Math.round((p.profCurr - p.profPrev) * 100) / 100,
+    }))
+    .sort((a, b) => a.profitChange - b.profitChange)
+    .slice(0, 5);
+
+  let explanation = "";
+  if (currOrders === 0 && prevOrders === 0) {
+    explanation = `No se registraron ventas en los ultimos 14 dias para la empresa '${companyId}'.`;
+  } else if (currOrders === 0 && prevOrders > 0) {
+    explanation = `La ganancia cayo un 100% debido a que no hubo ordenes registradas en los ultimos 7 dias (vs ${prevOrders} ordenes en la semana previa).`;
+  } else if (profitDelta < 0) {
+    const pctText = profitDeltaPercent !== null ? `${Math.abs(profitDeltaPercent).toFixed(1)}%` : "N/A";
+    explanation = `La ganancia semanal disminuyo en $${Math.abs(profitDelta).toFixed(2)} ${currency} (-${pctText}). Causa principal: reduccion en volumen de facturacion (ingresos: $${currRev.toFixed(2)} vs $${prevRev.toFixed(2)} previo).`;
+    if (topImpactProducts.length > 0 && topImpactProducts[0].profitChange < 0) {
+      explanation += ` Mayor impacto en: '${topImpactProducts[0].name}' (${topImpactProducts[0].sku}) con variacion de $${topImpactProducts[0].profitChange.toFixed(2)} ${currency}.`;
+    }
+  } else if (profitDelta > 0) {
+    const pctText = profitDeltaPercent !== null ? `+${profitDeltaPercent.toFixed(1)}%` : "N/A";
+    explanation = `La ganancia semanal aumento en $${profitDelta.toFixed(2)} ${currency} (${pctText}). Ingresos: $${currRev.toFixed(2)} vs $${prevRev.toFixed(2)} previo con ${currOrders} pedidos esta semana.`;
+  } else {
+    explanation = `La ganancia semanal se mantuvo estable en $${currProfit.toFixed(2)} ${currency} con ${currOrders} pedidos registrados.`;
+  }
+
+  if (missingCostCount > 0) {
+    explanation += ` Nota: ${missingCostCount} items vendidos no poseen costo de adquisicion registrado en el catalogo (margen bruto calculado sobre precio de venta).`;
+  }
+
+  return {
+    companyId,
+    currency,
+    currentWeek: {
+      ordersCount: currOrders,
+      revenue: Math.round(currRev * 100) / 100,
+      cost: Math.round(currCost * 100) / 100,
+      profit: Math.round(currProfit * 100) / 100,
+      marginPercent: currRev > 0 ? Math.round((currProfit / currRev) * 1000) / 10 : null,
+    },
+    previousWeek: {
+      ordersCount: prevOrders,
+      revenue: Math.round(prevRev * 100) / 100,
+      cost: Math.round(prevCost * 100) / 100,
+      profit: Math.round(prevProfit * 100) / 100,
+      marginPercent: prevRev > 0 ? Math.round((prevProfit / prevRev) * 1000) / 10 : null,
+    },
+    profitDelta: Math.round(profitDelta * 100) / 100,
+    profitDeltaPercent: profitDeltaPercent !== null ? Math.round(profitDeltaPercent * 10) / 10 : null,
+    revenueDelta: Math.round(revenueDelta * 100) / 100,
+    productsWithoutCostCount: missingCostCount,
+    topImpactProducts,
+    explanation,
+  };
+}

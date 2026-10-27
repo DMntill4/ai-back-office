@@ -93,7 +93,7 @@ export async function backupCommand() {
   const companyId = session?.companyId || "comp_default";
 
   const backupData = await exportMintBackup(companyId);
-  const targetDir = path.join(process.cwd(), "backups");
+  const targetDir = path.join(process.cwd(), "vault", "backups");
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
   }

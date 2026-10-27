@@ -254,6 +254,16 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       companyId = cleanSlug(companyName, "comp", 20);
       userId = cleanSlug(userName, "usr", 20);
 
+      // Pre-persistir empresa en PostgreSQL para satisfacer la clave foránea de business_config
+      await db
+        .insert(companies)
+        .values({
+          id: companyId,
+          name: companyName,
+          currency: "USD",
+        })
+        .onConflictDoNothing();
+
       // Verificación real de correo con código OTP
       try {
         const sendRes = await sendEmailVerificationCode(companyId, email);

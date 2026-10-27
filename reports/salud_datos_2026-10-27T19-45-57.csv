@@ -1,0 +1,6 @@
+﻿MODULO,NIVEL_CONFIANZA,PUNTAJE_CALIDAD,TOTAL_AUDITADOS,REGISTROS_CORRUPTOS,ACCION_RECOMENDADA
+INVENTORY,NO_CONFIABLE,38%,26,16,Módulo inventario bloqueado para decisiones autónomas hasta corregir inconsistencias críticas.
+SALES,CONFIABLE,100%,9,0,Sin acciones requeridas
+FINANCE,DUDOSO,30%,16,0,Registra los costos faltantes con '/products' o pregunta al proveedor correspondiente.
+LOGISTICS,CONFIABLE,100%,0,0,Sin acciones requeridas
+SUPPLIERS,CONFIABLE,100%,3,0,Sin acciones requeridas

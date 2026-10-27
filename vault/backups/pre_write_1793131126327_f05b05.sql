@@ -1,0 +1,4 @@
+-- Backup automático previo a escritura
+-- Usuario: CLI_USER (owner)
+-- Consulta: UPDATE business_config SET value = 'USD' WHERE key = 'currency' AND company_id = 'comp_default';
+-- Fecha: 2026-10-27T19:58:46.327Z

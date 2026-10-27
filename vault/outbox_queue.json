@@ -1,0 +1,76 @@
+[
+  {
+    "id": "outbox_24630734",
+    "companyId": "comp_default",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "https://discord.com/api/webhooks/999/test"
+    },
+    "payload": {
+      "title": "Prueba Outbox",
+      "body": "Mensaje de prueba Outbox"
+    },
+    "status": "failed",
+    "retryCount": 2,
+    "maxRetries": 5,
+    "nextRetryAt": 1793134095341,
+    "createdAt": 1793131019993,
+    "updatedAt": 1793134080341,
+    "lastError": "Cannot read properties of undefined (reading 'toLocaleString')"
+  },
+  {
+    "id": "outbox_13bff770",
+    "companyId": "comp_default",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "https://non-existent-host-999988887777.com/webhook"
+    },
+    "payload": {
+      "title": "Alerta de Red Caida",
+      "body": "Prueba de desconexion"
+    },
+    "status": "failed",
+    "retryCount": 1,
+    "maxRetries": 5,
+    "nextRetryAt": 1793134095341,
+    "createdAt": 1793131750812,
+    "updatedAt": 1793134080341,
+    "lastError": "Cannot read properties of undefined (reading 'toLocaleString')"
+  },
+  {
+    "id": "outbox_6b7b4729",
+    "companyId": "comp_default",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "https://non-existent-host-999988887777.com/webhook"
+    },
+    "payload": {
+      "title": "Alerta de Red Caida",
+      "body": "Prueba de desconexion"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793134085338,
+    "createdAt": 1793134080338,
+    "updatedAt": 1793134080338
+  },
+  {
+    "id": "outbox_f2ae6dbb",
+    "companyId": "comp_e2e_01a5ce",
+    "channelType": "slack",
+    "channelConfig": {
+      "webhookUrl": "https://hooks.slack.com/services/dummy/mock/test"
+    },
+    "payload": {
+      "title": "Alerta E2E",
+      "body": "Prueba E2E completada"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793135096174,
+    "createdAt": 1793135091174,
+    "updatedAt": 1793135091174
+  }
+]

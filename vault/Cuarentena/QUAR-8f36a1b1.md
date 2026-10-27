@@ -1,0 +1,43 @@
+---
+id: "quar_8f36a1b1"
+tipo: "registro_cuarentena"
+fecha: "2026-10-27T19:44:43.515Z"
+empresa: "comp_default"
+entidad: "products"
+tabla_origen: "products"
+identificador_registro: "MINT-VAL-001"
+tipo_violacion: "invalid_price"
+severidad: "ERROR"
+tags:
+  - mint
+  - cuarentena
+  - anomalia_datos
+  - invalid_price
+---
+
+# Aislamiento en Cuarentena: [[quar_8f36a1b1]]
+
+## Diagnostico de la Anomalia
+- **Tabla Origen**: `products`
+- **Entidad**: `products`
+- **Identificador del Registro**: `MINT-VAL-001`
+- **Tipo de Infraccion**: `invalid_price`
+- **Severidad**: `ERROR`
+- **Motivo**: Precio imposible o cero (null) en producto 'Válvula Reguladora de Presión Industrial' (MINT-VAL-001)
+
+## Carga Aislada (Payload Crudo)
+```json
+{
+  "id": "prod_mint_val_001",
+  "sku": "MINT-VAL-001",
+  "price": null,
+  "name": "Válvula Reguladora de Presión Industrial"
+}
+```
+
+## Accion de Proteccion
+El registro fue aislado de las decisiones del agente autonomo para evitar decisiones sobre datos corrompidos.
+La tabla del cliente permanece intacta y no ha sido alterada.
+
+## Enlaces Relacionados
+- Ver registro diario de auditoria: [[Auditoria/LOG-2026-10-27|LOG-2026-10-27]]

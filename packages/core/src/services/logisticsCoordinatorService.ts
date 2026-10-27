@@ -955,3 +955,38 @@ export async function buildConsolidatedLoadPlans(companyId: string): Promise<Con
 
   return plans;
 }
+
+/**
+ * Escanea y detecta despachos o envíos retrasados o con fecha ETA vencida en la empresa.
+ */
+export async function detectShipmentDelays(companyId: string = "comp_default"): Promise<Array<{
+  trackingNumber: string;
+  status: string;
+  carrier: string;
+  estimatedDelivery: string | Date;
+  isOverdue: boolean;
+  delayMinutes: number;
+}>> {
+  const allShipments = await db
+    .select()
+    .from(shipments)
+    .where(eq(shipments.companyId, companyId));
+
+  const now = Date.now();
+  const delayed = allShipments.filter(
+    (s) => s.status === "retrasado" || (s.status === "en_transito" && new Date(s.estimatedDelivery).getTime() < now)
+  );
+
+  return delayed.map((s) => {
+    const etaMs = new Date(s.estimatedDelivery).getTime();
+    const delayMinutes = Math.max(0, Math.floor((now - etaMs) / (1000 * 60)));
+    return {
+      trackingNumber: s.trackingNumber,
+      status: s.status,
+      carrier: s.carrier,
+      estimatedDelivery: s.estimatedDelivery,
+      isOverdue: etaMs < now,
+      delayMinutes,
+    };
+  });
+}

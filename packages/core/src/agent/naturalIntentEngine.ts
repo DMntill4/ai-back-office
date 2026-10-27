@@ -14,6 +14,7 @@ import { getCompanyConfig, formatCompanyDate } from "../services/configService";
 import { getInventoryIntelligence } from "../services/inventoryIntelService";
 import { listCompanyFleet } from "../services/fleetAndOrdersService";
 import { generateDailyOperationalReport } from "../services/reportService";
+import { analyzeWeeklyProfitVariation } from "../services/businessAnalyticsService";
 
 export type DetectedIntentType =
   | "SMALLTALK"
@@ -58,7 +59,33 @@ export async function resolveNaturalLanguageIntent(
 ): Promise<IntentResolutionResult> {
   const norm = normalizeText(rawInput);
 
-  // 0. DETECCIÓN DE PREGUNTAS ABIERTAS O CONVERSACIONALES
+  // 0. CONSULTAS ESPECÍFICAS DE RENTABILIDAD Y VARIACIÓN DE GANANCIA (E6.4)
+  // Preguntas tipo: "¿Por qué bajó la ganancia esta semana?", "análisis de margen", "por qué cayó la utilidad"
+  const isProfitQuery =
+    /(ganancia|margen|utilidad|rentabilidad)/i.test(norm) &&
+    /(semana|bajo|cayo|disminuyo|variacion|por que|porque|explicame|como va|resumen|datos|facturacion)/i.test(norm);
+
+  if (isProfitQuery) {
+    const analysis = await analyzeWeeklyProfitVariation(companyId);
+    const topProdLines = analysis.topImpactProducts.length > 0
+      ? `\n\n• Productos con mayor impacto:\n` +
+        analysis.topImpactProducts
+          .map(
+            (p) =>
+              `  - ${p.name} (${p.sku}): ${p.quantityThisWeek} u esta sem. (vs ${p.quantityLastWeek} u previa) | Cambio ganancia: $${p.profitChange.toFixed(2)} ${analysis.currency}`
+          )
+          .join("\n")
+      : "";
+
+    return {
+      intent: "REPORTS_QUERY",
+      handledDeterministically: true,
+      response: `[ANALISIS DE GANANCIA Y RENTABILIDAD SEMANAL]\n${analysis.explanation}\n\n• Semana actual: ${analysis.currentWeek.ordersCount} ventas | Ingresos: $${analysis.currentWeek.revenue.toFixed(2)} ${analysis.currency} | Utilidad: $${analysis.currentWeek.profit.toFixed(2)} ${analysis.currency}\n• Semana previa: ${analysis.previousWeek.ordersCount} ventas | Ingresos: $${analysis.previousWeek.revenue.toFixed(2)} ${analysis.currency} | Utilidad: $${analysis.previousWeek.profit.toFixed(2)} ${analysis.currency}\n• Variacion neta: $${analysis.profitDelta.toFixed(2)} ${analysis.currency} (${analysis.profitDeltaPercent !== null ? analysis.profitDeltaPercent + "%" : "N/A"})${topProdLines}`,
+      data: analysis,
+    };
+  }
+
+  // 0.1 DETECCIÓN DE PREGUNTAS ABIERTAS O CONVERSACIONALES
   // Si el usuario hace una pregunta (¿...?, eres capaz..., como..., puedes..., que pasa si..., por que...)
   // JAMÁS interceptar con respuestas deterministas fijas. Se delega al agente de IA con su contexto de base de datos.
   const isQuestionOrConversational =

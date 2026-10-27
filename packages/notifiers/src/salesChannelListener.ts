@@ -57,6 +57,7 @@ export interface SaleExecutionResult {
 
 // Almacén en memoria de idempotencia para transacciones de ventas (expira en 72h)
 const processedSalesStore = new Map<string, { result: SaleExecutionResult; timestamp: number }>();
+const inFlightSalesStore = new Map<string, Promise<SaleExecutionResult>>();
 
 function cleanupExpiredIdempotencyKeys() {
   const cutoff = Date.now() - 72 * 60 * 60 * 1000;
@@ -115,6 +116,38 @@ export async function executeWithExponentialBackoff<T>(
  */
 export async function processIncomingSale(event: IncomingSaleEvent): Promise<SaleExecutionResult> {
   const companyId = event.companyId || "comp_default";
+  const deduplicationKey = event.idempotencyKey || event.messageId;
+  const compositeKey = deduplicationKey ? `${companyId}:${event.channel}:${deduplicationKey}` : null;
+
+  if (compositeKey) {
+    const inFlight = inFlightSalesStore.get(compositeKey);
+    if (inFlight) {
+      const winner = await inFlight;
+      return {
+        ...winner,
+        isDuplicate: true,
+      };
+    }
+  }
+
+  const execution = executeProcessIncomingSale(event, companyId);
+  if (compositeKey) {
+    inFlightSalesStore.set(compositeKey, execution);
+  }
+
+  try {
+    return await execution;
+  } finally {
+    if (compositeKey) {
+      inFlightSalesStore.delete(compositeKey);
+    }
+  }
+}
+
+async function executeProcessIncomingSale(
+  event: IncomingSaleEvent,
+  companyId: string,
+): Promise<SaleExecutionResult> {
 
   // 1. Control de Firma Criptográfica si es webhook o si se proveyó firma
   let signatureVerified = false;
@@ -224,30 +257,77 @@ export async function processIncomingSale(event: IncomingSaleEvent): Promise<Sal
   const unitPrice = event.unitPriceMxn || 100;
   const totalAmount = Number((unitPrice * event.quantity).toFixed(2));
 
-  await db.insert(mintSalesOrders).values({
-    id: saleId,
-    companyId,
-    externalOrderId: deduplicationKey || saleId,
-    customerName,
-    customerEmail: event.customerEmail || null,
-    shippingAddress,
-    totalAmount: totalAmount.toString(),
-    currency: "USD",
-    channel: event.channel,
-    paymentStatus,
-    shippingStatus: "pending",
-    idempotencyKey: deduplicationKey || null,
-    signatureVerified,
-    itemsPayload: [
-      {
-        productId: product.id,
-        sku: product.sku,
-        name: product.name,
-        quantity: event.quantity,
-        unitPrice,
-      },
-    ],
-  });
+  try {
+    await db.insert(mintSalesOrders).values({
+      id: saleId,
+      companyId,
+      externalOrderId: deduplicationKey || saleId,
+      customerName,
+      customerEmail: event.customerEmail || null,
+      shippingAddress,
+      totalAmount: totalAmount.toString(),
+      currency: "USD",
+      channel: event.channel,
+      paymentStatus,
+      shippingStatus: "pending",
+      idempotencyKey: deduplicationKey || null,
+      signatureVerified,
+      itemsPayload: [
+        {
+          productId: product.id,
+          sku: product.sku,
+          name: product.name,
+          quantity: event.quantity,
+          unitPrice,
+        },
+      ],
+    });
+  } catch (dbErr: any) {
+    const isUniqueViolation =
+      dbErr?.code === "23505" ||
+      String(dbErr?.message).includes("unique") ||
+      String(dbErr?.message).includes("duplicate key");
+    if (isUniqueViolation && deduplicationKey) {
+      await executeAjustarStock(
+        {
+          producto_id: product.id,
+          cantidad_delta: event.quantity,
+          motivo: `Reversión automática por venta duplicada concurrente [${deduplicationKey}]`,
+        },
+        { companyId }
+      ).catch(() => null);
+
+      const existingWinner = await db
+        .select()
+        .from(mintSalesOrders)
+        .where(eq(mintSalesOrders.idempotencyKey, deduplicationKey))
+        .limit(1);
+
+      if (existingWinner.length > 0) {
+        const row = existingWinner[0];
+        return {
+          success: true,
+          isDuplicate: true,
+          saleId: row.id,
+          productId: (row.itemsPayload as any)?.[0]?.productId || product.id,
+          productName: (row.itemsPayload as any)?.[0]?.name || product.name,
+          sku: (row.itemsPayload as any)?.[0]?.sku || event.sku,
+          quantitySold: (row.itemsPayload as any)?.[0]?.quantity || event.quantity,
+          previousStock,
+          remainingStock: previousStock,
+          minStock,
+          isStockDeficit: false,
+          customerName: row.customerName,
+          shippingAddress: row.shippingAddress,
+          totalAmount: parseFloat(row.totalAmount?.toString() || "0"),
+          paymentStatus: row.paymentStatus,
+          signatureVerified: row.signatureVerified,
+          channelReceipt: `Venta duplicada detectada concurrentemente. Ya registrada previamente con ID ${row.id}.`,
+        };
+      }
+    }
+    throw dbErr;
+  }
 
   let replenishmentDecision: SaleExecutionResult["replenishmentDecision"];
 
