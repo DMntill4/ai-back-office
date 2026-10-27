@@ -33,6 +33,14 @@ export const db = drizzle(pool, { schema });
 /**
  * Diagnóstico de salud y metadatos de la conexión a la base de datos (PostgreSQL / Supabase)
  */
+function formatDbError(err: any): string {
+  if (!err) return "Error de conexión desconocido";
+  if (Array.isArray(err.errors) && err.errors.length > 0) {
+    return err.errors.map((e: any) => e.message || String(e)).join("; ");
+  }
+  return err.message || (typeof err.toString === "function" ? err.toString() : String(err));
+}
+
 export async function checkDatabaseHealth() {
   const start = Date.now();
   try {
@@ -87,7 +95,7 @@ export async function checkDatabaseHealth() {
   } catch (err: any) {
     return {
       connected: false,
-      error: err.message,
+      error: formatDbError(err),
       provider: isSupabaseConnection ? "Supabase (Desconectado)" : "PostgreSQL (Desconectado)",
       isSupabase: isSupabaseConnection,
       latencyMs: Date.now() - start,
@@ -129,7 +137,7 @@ export async function testCustomConnection(testUrl: string) {
     await testPool.end().catch(() => {});
     return {
       success: false,
-      error: err.message,
+      error: formatDbError(err),
       latencyMs: Date.now() - start,
     };
   }

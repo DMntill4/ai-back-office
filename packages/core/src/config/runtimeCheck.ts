@@ -111,7 +111,10 @@ export async function verifyRuntimeEnvironment(): Promise<RuntimeEnvironmentRepo
   }
 
   if (!postgres.connected) {
-    diagnostics.push(`[ERROR] Base de datos interna desconectada: ${postgres.error}`);
+    diagnostics.push(`[ERROR] Base de datos interna desconectada: ${postgres.error || "No se pudo establecer conexión"}`);
+    if (postgres.recommendation) {
+      diagnostics.push(`[RECOMENDACIÓN] ${postgres.recommendation}`);
+    }
   }
 
   const compatible = node.meetsMinimum && postgres.connected;
