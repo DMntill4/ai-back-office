@@ -122,6 +122,9 @@ export const suppliers = pgTable("suppliers", {
   country: varchar("country", { length: 50 }),
   latitude: decimal("latitude", { precision: 10, scale: 6 }),
   longitude: decimal("longitude", { precision: 10, scale: 6 }),
+  bankName: text("bank_name"),
+  bankAccountNumber: text("bank_account_number"),
+  bankClabe: varchar("bank_clabe", { length: 30 }),
   origin: text("origin", { enum: ["simulado", "real"] })
     .notNull()
     .default("simulado"),
@@ -169,6 +172,11 @@ export const purchaseOrders = pgTable("purchase_orders", {
   })
     .notNull()
     .default("abierta"),
+  paymentStatus: text("payment_status", {
+    enum: ["pendiente_pago", "pagada", "cancelada"],
+  })
+    .notNull()
+    .default("pendiente_pago"),
   idempotencyKey: varchar("idempotency_key", { length: 255 }).unique(),
   caseId: text("case_id"),
   createdAt: timestamp("created_at", { withTimezone: true })

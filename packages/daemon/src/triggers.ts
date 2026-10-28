@@ -24,22 +24,27 @@ export interface ScanResult {
  * Idempotente: nunca procesa productos con propuestas abiertas ni satura APIs cartográficas.
  */
 export async function scanStockDeficits(companyId: string = "comp_default"): Promise<number> {
-  const [stockRows, blocked] = await Promise.all([
-    db
-      .select({
-        productId: products.id,
-        sku: products.sku,
-        name: products.name,
-        minStock: products.minStock,
-        stock: inventory.stock,
-      })
-      .from(products)
-      .innerJoin(inventory, eq(products.id, inventory.productId))
-      .where(and(eq(products.companyId, companyId), eq(inventory.companyId, companyId))),
+  const [prods, invs, blocked] = await Promise.all([
+    db.select().from(products).where(eq(products.companyId, companyId)),
+    db.select().from(inventory).where(eq(inventory.companyId, companyId)),
     getProductsWithOpenProposals(companyId).catch(() => new Set<string>()),
   ]);
 
-  const deficits = stockRows.filter((r) => r.stock <= r.minStock && !blocked.has(r.productId));
+  const stockMap = new Map<string, number>();
+  for (const inv of invs) {
+    stockMap.set(inv.productId, (stockMap.get(inv.productId) || 0) + Number(inv.stock || 0));
+  }
+
+  const deficits = prods
+    .map((p) => ({
+      productId: p.id,
+      sku: p.sku,
+      name: p.name,
+      minStock: p.minStock,
+      stock: stockMap.get(p.id) || 0,
+    }))
+    .filter((r) => r.stock <= r.minStock && !blocked.has(r.productId));
+
   // Limitar a maximo 5 por ciclo para evitar tormentas de peticiones fantasma
   const batch = deficits.slice(0, 5);
   let triggeredCount = 0;
@@ -51,7 +56,7 @@ export async function scanStockDeficits(companyId: string = "comp_default"): Pro
         companyId,
         productId: item.productId,
         title: `Desabasto detectado: ${item.name} (${item.sku})`,
-        description: `El stock actual (${item.stock}u) es menor o igual al umbral mínimo (${item.minStock}u).`,
+        description: `El stock total disponible (${item.stock}u) es menor o igual al umbral minimo (${item.minStock}u).`,
         payload: {
           productId: item.productId,
           sku: item.sku,

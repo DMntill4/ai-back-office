@@ -1,4 +1,4 @@
-import { db, cases, runAgentLoop, decisions } from "@mint/core";
+import { db, cases, runAgentLoop, isInvalidOrGibberishInput, getCompanyConfig } from "@mint/core";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getSession } from "../keychain";
@@ -9,6 +9,30 @@ import { formatTerminalMarkdown } from "../ui/markdown";
 export async function chatCommand(message: string, options: { json?: boolean; noExit?: boolean } = {}) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
+  const trimmedMsg = (message || "").trim();
+
+  // 0. Guardrail de entrada vacía o teclazos sin sentido antes de crear casos en base de datos
+  if (isInvalidOrGibberishInput(trimmedMsg)) {
+    const config = await getCompanyConfig(companyId).catch(() => null);
+    const isEn = config?.botLanguage === "en";
+    const msgText = isEn
+      ? "[INFO] Please enter a valid question or operational instruction (e.g., inventory check, purchase orders, supplier evaluation, logistics routes, or financial reports)."
+      : "[INFO] Por favor ingresa una consulta o instrucción operativa válida (ej: existencias de inventario, órdenes de compra, evaluación de proveedores, rutas logísticas o reportes financieros).";
+
+    if (options.json) {
+      console.log(JSON.stringify({ handledDeterministically: true, response: msgText }, null, 2));
+      return;
+    }
+
+    console.log("");
+    console.log(theme.dim("  " + "─".repeat(76)));
+    for (const line of formatTerminalMarkdown(msgText)) {
+      console.log(`  ${line}`);
+    }
+    console.log(theme.dim("  " + "─".repeat(76)));
+    return;
+  }
+
   const caseId = `chat_${randomUUID().slice(0, 8)}`;
 
   try {
@@ -16,16 +40,27 @@ export async function chatCommand(message: string, options: { json?: boolean; no
       id: caseId,
       companyId,
       title: "Operacion Coordinador",
-      description: message,
+      description: trimmedMsg,
       status: "en_proceso",
       priority: "media",
     });
 
     // 1. INTENCIÓN DETERMINISTA EN LENGUAJE NATURAL (Fast-Path Local)
     const { resolveNaturalLanguageIntent } = await import("@mint/core");
-    const intentRes = await resolveNaturalLanguageIntent(companyId, message);
+    const intentRes = await resolveNaturalLanguageIntent(companyId, trimmedMsg);
 
     if (intentRes.handledDeterministically) {
+      // Persistir la respuesta en cases.resultSummary para que el agente recuerde este turno en las siguientes preguntas
+      await db
+        .update(cases)
+        .set({
+          status: "resuelto",
+          resultSummary: intentRes.response,
+          updatedAt: new Date(),
+        })
+        .where(eq(cases.id, caseId))
+        .catch(() => {});
+
       if (options.json) {
         console.log(JSON.stringify(intentRes, null, 2));
         return;
@@ -88,8 +123,20 @@ export async function chatCommand(message: string, options: { json?: boolean; no
         ),
       );
 
-      const fallbackRes = await resolveNaturalLanguageIntent(companyId, message);
-      const textToDisplay = fallbackRes.response || "No se pudo conectar con el motor remoto. Consulta tu inventario con /stock, propuestas con /inbox o reportes con /reports.";
+      const fallbackRes = await resolveNaturalLanguageIntent(companyId, trimmedMsg);
+      const textToDisplay =
+        fallbackRes.response ||
+        "No se pudo conectar con el motor remoto. Consulta tu inventario con /stock, propuestas con /inbox o reportes con /reports.";
+
+      await db
+        .update(cases)
+        .set({
+          status: "resuelto",
+          resultSummary: textToDisplay,
+          updatedAt: new Date(),
+        })
+        .where(eq(cases.id, caseId))
+        .catch(() => {});
 
       console.log(theme.dim("  " + "─".repeat(76)));
       for (const line of formatTerminalMarkdown(textToDisplay)) {

@@ -82,8 +82,13 @@ export function evaluatePolicy(
       : undefined;
   const minConfidence = rules.minConfidenceThreshold ?? 0.80;
   const maxRiskForAuto = rules.maxAutonomousRiskScore ?? 0.25;
-  const requireHitlOnIrreversible = rules.requireHitlOnIrreversible ?? true;
   const autonomyLevel = rules.autonomyLevel ?? "assisted";
+  const requireHitlOnIrreversible =
+    rules.requireHitlOnIrreversible !== undefined
+      ? rules.requireHitlOnIrreversible
+      : autonomyLevel === "assisted"
+        ? false // En modo asistido, el umbral presupuestal rige las compras
+        : true;
   const maxStaleness = rules.maxDataStalenessHours ?? 24;
 
   const evaluatedAt = new Date().toISOString();

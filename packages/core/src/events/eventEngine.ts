@@ -59,7 +59,7 @@ export async function scanRealInventoryDeficits(
     const dailyBurnRate = sales30d > 0 ? sales30d / 30 : 0;
     const daysUntilStockout = dailyBurnRate > 0 ? Math.round(itemStock / dailyBurnRate) : 999;
 
-    if (itemStock < p.minStock) {
+    if (itemStock <= p.minStock) {
       deficits.push({
         productId: p.id,
         name: p.name,

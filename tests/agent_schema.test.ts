@@ -6,7 +6,7 @@ import {
   toolCalls,
   idempotencyKeys,
   approvals,
-} from "../src/db/schema";
+} from "@mint/core";
 import { getTableName } from "drizzle-orm";
 
 describe("Esquemas de las tablas del Agente", () => {

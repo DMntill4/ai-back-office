@@ -1,4 +1,4 @@
-import { db, users, companies } from "@mint/core";
+import { db, users, companies, verifyPassword } from "@mint/core";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { saveSession } from "../keychain";
@@ -25,6 +25,14 @@ export async function loginCommand(email?: string, password?: string, options: {
     }
 
     const u = foundUsers[0];
+    if (password && !verifyPassword(password, u.passwordHash)) {
+      if (options.json) {
+        console.log(JSON.stringify({ success: false, error: "Contraseña incorrecta" }));
+      } else {
+        console.error(theme.redBold(`[ERROR] Contraseña incorrecta para el usuario '${targetEmail}'.`));
+      }
+      process.exit(1);
+    }
     const [comp] = await db
       .select()
       .from(companies)

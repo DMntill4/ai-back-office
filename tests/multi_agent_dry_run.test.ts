@@ -117,7 +117,14 @@ describe("Fase F3: Multi-Agente + Motor de Políticas en modo dry-run", () => {
         estimatedDelivery: yesterday,
         currentLocation: "Detenido en San Luis Potosí por retén",
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [shipments.id],
+        set: {
+          purchaseOrderId: orderId,
+          status: "retrasado",
+          estimatedDelivery: yesterday,
+        },
+      });
   });
 
   it("Escenario 'envío retrasado -> riesgo de desabasto' produce propuesta completa con evidencia y política dry-run", async () => {

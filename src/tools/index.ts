@@ -1,14 +1,5 @@
-export * from "./consultarStock";
-export * from "./verOrdenesAbiertas";
-export * from "./crearOrdenCompra";
-export * from "./reportesGenerales";
-export * from "./evaluarProveedores";
-export * from "./analisisFinanciero";
-export * from "./simularEscenario";
-export * from "./auditarAnomalias";
-export * from "./pronosticarDemanda";
-export * from "./consultarEnvios";
-export * from "./ajustarStock";
-export * from "./consultarEstadoSistema";
-export * from "./verificarFrescuraDatos";
-export * from "./calcularRutaLogistica";
+/**
+ * Forwarding file to eliminate split-brain divergence.
+ * Single source of truth is @mint/core.
+ */
+export * from "@mint/core";

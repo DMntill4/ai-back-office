@@ -7,6 +7,7 @@ import {
   businessConfig,
   cases,
   approvals,
+  decisions,
   warehouses,
   shipments,
   companies,
@@ -329,6 +330,58 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
       ? "No hay limite de aprobacion configurado; se requiere aprobacion humana."
       : `Excede limite autonomo de $${maxAllowedAmount.toFixed(2)} ${currency}.`;
   const approvalId = `appr_${randomUUID().slice(0, 8)}`;
+  const decisionId = approvalId.replace("appr_", "dec_");
+
+  // Inserción en decisions para consumo universal desde mint inbox y daemon
+  try {
+    const [targetProd] = await db
+      .select({ name: products.name })
+      .from(products)
+      .where(and(eq(products.id, input.productId), eq(products.companyId, effectiveCompanyId)))
+      .limit(1);
+
+    await db
+      .insert(decisions)
+      .values({
+        id: decisionId,
+        companyId: effectiveCompanyId,
+        caseId: input.caseId,
+        actionType: "crear_orden_compra",
+        proposingAgent: "compras_agent",
+        title: `Reposición de ${input.quantity}u de ${input.productId} a ${input.supplierId}`,
+        costMxn: totalAmount.toFixed(2),
+        riskScore: "0.100",
+        reversible: false,
+        evidencePayload: {
+          productId: input.productId,
+          productName: targetProd?.name || input.productId,
+          supplierId: input.supplierId,
+          supplierName: supplierProduct[0] ? input.supplierId : "Proveedor Homologado",
+          quantity: input.quantity,
+          unitPrice: unitPrice.toFixed(2),
+          totalAmount: totalAmount.toFixed(2),
+          idempotencyKey: input.idempotencyKey,
+          currency,
+          approvalId,
+          caseId: input.caseId,
+        },
+        riskPayload: {
+          riskScore: 0.1,
+          redFlags: [],
+          supplierVerified: true,
+        },
+        policyDecision: "pending_approval",
+        policyReason: limitText,
+        expiresAt: new Date(Date.now() + 48 * 3600 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .onConflictDoNothing();
+  } catch {
+    // Si la tabla decisions no estuviera disponible en mock de prueba
+  }
+
+  // Inserción en approvals para compatibilidad con código legado
   await db.insert(approvals).values({
     id: approvalId,
     companyId: effectiveCompanyId,
@@ -345,6 +398,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     requiresApproval: true,
     verified: false,
     approvalId,
+    decisionId,
     totalAmount,
     threshold: maxAllowedAmount,
     message: `El agente ha generado la solicitud de compra por $${totalAmount.toFixed(2)} ${currency}. ${limitText} Pendiente de aprobación humana.`,
@@ -353,6 +407,40 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
 
 export async function getPendingApprovals(companyId?: string) {
   try {
+    // Leer decisiones pendientes para que coincidan con mint inbox
+    const decQuery = companyId
+      ? db
+          .select()
+          .from(decisions)
+          .where(
+            and(
+              eq(decisions.policyDecision, "pending_approval"),
+              eq(decisions.companyId, companyId),
+            ),
+          )
+      : db.select().from(decisions).where(eq(decisions.policyDecision, "pending_approval"));
+
+    const pendingDecs = await decQuery;
+
+    if (pendingDecs.length > 0) {
+      return pendingDecs.map((d) => {
+        const ev = (d.evidencePayload as any) || {};
+        return {
+          id: d.id,
+          companyId: d.companyId,
+          caseId: d.caseId,
+          actionType: d.actionType,
+          amount: d.costMxn,
+          currency: ev.currency || "MXN",
+          reason: d.policyReason || d.title,
+          status: "pendiente",
+          requestedAt: d.createdAt,
+          evidence: ev,
+        };
+      });
+    }
+
+    // Fallback si solo hay registros en la tabla approvals
     const query = companyId
       ? db
           .select()
@@ -371,19 +459,50 @@ export async function getPendingApprovals(companyId?: string) {
   }
 }
 
-export async function resolveApproval(id: string, action: "aprobado" | "rechazado") {
+export async function resolveApproval(
+  id: string,
+  action: "aprobado" | "rechazado",
+  approvedBy: string = "HUMANO_ADMIN",
+  approverUserId?: string,
+  approverRole?: string,
+) {
   try {
+    const decisionId = id.startsWith("appr_") ? id.replace("appr_", "dec_") : id;
+    let executionResult: any = null;
+
+    if (action === "aprobado") {
+      const { executeAndVerifyDecision } = await import("./decisionExecutionService");
+      const foundDec = await db.select().from(decisions).where(eq(decisions.id, decisionId)).limit(1);
+      if (foundDec.length > 0) {
+        executionResult = await executeAndVerifyDecision(
+          decisionId,
+          approvedBy,
+          "Aprobado vía resolveApproval",
+          approverUserId,
+          approverRole,
+        );
+      }
+    } else {
+      const { rejectDecision } = await import("./decisionExecutionService");
+      const foundDec = await db.select().from(decisions).where(eq(decisions.id, decisionId)).limit(1);
+      if (foundDec.length > 0) {
+        executionResult = await rejectDecision(decisionId, approvedBy, "Rechazado vía resolveApproval");
+      }
+    }
+
+    // Actualizar registro en approvals (para compatibilidad de consultas legadas)
     const updated = await db
       .update(approvals)
       .set({ status: action })
-      .where(eq(approvals.id, id))
+      .where(or(eq(approvals.id, id), eq(approvals.id, id.replace("dec_", "appr_"))))
       .returning();
 
-    if (updated.length === 0) {
-      return { success: false, error: "Aprobación no encontrada" };
-    }
-
-    return { success: true, approval: updated[0] };
+    return {
+      success: true,
+      approval: updated[0] || null,
+      decisionId,
+      executionResult,
+    };
   } catch (err: any) {
     console.error("Error al resolver aprobación en DB:", err);
     return { success: false, error: err.message };
@@ -397,22 +516,35 @@ export async function getSupplierPerformance(companyId = "comp_default") {
       .from(suppliers)
       .where(eq(suppliers.companyId, companyId));
 
-    if (supplierList.length === 0) {
-      const allSuppliers = await db.select().from(suppliers);
-      return allSuppliers.slice(0, 6).map((s, idx) => ({
-        name: s.name,
-        uv: Math.min(99, 84 + (idx * 4) % 15),
-        id: s.id,
-        origin: s.origin,
-      }));
-    }
+    const targetList = supplierList;
 
-    return supplierList.map((s, idx) => ({
-      name: s.name,
-      uv: Math.min(99, 86 + (idx * 3) % 14),
-      id: s.id,
-      origin: s.origin,
-    }));
+    const [allPos, allShps] = await Promise.all([
+      db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)),
+      db.select().from(shipments).where(eq(shipments.companyId, companyId)),
+    ]);
+
+    return targetList.map((s) => {
+      const supplierPos = allPos.filter((po) => po.supplierId === s.id);
+      const poIds = new Set(supplierPos.map((po) => po.id));
+      const supplierShps = allShps.filter((shp) => shp.purchaseOrderId && poIds.has(shp.purchaseOrderId));
+
+      let score = 95; // Default de partida cuando no hay incidencias
+      if (supplierShps.length > 0) {
+        const delayedCount = supplierShps.filter(
+          (shp) => shp.status === "retrasado" || ((shp as any).delayMinutes && (shp as any).delayMinutes > 0),
+        ).length;
+        score = Math.max(50, Math.round(100 - (delayedCount / supplierShps.length) * 40));
+      }
+
+      return {
+        id: s.id,
+        name: s.name,
+        uv: score,
+        ordersCount: supplierPos.length,
+        shipmentsCount: supplierShps.length,
+        origin: s.origin,
+      };
+    });
   } catch (err) {
     console.error("Error al obtener rendimiento de proveedores en DB:", err);
     return [];

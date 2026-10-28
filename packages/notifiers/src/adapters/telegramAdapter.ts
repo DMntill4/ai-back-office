@@ -7,11 +7,38 @@ export class TelegramAdapter implements NotifierAdapter {
     const botToken = config.botToken || process.env.TELEGRAM_BOT_TOKEN;
     const chatId = config.chatId || process.env.TELEGRAM_CHAT_ID || "123456789";
 
-    const severityIcon = payload.severity === "CRITICAL" ? "[CRITICO] [CRÍTICO]" : payload.severity === "WARNING" ? "[ADVERTENCIA] [ATENCIÓN]" : "[INFO] [INFO]";
+    const isPayment = payload.kind === "PAYMENT_DISPERSION" || Boolean(payload.paymentDetails);
+    const pd = payload.paymentDetails;
+    const severityIcon =
+      payload.severity === "CRITICAL"
+        ? "[CRITICO]"
+        : payload.severity === "WARNING"
+          ? "[ADVERTENCIA]"
+          : "[INFO]";
     const currency = payload.currency || "USD";
     const formattedAmount = `$${payload.costMxn.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 
-    const messageText = `
+    const assigneesText =
+      pd?.financeAssignees && pd.financeAssignees.length > 0
+        ? pd.financeAssignees.map((a) => `• ${a.name} (${a.email})`).join("\n")
+        : "• Personal de Tesorería / Pagos";
+
+    const messageText =
+      isPayment && pd
+        ? `
+*[TESORERÍA Y PAGOS] ORDEN DE COMPRA AUTORIZADA*
+*Folio OC:* \`${pd.orderId}\` ${pd.trackingNumber ? `| *Guía:* \`${pd.trackingNumber}\`` : ""}
+*Monto a Dispersar:* *${formattedAmount}*
+*Autorizó:* ${pd.approvedBy}
+
+*Proveedor Beneficiario:*
+• Nombre: ${pd.supplierName} (\`${pd.supplierId}\`)
+${pd.supplierTaxId ? `• RFC/Tax ID: \`${pd.supplierTaxId}\`\n` : ""}${pd.supplierEmail ? `• Email: ${pd.supplierEmail}\n` : ""}*Concepto:* ${pd.quantity}u × ${pd.productName} ${pd.sku ? `(\`${pd.sku}\`)` : ""}
+
+*Personal de Pagos Notificado:*
+${assigneesText}
+`.trim()
+        : `
 *${severityIcon} MINT DECISION ALERT*
 *Título:* ${payload.title}
 *Monto:* ${formattedAmount}
@@ -23,18 +50,21 @@ ${payload.evidenceSummary}
 _Por favor confirme o rechace esta operación antes de que expire el token._
 `.trim();
 
-    const inlineKeyboard = [
-      [
-        {
-          text: `[OK] Aprobar (${formattedAmount})`,
-          callback_data: `mint:approve:${payload.approveToken}`,
-        },
-        {
-          text: `[ERROR] Rechazar`,
-          callback_data: `mint:reject:${payload.rejectToken}`,
-        },
-      ],
-    ];
+    const inlineKeyboard =
+      !isPayment && payload.approveToken && payload.rejectToken
+        ? [
+            [
+              {
+                text: `[OK] Aprobar (${formattedAmount})`,
+                callback_data: `mint:approve:${payload.approveToken}`,
+              },
+              {
+                text: `[ERROR] Rechazar`,
+                callback_data: `mint:reject:${payload.rejectToken}`,
+              },
+            ],
+          ]
+        : undefined;
 
     const messageId = `tg_msg_${Date.now()}`;
 
@@ -46,7 +76,7 @@ _Por favor confirme o rechace esta operación antes de que expire el token._
         error: "Se requiere Bot Token y Chat ID de Telegram configurados.",
         details: {
           realDelivery: false,
-          buttons: inlineKeyboard[0],
+          buttons: inlineKeyboard?.[0],
           renderedText: messageText,
         },
       };
@@ -61,7 +91,7 @@ _Por favor confirme o rechace esta operación antes de que expire el token._
         details: {
           chatId,
           realDelivery: false,
-          buttons: inlineKeyboard[0],
+          buttons: inlineKeyboard?.[0],
           renderedText: messageText,
         },
       };
@@ -75,9 +105,7 @@ _Por favor confirme o rechace esta operación antes de que expire el token._
           chat_id: chatId,
           text: messageText,
           parse_mode: "Markdown",
-          reply_markup: {
-            inline_keyboard: inlineKeyboard,
-          },
+          ...(inlineKeyboard ? { reply_markup: { inline_keyboard: inlineKeyboard } } : {}),
         }),
       });
 

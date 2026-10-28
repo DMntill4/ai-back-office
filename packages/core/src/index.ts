@@ -63,6 +63,14 @@ export * from "./services/obsidianMemoryService";
 
 // 7. Cliente LLM
 export * from "./llm/client";
+export * from "./llm/fake";
+export * from "./llm/pricing";
 export * from "./config/env";
 export * from "./config/runtimeCheck";
+export * from "./lib/logger";
+
+// 8. Monitoreo Proactivo y Migraciones
+export * from "./worker/proactiveMonitor";
+export * from "./db/migrate";
+export * from "./db/seed/index";
 

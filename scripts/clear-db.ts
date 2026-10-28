@@ -1,4 +1,4 @@
-import { db, pool } from "../src/db/client";
+import { db, pool } from "@mint/core";
 import { sql } from "drizzle-orm";
 
 async function clear() {

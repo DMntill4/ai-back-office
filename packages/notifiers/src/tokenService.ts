@@ -36,6 +36,9 @@ export function generateApprovalToken(params: {
  * Valida la firma criptográfica y la expiración de un token
  */
 export function verifyApprovalToken(token: string): SignedTokenPayload {
+  if (!token || typeof token !== "string") {
+    throw new Error("Formato de token de aprobación inválido.");
+  }
   const parts = token.split(".");
   if (parts.length !== 2) {
     throw new Error("Formato de token de aprobación inválido.");

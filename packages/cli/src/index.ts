@@ -246,26 +246,22 @@ program
 
 // 19. mint settings / mint config
 program
-  .command("settings")
+  .command("settings [subcommand] [arg1] [rest...]")
   .alias("config")
   .description("Muestra y audita la configuración operativa, canales de alerta y gobernanza HITL")
-  .action(() => {
-    const { settingsCommand } = require("./commands/channels");
-    return settingsCommand();
+  .action((subcommand, arg1, rest) => {
+    const { configCommand } = require("./commands/config");
+    return configCommand(subcommand, arg1, ...(rest || []));
   });
 
-// 20. mint orders -> Redirigido a propuestas de recomendacion en inbox
+// 20. mint orders [statusOrId]
 program
-  .command("orders")
-  .description("Consulta las propuestas y recomendaciones de reabastecimiento en el Inbox")
+  .command("orders [statusOrId]")
+  .description("Consulta órdenes de compra en purchase_orders (abiertas, recibidas, canceladas)")
   .option("--json", "Salida en formato JSON")
-  .action((options) => {
-    if (!options.json) {
-      console.log(theme.dim("\n[AVISO] MINT no emite órdenes ni contacta directamente a proveedores."));
-      console.log(theme.mint("Mostrando propuestas de recomendación de reabastecimiento en el Inbox:\n"));
-    }
-    const { inboxCommand } = require("./commands/inbox");
-    return inboxCommand("list", undefined, options);
+  .action((statusOrId, options) => {
+    const { ordersCommand } = require("./commands/stock");
+    return ordersCommand(statusOrId, options);
   });
 
 // 21. mint inbox
@@ -466,6 +462,92 @@ program
   .action(() => {
     const { customersCommand } = require("./commands/customers");
     return customersCommand();
+  });
+
+// 36. mint autonomy [level]
+program
+  .command("autonomy [level]")
+  .description("Consulta o configura el nivel de autonomía operativa (dry-run, assisted, auto)")
+  .option("--json", "Salida en formato JSON")
+  .action((level, options) => {
+    const { autonomyGetCommand, autonomySetCommand } = require("./commands/autonomy");
+    if (level) {
+      return autonomySetCommand(level, options);
+    }
+    return autonomyGetCommand(options);
+  });
+
+// 37. mint daemon [action]
+program
+  .command("daemon [action]")
+  .description("Control del proceso daemon autónomo en segundo plano (start, stop, status)")
+  .option("--json", "Salida en formato JSON")
+  .action((action, options) => {
+    const { daemonStartCommand, daemonStopCommand, daemonStatusCommand } = require("./commands/daemon");
+    const act = (action || "status").toLowerCase();
+    if (act === "start") return daemonStartCommand(options);
+    if (act === "stop") return daemonStopCommand(options);
+    return daemonStatusCommand(options);
+  });
+
+// 38. mint pause
+program
+  .command("pause")
+  .description("Interruptor de emergencia: Pausa la ejecución autónoma del daemon")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { pauseCommand } = require("./commands/daemon");
+    return pauseCommand(options);
+  });
+
+// 39. mint resume
+program
+  .command("resume")
+  .description("Reanuda la ejecución autónoma del daemon tras una pausa de emergencia")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { resumeCommand } = require("./commands/daemon");
+    return resumeCommand(options);
+  });
+
+// 40. mint watch
+program
+  .command("watch")
+  .description("Monitorea eventos y decisiones autónomas en tiempo real")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { watchCommand } = require("./commands/daemon");
+    return watchCommand(options);
+  });
+
+// 41. mint notify [subcommand] [type]
+program
+  .command("notify [subcommand] [type]")
+  .description("Gestión de canales y alertas de notificación (list, add, test)")
+  .option("--name <name>", "Nombre del canal")
+  .option("--token <token>", "Token de Telegram bot")
+  .option("--chat-id <chatId>", "Chat ID de Telegram")
+  .option("--webhook <webhook>", "Webhook URL para Slack")
+  .option("--email <email>", "Correo electrónico para Gmail")
+  .option("--quiet-start <HH:MM>", "Inicio de horario silencioso")
+  .option("--quiet-end <HH:MM>", "Fin de horario silencioso")
+  .option("--json", "Salida en formato JSON")
+  .action((subcommand, type, options) => {
+    const { notifyListCommand, notifyAddCommand, notifyTestCommand } = require("./commands/notify");
+    const sub = (subcommand || "list").toLowerCase();
+    if (sub === "add") return notifyAddCommand(type || "telegram", options);
+    if (sub === "test") return notifyTestCommand(type || "telegram", options);
+    return notifyListCommand(options);
+  });
+
+// 42. mint plan [target]
+program
+  .command("plan [target]")
+  .description("Plan operativo diario generado por el orquestador autónomo")
+  .option("--json", "Salida en formato JSON")
+  .action((_target, options) => {
+    const { planTodayCommand } = require("./commands/daemon");
+    return planTodayCommand(options);
   });
 
 export function runCli(argv = process.argv) {

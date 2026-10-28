@@ -206,13 +206,13 @@ describe("Fase F5: Notificaciones y Aprobación Remota por Telegram (@mint/notif
   });
 
   it("3. Idempotencia y seguridad: un token ya usado es rechazado ante intentos repetidos", async () => {
-    const logEntry = await db
+    const logEntries = await db
       .select()
       .from(notificationLog)
-      .where(eq(notificationLog.decisionId, decisionId))
-      .limit(1);
+      .where(eq(notificationLog.decisionId, decisionId));
 
-    const signedToken = logEntry[0].signedToken!;
+    const tokenEntry = logEntries.find((l) => Boolean(l.signedToken));
+    const signedToken = tokenEntry!.signedToken!;
 
     // Replay attack o click repetido
     await expect(

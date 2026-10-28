@@ -1,6 +1,6 @@
-import { db, pool } from "../src/db/client";
-import { sql } from "drizzle-orm";
 import {
+  db,
+  pool,
   products,
   inventory,
   warehouses,
@@ -9,7 +9,8 @@ import {
   users,
   businessConfig,
   notificationChannels,
-} from "../packages/core/src/index";
+} from "@mint/core";
+import { sql } from "drizzle-orm";
 import { extractProductsFromSqlFile, extractSuppliersFromSqlFile } from "../packages/ingest/src/projectDiscovery";
 import { saveSession } from "../packages/cli/src/keychain";
 import path from "node:path";

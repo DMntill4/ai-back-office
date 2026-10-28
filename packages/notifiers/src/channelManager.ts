@@ -5,6 +5,9 @@ import {
   decisions,
   companies,
   operationalEvents,
+  users,
+  suppliers,
+  products,
 } from "@mint/core";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -53,102 +56,9 @@ export async function listNotificationChannels(companyId: string) {
     .where(eq(notificationChannels.companyId, companyId));
 }
 
-/**
- * Registra y propaga un evento de auditoría de decisión autónoma
- */
-export async function dispatchAuditEvent(params: {
-  companyId: string;
-  phase: "OBSERVE" | "DECIDE" | "EXECUTE" | "VERIFY";
-  detail: string;
-  metadata?: Record<string, any>;
-}): Promise<void> {
-  const { companyId, phase, detail, metadata } = params;
-  try {
-    await db.insert(operationalEvents).values({
-      id: `audit_${Date.now()}_${randomUUID().slice(0, 6)}`,
-      companyId,
-      eventType: `AUDIT_${phase}`,
-      severity: phase === "EXECUTE" ? "HIGH" : "INFO",
-      status: "RESOLVED",
-      title: `[${phase}] ${detail.slice(0, 80)}`,
-      description: detail,
-      payload: metadata || {},
-    });
-  } catch {
-    // Registro no bloqueante
-  }
-}
-
-/**
- * Envía una notificación de decisión con botones interactivos y tokens firmados
- */
-export async function dispatchDecisionNotification(
-  decisionId: string,
-  companyId: string = "comp_default",
-): Promise<SendResult[]> {
-  const decList = await db
-    .select()
-    .from(decisions)
-    .where(and(eq(decisions.id, decisionId), eq(decisions.companyId, companyId)))
-    .limit(1);
-
-  if (decList.length === 0) {
-    throw new Error(`Decisión "${decisionId}" no encontrada.`);
-  }
-
-  const dec = decList[0];
-  const costNumber = Number(dec.costMxn);
-
-  // Obtener divisa real de la empresa
-  let currency = "USD";
-  try {
-    const compList = await db
-      .select({ currency: companies.currency })
-      .from(companies)
-      .where(eq(companies.id, companyId))
-      .limit(1);
-    if (compList[0]?.currency) {
-      currency = compList[0].currency;
-    }
-  } catch {
-    // Mantener USD si falla consulta
-  }
-
-  // 1. Generar tokens firmados de aprobación y rechazo
-  const approveTokenObj = generateApprovalToken({
-    decisionId,
-    action: "approve",
-    companyId,
-    ttlMinutes: 60,
-  });
-
-  const rejectTokenObj = generateApprovalToken({
-    decisionId,
-    action: "reject",
-    companyId,
-    ttlMinutes: 60,
-  });
-
-  const formattedCost = `$${costNumber.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
-
-  const payload: NotificationPayload = {
-    companyId,
-    decisionId,
-    title: dec.title,
-    description: dec.policyReason || "Propuesta de compra lista para aprobación",
-    costMxn: costNumber,
-    currency,
-    proposingAgent: dec.proposingAgent,
-    severity: costNumber > 50000 ? "CRITICAL" : "WARNING",
-    evidenceSummary: `Costo: ${formattedCost}. Razón: ${dec.policyReason || "Supera umbral autónomo."}`,
-    approveToken: approveTokenObj.token,
-    rejectToken: rejectTokenObj.token,
-  };
-
-  // 2. Obtener canales configurados
+async function resolveActiveChannels(companyId: string) {
   let channels = await listNotificationChannels(companyId);
 
-  // Si no hay canales en BD, verificar variables de entorno antes de fallar
   if (channels.length === 0) {
     const envChannels: typeof channels = [];
     if (process.env.DISCORD_WEBHOOK_URL) {
@@ -190,20 +100,115 @@ export async function dispatchDecisionNotification(
         createdAt: new Date(),
       });
     }
-
-    if (envChannels.length === 0) {
-      // Sin canales configurados: retornar informe transparente en lugar de simular o inventar
-      return [
-        {
-          success: false,
-          channelType: "discord",
-          messageId: `unconfigured_${Date.now()}`,
-          error: "Sin canales de notificación activos. Configura uno con '/channels add' o exporta DISCORD_WEBHOOK_URL en .env.",
-        },
-      ];
-    }
-
     channels = envChannels;
+  }
+
+  return channels;
+}
+
+/**
+ * Registra y propaga un evento de auditoría de decisión autónoma
+ */
+export async function dispatchAuditEvent(params: {
+  companyId: string;
+  phase: "OBSERVE" | "DECIDE" | "EXECUTE" | "VERIFY";
+  detail: string;
+  metadata?: Record<string, any>;
+}): Promise<void> {
+  const { companyId, phase, detail, metadata } = params;
+  try {
+    await db.insert(operationalEvents).values({
+      id: `audit_${Date.now()}_${randomUUID().slice(0, 6)}`,
+      companyId,
+      eventType: `AUDIT_${phase}`,
+      severity: phase === "EXECUTE" ? "HIGH" : "INFO",
+      status: "RESOLVED",
+      title: `[${phase}] ${detail.slice(0, 80)}`,
+      description: detail,
+      payload: metadata || {},
+    });
+  } catch {
+    // Registro no bloqueante
+  }
+}
+
+/**
+ * Envía una notificación de decisión PENDIENTE con botones interactivos y tokens firmados
+ */
+export async function dispatchDecisionNotification(
+  decisionId: string,
+  companyId: string = "comp_default",
+): Promise<SendResult[]> {
+  const decList = await db
+    .select()
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.companyId, companyId)))
+    .limit(1);
+
+  if (decList.length === 0) {
+    throw new Error(`Decisión "${decisionId}" no encontrada.`);
+  }
+
+  const dec = decList[0];
+  const costNumber = Number(dec.costMxn);
+
+  let currency = "USD";
+  try {
+    const compList = await db
+      .select({ currency: companies.currency })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+    if (compList[0]?.currency) {
+      currency = compList[0].currency;
+    }
+  } catch {
+    // Mantener USD si falla consulta
+  }
+
+  // 1. Generar tokens firmados de aprobación y rechazo
+  const approveTokenObj = generateApprovalToken({
+    decisionId,
+    action: "approve",
+    companyId,
+    ttlMinutes: 60,
+  });
+
+  const rejectTokenObj = generateApprovalToken({
+    decisionId,
+    action: "reject",
+    companyId,
+    ttlMinutes: 60,
+  });
+
+  const formattedCost = `$${costNumber.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+
+  const payload: NotificationPayload = {
+    companyId,
+    decisionId,
+    kind: "DECISION_APPROVAL",
+    title: dec.title,
+    description: dec.policyReason || "Propuesta de compra lista para aprobación",
+    costMxn: costNumber,
+    currency,
+    proposingAgent: dec.proposingAgent,
+    severity: costNumber > 50000 ? "CRITICAL" : "WARNING",
+    evidenceSummary: `Costo: ${formattedCost}. Razón: ${dec.policyReason || "Supera umbral autónomo."}`,
+    approveToken: approveTokenObj.token,
+    rejectToken: rejectTokenObj.token,
+  };
+
+  const channels = await resolveActiveChannels(companyId);
+
+  if (channels.length === 0) {
+    return [
+      {
+        success: false,
+        channelType: "discord",
+        messageId: `unconfigured_${Date.now()}`,
+        error: "Sin canales de notificación activos. Configura uno con '/channels add' o exporta DISCORD_WEBHOOK_URL en .env.",
+      },
+    ];
   }
 
   const results: SendResult[] = [];
@@ -217,11 +222,10 @@ export async function dispatchDecisionNotification(
     const sendRes = await adapter.send(payload, channel.config as Record<string, any>);
     results.push(sendRes);
 
-    // 3. Registrar en bitácora inmutable de notificaciones
     await db.insert(notificationLog).values({
       id: `nlog_${randomUUID().slice(0, 8)}`,
       companyId,
-      channelId: channel.id,
+      channelId: channel.id.startsWith("chan_") && !channel.id.endsWith("_env") ? channel.id : null,
       decisionId,
       severity: payload.severity,
       status: sendRes.success ? "SENT" : "FAILED",
@@ -229,10 +233,9 @@ export async function dispatchDecisionNotification(
       signedToken: approveTokenObj.token,
       tokenExpiresAt: approveTokenObj.expiresAt,
       isUsed: false,
-      payload: { sendResult: sendRes },
+      payload: { kind: "DECISION_APPROVAL", sendResult: sendRes },
     });
 
-    // 4. Si falló la entrega, encolar en la cola persistente de reintentos
     if (!sendRes.success) {
       try {
         const { enqueueOutboxItem } = await import("./outboxQueueService");
@@ -243,13 +246,193 @@ export async function dispatchDecisionNotification(
           payload,
           error: sendRes.error,
         });
-      } catch {
-        // Continuar si la cola falla
-      }
+      } catch {}
     }
   }
 
   return results;
+}
+
+/**
+ * Despacha la Ficha de Dispersión de Pago / Orden de Compra Autorizada a los canales
+ * configurados (priorizando aquellos suscritos a 'payments'/'finance' o generales) y al personal
+ * con rol 'finance', 'admin' u 'owner' responsable de controlar y ejecutar los pagos.
+ */
+export async function dispatchPaymentOrderNotification(params: {
+  decisionId: string;
+  companyId: string;
+  orderId: string;
+  trackingNumber?: string;
+  approvedBy: string;
+}): Promise<{
+  results: SendResult[];
+  notifiedPersonnel: Array<{ name: string; email: string; role: string }>;
+}> {
+  const { decisionId, companyId, orderId, trackingNumber, approvedBy } = params;
+
+  const [dec] = await db
+    .select()
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.companyId, companyId)))
+    .limit(1);
+
+  if (!dec) {
+    return { results: [], notifiedPersonnel: [] };
+  }
+
+  const evidence = (dec.evidencePayload as any) || {};
+  const costNumber = Number(dec.costMxn);
+
+  // 1. Obtener divisa de la empresa
+  let currency = "USD";
+  try {
+    const [comp] = await db
+      .select({ currency: companies.currency })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+    if (comp?.currency) currency = comp.currency;
+  } catch {}
+
+  // 2. Obtener datos completos del proveedor y producto en la BD
+  const supplierId = evidence.supplierId || "prov_unknown";
+  let supplierName = evidence.supplierName || supplierId;
+  let supplierEmail: string | undefined;
+  let supplierPhone: string | undefined;
+  let supplierTaxId: string | undefined;
+
+  try {
+    const [supp] = await db
+      .select()
+      .from(suppliers)
+      .where(eq(suppliers.id, supplierId))
+      .limit(1);
+    if (supp) {
+      supplierName = supp.name || supplierName;
+      supplierEmail = supp.email || undefined;
+      supplierPhone = supp.phone || undefined;
+      supplierTaxId = supp.taxId || undefined;
+      var supplierBankName = (supp as any).bankName || undefined;
+      var supplierBankAccount = (supp as any).bankAccountNumber || undefined;
+      var supplierBankClabe = (supp as any).bankClabe || undefined;
+    }
+  } catch {}
+
+  let productName = evidence.productName || evidence.productId || "Producto";
+  let sku = evidence.sku;
+  if (evidence.productId && (!evidence.productName || !evidence.sku)) {
+    try {
+      const [prod] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, evidence.productId))
+        .limit(1);
+      if (prod) {
+        productName = prod.name;
+        sku = prod.sku;
+      }
+    } catch {}
+  }
+
+  // 3. Buscar personal responsable de pagos en la organización (roles: finance, admin, owner)
+  let financePersonnel: Array<{ name: string; email: string; role: string }> = [];
+  try {
+    const companyUsers = await db
+      .select()
+      .from(users)
+      .where(eq(users.companyId, companyId));
+
+    const financeOnly = companyUsers.filter((u) => u.role === "finance");
+    const fallbackApprovers = companyUsers.filter(
+      (u) => u.role === "finance" || u.role === "admin" || u.role === "owner",
+    );
+    const targetUsers = financeOnly.length > 0 ? financeOnly : fallbackApprovers;
+
+    financePersonnel = targetUsers.map((u) => ({
+      name: u.name,
+      email: u.email,
+      role: u.role,
+    }));
+  } catch {}
+
+  const quantity = Number(evidence.quantity || 10);
+  const unitPrice = evidence.unitPrice || (costNumber / Math.max(1, quantity)).toFixed(2);
+  const formattedCost = `$${costNumber.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+
+  const payload: NotificationPayload = {
+    companyId,
+    decisionId,
+    kind: "PAYMENT_DISPERSION",
+    title: `Orden de Compra ${orderId} Aprobada — Dispersión de Pago`,
+    description: `Orden autorizada por ${approvedBy}. Favor de procesar pago a proveedor ${supplierName}.`,
+    costMxn: costNumber,
+    currency,
+    proposingAgent: dec.proposingAgent,
+    severity: "INFO",
+    evidenceSummary: `La recomendación ${decisionId} fue aprobada por ${approvedBy}. Se emitió la Orden de Compra ${orderId} por ${formattedCost} a favor de ${supplierName}. Queda asignada a Tesorería/Pagos para dispersión.`,
+    paymentDetails: {
+      orderId,
+      trackingNumber,
+      supplierId,
+      supplierName,
+      supplierEmail,
+      supplierPhone,
+      supplierTaxId,
+      bankName: supplierBankName,
+      bankAccountNumber: supplierBankAccount,
+      bankClabe: supplierBankClabe,
+      productName,
+      sku,
+      quantity,
+      unitPrice,
+      approvedBy,
+      financeAssignees: financePersonnel,
+    },
+  };
+
+  const channels = await resolveActiveChannels(companyId);
+  const results: SendResult[] = [];
+
+  for (const channel of channels) {
+    if (!channel.isActive) continue;
+
+    const adapter = adapters[channel.type as ChannelType];
+    if (!adapter) continue;
+
+    const channelConfig = { ...((channel.config as Record<string, any>) || {}) };
+    if (channel.type === "gmail" && financePersonnel.length > 0) {
+      channelConfig.extraEmails = financePersonnel.map((p) => p.email);
+    }
+
+    const sendRes = await adapter.send(payload, channelConfig);
+    results.push(sendRes);
+
+    try {
+      await db.insert(notificationLog).values({
+        id: `nlog_pay_${randomUUID().slice(0, 8)}`,
+        companyId,
+        channelId: channel.id.startsWith("chan_") && !channel.id.endsWith("_env") ? channel.id : null,
+        decisionId,
+        severity: "INFO",
+        status: sendRes.success ? "SENT" : "FAILED",
+        messageId: sendRes.messageId,
+        isUsed: true,
+        payload: {
+          kind: "PAYMENT_DISPERSION",
+          orderId,
+          trackingNumber,
+          approvedBy,
+          notifiedPersonnel: financePersonnel,
+          sendResult: sendRes,
+        },
+      });
+    } catch {}
+  }
+
+  return {
+    results,
+    notifiedPersonnel: financePersonnel,
+  };
 }
 
 /**

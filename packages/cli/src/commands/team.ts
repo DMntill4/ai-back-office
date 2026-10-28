@@ -2,7 +2,7 @@ import { listTeamMembers, inviteTeamMember, removeTeamMember, hasPermission, typ
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { renderTable } from "../ui/table";
-import { drawCard, drawDivider } from "../ui/box";
+import { drawDivider } from "../ui/box";
 
 export async function teamCommand(
   action: "list" | "invite" | "remove" = "list",
@@ -21,7 +21,7 @@ export async function teamCommand(
 
     const email = targetArg;
     if (!email) {
-      console.error(theme.redBold("[ERROR] Debes indicar el correo electrónico. Ejemplo: mint team invite colega@empresa.com --name 'Carlos' --role operator"));
+      console.error(theme.redBold("[ERROR] Debes indicar el correo electrónico. Ejemplo: mint team invite colega@empresa.com --name 'Carlos' --role finance"));
       return;
     }
     const name = options.name || email.split("@")[0];
@@ -112,13 +112,15 @@ export async function teamCommand(
           ? theme.badge("OWNER", "mint")
           : m.role === "admin"
             ? theme.badge("ADMIN", "cyan")
-            : m.role === "operator"
-              ? theme.badge("OPERATOR", "cyan")
-              : m.role === "driver"
-                ? theme.badge("DRIVER", "violet")
-                : m.role === "auditor"
-                  ? theme.badge("AUDITOR", "amber")
-                  : theme.badge("VIEWER", "gray");
+            : m.role === "finance"
+              ? theme.badge("FINANCE/PAGOS", "mint")
+              : m.role === "operator"
+                ? theme.badge("OPERATOR", "cyan")
+                : m.role === "driver"
+                  ? theme.badge("DRIVER", "violet")
+                  : m.role === "auditor"
+                    ? theme.badge("AUDITOR", "amber")
+                    : theme.badge("VIEWER", "gray");
 
       const dateStr = m.createdAt ? new Date(m.createdAt).toLocaleDateString("es-MX") : "N/A";
 
@@ -137,14 +139,14 @@ export async function teamCommand(
           { header: "USER ID", key: "id", width: 14 },
           { header: "NOMBRE", key: "name", width: 22 },
           { header: "CORREO", key: "email", width: 28 },
-          { header: "ROL", key: "role", width: 14, align: "center" },
+          { header: "ROL", key: "role", width: 16, align: "center" },
           { header: "ALTA", key: "date", width: 12, align: "center" },
         ],
         rows,
       ),
     );
 
-    console.log(`\n  ${theme.dim("Total miembros:")} ${theme.bold(members.length)} │ ${theme.dim("Invitar:")} ${theme.mintBold("mint team invite <correo> --name <nombre> --role <operator|auditor|viewer>")}\n`);
+    console.log(`\n  ${theme.dim("Total miembros:")} ${theme.bold(members.length)} │ ${theme.dim("Invitar:")} ${theme.mintBold("mint team invite <correo> --name <nombre> --role <finance|auditor|operator|viewer>")}\n`);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));

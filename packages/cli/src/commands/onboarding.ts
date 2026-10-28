@@ -18,11 +18,15 @@ import {
   inspectAndDiagnoseDatabaseAutonomously,
   resolveLocaleAutonomously,
   resolveCurrencyFromTextOrSymbol,
+  isValidCurrency,
+  isValidCountryOrCity,
+  type ResolvedLocale,
   geocodeAddressOrCity,
   sendEmailVerificationCode,
   verifyEmailCode,
   isEmailVerified,
   type AutonomousInspectionResult,
+  hashPassword,
 } from "@mint/core";
 import { importUniversalCatalogFile } from "./database";
 import {
@@ -78,6 +82,128 @@ function ask(rl: readline.Interface, question: string, defaultValue = ""): Promi
       resolve(sanitizeText(answer.trim(), 120) || defaultValue);
     });
   });
+}
+
+async function askValidString(
+  rl: readline.Interface,
+  question: string,
+  defaultValue: string,
+  fieldLabel: string,
+  minLen = 2,
+): Promise<string> {
+  while (true) {
+    const val = await ask(rl, question, defaultValue);
+    const cleaned = sanitizeText(val, 100);
+    if (cleaned.length >= minLen && /[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]/.test(cleaned)) {
+      return cleaned;
+    }
+    console.log(`  ${theme.redBold(`[ERROR] ${fieldLabel} inválido:`)} Debe contener al menos ${minLen} caracteres válidos (letras o números).\n`);
+  }
+}
+
+async function askValidChoice(
+  rl: readline.Interface,
+  question: string,
+  allowedChoices: string[],
+  defaultChoice = "1",
+): Promise<string> {
+  while (true) {
+    const ans = (await ask(rl, question, defaultChoice)).trim();
+    if (allowedChoices.includes(ans)) {
+      return ans;
+    }
+    console.log(`  ${theme.redBold("[ERROR] Opción inválida:")} Selecciona una de las opciones permitidas [${allowedChoices.join("/")}].\n`);
+  }
+}
+
+async function askValidCurrency(
+  rl: readline.Interface,
+  question: string,
+  defaultCurrency = "USD",
+): Promise<string> {
+  while (true) {
+    const input = (await ask(rl, question, defaultCurrency)).trim();
+    const upper = input.toUpperCase();
+    if (isValidCurrency(upper)) {
+      return upper;
+    }
+    const resolved = cleanCurrencyCode(input);
+    if (isValidCurrency(resolved) && input.length <= 6) {
+      return resolved;
+    }
+    console.log(`  ${theme.redBold("[ERROR] Divisa inválida:")} '${input}' no es una divisa oficial reconocida. Ingresa un código ISO 4217 válido (ej: USD, COP, MXN, EUR, ARS, CLP, PEN, BRL).\n`);
+  }
+}
+
+async function askValidCountry(
+  rl: readline.Interface,
+  question: string,
+  defaultCountry = "Colombia",
+): Promise<ResolvedLocale> {
+  while (true) {
+    const input = await ask(rl, question, defaultCountry);
+    const cleaned = sanitizeText(input, 80);
+    if (!cleaned || cleaned.length < 2) {
+      console.log(`  ${theme.redBold("[ERROR] Territorio inválido:")} El nombre del país o ciudad debe tener al menos 2 caracteres.\n`);
+      continue;
+    }
+    if (cleaned.toLowerCase() === "internacional" || cleaned.toLowerCase() === "global") {
+      return resolveLocaleAutonomously(cleaned);
+    }
+    const loc = resolveLocaleAutonomously(cleaned);
+    if (loc.confidence >= 0.7 && loc.countryCode !== "XX") {
+      return loc;
+    }
+    console.log(`  ${theme.redBold("[ERROR] Territorio no reconocido:")} '${cleaned}' no es un país o ciudad válido. Por favor ingresa un país o territorio real (ej: Colombia, México, España, Argentina, Bogotá, Medellín, etc.).\n`);
+  }
+}
+
+async function askValidInteger(
+  rl: readline.Interface,
+  question: string,
+  defaultValue = "1",
+  min = 1,
+  max = 9999,
+): Promise<number> {
+  while (true) {
+    const input = await ask(rl, question, defaultValue);
+    const num = parseInt(input.trim(), 10);
+    if (!isNaN(num) && num >= min && num <= max) {
+      return num;
+    }
+    console.log(`  ${theme.redBold("[ERROR] Número inválido:")} Debe ser un número entero entre ${min} y ${max}.\n`);
+  }
+}
+
+async function askValidContact(
+  rl: readline.Interface,
+  question: string,
+  defaultValue = "ventas@proveedor.com",
+): Promise<string> {
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  while (true) {
+    const val = (await ask(rl, question, defaultValue)).trim();
+    const digitsOnly = val.replace(/\D/g, "");
+    if (EMAIL_REGEX.test(val) || (digitsOnly.length >= 7 && digitsOnly.length <= 15)) {
+      return val;
+    }
+    console.log(`  ${theme.redBold("[ERROR] Contacto inválido:")} Ingresa un correo electrónico válido o un número de teléfono (ej: ventas@proveedor.com o +57 300 1234567).\n`);
+  }
+}
+
+async function askValidAddressOrCity(
+  rl: readline.Interface,
+  question: string,
+  defaultValue = "Bogotá",
+  fieldLabel = "Ubicación o ciudad",
+): Promise<string> {
+  while (true) {
+    const input = (await ask(rl, question, defaultValue)).trim();
+    if (isValidCountryOrCity(input) || input.toLowerCase() === "internacional") {
+      return input;
+    }
+    console.log(`  ${theme.redBold(`[ERROR] ${fieldLabel} no reconocida:`)} No se reconoce '${input}' como una ciudad o dirección válida. Ingresa una ciudad o país real (ej: Bogotá, Medellín, CDMX, Madrid, etc.).\n`);
+  }
 }
 
 const CHECKPOINT_FILE = path.join(process.cwd(), "vault", ".onboarding_checkpoint.json");
@@ -234,8 +360,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       // PASO 1: IDENTIDAD DEL OPERADOR Y DE LA EMPRESA (SIN ASUMIR NADA)
       // -------------------------------------------------------------
       console.log(drawDivider("PASO 1 DE 5: IDENTIDAD DEL OPERADOR Y EMPRESA", 76));
-      userName = await ask(rl, `  ${theme.bold("1.1 Tu nombre o identificador de operador")}`, "Admin");
-      companyName = await ask(rl, `  ${theme.bold("1.2 Nombre de tu empresa o marca")}`, "Mi Empresa");
+      userName = await askValidString(rl, `  ${theme.bold("1.1 Tu nombre o identificador de operador")}`, "Admin", "Nombre de operador");
+      companyName = await askValidString(rl, `  ${theme.bold("1.2 Nombre de tu empresa o marca")}`, "Mi Empresa", "Nombre de empresa");
 
       const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       while (true) {
@@ -298,12 +424,10 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         console.log(`  ${theme.redBold("[ERROR] Contraseña corta:")} Debe tener al menos 4 caracteres.\n`);
       }
 
-      const currencyInput = await ask(rl, `  ${theme.bold("1.6 Divisa oficial de la empresa (USD, COP, MXN, EUR)")}`, "USD");
-      currency = (currencyInput || "USD").trim().toUpperCase();
+      currency = await askValidCurrency(rl, `  ${theme.bold("1.6 Divisa oficial de la empresa (USD, COP, MXN, EUR)")}`, "USD");
 
-      const countryInput = await ask(rl, `  ${theme.bold("1.7 País o territorio de operación")}`, "Colombia");
-      country = (countryInput || "Internacional").trim();
-      const locResolved = resolveLocaleAutonomously(country);
+      const locResolved = await askValidCountry(rl, `  ${theme.bold("1.7 País o territorio de operación")}`, "Colombia");
+      country = locResolved.country;
       timezone = locResolved.timezone || "America/Bogota";
       warehouseCity = locResolved.suggestedCity || "Sede Central";
 
@@ -321,6 +445,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           set: { name: companyName, country, currency },
         });
 
+      const passwordHash = hashPassword(password);
+      password = passwordHash;
       await db
         .insert(users)
         .values({
@@ -329,12 +455,12 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           name: userName,
           email,
           role: "owner",
-          passwordHash: password,
+          passwordHash,
           setupCompleted: emailVerified,
         })
         .onConflictDoUpdate({
           target: [users.id],
-          set: { name: userName, email, role: "owner", passwordHash: password, setupCompleted: emailVerified },
+          set: { name: userName, email, role: "owner", passwordHash, setupCompleted: emailVerified },
         });
 
       saveCheckpoint({
@@ -343,7 +469,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         companyName,
         email,
         emailVerified,
-        password,
+        password: passwordHash,
         companyId,
         userId,
         currency,
@@ -367,7 +493,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       console.log(`    ${theme.dim("[3] Ingresar ruta a archivo local (.csv, .xlsx, .json, .sql)")}`);
       console.log(`    ${theme.dim("[4] Iniciar en blanco (Catálogo limpio)")}\n`);
 
-      const sourceChoice = await ask(rl, `  Elige una opción [1/2/3/4]`, "1");
+      const sourceChoice = await askValidChoice(rl, `  Elige una opción [1/2/3/4]`, ["1", "2", "3", "4"], "1");
 
       if (sourceChoice === "2") {
       const querySearch = await ask(rl, `  ¿Dónde o qué deseas buscar?`, "downloads");
@@ -381,9 +507,10 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           console.log(`        Ubicación: ${theme.dim(proj.projectPath)}`);
         });
 
-        const selectProjNum = await ask(rl, `  Selecciona el número a conectar (1-${Math.min(found.length, 5)}) o '0' para continuar`, "1");
-        const idx = parseInt(selectProjNum, 10) - 1;
-        if (!isNaN(idx) && idx >= 0 && idx < found.length) {
+        const maxProj = Math.min(found.length, 5);
+        const selectProjNum = await askValidInteger(rl, `  Selecciona el número a conectar (1-${maxProj}) o '0' para continuar`, "1", 0, maxProj);
+        const idx = selectProjNum - 1;
+        if (selectProjNum > 0 && idx >= 0 && idx < found.length) {
           const chosen = found[idx];
           selectedSourceLabel = chosen.projectName;
 
@@ -501,15 +628,14 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           // Ajuste manual si el cliente desea cambiar algo
           console.log(`\n  Selecciona tu modelo preferido manualmente:`);
           console.log(`    [1] Solo Tienda | [2] Tienda con Proveedores | [3] Logística Completa`);
-          const manualModel = await ask(rl, `  Modelo [1/2/3]`, "1");
+          const manualModel = await askValidChoice(rl, `  Modelo [1/2/3]`, ["1", "2", "3"], "1");
           businessProfile = manualModel === "3" ? "logistica_completa" : manualModel === "2" ? "tienda_proveedores" : "tienda";
 
-          const locInput = await ask(rl, `  País o Ciudad sede`, diagnosis.inferredLocale.country);
-          const resolved = resolveLocaleAutonomously(locInput);
-          country = resolved.country;
-          currency = resolved.currency;
-          timezone = resolved.timezone;
-          warehouseCity = resolved.suggestedCity;
+          const locResolvedManual = await askValidCountry(rl, `  País o Ciudad sede`, diagnosis.inferredLocale.country);
+          country = locResolvedManual.country;
+          currency = locResolvedManual.currency;
+          timezone = locResolvedManual.timezone;
+          warehouseCity = locResolvedManual.suggestedCity;
         }
       } catch (err: any) {
         console.log(`  ${theme.amber("Nota de diagnóstico:")} ${err.message}`);
@@ -517,22 +643,11 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     } else {
       // Opción 4: Catálogo en blanco (Detección global dinámica sin hardcoding)
       console.log(`\n  ${theme.mintBold("[INICIO EN BLANCO]")}`);
-      const locInput = await ask(rl, `  ¿En qué país o ciudad opera tu negocio? (ej: Madrid, Buenos Aires, Santiago, Ciudad de México, Miami)`, "Internacional");
-      const resolved = resolveLocaleAutonomously(locInput);
-      country = resolved.country;
-      currency = resolved.currency;
-      timezone = resolved.timezone;
-      warehouseCity = resolved.suggestedCity;
-
-      if (resolved.confidence < 0.5) {
-        console.log(`  ${theme.amber("[AVISO]")} No pude identificar el territorio '${locInput}'. Uso USD/UTC de forma provisional y lo dejo como pregunta pendiente (/questions).`);
-        await addPendingQuestion(
-          companyId,
-          "locale_unconfirmed",
-          `Territorio '${locInput}' no reconocido. Cual es el pais, la divisa y la zona horaria reales de la empresa?`,
-          { input: locInput, provisional: { currency, timezone } },
-        ).catch(() => {});
-      }
+      const locResolvedBlank = await askValidCountry(rl, `  ¿En qué país o ciudad opera tu negocio? (ej: Madrid, Buenos Aires, Santiago, Ciudad de México, Bogotá)`, "Colombia");
+      country = locResolvedBlank.country;
+      currency = locResolvedBlank.currency;
+      timezone = locResolvedBlank.timezone;
+      warehouseCity = locResolvedBlank.suggestedCity;
 
       console.log(`  ${theme.dim(`Territorio resuelto autónomamente: ${country} | Divisa ISO: ${currency} | Zona: ${timezone}`)}\n`);
 
@@ -540,7 +655,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       console.log(`    [1] Solo Tienda (Catálogo, ventas y ganancias sin ruido de flota)`);
       console.log(`    [2] Tienda con Proveedores (Catálogo + compras aprobadas a suplidores)`);
       console.log(`    [3] Logística Completa (Tienda + Proveedores + Flota con GPS)`);
-      const modelChoice = await ask(rl, `  Modelo [1/2/3]`, "1");
+      const modelChoice = await askValidChoice(rl, `  Modelo [1/2/3]`, ["1", "2", "3"], "1");
       businessProfile = modelChoice === "3" ? "logistica_completa" : modelChoice === "2" ? "tienda_proveedores" : "tienda";
     }
 
@@ -640,6 +755,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       })
       .onConflictDoNothing();
 
+    const step2PasswordHash = password.startsWith("scrypt:") ? password : hashPassword(password);
     await db
       .insert(users)
       .values({
@@ -648,12 +764,12 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         name: userName,
         email,
         role: "owner",
-        passwordHash: password,
+        passwordHash: step2PasswordHash,
         setupCompleted: true,
       })
       .onConflictDoUpdate({
         target: [users.id],
-        set: { name: userName, email, role: "owner", passwordHash: password },
+        set: { name: userName, email, role: "owner", passwordHash: step2PasswordHash },
       });
 
       console.log(`\n  ${theme.mintBold("[OK]")} Empresa '${theme.bold(companyName)}' registrada con sede en ${theme.bold(warehouseCity)} (${country}, ${currency}).\n`);
@@ -664,7 +780,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         companyName,
         email,
         emailVerified,
-        password,
+        password: step2PasswordHash,
         companyId,
         userId,
         currency,
@@ -685,15 +801,14 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       console.log(`  ¿Cuentas con proveedores para abastecer tus existencias?`);
       console.log(`    ${theme.mintBold("[1] Registrar mi primer proveedor ahora (Recomendado)")}`);
       console.log(`    ${theme.dim("[2] No tengo proveedores aún (Operar como tienda o registrar después)")}\n`);
-      const suppChoice = await ask(rl, `  Opción [1/2]`, "1");
+      const suppChoice = await askValidChoice(rl, `  Opción [1/2]`, ["1", "2"], "1");
 
       let registeredSuppliersCount = 0;
       if (suppChoice === "1") {
-        const suppName = await ask(rl, `  Nombre o razón social del proveedor`, "Proveedor Principal");
-        const suppContact = await ask(rl, `  Correo o teléfono de contacto`, "ventas@proveedor.com");
-        const suppCity = await ask(rl, `  Ciudad o sede del proveedor`, warehouseCity);
-        const leadTimeStr = await ask(rl, `  Tiempo promedio de entrega (en días)`, "3");
-        const leadDays = parseInt(leadTimeStr, 10) || 3;
+        const suppName = await askValidString(rl, `  Nombre o razón social del proveedor`, "Proveedor Principal", "Nombre de proveedor");
+        const suppContact = await askValidContact(rl, `  Correo o teléfono de contacto`, "ventas@proveedor.com");
+        const suppCity = await askValidAddressOrCity(rl, `  Ciudad o sede del proveedor`, warehouseCity, "Ciudad de proveedor");
+        const leadDays = await askValidInteger(rl, `  Tiempo promedio de entrega (en días)`, "3", 1, 365);
         const suppId = `prov_${companyId}_${cleanSlug(suppName, "", 12)}`;
 
         await db.insert(suppliers).values({
@@ -743,8 +858,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     if (startStep <= 4) {
       console.log(drawDivider("PASO 4 DE 5: LOGÍSTICA, BODEGAS Y RUTAS", 76));
       console.log(`  Configura tu bodega o punto de despacho principal para cálculo de rutas y fletes:`);
-      const whName = await ask(rl, `  Nombre de la bodega o almacén`, `Bodega Central ${companyName}`);
-      const whAddress = await ask(rl, `  Ciudad o dirección física de la bodega`, warehouseCity);
+      const whName = await askValidString(rl, `  Nombre de la bodega o almacén`, `Bodega Central ${companyName}`, "Nombre de bodega");
+      const whAddress = await askValidAddressOrCity(rl, `  Ciudad o dirección física de la bodega`, warehouseCity, "Dirección o ciudad de bodega");
 
       const whGeo = await geocodeAddressOrCity(whAddress).catch(() => null);
 
@@ -804,7 +919,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         `        Reabastece automáticamente solo productos bajo el umbral de seguridad.\n`
       );
 
-      const autoChoice = await ask(rl, `  Selecciona el nivel de autonomía [1/2/3]`, "1");
+      const autoChoice = await askValidChoice(rl, `  Selecciona el nivel de autonomía [1/2/3]`, ["1", "2", "3"], "1");
       if (autoChoice === "2") autonomyLevel = "assisted";
       if (autoChoice === "3") autonomyLevel = "auto";
 
@@ -826,7 +941,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       console.log(`    ${theme.cyanBold("[2] Conectar Bot de Telegram")}`);
       console.log(`    ${theme.dim("[3] Solo alertas en consola terminal MINT")}\n`);
 
-      const chanChoice = await ask(rl, `  Opción [1/2/3]`, "3");
+      const chanChoice = await askValidChoice(rl, `  Opción [1/2/3]`, ["1", "2", "3"], "3");
       let channelDescription = "Alertas en Terminal y Log Inmutable";
 
       if (chanChoice === "1") {
@@ -841,7 +956,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
                 companyId,
                 type: "discord",
                 name: "Canal Discord",
-                config: { webhookUrl: webhook, topics: ["logs", "stock", "sales", "critical"] },
+                config: { webhookUrl: webhook, topics: ["logs", "stock", "sales", "critical", "finance", "payments"] },
               });
               channelDescription = "Discord Webhook (Verificado en vivo)";
               console.log(`  ${theme.mintBold("[OK] Webhook verificado con éxito y mensaje de prueba entregado.")}\n`);
@@ -864,7 +979,7 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
                 companyId,
                 type: "telegram",
                 name: `Telegram (@${chatId})`,
-                config: { botToken: token, chatId, topics: ["logs", "stock", "sales", "critical"] },
+                config: { botToken: token, chatId, topics: ["logs", "stock", "sales", "critical", "finance", "payments"] },
               });
               channelDescription = `Telegram (@${chatId}) (Verificado en vivo)`;
               console.log(`  ${theme.mintBold("[OK] Bot de Telegram verificado y mensaje entregado.")}\n`);

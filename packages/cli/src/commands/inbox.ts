@@ -161,24 +161,22 @@ export async function inboxCommand(
         console.log(JSON.stringify(res));
       } else {
         if (res.success) {
-          const { dispatchDecisionNotification } = await import("@mint/notifiers");
-          const channelRes = await dispatchDecisionNotification(targetId, companyId).catch(() => []);
+          const orderMsg = res.orderId ? `Orden de compra: ${res.orderId}` : "";
+          const trkMsg = res.trackingNumber ? `Guía de embarque: ${res.trackingNumber}` : "";
+          const details = [orderMsg, trkMsg].filter(Boolean).join(" | ");
 
-          const anySuccess = channelRes.some((r: any) => r.success);
-          if (anySuccess) {
-            await db
-              .update(decisions)
-              .set({ policyDecision: "approved", feedback: "Aprobada y enviada exitosamente a los canales de mensajería (HTTP 200)." })
-              .where(eq(decisions.id, targetId));
-            console.log(`\n  [OK] Propuesta ${theme.bold(targetId)} ${theme.mintBold("APROBADA Y ENVIADA")} al canal configurado (HTTP 200).`);
-            console.log(`  ${theme.dim("El comprador puede proceder con la orden fuera de MINT.")}\n`);
+          console.log(`\n  ${theme.mintBold("[OK]")} Propuesta ${theme.bold(targetId)} ${theme.mintBold("APROBADA Y EJECUTADA")}.`);
+          if (details) console.log(`  ${theme.mint(details)}`);
+
+          if (res.notifiedPersonnel && res.notifiedPersonnel.length > 0) {
+            const people = res.notifiedPersonnel.map((p) => `${p.name} <${p.email}> [${p.role.toUpperCase()}]`).join(", ");
+            console.log(`  ${theme.cyanBold("Personal de Pagos/Tesorería asignado:")} ${people}`);
+          }
+
+          if (res.notifiedChannels && res.notifiedChannels > 0) {
+            console.log(`  ${theme.dim(`Ficha de Dispersión de Pago enviada a ${res.notifiedChannels} canal(es) de mensajería (HTTP 200).\n`)}`);
           } else {
-            await db
-              .update(decisions)
-              .set({ policyDecision: "approved", feedback: "Aprobada en base de datos. Sin canal activo para envío externo." })
-              .where(eq(decisions.id, targetId));
-            console.log(`\n  [OK] Propuesta ${theme.bold(targetId)} ${theme.mintBold("APROBADA EN BASE DE DATOS")}.`);
-            console.log(theme.amber(`  [AVISO] No hay canales activos configurados. La recomendación permanece en la bandeja hasta configurar uno con /channels add.\n`));
+            console.log(`  ${theme.dim("Orden persistida en purchase_orders y guía en shipments. (Configura un canal con '/channels add' para enviar fichas de pago remotas).\n")}`);
           }
         } else {
           console.error(theme.redBold(`  [ERROR] Falló la aprobación: ${res.message}`));

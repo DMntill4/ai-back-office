@@ -278,7 +278,7 @@ export async function ensureDecisionsTables(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_quality_company ON mint_quality_scores(company_id, module);
       CREATE INDEX IF NOT EXISTS idx_mat_agg_key ON mint_materialized_aggregations(company_id, aggregation_key);
 
-      -- Columnas físicas y fiscales para Proveedores
+      -- Columnas físicas, fiscales y bancarias para Proveedores
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS tax_id VARCHAR(50);
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS street_address TEXT;
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);
@@ -287,6 +287,12 @@ export async function ensureDecisionsTables(): Promise<void> {
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS country VARCHAR(50);
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 6);
       ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 6);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS bank_name VARCHAR(100);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS bank_account_number VARCHAR(50);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS bank_clabe VARCHAR(30);
+
+      -- Estado de pago en Órdenes de Compra
+      ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(32) NOT NULL DEFAULT 'pendiente_pago';
 
       -- Columnas de precio y costo directo en Productos
       ALTER TABLE products ADD COLUMN IF NOT EXISTS price NUMERIC(10, 2);

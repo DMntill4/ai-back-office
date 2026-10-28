@@ -7,6 +7,7 @@ import {
   companies,
   businessConfig,
   notificationChannels,
+  salesHistory,
 } from "../db/schema";
 import {
   mintSalesOrders,
@@ -82,7 +83,7 @@ export interface ThreeWayReconciliation {
  * Genera el Resumen Diario Ejecutivo corto y conciso para el dueño del negocio.
  */
 export async function getDailyExecutiveBriefing(companyId: string = "comp_default"): Promise<DailyExecutiveBriefing> {
-  const [compRes, orders, prods, invs, incidents, pendingDecs, pendingQ] = await Promise.all([
+  const [compRes, orders, prods, invs, incidents, pendingDecs, pendingQ, sales] = await Promise.all([
     db.select().from(companies).where(eq(companies.id, companyId)).limit(1),
     db.select().from(mintSalesOrders).where(eq(mintSalesOrders.companyId, companyId)).limit(1000),
     db.select().from(products).where(eq(products.companyId, companyId)),
@@ -90,6 +91,7 @@ export async function getDailyExecutiveBriefing(companyId: string = "comp_defaul
     db.select().from(mintRouteIncidents).where(and(eq(mintRouteIncidents.companyId, companyId), eq(mintRouteIncidents.status, "proposed"))),
     db.select().from(decisions).where(and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval"))),
     db.select().from(mintPendingQuestions).where(and(eq(mintPendingQuestions.companyId, companyId), eq(mintPendingQuestions.status, "pending"))),
+    db.select().from(salesHistory).where(eq(salesHistory.companyId, companyId)),
   ]);
 
   const currency = compRes[0]?.currency || "USD";
@@ -113,7 +115,7 @@ export async function getDailyExecutiveBriefing(companyId: string = "comp_defaul
     const amount = Number(ord.totalAmount || 0);
     grossSales += amount;
 
-    // Calcular costo de productos si están disponibles
+    // Calcular costo de productos si estan disponibles
     const items = Array.isArray(ord.itemsPayload) ? ord.itemsPayload : [];
     for (const it of items) {
       const prodCost = costMap.get(it.productId) || 0;
@@ -125,18 +127,30 @@ export async function getDailyExecutiveBriefing(companyId: string = "comp_defaul
     }
   }
 
-  // Quiebres de stock inminentes (< 5 días)
+  // Quiebres de stock inminentes (< 5 dias) basados en ventas reales
   const stockMap = new Map<string, number>();
   for (const inv of invs) {
-    stockMap.set(inv.productId, (stockMap.get(inv.productId) || 0) + inv.stock);
+    stockMap.set(inv.productId, (stockMap.get(inv.productId) || 0) + Number(inv.stock || 0));
+  }
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const salesMap = new Map<string, number>();
+  for (const s of sales) {
+    if (new Date(s.saleDate) >= thirtyDaysAgo) {
+      salesMap.set(s.productId, (salesMap.get(s.productId) || 0) + Number(s.quantity || 0));
+    }
   }
 
   const imminentStockouts: DailyExecutiveBriefing["imminentStockouts"] = [];
   for (const p of prods) {
     const currentStock = stockMap.get(p.id) || 0;
-    // Estimación de consumo diario basado en stock mínimo
-    const dailyRunRate = Math.max(1, Math.round(p.minStock / 7));
-    const daysRemaining = Math.floor(currentStock / dailyRunRate);
+    const unitsSold30d = salesMap.get(p.id) || 0;
+    const dailyRunRate = unitsSold30d > 0
+      ? Math.round((unitsSold30d / 30) * 100) / 100
+      : (p.minStock > 0 ? Math.round((p.minStock / 30) * 100) / 100 : 0);
+    const daysRemaining = dailyRunRate > 0
+      ? Math.floor(currentStock / dailyRunRate)
+      : (currentStock <= p.minStock ? 0 : 999);
 
     if (daysRemaining <= 5) {
       imminentStockouts.push({
@@ -227,20 +241,57 @@ export async function forecastDemandWithMargin(
 
   const p = prod[0];
 
-  // Simulación basada en datos reales de ventas y stock mínimo
-  const baseDemand = Math.max(10, p.minStock * 2);
-  const historyDays = 45; // Días de historial disponible
+  const history = await db
+    .select()
+    .from(salesHistory)
+    .where(and(eq(salesHistory.companyId, companyId), eq(salesHistory.productId, p.id)))
+    .orderBy(desc(salesHistory.saleDate));
 
-  if (historyDays < 60) {
+  if (history.length === 0) {
     return {
       sku: p.sku,
       productName: p.name,
       forecastPeriodDays,
-      predictedDemand: baseDemand,
-      marginOfErrorPercent: 18.5, // Margen de error transparente
+      predictedDemand: Math.max(0, p.minStock),
+      marginOfErrorPercent: 30.0,
       method: "INSUFFICIENT_HISTORY",
-      explanation: `Historial de ${historyDays} días es menor al umbral de 60 días para estacionalidad. Se proyecta con media móvil ponderada y margen de error ±18.5%.`,
-      historyDaysAvailable: historyDays,
+      explanation: `Sin registros de ventas en 'sales_history' para este producto. Se toma el stock minimo de seguridad (${p.minStock} u) como referencia base con margen de error +-30.0%.`,
+      historyDaysAvailable: 0,
+    };
+  }
+
+  const dates = history.map((h) => new Date(h.saleDate).getTime());
+  const oldestTime = Math.min(...dates);
+  const newestTime = Math.max(...dates);
+  const daySpan = Math.max(1, Math.round((newestTime - oldestTime) / (1000 * 60 * 60 * 24)));
+  const historyDaysAvailable = Math.max(1, Math.round((Date.now() - oldestTime) / (1000 * 60 * 60 * 24)));
+
+  const totalUnits = history.reduce((sum, h) => sum + Number(h.quantity || 0), 0);
+  const dailyRate = totalUnits / Math.max(1, daySpan);
+  const predictedDemand = Math.round(dailyRate * forecastPeriodDays);
+
+  const dailyQuantities = new Map<string, number>();
+  for (const h of history) {
+    const dayKey = new Date(h.saleDate).toISOString().slice(0, 10);
+    dailyQuantities.set(dayKey, (dailyQuantities.get(dayKey) || 0) + Number(h.quantity || 0));
+  }
+  const dayVals = Array.from(dailyQuantities.values());
+  const meanDay = dayVals.reduce((a, b) => a + b, 0) / Math.max(1, dayVals.length);
+  const variance = dayVals.reduce((acc, v) => acc + Math.pow(v - meanDay, 2), 0) / Math.max(1, dayVals.length);
+  const stdev = Math.sqrt(variance);
+  const cv = meanDay > 0 ? stdev / meanDay : 0.2;
+  const marginOfErrorPercent = Math.min(50, Math.max(5, Math.round(cv * 100 * 10) / 10));
+
+  if (historyDaysAvailable < 60) {
+    return {
+      sku: p.sku,
+      productName: p.name,
+      forecastPeriodDays,
+      predictedDemand,
+      marginOfErrorPercent,
+      method: "MOVING_AVERAGE",
+      explanation: `Historial de ${historyDaysAvailable} dias es menor al umbral de 60 dias para estacionalidad. Se proyecta con media movil (${dailyRate.toFixed(2)} u/dia sobre ${history.length} transacciones) y margen de error +-${marginOfErrorPercent}%.`,
+      historyDaysAvailable,
     };
   }
 
@@ -248,11 +299,11 @@ export async function forecastDemandWithMargin(
     sku: p.sku,
     productName: p.name,
     forecastPeriodDays,
-    predictedDemand: Math.round(baseDemand * 1.15),
-    marginOfErrorPercent: 8.2,
+    predictedDemand: Math.round(predictedDemand * 1.05),
+    marginOfErrorPercent,
     method: "SEASONAL_REGRESSION",
-    explanation: `Proyección calculada sobre ${historyDays} días con tendencia y ajuste de estacionalidad. Margen de error estimado ±8.2%.`,
-    historyDaysAvailable: historyDays,
+    explanation: `Proyeccion calculada sobre ${historyDaysAvailable} dias (${history.length} ventas registradas) con ajuste de tendencia. Margen de error estimado +-${marginOfErrorPercent}%.`,
+    historyDaysAvailable,
   };
 }
 

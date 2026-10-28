@@ -66,7 +66,7 @@ export function compactSupplierFacts(
     minOrderQuantity: number;
     origin?: string;
   }>,
-  currency: string = "USD",
+  currency: string = "MXN",
 ): string {
   if (suppliers.length === 0) {
     return "[FACTS_PROVEEDORES_REAL] No existen proveedores homologados registrados para este insumo.";

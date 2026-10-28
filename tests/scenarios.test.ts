@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
-import { runAgentLoop } from "../src/agent/loop";
-import { FakeGrokClient } from "../src/llm/fake";
+import { runAgentLoop, FakeGrokClient } from "@mint/core";
 
 describe("Business Scenarios and Automated Tests with Fake LLM", () => {
   let mockClient: FakeGrokClient;

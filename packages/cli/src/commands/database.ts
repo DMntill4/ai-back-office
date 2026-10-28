@@ -235,7 +235,8 @@ export async function importUniversalCatalogFile(
 
   for (let i = 0; i < realItems.length; i++) {
     const item = realItems[i];
-    const prodId = `prod_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+    const cleanCompany = companyId.replace(/[^a-z0-9_]/g, "_");
+    const prodId = `prod_${cleanCompany}_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
 
     await db
       .insert(products)
@@ -253,35 +254,39 @@ export async function importUniversalCatalogFile(
         set: { name: item.name, category: item.category, minStock: item.minStock },
       });
 
-    await db
-      .insert(inventory)
-      .values({
-        id: `inv_${companyId}_${prodId}`,
-        companyId,
-        productId: prodId,
-        warehouseId: `alm_central_${companyId}`,
-        stock: item.stock,
-      })
-      .onConflictDoUpdate({
-        target: inventory.id,
-        set: { stock: item.stock, updatedAt: new Date() },
-      });
+    if (Number.isFinite(item.stock) && item.stock >= 0) {
+      await db
+        .insert(inventory)
+        .values({
+          id: `inv_${companyId}_${prodId}`,
+          companyId,
+          productId: prodId,
+          warehouseId: `alm_central_${companyId}`,
+          stock: item.stock,
+        })
+        .onConflictDoUpdate({
+          target: inventory.id,
+          set: { stock: item.stock, updatedAt: new Date() },
+        });
+    }
 
-    // Vincular precio extraído con supplier_products para que Compras y Consolidación operen al 100%
-    const assignedSupplierId = supplierIds[i % supplierIds.length];
-    const spId = `sp_${prodId}_${assignedSupplierId}`.slice(0, 60);
-    await db
-      .insert(supplierProducts)
-      .values({
-        id: spId,
-        companyId,
-        supplierId: assignedSupplierId,
-        productId: prodId,
-        unitPrice: (item.price || 150).toFixed(2),
-        leadTimeDays: 3,
-        minOrderQuantity: Math.max(2, item.minStock),
-      })
-      .onConflictDoNothing();
+    // Vincular precio extraído con supplier_products solo si hay proveedores reales y precio real extraído
+    if (supplierIds.length > 0 && item.price !== undefined && item.price > 0) {
+      const assignedSupplierId = supplierIds[i % supplierIds.length];
+      const spId = `sp_${prodId}_${assignedSupplierId}`.slice(0, 60);
+      await db
+        .insert(supplierProducts)
+        .values({
+          id: spId,
+          companyId,
+          supplierId: assignedSupplierId,
+          productId: prodId,
+          unitPrice: item.price.toFixed(2),
+          leadTimeDays: 3,
+          minOrderQuantity: Math.max(2, item.minStock),
+        })
+        .onConflictDoNothing();
+    }
   }
 
   // Registrar en dataSources para futuras re-sincronizaciones sin hardcodes

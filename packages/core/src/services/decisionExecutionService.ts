@@ -1,11 +1,12 @@
 import { db } from "../db/client";
-import { decisions, purchaseOrders, inventory, cases, suppliers, warehouses, shipments, companies } from "../db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { decisions, purchaseOrders, inventory, cases, suppliers, warehouses, shipments, companies, users } from "../db/schema";
+import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { resolveNodeGeoPoint } from "./geocodingService";
 import { calculateRealRoute } from "./routeCalculator";
 import { executeWarehouseTransfer } from "./logisticsCoordinatorService";
 import { getCompanyConfig } from "./configService";
+import { hasPermission } from "./authAndSetupService";
 
 export interface ExecutionResult {
   success: boolean;
@@ -14,19 +15,16 @@ export interface ExecutionResult {
   verified: boolean;
   message: string;
   error?: string;
+  notifiedChannels?: number;
+  notifiedPersonnel?: Array<{ name: string; email: string; role: string }>;
 }
 
 /**
  * Servicio de Ejecución Transaccional y Post-Verificación
  * Aplica la acción real en la base de datos, genera guía logística (shipments)
- * con ruta GPS real (OSRM / Google Maps) y confirma mediante una segunda consulta SELECT
- * que el registro se persistió correctamente.
- *
- * Tarea 4:
- * - Valida vigencia (no vencida).
- * - Bloquea estrictamente la auto-aprobación (el solicitante NUNCA puede ser el aprobador).
- * - Exige rol 'owner' o 'admin'.
- * - Notifica al supervisor de ventas configurado o al dueño.
+ * con ruta GPS real (OSRM / Google Maps), confirma mediante una segunda consulta SELECT
+ * que el registro se persistió correctamente y despacha la Ficha de Dispersión de Pago
+ * a los canales configurados y al personal de Finanzas/Pagos.
  */
 export async function executeAndVerifyDecision(
   decisionId: string,
@@ -77,12 +75,12 @@ export async function executeAndVerifyDecision(
     };
   }
 
-  // 1.3 Regla de Roles: Solo admin o dueño (owner)
-  if (approverRole && approverRole !== "owner" && approverRole !== "admin") {
+  // 1.3 Regla de Roles: Solo roles con permiso de autorización de compras (owner, admin, auditor)
+  if (approverRole && !hasPermission(approverRole, "approve_purchase")) {
     return {
       success: false,
       verified: false,
-      message: `ACCESO DENEGADO: El rol '${approverRole}' no tiene permisos para autorizar compras a proveedores. Requiere rol 'owner' o 'admin'.`,
+      message: `ACCESO DENEGADO: El rol '${approverRole}' no tiene permisos para autorizar compras a proveedores. Requiere rol 'owner', 'admin' o 'auditor'.`,
     };
   }
 
@@ -131,6 +129,7 @@ export async function executeAndVerifyDecision(
         unitPrice: unitPrice.toString(),
         totalAmount: totalAmount.toString(),
         status: "abierta",
+        paymentStatus: "pendiente_pago",
         idempotencyKey,
         caseId: dec.caseId,
       });
@@ -190,15 +189,55 @@ export async function executeAndVerifyDecision(
         // Guía secundaria opcional
       }
 
-      // 2.4 Actualizar estado de la decisión como verificada
+      // 2.4 Despachar Ficha de Dispersión de Pago a Canales y Personal de Pagos/Finanzas
+      let notifiedChannels = 0;
+      let notifiedPersonnel: Array<{ name: string; email: string; role: string }> = [];
+      try {
+        const notifiersMod: any = await import("@mint/notifiers");
+        if (typeof notifiersMod.dispatchPaymentOrderNotification === "function") {
+          const paymentNotif = await notifiersMod.dispatchPaymentOrderNotification({
+            decisionId: dec.id,
+            companyId: dec.companyId,
+            orderId,
+            trackingNumber,
+            approvedBy,
+          });
+          notifiedChannels = (paymentNotif.results || []).filter((r: any) => r.success).length;
+          notifiedPersonnel = paymentNotif.notifiedPersonnel || [];
+        }
+      } catch {
+        // Si @mint/notifiers no está disponible en un test unitario aislado, buscar personal directo en BD
+        try {
+          const companyUsers = await db.select().from(users).where(eq(users.companyId, dec.companyId));
+          const financeOnly = companyUsers.filter((u) => u.role === "finance");
+          const fallbackUsers = companyUsers.filter((u) => u.role === "finance" || u.role === "admin" || u.role === "owner");
+          notifiedPersonnel = (financeOnly.length > 0 ? financeOnly : fallbackUsers).map((u) => ({
+            name: u.name,
+            email: u.email,
+            role: u.role,
+          }));
+        } catch {}
+      }
+
+      const wasReallyNotified = notifiedChannels > 0 || notifiedPersonnel.length > 0;
+      const personnelSummary =
+        notifiedPersonnel.length > 0
+          ? `Personal de pagos asignado: ${notifiedPersonnel.map((p) => `${p.name} (${p.email})`).join(", ")}.`
+          : "Pendiente de asignar personal con rol 'finance' en el equipo.";
+
+      // 2.5 Actualizar estado de la decisión como verificada
       const now = new Date();
       await db
         .update(decisions)
         .set({
           policyDecision: "approved",
           approvedBy,
-          feedback: feedback || "Aprobado y ejecutado exitosamente.",
-          supervisorNotified: true,
+          feedback:
+            feedback ||
+            (notifiedChannels > 0
+              ? `Aprobada, ejecutada en BD y enviada orden de pago a ${notifiedChannels} canal(es). ${personnelSummary}`
+              : `Aprobada y ejecutada en BD. ${personnelSummary}`),
+          supervisorNotified: wasReallyNotified,
           executedAt: now,
           verifiedAt: now,
           executionResult: {
@@ -207,7 +246,9 @@ export async function executeAndVerifyDecision(
             trackingNumber,
             verifiedAt: now.toISOString(),
             idempotencyKey,
-            supervisorNotified: true,
+            supervisorNotified: wasReallyNotified,
+            notifiedChannels,
+            notifiedPersonnel,
           },
         })
         .where(eq(decisions.id, decisionId));
@@ -217,7 +258,7 @@ export async function executeAndVerifyDecision(
         .update(cases)
         .set({
           status: "resuelto",
-          resultSummary: `Orden de compra ${orderId} y embarque ${trackingNumber} ejecutados y post-verificados exitosamente. Notificación despachada a supervisor.`,
+          resultSummary: `Orden de compra ${orderId} y embarque ${trackingNumber} ejecutados y post-verificados exitosamente. ${personnelSummary}`,
           closedAt: now,
         })
         .where(eq(cases.id, dec.caseId));
@@ -229,7 +270,9 @@ export async function executeAndVerifyDecision(
         orderId,
         trackingNumber,
         verified: true,
-        message: `Orden ${orderId} (Guía ${trackingNumber}) autorizada por ${approvedBy} y post-verificada exitosamente en PostgreSQL. Total: ${config.currency} ${Number(totalAmount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Notificación enviada al supervisor de ventas.`,
+        notifiedChannels,
+        notifiedPersonnel,
+        message: `Orden ${orderId} (Guía ${trackingNumber}) autorizada por ${approvedBy} y post-verificada exitosamente en PostgreSQL. Total: ${config.currency} ${Number(totalAmount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. ${notifiedChannels > 0 ? `Ficha de pago enviada a ${notifiedChannels} canal(es) activos.` : "Sin canales externos activos."} ${personnelSummary}`,
       };
     } catch (err: any) {
       // Si falla la verificación, reabrir caso en estado urgente

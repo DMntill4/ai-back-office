@@ -389,7 +389,13 @@ app.get("/api/dashboard", async (req) => {
         totalOrders: decs.length,
         automated: decs.filter((d) => d.policyDecision === "auto_executed").length,
         pendingReview: pendingDecisions,
-        savings: Math.round(totalSpend * 0.12),
+        savings: Math.round(
+          decs.reduce((sum, d) => {
+            const ep = (d.evidencePayload || {}) as any;
+            const sav = ep?.rebalancingAlternative?.netSavingsMxn || ep?.savingsMxn || 0;
+            return sum + Number(sav || 0);
+          }, 0)
+        ),
         spend: totalSpend,
         currency: "MXN",
       },

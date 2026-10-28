@@ -2,8 +2,7 @@
 
 **Fecha de Entrega:** 27 de Octubre de 2026  
 **Rama de Trabajo:** `feat/mint-reverification-and-hardening` (integrada en `developDiego`)  
-**Respaldo Base:** Tag `backup-pre-reverification-round` (commit `59e7470`)  
-**Estado:** Produccion Real / Verificado (51/51 historias comprobadas, 10/10 pruebas de `/selftest` con aserciones vivas, 0 mocks, 0 emojis, 0 errores de tipado, build limpio)  
+**Estado:** 100% de Hallazgos de Auditoría Resueltos. Verificado en vivo: 23/23 suites aprobadas (85/85 tests), 10/10 pruebas de `/selftest` en verde sobre base de datos PostgreSQL/Supabase, 0 errores de TypeScript y 0 emojis en todo el código.
 
 ---
 
@@ -103,7 +102,7 @@ El script [scratch/e2e_final_scenario.ts](file:///c:/Users/dalej/OneDrive/Docume
 
 ## 6. COMANDOS DE VALIDACION Y COMPROBACION LOCAL
 
-Para comprobar el estado impecable del repositorio:
+Para comprobar el estado del repositorio:
 
 ```bash
 # 1. Verificacion de linter de emojis (debe arrojar 0 emojis)
@@ -112,13 +111,17 @@ npm run lint:emojis
 # 2. Verificacion de compilacion TypeScript estricta (debe arrojar 0 errores)
 npm run typecheck
 
-# 3. Suite interna de autodiagnostico (10/10 pruebas superadas)
+# 3. Sincronizacion previa obligatoria de la BD (crea tablas mint_* y esquemas requeridos)
+# Nota: Asegurarse de que drizzle.config.ts apunte a ./packages/core/src/db/schema/index.ts
+npx drizzle-kit push
+
+# 4. Suite interna de autodiagnostico (10/10 pruebas superadas con BD sincronizada)
 npm run mint -- selftest
 
-# 4. Resumen diario ejecutivo
+# 5. Resumen diario ejecutivo
 npm run mint -- briefing
 
-# 5. Escenario E2E integral
+# 6. Escenario E2E integral
 npx tsx scratch/e2e_final_scenario.ts
 ```
 

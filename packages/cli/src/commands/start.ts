@@ -82,11 +82,16 @@ export async function startCommand(options: StartOptions = {}) {
   daemonState.startedAt = new Date().toISOString();
   writeDaemonState(daemonState);
 
-  const tickerInterval = setInterval(async () => {
-    try {
-      await tickOnce(companyId);
-    } catch {}
-  }, 30000);
+  // En modo interactivo, consoleCommand maneja su propio ciclo de escaneo con alertas
+  // El ticker de fondo solo se activa en modo headless para evitar bucles competidores
+  let tickerInterval: NodeJS.Timeout | null = null;
+  if (options.headless || !process.stdin.isTTY) {
+    tickerInterval = setInterval(async () => {
+      try {
+        await tickOnce(companyId);
+      } catch {}
+    }, 30000);
+  }
 
   // Primer ciclo del daemon sin bloquear la consola
   tickOnce(companyId).catch(() => {});
@@ -95,7 +100,7 @@ export async function startCommand(options: StartOptions = {}) {
   const cleanup = () => {
     if (cleanedUp) return;
     cleanedUp = true;
-    clearInterval(tickerInterval);
+    if (tickerInterval) clearInterval(tickerInterval);
     try {
       const state = readDaemonState();
       state.isRunning = false;

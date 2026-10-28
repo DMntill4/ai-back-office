@@ -171,6 +171,37 @@ export async function configCommand(action?: string, arg1?: string, ...rest: str
     return;
   }
 
+  // 4.1 Subcomando: Actualizar idioma del bot (/config language <es|en>)
+  if (sub === "language" || sub === "idioma" || sub === "lang") {
+    if (!hasPermission(role, "configure_bot")) {
+      console.log(
+        `\n  ${theme.redBold("[ACCESO DENEGADO]")} Tu rol (${role.toUpperCase()}) no tiene permisos de configuración.\n`,
+      );
+      return;
+    }
+
+    const langRaw = (arg1 || rest[0] || "").toLowerCase().trim();
+    if (!langRaw) {
+      console.log(
+        `\n  ${theme.amberBold("[USO]")} /config language <es|en>\n` +
+          `  ${theme.dim("Idiomas permitidos:")} ${theme.mintBold("es")} (Español) │ ${theme.cyanBold("en")} (English)\n`,
+      );
+      return;
+    }
+
+    try {
+      const res = await setCompanyConfig(companyId, "bot_language", langRaw);
+      const label = res.updatedValue === "en" ? "ENGLISH (en)" : "ESPAÑOL (es)";
+      console.log(
+        `\n  ${theme.success("[OK]")} Idioma exclusivo del agente configurado en ${theme.mintBold(label)}.\n` +
+          `  ${theme.dim("El bot responderá estrictamente en este idioma en todo flujo conversacional.")}\n`,
+      );
+    } catch (err: any) {
+      console.log(`\n  ${theme.redBold("[ERROR]")} ${err.message}\n`);
+    }
+    return;
+  }
+
   // 5. Subcomando: Reglas personalizadas (/config rules <texto>)
   if (sub === "rules" || sub === "reglas") {
     if (!hasPermission(role, "configure_bot")) {
@@ -213,6 +244,7 @@ export async function configCommand(action?: string, arg1?: string, ...rest: str
       console.log(
         `\n  ${theme.amberBold("[USO]")} /config set <CLAVE> <VALOR>\n` +
           `  ${theme.dim("Claves soportadas:")}\n` +
+          `    - bot_language             (solo 'es' para Español o 'en' para Inglés)\n` +
           `    - timezone                 (ej: America/Bogota, America/Mexico_City)\n` +
           `    - currency                 (ej: USD, COP, MXN)\n` +
           `    - approval_limit_amount    (ej: 5000)\n` +
@@ -250,6 +282,11 @@ export async function configCommand(action?: string, arg1?: string, ...rest: str
         ? theme.badge("SEMIAUTÓNOMO", "cyan")
         : theme.badge("HUMAN-IN-THE-LOOP (100% SEGURO)", "mint");
 
+  const languageBadge =
+    config.botLanguage === "en"
+      ? theme.badge("ENGLISH (en)", "cyan")
+      : theme.badge("ESPAÑOL (es)", "mint");
+
   console.log(
     drawCard(
       [
@@ -266,6 +303,7 @@ export async function configCommand(action?: string, arg1?: string, ...rest: str
         "",
         `${theme.bold("ASISTENTE Y REGLAS DE NEGOCIO:")}`,
         `  - Nombre del Agente:  ${theme.bold(config.botName)}`,
+        `  - Idioma del Agente:  ${languageBadge}`,
         `  - Tono de Respuestas: ${theme.dim(config.botTone)}`,
         `  - Reglas Custom:      ${config.botCustomRules ? theme.dim(`"${config.botCustomRules}"`) : theme.dim("(Sin reglas personalizadas activas)")}`,
         "",
@@ -274,6 +312,7 @@ export async function configCommand(action?: string, arg1?: string, ...rest: str
         `  - En Estado Crítico:  ${criticalCount > 0 ? theme.redBold(`${criticalCount} SKU(s) bajo el mínimo`) : theme.mintBold("0 SKUs bajo umbral")}`,
         "",
         `${theme.bold("COMANDOS RÁPIDOS DE AJUSTE:")}`,
+        `  ${theme.mintBold("/config language <es|en>")}        Cambiar idioma del bot (Español / Inglés)`,
         `  ${theme.mintBold("/config set <clave> <valor>")}   Modificar un parámetro de gobernanza`,
         `  ${theme.mintBold("/config minstock <sku> <qty>")}  Ajustar umbral de seguridad para un producto`,
         `  ${theme.mintBold("/config thresholds")}            Ver tabla de todos los umbrales de stock`,

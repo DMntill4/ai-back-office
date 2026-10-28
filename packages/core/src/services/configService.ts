@@ -3,6 +3,8 @@ import { businessConfig, companies, products, inventory, operationalEvents } fro
 import { eq, and, sql, or } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
+export type BotLanguage = "es" | "en";
+
 export interface CompanyConfig {
   companyId: string;
   companyName: string;
@@ -11,6 +13,7 @@ export interface CompanyConfig {
   approvalLimitAmount: number | null;
   botName: string;
   botTone: string;
+  botLanguage: BotLanguage;
   botCustomRules: string;
   autonomyLevel: "hitl" | "semiautonomo" | "autonomo";
   raw: Record<string, string>;
@@ -46,6 +49,26 @@ export const COMMON_TIMEZONES = [
 ];
 
 /**
+ * Normaliza la entrada de idioma a 'es' (Español) o 'en' (Inglés), rechazando cualquier otro idioma
+ */
+export function normalizeBotLanguage(val?: string | null): BotLanguage | null {
+  if (!val) return null;
+  const clean = val
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+  if (["es", "esp", "espanol", "spanish", "castellano"].includes(clean)) {
+    return "es";
+  }
+  if (["en", "eng", "english", "ingles"].includes(clean)) {
+    return "en";
+  }
+  return null;
+}
+
+/**
  * Valida si una cadena es una zona horaria IANA válida admitida por el runtime
  */
 export function isValidTimezone(tz: string): boolean {
@@ -77,7 +100,7 @@ export function formatCompanyDate(
     };
 
     if (includeTime) {
-      options.hour = "2-digit";
+      options.hour = "2-digit",
       options.minute = "2-digit";
       options.second = "2-digit";
       options.hour12 = false;
@@ -127,6 +150,7 @@ export async function getCompanyConfig(companyId: string = "comp_default"): Prom
   const approvalLimitAmount: number | null = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
   const botName = raw["bot_name"] || "Mint Autonomous Agent";
   const botTone = raw["bot_tone"] || "ejecutivo";
+  const botLanguage: BotLanguage = normalizeBotLanguage(raw["bot_language"] || raw["language"]) || "es";
   const botCustomRules = raw["bot_custom_rules"] || "";
   const autonomyLevel = (raw["autonomy_level"] as any) || "hitl";
 
@@ -138,6 +162,7 @@ export async function getCompanyConfig(companyId: string = "comp_default"): Prom
     approvalLimitAmount,
     botName,
     botTone,
+    botLanguage,
     botCustomRules,
     autonomyLevel,
     raw,
@@ -154,7 +179,7 @@ export async function setCompanyConfig(
   currency?: string,
 ): Promise<{ success: boolean; message: string; updatedKey: string; updatedValue: string }> {
   const normalizedKey = key.trim().toLowerCase();
-  const trimmedValue = value.trim();
+  let trimmedValue = value.trim();
 
   // Validación de zona horaria
   if (normalizedKey === "timezone" || normalizedKey === "tz") {
@@ -181,7 +206,25 @@ export async function setCompanyConfig(
     }
   }
 
-  const targetKey = normalizedKey === "tz" ? "timezone" : normalizedKey === "approval_limit" ? "approval_limit_amount" : normalizedKey;
+  // Validación estricta de idioma del bot (SOLO Español 'es' o Inglés 'en')
+  if (normalizedKey === "bot_language" || normalizedKey === "language" || normalizedKey === "idioma" || normalizedKey === "lang") {
+    const resolvedLang = normalizeBotLanguage(trimmedValue);
+    if (!resolvedLang) {
+      throw new Error(
+        `Idioma '${trimmedValue}' no soportado. Solo se permiten dos idiomas para el bot: 'es' (Español) o 'en' (English).`,
+      );
+    }
+    trimmedValue = resolvedLang;
+  }
+
+  const targetKey =
+    normalizedKey === "tz"
+      ? "timezone"
+      : normalizedKey === "approval_limit"
+        ? "approval_limit_amount"
+        : normalizedKey === "language" || normalizedKey === "idioma" || normalizedKey === "lang"
+          ? "bot_language"
+          : normalizedKey;
 
   // Upsert en business_config
   await db

@@ -39,10 +39,11 @@ export async function setupCommand(options: SetupOptions = {}) {
     .onConflictDoNothing();
 
   // 2. Asegurar almacén central
+  const centralWarehouseId = companyId === "comp_default" ? "alm_central" : `alm_central_${companyId}`;
   await db
     .insert(warehouses)
     .values({
-      id: "alm_central",
+      id: centralWarehouseId,
       companyId,
       name: "Almacén Central de Operaciones",
       location: "Bahía Principal",

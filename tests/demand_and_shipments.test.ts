@@ -1,12 +1,21 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { executePronosticarDemanda } from "../src/tools/pronosticarDemanda";
-import { executeConsultarEnvios } from "../src/tools/consultarEnvios";
-import { executeCrearOrdenCompra } from "../src/tools/crearOrdenCompra";
-import { saveBotSetupConfig, registerUser } from "../src/services/authAndSetupService";
-import { calculateDemandForecast } from "../src/services/demandService";
-import { trackShipments } from "../src/services/shipmentService";
-import { db } from "../src/db/client";
-import { companies, products, suppliers, supplierProducts, salesHistory, shipments, warehouses } from "../src/db/schema";
+import {
+  executePronosticarDemanda,
+  executeConsultarEnvios,
+  executeCrearOrdenCompra,
+  saveBotSetupConfig,
+  registerUser,
+  calculateDemandForecast,
+  trackShipments,
+  db,
+  companies,
+  products,
+  suppliers,
+  supplierProducts,
+  salesHistory,
+  shipments,
+  warehouses,
+} from "@mint/core";
 import { eq } from "drizzle-orm";
 
 describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umbral y Seguimiento de Envíos", () => {

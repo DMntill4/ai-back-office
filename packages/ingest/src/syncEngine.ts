@@ -310,7 +310,16 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
       const minStock = parseInt(minStockRaw.replace(/[^0-9]/g, ""), 10) || 10;
       currentSyncSkus.push(sku);
 
-      const productId = `prod_${sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+      const cleanCompany = companyId.replace(/[^a-z0-9_]/g, "_");
+      const cleanSku = sku.toLowerCase().replace(/[^a-z0-9_]/g, "_");
+
+      const existingProd = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.companyId, companyId), eq(products.sku, sku)))
+        .limit(1);
+
+      const productId = existingProd[0]?.id || `prod_${cleanCompany}_${cleanSku}`;
 
       // Upsert producto
       await db
@@ -335,32 +344,35 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
         });
 
       // Resolver almacén (si la fila especifica bodega/sucursal, crearla y geocodificarla)
-      let targetWarehouseId = "alm_central";
+      let targetWarehouseId = companyId === "comp_default" ? "alm_central" : `alm_central_${cleanCompany}`;
       const rawWarehouseName = mappings.warehouseName ? (sanitized[mappings.warehouseName] || "").trim() : "";
       const rawWarehouseCity = mappings.warehouseCity ? (sanitized[mappings.warehouseCity] || "").trim() : "";
 
       if (rawWarehouseName) {
         const whSlug = rawWarehouseName.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 24);
-        targetWarehouseId = `alm_${whSlug}`;
-        if (!warehouseCache.has(targetWarehouseId)) {
-          warehouseCache.set(targetWarehouseId, rawWarehouseName);
-          try {
-            const geo = await geocodeAddressOrCity(rawWarehouseCity || rawWarehouseName).catch(() => null);
-            await db
-              .insert(warehouses)
-              .values({
-                id: targetWarehouseId,
-                companyId,
-                name: rawWarehouseName,
-                location: rawWarehouseCity || rawWarehouseName,
-                city: geo?.city || rawWarehouseCity || null,
-                latitude: geo ? String(geo.latitude) : null,
-                longitude: geo ? String(geo.longitude) : null,
-              })
-              .onConflictDoNothing();
-          } catch {
-            // Continuar si el mock no soporta tabla warehouses
-          }
+        targetWarehouseId = `alm_${cleanCompany}_${whSlug}`;
+      }
+
+      if (!warehouseCache.has(targetWarehouseId)) {
+        warehouseCache.set(targetWarehouseId, rawWarehouseName || "Almacén Central");
+        try {
+          const geo = rawWarehouseName
+            ? await geocodeAddressOrCity(rawWarehouseCity || rawWarehouseName).catch(() => null)
+            : null;
+          await db
+            .insert(warehouses)
+            .values({
+              id: targetWarehouseId,
+              companyId,
+              name: rawWarehouseName || "Almacén Central",
+              location: rawWarehouseCity || rawWarehouseName || "Bahía Principal",
+              city: geo?.city || rawWarehouseCity || null,
+              latitude: geo ? String(geo.latitude) : null,
+              longitude: geo ? String(geo.longitude) : null,
+            })
+            .onConflictDoNothing();
+        } catch {
+          // Continuar si el mock no soporta tabla warehouses
         }
       }
 
@@ -506,9 +518,16 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     const effectiveRequireTwoPhase = requireTwoPhaseDeletion && !allowImmediateDeletion;
     const updatedPendingDeletions: Record<string, number> = { ...pendingDeletions };
 
+    const cleanCompany = (companyId || "comp_default").toLowerCase().replace(/[^a-z0-9_]/g, "_");
+
     for (const removedSku of removedSkus) {
       const consecutiveMissing = (updatedPendingDeletions[removedSku] || 0) + 1;
-      const prodId = `prod_${removedSku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+      const existingProduct = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.sku, removedSku), eq(products.companyId, companyId)))
+        .limit(1);
+      const prodId = existingProduct[0]?.id || `prod_${cleanCompany}_${removedSku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
 
       if (!effectiveRequireTwoPhase || consecutiveMissing >= 2 || allowMassDeletion) {
         deletedCount++;

@@ -1,0 +1,54 @@
+{
+  "orderId": "po_9824da37",
+  "folioNumber": "PO-2026-24DA37",
+  "issuedAt": "2026-10-25T16:49:27.520Z",
+  "company": {
+    "id": "comp_default",
+    "name": "Ferreteria Industrial Santandereana S.A.S.",
+    "city": "Bucaramanga",
+    "country": "Colombia",
+    "currency": "COP"
+  },
+  "supplier": {
+    "id": "prov_acme",
+    "name": "Acme Components",
+    "email": "compras@proveedor-homologado.local",
+    "city": "Acme Components",
+    "address": "Acme Components"
+  },
+  "items": [
+    {
+      "productId": "prod_e2e_1792946967431",
+      "sku": "SKU-E2E-1792946967431",
+      "name": "Sensor de Nivel de Tanque E2E",
+      "quantity": 25,
+      "unitPrice": 420,
+      "subtotal": 10500
+    }
+  ],
+  "financials": {
+    "subtotal": 10500,
+    "taxRate": 0.16,
+    "taxAmount": 1680,
+    "freightCost": 0,
+    "totalAmount": 12180,
+    "currency": "COP"
+  },
+  "logistics": {
+    "carrier": "Servientrega Industrial",
+    "trackingNumber": "TRK-IN-F9FF68",
+    "origin": "Acme Components",
+    "destination": "Bucaramanga",
+    "etaDate": "2026-10-27",
+    "leadDays": 2,
+    "transitStatus": "en_transito"
+  },
+  "governance": {
+    "approvedBy": "Dirección de Operaciones (@director_ops) [vía telegram]",
+    "decisionId": "dec_a39e0327",
+    "caseId": "case_a4f30ae4",
+    "idempotencyKey": "idem_dec_dec_a39e0327",
+    "sha256AuditHash": "5b8f7d38d4037f74cc89132b086d8c382a6e6581a9d24a444800c72d7146bb57",
+    "policyReason": "ESCALADO A BANDEJA DE DECISIONES: La orden de compra es una operación financiera vinculante."
+  }
+}

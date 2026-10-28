@@ -426,3 +426,29 @@ export function resolveCurrencyFromTextOrSymbol(input: string, countryHint = "")
 
   return "USD";
 }
+
+/**
+ * Valida si un código corresponde a una divisa ISO 4217 soportada
+ */
+export function isValidCurrency(code: string): boolean {
+  if (!code || typeof code !== "string") return false;
+  const clean = code.trim().toUpperCase();
+  if (clean.length !== 3) return false;
+  return (
+    GLOBAL_COUNTRY_DATABASE.some((c) => c.currency === clean) ||
+    ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CNY", "CHF", "BRL", "CLP", "COP", "MXN", "PEN", "ARS"].includes(clean)
+  );
+}
+
+/**
+ * Valida si un texto corresponde a un país, ciudad o territorio reconocible
+ */
+export function isValidCountryOrCity(input: string): boolean {
+  if (!input || typeof input !== "string") return false;
+  const trimmed = input.trim();
+  if (trimmed.length < 2) return false;
+  const lower = trimmed.toLowerCase();
+  if (lower === "internacional" || lower === "global") return true;
+  const loc = resolveLocaleAutonomously(trimmed);
+  return loc.confidence >= 0.7 && loc.countryCode !== "XX";
+}

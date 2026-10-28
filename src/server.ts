@@ -1,28 +1,30 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import { runAgentLoop } from "./agent/loop";
-import { db, pool, checkDatabaseHealth, testCustomConnection } from "./db/client";
-import { getSupabaseStatus } from "./db/supabase";
-import { runMigrations } from "./db/migrate";
-import { runSeed } from "./db/seed";
 import { randomUUID } from "node:crypto";
-import { getActiveProactiveAlerts, runProactiveAuditCycle } from "./worker/proactiveMonitor";
+import { eq, desc, and } from "drizzle-orm";
 import {
+  runAgentLoop,
+  db,
+  pool,
+  checkDatabaseHealth,
+  testCustomConnection,
+  getSupabaseStatus,
+  runMigrations,
+  runSeed,
+  getActiveProactiveAlerts,
+  runProactiveAuditCycle,
+  triggerStockAlertIfLow,
   getPendingApprovals,
   resolveApproval,
   getSupplierPerformance,
-} from "./services/inventoryService";
-import {
   registerUser,
   loginUser,
   saveBotSetupConfig,
   executeSqlUpload,
   getTemplateSql,
   ROLE_PERMISSIONS,
-} from "./services/authAndSetupService";
-import { calculateDemandForecast } from "./services/demandService";
-import { trackShipments } from "./services/shipmentService";
-import {
+  calculateDemandForecast,
+  trackShipments,
   products,
   inventory,
   purchaseOrders,
@@ -35,11 +37,11 @@ import {
   companies,
   decisions,
   operationalEvents,
-} from "./db/schema";
-import { eq, desc, and } from "drizzle-orm";
-import { ensureDecisionsTables } from "./db/ensureDecisionsTables";
-import { runFullOperationalEventScan } from "./events/eventEngine";
-import { executeAndVerifyDecision, rejectDecision } from "./services/decisionExecutionService";
+  ensureDecisionsTables,
+  runFullOperationalEventScan,
+  executeAndVerifyDecision,
+  rejectDecision,
+} from "@mint/core";
 
 const server = Fastify({ logger: true });
 
@@ -405,7 +407,6 @@ server.put("/api/inventory/:productId", async (request, reply) => {
       .limit(1);
 
     const threshold = prod.length > 0 ? prod[0].minStock : (minStock || 10);
-    const { triggerStockAlertIfLow } = await import("./worker/proactiveMonitor");
     const alert = await triggerStockAlertIfLow(productId, newStock, threshold, companyId);
 
     return reply.send({
@@ -438,7 +439,17 @@ server.get("/api/dashboard", async (request, reply) => {
     const pendingReview = apprvs.filter((a) => a.status === "pendiente").length;
     const automated = Math.max(0, totalOrders - pendingReview);
     const totalSpend = orders.reduce((sum, o) => sum + parseFloat(o.totalAmount || "0"), 0);
-    const estimatedSavings = totalSpend > 0 ? totalSpend * 0.12 : 0;
+    const compDecs = await db.select().from(decisions).where(eq(decisions.companyId, companyId));
+    let documentedSavings = 0;
+    for (const d of compDecs) {
+      const ep = (d.evidencePayload || {}) as any;
+      if (ep?.rebalancingAlternative?.netSavingsMxn) {
+        documentedSavings += Number(ep.rebalancingAlternative.netSavingsMxn) || 0;
+      } else if (ep?.savingsMxn) {
+        documentedSavings += Number(ep.savingsMxn) || 0;
+      }
+    }
+    const estimatedSavings = Math.round(documentedSavings * 100) / 100;
 
     // Contar productos bajo stock mínimo
     const lowStockCount = prods.filter((p) => {
@@ -553,7 +564,9 @@ server.get("/api/orders", async (request, reply) => {
 });
 
 server.get("/api/approvals", async (request, reply) => {
-  const pending = await getPendingApprovals();
+  const query = (request.query as any) || {};
+  const companyId = query.companyId || "comp_default";
+  const pending = await getPendingApprovals(companyId);
   return reply.send({
     success: true,
     data: pending,
@@ -562,8 +575,12 @@ server.get("/api/approvals", async (request, reply) => {
 
 server.post("/api/approvals/:id", async (request, reply) => {
   const { id } = request.params as { id: string };
-  const { action } = request.body as { action: "aprobado" | "rechazado" };
-  const result = await resolveApproval(id, action);
+  const body = (request.body as any) || {};
+  const { action } = body as { action: "aprobado" | "rechazado" };
+  const approvedBy = body.approvedBy || "HUMANO_ADMIN";
+  const approverUserId = body.userId || body.approverUserId;
+  const approverRole = body.role || body.approverRole;
+  const result = await resolveApproval(id, action, approvedBy, approverUserId, approverRole);
 
   if (!result.success) {
     return reply.status(404).send(result);
@@ -806,15 +823,23 @@ server.post("/api/setup/config", async (request, reply) => {
     });
   }
 
+  const rawLimit = body.approvalLimitAmount;
+  const parsedLimit = rawLimit !== undefined && rawLimit !== null && rawLimit !== "" ? Number(rawLimit) : null;
+
   const result = await saveBotSetupConfig({
     companyId: body.companyId,
     userId: body.userId,
     botName: body.botName || "Mint Autonomous Agent",
     botTone: body.botTone || "ejecutivo",
+    botLanguage: body.botLanguage || body.language,
     botCustomRules: body.botCustomRules || "",
-    approvalLimitAmount: Number(body.approvalLimitAmount) || 10000,
-    currency: body.currency || "MXN",
+    approvalLimitAmount: parsedLimit !== null && Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null,
+    currency: body.currency || "USD",
   });
+
+  if (!result.success) {
+    return reply.status(400).send(result);
+  }
 
   return reply.send(result);
 });
@@ -937,9 +962,11 @@ server.post("/api/decisions/:id/resolve", async (request, reply) => {
   const action = body.action as "approve" | "reject";
   const approvedBy = body.approvedBy || "HUMANO_ADMIN";
   const feedback = body.feedback;
+  const approverUserId = body.approverUserId || body.userId;
+  const approverRole = body.approverRole || body.role;
 
   if (action === "approve") {
-    const result = await executeAndVerifyDecision(id, approvedBy, feedback);
+    const result = await executeAndVerifyDecision(id, approvedBy, feedback, approverUserId, approverRole);
     if (!result.success) {
       return reply.status(500).send(result);
     }
@@ -947,6 +974,114 @@ server.post("/api/decisions/:id/resolve", async (request, reply) => {
   } else {
     const result = await rejectDecision(id, approvedBy, feedback);
     return reply.send(result);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// ENDPOINTS Y WEBHOOKS DE APROBACIÓN REMOTA (GMAIL / TELEGRAM / SLACK)
+// ─────────────────────────────────────────────────────────────
+
+server.get("/approve", async (request, reply) => {
+  const query = (request.query as any) || {};
+  const token = query.token as string;
+  if (!token) {
+    return reply.status(400).send({ success: false, error: "Token de aprobación requerido." });
+  }
+  try {
+    const { processRemoteApproval } = await import("@mint/notifiers");
+    const res = await processRemoteApproval({
+      signedToken: token,
+      approverName: query.approver || "Aprobador vía Correo",
+      channel: "gmail",
+    });
+    return reply.type("text/html").send(`<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><title>Orden Aprobada — MINT</title></head>
+<body style="font-family:sans-serif;background:#0b0f17;color:#e2e8f0;padding:40px;text-align:center;">
+  <div style="max-width:520px;margin:auto;background:#131b2e;border:1px solid #10b981;border-radius:12px;padding:32px;">
+    <h2 style="color:#10b981;">[OK] Recomendación Aprobada y Enviada a Pagos</h2>
+    <p>${res.auditMessage}</p>
+  </div>
+</body></html>`);
+  } catch (err: any) {
+    return reply.status(400).send({ success: false, error: err.message });
+  }
+});
+
+server.get("/reject", async (request, reply) => {
+  const query = (request.query as any) || {};
+  const token = query.token as string;
+  if (!token) {
+    return reply.status(400).send({ success: false, error: "Token de rechazo requerido." });
+  }
+  try {
+    const { processRemoteApproval } = await import("@mint/notifiers");
+    const res = await processRemoteApproval({
+      signedToken: token,
+      approverName: query.approver || "Operador vía Correo",
+      channel: "gmail",
+    });
+    return reply.type("text/html").send(`<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><title>Recomendación Rechazada — MINT</title></head>
+<body style="font-family:sans-serif;background:#0b0f17;color:#e2e8f0;padding:40px;text-align:center;">
+  <div style="max-width:520px;margin:auto;background:#131b2e;border:1px solid #f59e0b;border-radius:12px;padding:32px;">
+    <h2 style="color:#f59e0b;">[RECHAZADA] Propuesta Archivada</h2>
+    <p>${res.auditMessage}</p>
+  </div>
+</body></html>`);
+  } catch (err: any) {
+    return reply.status(400).send({ success: false, error: err.message });
+  }
+});
+
+server.post("/api/webhooks/approval", async (request, reply) => {
+  const body = (request.body as any) || {};
+  try {
+    const { processRemoteApproval } = await import("@mint/notifiers");
+
+    // 1. Callback de Telegram Inline Keyboard (`mint:approve:<token>` o `mint:reject:<token>`)
+    if (body.callback_query?.data) {
+      const cbData = String(body.callback_query.data);
+      const parts = cbData.split(":");
+      const signedToken = parts.slice(2).join(":");
+      const approverName =
+        body.callback_query.from?.first_name ||
+        body.callback_query.from?.username ||
+        "Operador Telegram";
+      const result = await processRemoteApproval({
+        signedToken,
+        approverName,
+        channel: "telegram",
+      });
+      return reply.send(result);
+    }
+
+    // 2. Interacción de Slack Block Kit (`approve:<token>` o `reject:<token>`)
+    const slackPayload = typeof body.payload === "string" ? JSON.parse(body.payload) : body;
+    if (slackPayload?.actions?.[0]?.value) {
+      const val = String(slackPayload.actions[0].value);
+      const signedToken = val.replace(/^(approve|reject):/, "");
+      const approverName = slackPayload.user?.username || slackPayload.user?.name || "Operador Slack";
+      const result = await processRemoteApproval({
+        signedToken,
+        approverName,
+        channel: "slack",
+      });
+      return reply.send(result);
+    }
+
+    // 3. Invocación directa API con token firmado
+    if (body.signedToken || body.token) {
+      const result = await processRemoteApproval({
+        signedToken: body.signedToken || body.token,
+        approverName: body.approverName || "Operador Remoto",
+        channel: body.channel || "slack",
+      });
+      return reply.send(result);
+    }
+
+    return reply.status(400).send({ success: false, error: "Formato de webhook de aprobación no reconocido." });
+  } catch (err: any) {
+    return reply.status(400).send({ success: false, error: err.message });
   }
 });
 
@@ -1022,7 +1157,16 @@ server.get("/api/briefing/today", async (request, reply) => {
     const blocked = allDecisions.filter((d) => d.policyDecision === "blocked");
 
     const totalAutonomousSpend = autoExecuted.reduce((sum, d) => sum + parseFloat(d.costMxn), 0);
-    const estimatedSavings = totalAutonomousSpend * 0.12;
+    let totalSavings = 0;
+    for (const d of autoExecuted) {
+      const ep = (d.evidencePayload || {}) as any;
+      if (ep?.rebalancingAlternative?.netSavingsMxn) {
+        totalSavings += Number(ep.rebalancingAlternative.netSavingsMxn) || 0;
+      } else if (ep?.savingsMxn) {
+        totalSavings += Number(ep.savingsMxn) || 0;
+      }
+    }
+    const estimatedSavings = Math.round(totalSavings * 100) / 100;
 
     return reply.send({
       success: true,

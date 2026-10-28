@@ -686,12 +686,6 @@ export async function consoleCommand() {
             break;
           }
 
-          case "customers":
-          case "clientes": {
-            const { customersCommand } = require("./customers");
-            await customersCommand();
-            break;
-          }
 
           case "reports":
           case "reportes": {

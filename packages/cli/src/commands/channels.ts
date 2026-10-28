@@ -10,7 +10,7 @@ import {
 import { db, businessConfig, notificationChannels } from "@mint/core";
 import { eq } from "drizzle-orm";
 
-export async function channelsCommand(action?: string, arg1?: string, arg2?: string) {
+export async function channelsCommand(action?: string, arg1?: string, arg2?: string, ...rest: string[]) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
@@ -104,8 +104,10 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
     }
 
     const type = rawType as ChannelType;
+    const defaultTopics = ["stock", "critical", "logistics", "logs", "finance", "payments"];
+    const customTopics = rest.length > 0 ? rest.flatMap((t) => t.split(",")).map((t) => t.trim().toLowerCase()).filter(Boolean) : null;
     let config: Record<string, any> = {
-      topics: ["stock", "critical", "logistics", "logs"],
+      topics: customTopics && customTopics.length > 0 ? customTopics : defaultTopics,
     };
 
     if (type === "discord" || type === "slack") {
@@ -186,45 +188,12 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
   console.log(theme.amber(`Subcomando '${action}' no reconocido. Usa '/channels [list|add|test|remove]'.`));
 }
 
-export async function settingsCommand() {
-  const session = await getSession();
-  const companyId = session?.companyId || "comp_default";
+import { configCommand } from "./config";
 
-  console.log("\n" + drawDivider("CONFIGURACIÓN DEL SISTEMA Y GOBERNANZA OPERATIVA", 84));
-
-  const configs = await db
-    .select()
-    .from(businessConfig)
-    .where(eq(businessConfig.companyId, companyId));
-
-  const channels = await listNotificationChannels(companyId);
-
-  console.log(
-    drawCard(
-      [
-        `${theme.bold("EMPRESA Y USUARIO ACTIVO:")}`,
-        `  - Organizacion:   ${theme.mintBold(session?.companyName || companyId)} [${companyId}]`,
-        `  - Operador:       ${theme.bold(session?.name || "Dale")} <${session?.email || "dalej@gmail.com"}> (Rol: ${session?.role || "owner"})`,
-        ``,
-        `${theme.bold("GOBERNANZA FINANCIERA Y AUTONOMIA (PRODUCCION):")}`,
-        `  - Modo de Operacion:  ${theme.badge("HUMAN-IN-THE-LOOP 100%", "mint")} (CERO compras automaticas)`,
-        `  - Politica de Compras: Toda orden de reposicion requiere autorizacion humana en ${theme.mintBold("/inbox")}.`,
-        `  - Presupuesto Maximo:  Definido por orden en cada propuesta evaluada por el equipo multi-agente.`,
-        ``,
-        `${theme.bold("CANALES DE COMUNICACION CONECTADOS:")}`,
-        channels.length > 0
-          ? channels.map((c) => `  - ${c.type.toUpperCase()}: ${theme.bold(c.name)} (${c.isActive ? theme.mint("Activo") : theme.amber("Pausado")})`).join("\n")
-          : `  - ${theme.amber("Ningun canal remoto conectado. Agrega uno con /channels add discord <url>")}`,
-        ``,
-        `${theme.bold("BASE DE DATOS Y CATALOGO:")}`,
-        `  - Motor:          PostgreSQL 15 (Supabase AWS Pooler)`,
-        `  - Catalogo Real:  Sincronizado en tiempo real (0 datos ficticios)`,
-      ],
-      {
-        title: "AJUSTES Y GOBERNANZA MINT",
-        borderColor: theme.cyan,
-      },
-    ),
-  );
-  console.log("");
+/**
+ * Muestra y audita la configuración operativa, canales de alerta y gobernanza HITL.
+ * Delega en configCommand para consultar datos reales de la empresa y evitar asunciones.
+ */
+export async function settingsCommand(action?: string, arg1?: string, ...rest: string[]) {
+  return configCommand(action, arg1, ...rest);
 }

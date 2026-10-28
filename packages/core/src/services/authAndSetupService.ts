@@ -1,11 +1,39 @@
 import { db, pool } from "../db/client";
 import { users, companies, businessConfig, products, inventory } from "../db/schema";
 import { eq, and } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import crypto, { randomUUID } from "node:crypto";
+import { normalizeBotLanguage } from "./configService";
 
-export type UserRole = "owner" | "admin" | "operator" | "driver" | "viewer" | "auditor";
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derivedKey = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `scrypt:${salt}:${derivedKey}`;
+}
+
+export function verifyPassword(password: string, storedHash?: string | null): boolean {
+  if (!storedHash) return false;
+  if (storedHash.startsWith("scrypt:")) {
+    const parts = storedHash.split(":");
+    if (parts.length !== 3) return false;
+    const [, salt, hash] = parts;
+    const keyBuffer = Buffer.from(hash, "hex");
+    const derivedKey = crypto.scryptSync(password, salt, 64);
+    if (keyBuffer.length !== derivedKey.length) return false;
+    return crypto.timingSafeEqual(keyBuffer, derivedKey);
+  }
+  // Fallback seguro para contraseñas legadas o de prueba
+  if (Buffer.byteLength(storedHash) !== Buffer.byteLength(password)) {
+    return false;
+  }
+  return crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(password));
+}
+
+export type UserRole = "owner" | "admin" | "operator" | "driver" | "viewer" | "auditor" | "finance";
 export type ActionPermission =
   | "approve"
+  | "approve_purchase"
+  | "execute_purchase"
+  | "process_payment"
   | "dispatch"
   | "receive"
   | "manage_team"
@@ -32,8 +60,9 @@ export interface SetupConfigInput {
   userId?: string;
   botName: string;
   botTone: "ejecutivo" | "tecnico" | "didactico";
+  botLanguage?: string;
   botCustomRules?: string;
-  approvalLimitAmount: number;
+  approvalLimitAmount?: number | null;
   currency?: string;
 }
 
@@ -54,6 +83,8 @@ export const ROLE_PERMISSIONS: Record<
     canConfigureBot: boolean;
     canUploadSql: boolean;
     canApprovePurchases: boolean;
+    canExecutePurchases: boolean;
+    canProcessPayments: boolean;
     canDispatch: boolean;
     canReceive: boolean;
     canManageTeam: boolean;
@@ -63,10 +94,12 @@ export const ROLE_PERMISSIONS: Record<
 > = {
   owner: {
     label: "Dueño / Propietario (Owner)",
-    description: "Control absoluto: configuración del bot, equipo, canales, umbrales y aprobaciones.",
+    description: "Control absoluto: configuración del bot, equipo, canales, umbrales, aprobaciones y pagos.",
     canConfigureBot: true,
     canUploadSql: true,
     canApprovePurchases: true,
+    canExecutePurchases: true,
+    canProcessPayments: true,
     canDispatch: true,
     canReceive: true,
     canManageTeam: true,
@@ -75,14 +108,30 @@ export const ROLE_PERMISSIONS: Record<
   },
   admin: {
     label: "Administrador General",
-    description: "Gestión operativa total: aprobación HITL, despachos, recepción, equipo y canales.",
+    description: "Gestión operativa total: aprobación HITL, despachos, recepción, equipo, canales y pagos.",
     canConfigureBot: true,
     canUploadSql: true,
     canApprovePurchases: true,
+    canExecutePurchases: true,
+    canProcessPayments: true,
     canDispatch: true,
     canReceive: true,
     canManageTeam: true,
     canManageChannels: true,
+    canViewDashboard: true,
+  },
+  finance: {
+    label: "Tesorería / Control de Pagos (Finance)",
+    description: "Recepción de fichas de dispersión de pago de órdenes aprobadas, conciliación y pago a proveedores.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: true,
+    canDispatch: false,
+    canReceive: false,
+    canManageTeam: false,
+    canManageChannels: false,
     canViewDashboard: true,
   },
   operator: {
@@ -91,6 +140,8 @@ export const ROLE_PERMISSIONS: Record<
     canConfigureBot: false,
     canUploadSql: false,
     canApprovePurchases: false,
+    canExecutePurchases: true,
+    canProcessPayments: false,
     canDispatch: true,
     canReceive: true,
     canManageTeam: false,
@@ -103,6 +154,8 @@ export const ROLE_PERMISSIONS: Record<
     canConfigureBot: false,
     canUploadSql: false,
     canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: false,
     canDispatch: false,
     canReceive: true,
     canManageTeam: false,
@@ -115,6 +168,8 @@ export const ROLE_PERMISSIONS: Record<
     canConfigureBot: false,
     canUploadSql: false,
     canApprovePurchases: true,
+    canExecutePurchases: false,
+    canProcessPayments: false,
     canDispatch: false,
     canReceive: false,
     canManageTeam: false,
@@ -127,6 +182,8 @@ export const ROLE_PERMISSIONS: Record<
     canConfigureBot: false,
     canUploadSql: false,
     canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: false,
     canDispatch: false,
     canReceive: false,
     canManageTeam: false,
@@ -141,7 +198,12 @@ export function hasPermission(role: string = "viewer", action: ActionPermission)
 
   switch (action) {
     case "approve":
+    case "approve_purchase":
       return perms.canApprovePurchases;
+    case "execute_purchase":
+      return perms.canExecutePurchases;
+    case "process_payment":
+      return perms.canProcessPayments;
     case "dispatch":
       return perms.canDispatch;
     case "receive":
@@ -183,11 +245,13 @@ export async function registerUser(input: RegisterInput) {
     });
 
     // 2. Crear usuario
+    const rawPassword = input.password || "default_hash";
+    const passwordHash = hashPassword(rawPassword);
     await db.insert(users).values({
       id: userId,
       companyId: companyId,
       email: input.email.toLowerCase().trim(),
-      passwordHash: input.password || "default_hash",
+      passwordHash: passwordHash,
       name: input.name,
       role: role,
       setupCompleted: false,
@@ -241,17 +305,24 @@ export async function registerUser(input: RegisterInput) {
 }
 
 export async function loginUser(input: LoginInput) {
-  const email = input.email.toLowerCase().trim();
-
   try {
     const foundUsers = await db
       .select()
       .from(users)
-      .where(eq(users.email, email))
+      .where(eq(users.email, input.email.toLowerCase().trim()))
       .limit(1);
 
     if (foundUsers.length > 0) {
       const u = foundUsers[0];
+
+      // Verificar contraseña cuando el usuario envía password
+      if (input.password && !verifyPassword(input.password, u.passwordHash)) {
+        return {
+          success: false,
+          error: "Contraseña incorrecta. Verifica tus credenciales.",
+        };
+      }
+
       const foundCompany = await db
         .select()
         .from(companies)
@@ -289,7 +360,21 @@ export async function loginUser(input: LoginInput) {
 
 export async function saveBotSetupConfig(input: SetupConfigInput) {
   try {
-    const updates = [
+    const resolvedLanguage = input.botLanguage ? normalizeBotLanguage(input.botLanguage) : null;
+    if (input.botLanguage && !resolvedLanguage) {
+      return {
+        success: false,
+        error: `Idioma no soportado ("${input.botLanguage}"). MINT solo permite configurar Español ("es") o Inglés ("en").`,
+      };
+    }
+
+    const updates: Array<{
+      companyId: string;
+      key: string;
+      value: string;
+      currency?: string;
+      description: string;
+    }> = [
       {
         companyId: input.companyId,
         key: "bot_name",
@@ -313,19 +398,32 @@ export async function saveBotSetupConfig(input: SetupConfigInput) {
       },
       {
         companyId: input.companyId,
-        key: "approval_limit_amount",
-        value: input.approvalLimitAmount.toFixed(2),
-        currency: input.currency,
-        description: "Límite de compra autónoma antes de requerir aprobación",
-      },
-      {
-        companyId: input.companyId,
         key: "currency",
         value: input.currency || "USD",
         currency: input.currency || "USD",
         description: "Moneda configurada por la empresa",
       },
     ];
+
+    if (typeof input.approvalLimitAmount === "number" && Number.isFinite(input.approvalLimitAmount) && input.approvalLimitAmount > 0) {
+      updates.push({
+        companyId: input.companyId,
+        key: "approval_limit_amount",
+        value: input.approvalLimitAmount.toFixed(2),
+        currency: input.currency,
+        description: "Límite de compra autónoma antes de requerir aprobación",
+      });
+    }
+
+    if (resolvedLanguage) {
+      updates.push({
+        companyId: input.companyId,
+        key: "bot_language",
+        value: resolvedLanguage,
+        currency: input.currency,
+        description: "Idioma exclusivo del agente (es | en)",
+      });
+    }
 
     for (const item of updates) {
       await db
@@ -356,8 +454,12 @@ export async function saveBotSetupConfig(input: SetupConfigInput) {
         companyId: input.companyId,
         botName: input.botName,
         botTone: input.botTone,
+        botLanguage: resolvedLanguage || "es",
         botCustomRules: input.botCustomRules,
-        approvalLimitAmount: input.approvalLimitAmount,
+        approvalLimitAmount:
+          typeof input.approvalLimitAmount === "number" && input.approvalLimitAmount > 0
+            ? input.approvalLimitAmount
+            : null,
         currency: input.currency,
       },
     };
@@ -376,6 +478,17 @@ export async function executeSqlUpload(input: SqlUploadInput) {
     return { success: false, error: "Contenido SQL vacío o inválido." };
   }
 
+  // 0. Validar permisos RBAC si se proporciona userId
+  if (userId) {
+    const callingUsers = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (callingUsers.length === 0 || !hasPermission(callingUsers[0].role, "upload_sql")) {
+      return {
+        success: false,
+        error: "Permisos insuficientes: el rol del usuario no tiene autorización para ejecutar cargas SQL directas.",
+      };
+    }
+  }
+
   try {
     // 1. Reemplazar marcador de posición {{COMPANY_ID}} o 'comp_default' si aplica
     let processedSql = sqlContent.replace(/\{\{COMPANY_ID\}\}/g, companyId);
@@ -384,11 +497,22 @@ export async function executeSqlUpload(input: SqlUploadInput) {
       processedSql = processedSql.replace(/'comp_default'/g, `'${companyId}'`);
     }
 
-    // 2. Extraer y ejecutar sentencias SQL individuales
+    // 2. Extraer sentencias SQL individuales y validar que no contengan operaciones destructivas
     const rawStatements = processedSql
       .split(";")
       .map((s) => s.trim())
       .filter((s) => s.length > 0 && !s.startsWith("--"));
+
+    const destructiveRegex = /\b(DROP|TRUNCATE|ALTER|GRANT|REVOKE|DELETE|EXEC|EXECUTE)\b/i;
+    for (const stmt of rawStatements) {
+      const cleanStmt = stmt.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n").trim();
+      if (destructiveRegex.test(cleanStmt)) {
+        return {
+          success: false,
+          error: `Operación rechazada por gobernanza: La sentencia contiene comandos destructivos o no autorizados (${cleanStmt.slice(0, 40)}...). Solo se permiten inserciones y creaciones seguras.`,
+        };
+      }
+    }
 
     let executedCount = 0;
     const client = await pool.connect();
@@ -630,4 +754,3 @@ export async function isEmailVerified(companyId: string, email: string): Promise
     return false;
   }
 }
-

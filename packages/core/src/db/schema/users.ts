@@ -11,6 +11,7 @@ import { companies } from "./business";
 // - owner: Control total, customización del bot, umbrales y carga de BD SQL.
 // - operator: Consultas de stock, órdenes de compra y seguimiento de envíos.
 // - auditor: Aprobación Human-in-the-Loop, auditoría de logs inmutables y anomalías.
+// - finance: Control de pagos, tesorería y dispersión a proveedores de órdenes aprobadas.
 // - viewer: Solo lectura de dashboards, existencias y métricas.
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // ej: 'usr_abc123' o uuid
@@ -21,7 +22,7 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   name: text("name").notNull(),
   role: text("role", {
-    enum: ["owner", "admin", "operator", "driver", "viewer", "auditor"],
+    enum: ["owner", "admin", "operator", "driver", "viewer", "auditor", "finance"],
   })
     .notNull()
     .default("owner"),

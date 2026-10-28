@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateCallCost } from "../src/llm/pricing";
-import { fakeGrokClient } from "../src/llm/fake";
+import { calculateCallCost, fakeGrokClient } from "@mint/core";
 
 describe("Módulo LLM y Pricing", () => {
   it("debe calcular el costo exacto con 6 decimales", () => {

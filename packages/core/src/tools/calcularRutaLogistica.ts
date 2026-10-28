@@ -58,16 +58,19 @@ export async function executeCalcularRutaLogistica(
       if (conf?.currency) currency = conf.currency;
     }
 
-    // 1. Obtener o geocodificar almacén/destino
+    // 1. Obtener o geocodificar almacén/destino (estrictamente dentro de la empresa activa)
     let targetWarehouse: any = null;
     if (args.almacen_id) {
       const found = await db
         .select()
         .from(warehouses)
         .where(
-          or(
-            eq(warehouses.id, args.almacen_id),
-            ilike(warehouses.name, `%${args.almacen_id}%`),
+          and(
+            eq(warehouses.companyId, effectiveCompanyId),
+            or(
+              eq(warehouses.id, args.almacen_id),
+              ilike(warehouses.name, `%${args.almacen_id}%`),
+            ),
           ),
         )
         .limit(1);
@@ -111,16 +114,19 @@ export async function executeCalcularRutaLogistica(
       };
     }
 
-    // 2. Obtener o geocodificar proveedor/origen
+    // 2. Obtener o geocodificar proveedor/origen (estrictamente dentro de la empresa activa)
     let targetSupplier: any = null;
     if (args.proveedor_id) {
       const found = await db
         .select()
         .from(suppliers)
         .where(
-          or(
-            eq(suppliers.id, args.proveedor_id),
-            ilike(suppliers.name, `%${args.proveedor_id}%`),
+          and(
+            eq(suppliers.companyId, effectiveCompanyId),
+            or(
+              eq(suppliers.id, args.proveedor_id),
+              ilike(suppliers.name, `%${args.proveedor_id}%`),
+            ),
           ),
         )
         .limit(1);
@@ -180,7 +186,7 @@ export async function executeCalcularRutaLogistica(
         destino: {
           almacen: targetWarehouse?.name || destination.name || args.destino_direccion || "Destino",
           direccion: targetWarehouse?.streetAddress || destination.address || "Dirección geocodificada",
-          ubicacion: `${targetWarehouse?.city || destination.city || "N/A"}${targetWarehouse?.state || destination.state ? `, ${targetWarehouse?.state || destination.state}` : ""}${targetWarehouse?.country || destination.country ? ` (${targetWarehouse?.country || destination.country})` : ""}`,
+          ubicacion: `${targetWarehouse?.city || destination.city || "N/A"}${targetWarehouse?.state || destination.state ? `, ${targetWarehouse?.state || destination.state}` : ""}${targetWarehouse?.country || destination.country ? ` (${targetSupplier?.country || destination.country})` : ""}`,
           coordenadas: `${destination.latitude}, ${destination.longitude}`,
         },
         distanciaVialRealKm: route.distanceKm,

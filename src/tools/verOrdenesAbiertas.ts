@@ -11,9 +11,12 @@ export const verOrdenesAbiertasSchema = z.object({
 
 export type VerOrdenesAbiertasInput = z.infer<typeof verOrdenesAbiertasSchema>;
 
-export async function executeVerOrdenesAbiertas(args: VerOrdenesAbiertasInput) {
+export async function executeVerOrdenesAbiertas(
+  args: VerOrdenesAbiertasInput,
+  context?: { companyId?: string },
+) {
   try {
-    const orders = await getOpenPurchaseOrders(args.producto_id);
+    const orders = await getOpenPurchaseOrders(args.producto_id, context?.companyId);
 
     return {
       isSuccess: true,

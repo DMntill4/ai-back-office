@@ -609,8 +609,9 @@ export async function dispatchToolCall(
       };
 
     case "ver_ordenes_abiertas":
+    case "ver_ordenes_compra_abiertas":
       return {
-        result: await executeVerOrdenesAbiertas(parsedArgs),
+        result: await executeVerOrdenesAbiertas(parsedArgs, context),
         isClosingAction: false,
       };
 
@@ -657,6 +658,7 @@ export async function dispatchToolCall(
       };
 
     case "generar_reporte_general":
+    case "reportes_generales":
       return {
         result: await executeReporteGeneral(parsedArgs, context),
         isClosingAction: false,
@@ -669,20 +671,23 @@ export async function dispatchToolCall(
       };
 
     case "analisis_financiero":
+    case "analisis_financiero_inventario":
       return {
-        result: await executeAnalisisFinanciero(parsedArgs),
+        result: await executeAnalisisFinanciero(parsedArgs, context),
         isClosingAction: false,
       };
 
     case "simular_escenario":
+    case "simular_escenario_logistico":
       return {
-        result: await executeSimularEscenario(parsedArgs),
+        result: await executeSimularEscenario(parsedArgs, context),
         isClosingAction: false,
       };
 
     case "auditar_anomalias":
+    case "auditar_anomalias_operativas":
       return {
-        result: await executeAuditarAnomalias(parsedArgs),
+        result: await executeAuditarAnomalias(parsedArgs, context),
         isClosingAction: false,
       };
 
@@ -704,6 +709,7 @@ export async function dispatchToolCall(
       return {
         result: {
           isSuccess: dispatchRes.success,
+          verified: Boolean(dispatchRes.success),
           ...dispatchRes,
         },
         isClosingAction: false,
@@ -718,6 +724,7 @@ export async function dispatchToolCall(
       return {
         result: {
           isSuccess: recvRes.success,
+          verified: Boolean(recvRes.success),
           ...recvRes,
         },
         isClosingAction: false,
@@ -734,6 +741,7 @@ export async function dispatchToolCall(
       return {
         result: {
           isSuccess: true,
+          verified: true,
           resumenCatalogo: {
             totalSkus: health.length,
             skusBajoPuntoReordenDinamico: criticalOrReorder.length,
@@ -757,6 +765,7 @@ export async function dispatchToolCall(
       return {
         result: {
           isSuccess: updRes.success,
+          verified: Boolean(updRes.success),
           ...updRes,
         },
         isClosingAction: false,

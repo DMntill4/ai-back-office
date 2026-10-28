@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { executeConsultarStock } from "../src/tools/consultarStock";
-import { executeVerOrdenesAbiertas } from "../src/tools/verOrdenesAbiertas";
-import { executeCrearOrdenCompra } from "../src/tools/crearOrdenCompra";
-import { db } from "../src/db/client";
-import { companies, products, suppliers, supplierProducts } from "../src/db/schema";
+import {
+  executeConsultarStock,
+  executeVerOrdenesAbiertas,
+  executeCrearOrdenCompra,
+  db,
+  companies,
+  products,
+  suppliers,
+  supplierProducts,
+} from "@mint/core";
 
 describe("Herramientas del Agente (Tools)", () => {
   beforeAll(async () => {
