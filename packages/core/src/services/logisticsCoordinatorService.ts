@@ -171,6 +171,7 @@ export async function getCompanyCurrency(companyId: string): Promise<string> {
 
 /**
  * Busca un producto de la empresa de forma flexible (por ID exacto, SKU, o nombre parcial)
+ * Estrictamente aislado por companyId (cero fugas cross-tenant).
  */
 export async function resolveProductInCompany(
   query: string,
@@ -205,16 +206,7 @@ export async function resolveProductInCompany(
     )
     .limit(1);
 
-  if (partial.length > 0) return partial[0];
-
-  // 3. Fallback search across all products
-  const anyMatch = await db
-    .select()
-    .from(products)
-    .where(or(eq(products.id, clean), ilike(products.sku, `%${clean}%`), ilike(products.name, `%${clean}%`)))
-    .limit(1);
-
-  return anyMatch[0] || null;
+  return partial[0] || null;
 }
 
 /**
@@ -428,7 +420,7 @@ export async function executeWarehouseTransfer(params: {
   const [fromInv] = await db
     .select()
     .from(inventory)
-    .where(and(eq(inventory.productId, prod.id), eq(inventory.warehouseId, fromWarehouseId)))
+    .where(and(eq(inventory.productId, prod.id), eq(inventory.warehouseId, fromWarehouseId), eq(inventory.companyId, companyId)))
     .limit(1);
 
   if (!fromInv || fromInv.stock < quantity) {
@@ -446,7 +438,7 @@ export async function executeWarehouseTransfer(params: {
   const [toInv] = await db
     .select()
     .from(inventory)
-    .where(and(eq(inventory.productId, prod.id), eq(inventory.warehouseId, toWarehouseId)))
+    .where(and(eq(inventory.productId, prod.id), eq(inventory.warehouseId, toWarehouseId), eq(inventory.companyId, companyId)))
     .limit(1);
 
   if (toInv) {
@@ -751,7 +743,7 @@ export async function receiveInboundShipment(params: {
     const [po] = await db
       .select()
       .from(purchaseOrders)
-      .where(eq(purchaseOrders.id, shp.purchaseOrderId))
+      .where(and(eq(purchaseOrders.id, shp.purchaseOrderId), eq(purchaseOrders.companyId, companyId)))
       .limit(1);
 
     if (po) {

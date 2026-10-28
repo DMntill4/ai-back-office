@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { eq, desc, and } from "drizzle-orm";
 import {
   runAgentLoop,
+  resolveNaturalLanguageIntent,
+  getCompanyConfig,
   db,
   pool,
   checkDatabaseHealth,
@@ -30,7 +32,6 @@ import {
   purchaseOrders,
   approvals,
   cases,
-  caseEvents,
   suppliers,
   shipments,
   users,
@@ -224,6 +225,34 @@ server.post("/api/chat", async (request, reply) => {
   }
 
   try {
+    // 1. Verificar primero si el Motor Determinista de Intención Natural lo resuelve al instante
+    const nluResult = await resolveNaturalLanguageIntent(companyId, message);
+    if (nluResult.handledDeterministically && nluResult.response) {
+      await db
+        .update(cases)
+        .set({
+          status: "resuelto",
+          resultSummary: nluResult.response,
+          closedAt: new Date(),
+        })
+        .where(eq(cases.id, caseId))
+        .catch(() => {});
+
+      return reply.send({
+        success: true,
+        caseId,
+        response: nluResult.response,
+        status: "resuelto",
+        intentCategory: nluResult.intent,
+        metrics: {
+          totalCostUsd: 0,
+          totalTokens: 0,
+          iterations: 1,
+        },
+      });
+    }
+
+    // 2. Bucle ReAct completo con Tools y Guardrail de Idioma
     const result = await runAgentLoop(caseId);
 
     return reply.send({
@@ -248,7 +277,7 @@ server.get("/api/chat/history", async (request, reply) => {
   const companyId = query.companyId || "comp_default";
 
   try {
-    const { or } = await import("drizzle-orm");
+    const { or, like } = await import("drizzle-orm");
     const chatCases = await db
       .select()
       .from(cases)
@@ -259,6 +288,8 @@ server.get("/api/chat/history", async (request, reply) => {
             eq(cases.title, "Chat Operativo"),
             eq(cases.title, "Chat Operator"),
             eq(cases.title, "Chat Frontend (API)"),
+            eq(cases.title, "Operacion Coordinador"),
+            like(cases.id, "chat_%"),
           ),
         ),
       )
@@ -311,8 +342,10 @@ server.get("/api/v1/alerts/proactive", async () => {
   };
 });
 
-server.post("/api/v1/alerts/trigger-audit", async () => {
-  const newAlerts = await runProactiveAuditCycle();
+server.post("/api/v1/alerts/trigger-audit", async (request) => {
+  const body = (request.body as any) || {};
+  const companyId = body.companyId || "comp_default";
+  const newAlerts = await runProactiveAuditCycle(companyId);
   return {
     success: true,
     alertasGeneradas: newAlerts.length,
@@ -426,7 +459,8 @@ server.get("/api/dashboard", async (request, reply) => {
   const companyId = query.companyId || "comp_default";
 
   try {
-    const [orders, apprvs, prods, invs, shps, performance] = await Promise.all([
+    const [config, orders, apprvs, prods, invs, shps, performance] = await Promise.all([
+      getCompanyConfig(companyId),
       db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)),
       db.select().from(approvals).where(eq(approvals.companyId, companyId)),
       db.select().from(products).where(eq(products.companyId, companyId)),
@@ -472,7 +506,7 @@ server.get("/api/dashboard", async (request, reply) => {
           pendingReview,
           savings: Math.round(estimatedSavings),
           spend: parseFloat(totalSpend.toFixed(2)),
-          currency: "MXN",
+          currency: config.currency,
         },
       },
     });
@@ -524,26 +558,29 @@ server.get("/api/orders", async (request, reply) => {
   const companyId = query.companyId || "comp_default";
 
   try {
-    const orderList = await db
-      .select({
-        id: purchaseOrders.id,
-        productId: purchaseOrders.productId,
-        supplierId: purchaseOrders.supplierId,
-        quantity: purchaseOrders.quantity,
-        unitPrice: purchaseOrders.unitPrice,
-        totalAmount: purchaseOrders.totalAmount,
-        status: purchaseOrders.status,
-        createdAt: purchaseOrders.createdAt,
-        productName: products.name,
-        sku: products.sku,
-        supplierName: suppliers.name,
-      })
-      .from(purchaseOrders)
-      .leftJoin(products, eq(purchaseOrders.productId, products.id))
-      .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
-      .where(eq(purchaseOrders.companyId, companyId))
-      .orderBy(desc(purchaseOrders.createdAt))
-      .limit(50);
+    const [config, orderList] = await Promise.all([
+      getCompanyConfig(companyId),
+      db
+        .select({
+          id: purchaseOrders.id,
+          productId: purchaseOrders.productId,
+          supplierId: purchaseOrders.supplierId,
+          quantity: purchaseOrders.quantity,
+          unitPrice: purchaseOrders.unitPrice,
+          totalAmount: purchaseOrders.totalAmount,
+          status: purchaseOrders.status,
+          createdAt: purchaseOrders.createdAt,
+          productName: products.name,
+          sku: products.sku,
+          supplierName: suppliers.name,
+        })
+        .from(purchaseOrders)
+        .leftJoin(products, eq(purchaseOrders.productId, products.id))
+        .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+        .where(eq(purchaseOrders.companyId, companyId))
+        .orderBy(desc(purchaseOrders.createdAt))
+        .limit(50),
+    ]);
 
     return reply.send({
       success: true,
@@ -552,7 +589,9 @@ server.get("/api/orders", async (request, reply) => {
         sku: o.sku || o.productId,
         productName: `${o.productName || o.productId} (${o.quantity}u)`,
         provider: o.supplierName || o.supplierId,
-        amountMXN: `$${parseFloat(o.totalAmount).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`,
+        amountFormatted: `$${parseFloat(o.totalAmount).toLocaleString("es-MX", { minimumFractionDigits: 2 })} ${config.currency}`,
+        amountMXN: `$${parseFloat(o.totalAmount).toLocaleString("es-MX", { minimumFractionDigits: 2 })} ${config.currency}`,
+        currency: config.currency,
         humanApproved: o.status !== "abierta",
         status: o.status === "recibida" ? "Entregada" : o.status === "cancelada" ? "Cancelada" : "Emitida",
         createdAt: o.createdAt,
@@ -696,7 +735,8 @@ server.get("/api/audit", async (request, reply) => {
   const companyId = query.companyId || "comp_default";
 
   try {
-    const [caseList, orderList, apprvList] = await Promise.all([
+    const [config, caseList, orderList, apprvList] = await Promise.all([
+      getCompanyConfig(companyId),
       db.select().from(cases).where(eq(cases.companyId, companyId)).orderBy(desc(cases.createdAt)).limit(20),
       db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)).orderBy(desc(purchaseOrders.createdAt)).limit(20),
       db.select().from(approvals).where(eq(approvals.companyId, companyId)).orderBy(desc(approvals.requestedAt)).limit(20),
@@ -742,7 +782,7 @@ server.get("/api/audit", async (request, reply) => {
         time: o.createdAt ? new Date(o.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Reciente",
         category: "order",
         title: `Orden Emitida: ${o.id}`,
-        detail: `Cantidad: ${o.quantity}u • Total: $${parseFloat(o.totalAmount || "0").toLocaleString("es-MX")} MXN • Estado: ${o.status}`,
+        detail: `Cantidad: ${o.quantity}u • Total: $${parseFloat(o.totalAmount || "0").toLocaleString("es-MX")} ${config.currency} • Estado: ${o.status}`,
         createdAt: o.createdAt ? o.createdAt.toISOString() : new Date().toISOString(),
       });
     }

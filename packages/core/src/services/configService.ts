@@ -15,7 +15,7 @@ export interface CompanyConfig {
   botTone: string;
   botLanguage: BotLanguage;
   botCustomRules: string;
-  autonomyLevel: "hitl" | "semiautonomo" | "autonomo";
+  autonomyLevel: "hitl" | "semiautonomo" | "autonomo" | "dry-run" | "assisted" | "auto";
   raw: Record<string, string>;
 }
 
@@ -100,7 +100,7 @@ export function formatCompanyDate(
     };
 
     if (includeTime) {
-      options.hour = "2-digit",
+      options.hour = "2-digit";
       options.minute = "2-digit";
       options.second = "2-digit";
       options.hour12 = false;
@@ -198,12 +198,13 @@ export async function setCompanyConfig(
     }
   }
 
-  // Validación de autonomía
+  // Validación de autonomía (acepta vocabulario CLI y vocabulario PolicyEngine)
   if (normalizedKey === "autonomy_level") {
-    const validLevels = ["hitl", "semiautonomo", "autonomo"];
+    const validLevels = ["hitl", "semiautonomo", "autonomo", "dry-run", "assisted", "auto"];
     if (!validLevels.includes(trimmedValue.toLowerCase())) {
-      throw new Error(`Nivel de autonomía inválido. Opciones permitidas: ${validLevels.join(", ")}`);
+      throw new Error(`Nivel de autonomía inválido. Opciones permitidas: hitl (dry-run), semiautonomo (assisted), autonomo (auto)`);
     }
+    trimmedValue = trimmedValue.toLowerCase();
   }
 
   // Validación estricta de idioma del bot (SOLO Español 'es' o Inglés 'en')

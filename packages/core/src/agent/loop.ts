@@ -535,7 +535,8 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
 
         // Control de escrituras no verificadas para herramientas mutadoras
         if (MUTATING_TOOLS.has(toolName)) {
-          if (!result?.verified || result?.isSuccess === false) {
+          const isPendingHitl = result?.requiresApproval === true && result?.isSuccess === true;
+          if (!isPendingHitl && (!result?.verified || result?.isSuccess === false)) {
             unverifiedWritesCount++;
           }
         }

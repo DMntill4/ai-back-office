@@ -16,58 +16,64 @@ export async function executeReporteGeneral(
   try {
     const { db } = await import("../db/client");
     const { products, inventory } = await import("../db/schema");
-    const { desc, eq, lt, isNotNull, or, isNull, sql, and } = await import("drizzle-orm");
+    const { eq, isNotNull, and } = await import("drizzle-orm");
+
+    const [prods, invs] = await Promise.all([
+      db.select().from(products).where(eq(products.companyId, companyId)),
+      db.select().from(inventory).where(eq(inventory.companyId, companyId)),
+    ]);
+
+    const aggMap = new Map<string, { stock: number; salesCount: number }>();
+    for (const inv of invs) {
+      const prev = aggMap.get(inv.productId) || { stock: 0, salesCount: 0 };
+      aggMap.set(inv.productId, {
+        stock: prev.stock + (inv.stock || 0),
+        salesCount: prev.salesCount + (inv.salesCount || 0),
+      });
+    }
 
     if (args.tipo_reporte === "mas_vendido") {
-      const topSales = await db
-        .select({
-          producto: products.name,
-          sku: products.sku,
-          categoria: products.category,
-          stock_actual: sql<number>`COALESCE(${inventory.stock}, 0)`,
-          stock_minimo: products.minStock,
-          ventas_totales: sql<number>`COALESCE(${inventory.salesCount}, 0)`,
-          estado: sql<string>`CASE 
-            WHEN COALESCE(${inventory.stock}, 0) = 0 THEN 'AGOTADO'
-            WHEN COALESCE(${inventory.stock}, 0) < ${products.minStock} THEN 'BAJO'
-            ELSE 'ÓPTIMO'
-          END`,
-        })
-        .from(products)
-        .leftJoin(inventory, eq(products.id, inventory.productId))
-        .where(eq(products.companyId, companyId))
-        .orderBy(desc(sql`COALESCE(${inventory.salesCount}, 0)`), desc(sql`COALESCE(${inventory.stock}, 0)`))
-        .limit(1);
-
-      if (!topSales.length) {
+      if (!prods.length) {
         return { isSuccess: true, message: "No hay productos registrados en el catálogo de esta empresa." };
       }
+
+      const mapped = prods.map((p) => {
+        const agg = aggMap.get(p.id) || { stock: 0, salesCount: 0 };
+        const estado = agg.stock === 0 ? "AGOTADO" : agg.stock < p.minStock ? "BAJO" : "ÓPTIMO";
+        return {
+          producto: p.name,
+          sku: p.sku,
+          categoria: p.category,
+          stock_actual: agg.stock,
+          stock_minimo: p.minStock,
+          ventas_totales: agg.salesCount,
+          estado,
+        };
+      });
+
+      mapped.sort((a, b) => b.ventas_totales - a.ventas_totales || b.stock_actual - a.stock_actual);
 
       return {
         isSuccess: true,
         message: "Reporte del producto con mayor rotación/existencia en almacén.",
-        data: topSales[0],
+        data: mapped[0],
       };
     }
 
     if (args.tipo_reporte === "sin_stock") {
-      const agotados = await db
-        .select({
-          id: products.id,
-          nombre: products.name,
-          sku: products.sku,
-          categoria: products.category,
-          stock_actual: sql<number>`COALESCE(${inventory.stock}, 0)`,
-          minimo_requerido: products.minStock,
+      const agotados = prods
+        .map((p) => {
+          const agg = aggMap.get(p.id) || { stock: 0, salesCount: 0 };
+          return {
+            id: p.id,
+            nombre: p.name,
+            sku: p.sku,
+            categoria: p.category,
+            stock_actual: agg.stock,
+            minimo_requerido: p.minStock,
+          };
         })
-        .from(products)
-        .leftJoin(inventory, eq(products.id, inventory.productId))
-        .where(
-          and(
-            eq(products.companyId, companyId),
-            or(eq(inventory.stock, 0), isNull(inventory.stock)),
-          ),
-        );
+        .filter((item) => item.stock_actual === 0);
 
       return {
         isSuccess: true,
@@ -77,23 +83,19 @@ export async function executeReporteGeneral(
     }
 
     if (args.tipo_reporte === "renovar") {
-      const porRenovar = await db
-        .select({
-          id: products.id,
-          nombre: products.name,
-          sku: products.sku,
-          categoria: products.category,
-          stock_actual: sql<number>`COALESCE(${inventory.stock}, 0)`,
-          minimo_requerido: products.minStock,
+      const porRenovar = prods
+        .map((p) => {
+          const agg = aggMap.get(p.id) || { stock: 0, salesCount: 0 };
+          return {
+            id: p.id,
+            nombre: p.name,
+            sku: p.sku,
+            categoria: p.category,
+            stock_actual: agg.stock,
+            minimo_requerido: p.minStock,
+          };
         })
-        .from(products)
-        .leftJoin(inventory, eq(products.id, inventory.productId))
-        .where(
-          and(
-            eq(products.companyId, companyId),
-            lt(sql<number>`COALESCE(${inventory.stock}, 0)`, products.minStock),
-          ),
-        );
+        .filter((item) => item.stock_actual < item.minimo_requerido);
 
       return {
         isSuccess: true,
@@ -108,7 +110,7 @@ export async function executeReporteGeneral(
           id: products.id,
           nombre: products.name,
           caducidad: inventory.expirationDate,
-          stock_actual: sql<number>`COALESCE(${inventory.stock}, 0)`,
+          stock_actual: inventory.stock,
         })
         .from(products)
         .leftJoin(inventory, eq(products.id, inventory.productId))
@@ -128,6 +130,7 @@ export async function executeReporteGeneral(
         })
         .map((a) => ({
           ...a,
+          stock_actual: a.stock_actual ?? 0,
           dias_restantes: Math.ceil((a.caducidad!.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)),
         }));
 

@@ -169,7 +169,10 @@ export async function executeCalcularRutaLogistica(
       };
     }
 
-    const route = await calculateRealRoute(origin, destination, { currency });
+    const route = await calculateRealRoute(origin, destination, {
+      currency,
+      companyId: effectiveCompanyId,
+    });
 
     const formatCost = (num: number) =>
       `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
@@ -186,7 +189,7 @@ export async function executeCalcularRutaLogistica(
         destino: {
           almacen: targetWarehouse?.name || destination.name || args.destino_direccion || "Destino",
           direccion: targetWarehouse?.streetAddress || destination.address || "Dirección geocodificada",
-          ubicacion: `${targetWarehouse?.city || destination.city || "N/A"}${targetWarehouse?.state || destination.state ? `, ${targetWarehouse?.state || destination.state}` : ""}${targetWarehouse?.country || destination.country ? ` (${targetSupplier?.country || destination.country})` : ""}`,
+          ubicacion: `${targetWarehouse?.city || destination.city || "N/A"}${targetWarehouse?.state || destination.state ? `, ${targetWarehouse?.state || destination.state}` : ""}${targetWarehouse?.country || destination.country ? ` (${targetWarehouse?.country || destination.country})` : ""}`,
           coordenadas: `${destination.latitude}, ${destination.longitude}`,
         },
         distanciaVialRealKm: route.distanceKm,

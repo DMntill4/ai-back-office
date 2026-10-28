@@ -1,5 +1,5 @@
 import { db } from "../db/client";
-import { decisions, purchaseOrders, inventory, cases, suppliers, warehouses, shipments, companies, users } from "../db/schema";
+import { decisions, purchaseOrders, inventory, cases, suppliers, warehouses, shipments, users } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { resolveNodeGeoPoint } from "./geocodingService";
@@ -96,6 +96,8 @@ export async function executeAndVerifyDecision(
     const orderId = `po_${randomUUID().slice(0, 8)}`;
 
     try {
+      const config = await getCompanyConfig(dec.companyId);
+
       // 2.0 Asegurar que el proveedor exista realmente en la tabla suppliers
       if (!supplierId) {
         return {
@@ -165,7 +167,10 @@ export async function executeAndVerifyDecision(
             resolveNodeGeoPoint(wh).catch(() => null),
           ]);
           if (origGeo && destGeo) {
-            const route = await calculateRealRoute(origGeo, destGeo).catch(() => null);
+            const route = await calculateRealRoute(origGeo, destGeo, {
+              currency: config.currency,
+              companyId: dec.companyId,
+            }).catch(() => null);
             if (route) {
               leadDays = Math.max(1, Math.ceil(route.durationHours / 10));
             }
@@ -262,8 +267,6 @@ export async function executeAndVerifyDecision(
           closedAt: now,
         })
         .where(eq(cases.id, dec.caseId));
-
-      const config = await getCompanyConfig(dec.companyId);
 
       return {
         success: true,

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "../db/client";
 import { suppliers, supplierProducts, products, companies } from "../db/schema";
-import { eq, and, sql, or, ilike } from "drizzle-orm";
+import { eq, and, or, ilike } from "drizzle-orm";
 
 export const evaluarProveedoresSchema = z.object({
   producto_id: z.string().describe("ID, SKU o nombre del producto a cotizar/evaluar (ej. 'prod_st200')"),
@@ -57,7 +57,6 @@ export async function executeEvaluarProveedores(
       .select({
         supplierId: suppliers.id,
         supplierName: suppliers.name,
-        rating: sql<string>`'4.8'`,
         unitPrice: supplierProducts.unitPrice,
         minOrderQuantity: supplierProducts.minOrderQuantity,
         leadTimeDays: supplierProducts.leadTimeDays,

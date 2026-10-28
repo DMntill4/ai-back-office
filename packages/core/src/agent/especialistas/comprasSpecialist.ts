@@ -1,6 +1,6 @@
 import { db } from "../../db/client";
 import { suppliers, supplierProducts, warehouses, purchaseOrders, decisions } from "../../db/schema";
-import { eq, and, asc, desc, inArray } from "drizzle-orm";
+import { eq, and, asc, desc } from "drizzle-orm";
 import { compactSupplierFacts } from "../context/contextManager";
 import { resolveNodeGeoPoint } from "../../services/geocodingService";
 import { calculateRealRoute } from "../../services/routeCalculator";
@@ -179,7 +179,7 @@ export async function analyzePurchasingOptions(
     let distanceKm = 0;
 
     if (destGeo) {
-      const cacheKey = `${opt.supplierId || opt.supplierName}->${destGeo.latitude},${destGeo.longitude}`;
+      const cacheKey = `${companyId}:${opt.supplierId || opt.supplierName}->${destGeo.latitude},${destGeo.longitude}`;
       const cached = routeCalcCache.get(cacheKey);
       if (cached && cached.expiresAt > Date.now()) {
         freightCostMxn = cached.freightCostMxn;
@@ -194,7 +194,10 @@ export async function analyzePurchasingOptions(
         }).catch(() => null);
 
         if (origGeo) {
-          const route = await calculateRealRoute(origGeo, destGeo).catch(() => null);
+          const route = await calculateRealRoute(origGeo, destGeo, {
+            currency: config.currency,
+            companyId,
+          }).catch(() => null);
           if (route) {
             freightCostMxn = route.estimatedFreightCostMxn ?? 0;
             distanceKm = route.distanceKm;

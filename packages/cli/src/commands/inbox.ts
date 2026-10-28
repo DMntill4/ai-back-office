@@ -116,9 +116,12 @@ async function cleanDuplicates(companyId: string, json?: boolean) {
         feedback: "Duplicada: reemplazada por una propuesta m\u00e1s reciente del mismo producto.",
       })
       .where(
-        inArray(
-          decisions.id,
-          slice.map((s) => s.id),
+        and(
+          eq(decisions.companyId, companyId),
+          inArray(
+            decisions.id,
+            slice.map((s) => s.id),
+          ),
         ),
       );
   }
@@ -207,7 +210,7 @@ export async function inboxCommand(
           approvedBy: session?.name || "CLI_OPERATOR",
           feedback: `Cancelada antes de ejecución por ${session?.name || "operador"}.`,
         })
-        .where(eq(decisions.id, targetId));
+        .where(and(eq(decisions.id, targetId), eq(decisions.companyId, companyId)));
 
       if (options.json) {
         console.log(JSON.stringify({ success: true, message: `Decisión ${targetId} cancelada exitosamente.` }));
@@ -236,7 +239,7 @@ export async function inboxCommand(
           expiresAt: newExpiresAt,
           feedback: `Pospuesta por ${hours}h por ${session?.name || "usuario"}.`,
         })
-        .where(eq(decisions.id, targetId));
+        .where(and(eq(decisions.id, targetId), eq(decisions.companyId, companyId)));
 
       if (options.json) {
         console.log(JSON.stringify({ success: true, message: `Decisión ${targetId} pospuesta 24h.` }));
@@ -264,8 +267,13 @@ export async function inboxCommand(
     try {
       await db
         .update(decisions)
-        .set({ policyDecision: "rejected", decidedAt: new Date(), approvedBy: session?.name || "CLI_OPERATOR" })
-        .where(eq(decisions.id, targetId));
+        .set({
+          policyDecision: "rejected",
+          decidedAt: new Date(),
+          approvedBy: session?.name || "CLI_OPERATOR",
+          feedback: `Rechazada desde /inbox por ${session?.name || "operador"}.`,
+        })
+        .where(and(eq(decisions.id, targetId), eq(decisions.companyId, companyId)));
 
       if (options.json) {
         console.log(JSON.stringify({ success: true, message: `Decisión ${targetId} rechazada.` }));

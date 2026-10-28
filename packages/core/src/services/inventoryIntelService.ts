@@ -5,9 +5,8 @@ import {
   salesHistory,
   supplierProducts,
   purchaseOrders,
-  companies,
 } from "../db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getCompanyConfig } from "./configService";
 
 export type StockoutRiskLevel =
@@ -149,16 +148,20 @@ export async function getInventoryIntelligence(
     const stockInTransit = inTransitMap.get(p.id) || 0;
     const minSafetyStock = p.minStock || 10;
 
-    const suppData = suppMap.get(p.id) || { bestCost: 50, leadTimeDays: 5 };
-    const unitCost = suppData.bestCost;
-    const leadTimeDays = suppData.leadTimeDays;
+    const prodCostFallback = parseFloat((p as any).costPrice?.toString() || (p as any).price?.toString() || "0") || 0;
+    const suppData = suppMap.get(p.id);
+    const unitCost = suppData ? suppData.bestCost : prodCostFallback;
+    const leadTimeDays = suppData ? suppData.leadTimeDays : 0;
 
     const salesData = sales30dMap.get(p.id);
     let sales30dUnits = salesData ? salesData.units : 0;
     let revenue30d = salesData ? salesData.revenue : 0;
-    let unitPrice = salesData?.lastUnitPrice && salesData.lastUnitPrice > 0
+    const prodSalePrice = parseFloat((p as any).price?.toString() || "0") || 0;
+    const unitPrice = salesData?.lastUnitPrice && salesData.lastUnitPrice > 0
       ? salesData.lastUnitPrice
-      : parseFloat((unitCost * 1.35).toFixed(2));
+      : prodSalePrice > 0
+        ? prodSalePrice
+        : unitCost;
 
     // Fallback de rotación si sales_history aún no tiene transacciones pero el inventario registra ventas
     if (sales30dUnits === 0 && invData.salesCount > 0) {
@@ -221,7 +224,7 @@ export async function getInventoryIntelligence(
         break;
       case "SIN_ROTACION":
         if (isOverstock) {
-          diagnosis = `Stock estancado sin ventas en 30 días con $${immobilizedCapital.toLocaleString()} inmovilizados.`;
+          diagnosis = `Stock estancado sin ventas en 30 días${immobilizedCapital > 0 ? ` con $${immobilizedCapital.toLocaleString()} inmovilizados` : ` (${excessUnits}u excedentes)`}.`;
           recommendedAction = `Crear promoción, paquete o devolver ${excessUnits} unidades excedentes.`;
         } else {
           diagnosis = "Sin rotación registrada en los últimos 30 días.";
@@ -231,7 +234,7 @@ export async function getInventoryIntelligence(
       case "SALUDABLE":
       default:
         if (isOverstock) {
-          diagnosis = `Sobrestock con ${daysUntilStockout} días de cobertura ($${immobilizedCapital.toLocaleString()} en exceso).`;
+          diagnosis = `Sobrestock con ${daysUntilStockout} días de cobertura${immobilizedCapital > 0 ? ` ($${immobilizedCapital.toLocaleString()} en exceso)` : ` (${excessUnits}u en exceso)`}.`;
           recommendedAction = `Pausar compras y liquidar ${excessUnits} unidades para liberar flujo de caja.`;
         } else {
           diagnosis = `Nivel óptimo. Cobertura estimada de ${daysUntilStockout} días.`;

@@ -93,6 +93,8 @@ export async function executeCrearOrdenCompra(
       isSuccess: true,
       verified: !isPendingApproval,
       requiresApproval: isPendingApproval,
+      decisionId: resAny.decisionId,
+      approvalId: resAny.approvalId,
       duplicate: resAny.duplicate ?? false,
       trackingNumber: resAny.trackingNumber,
       message: result.message,

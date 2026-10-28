@@ -47,13 +47,21 @@ export interface ActionProposal {
 
 export type AutonomyLevel = "dry-run" | "assisted" | "auto";
 
+export function normalizeAutonomyLevel(raw?: string | null): AutonomyLevel {
+  if (!raw) return "assisted";
+  const clean = raw.toLowerCase().trim();
+  if (clean === "dry-run" || clean === "hitl") return "dry-run";
+  if (clean === "auto" || clean === "autonomo") return "auto";
+  return "assisted";
+}
+
 export interface CompanyPolicyRules {
   approvalLimitAmount?: number; // Límite monetario autónomo configurado por la empresa
   prohibitedSuppliers?: string[];
   requireHitlOnIrreversible?: boolean;
   minConfidenceThreshold?: number; // ej: 0.80
   maxAutonomousRiskScore?: number; // ej: 0.25
-  autonomyLevel?: AutonomyLevel; // dry-run | assisted | auto
+  autonomyLevel?: AutonomyLevel | "hitl" | "semiautonomo" | "autonomo"; // Soporta ambos vocabularios
   maxDataStalenessHours?: number; // Límite máximo de desfase en horas (ej: 24h)
   currency?: string; // Divisa oficial de la empresa (USD, COP, MXN, etc.)
 }
@@ -82,7 +90,7 @@ export function evaluatePolicy(
       : undefined;
   const minConfidence = rules.minConfidenceThreshold ?? 0.80;
   const maxRiskForAuto = rules.maxAutonomousRiskScore ?? 0.25;
-  const autonomyLevel = rules.autonomyLevel ?? "assisted";
+  const autonomyLevel = normalizeAutonomyLevel(rules.autonomyLevel);
   const requireHitlOnIrreversible =
     rules.requireHitlOnIrreversible !== undefined
       ? rules.requireHitlOnIrreversible

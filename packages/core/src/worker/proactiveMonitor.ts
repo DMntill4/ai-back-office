@@ -25,25 +25,26 @@ const alertsMemoryStore: ProactiveAlert[] = [];
 /**
  * Ejecuta una revisión completa del inventario y genera eventos proactivos.
  */
-export async function runProactiveAuditCycle(): Promise<ProactiveAlert[]> {
+export async function runProactiveAuditCycle(companyId: string = "comp_default"): Promise<ProactiveAlert[]> {
   const newAlerts: ProactiveAlert[] = [];
 
   try {
     const { executeAuditarAnomalias } = await import("../tools/auditarAnomalias");
     const { executeReporteGeneral } = await import("../tools/reportesGenerales");
 
-    const auditRes = await executeAuditarAnomalias({ tipo_auditoria: "todo" });
+    const auditRes = await executeAuditarAnomalias({ tipo_auditoria: "todo" }, { companyId });
     if (auditRes.isSuccess && Array.isArray(auditRes.anomalias)) {
       for (const item of auditRes.anomalias) {
         if (item.categoria === "SISTEMA_SALUDABLE") continue;
 
+        const isStockAnomaly = String(item.categoria || "").startsWith("DESCALCE_STOCK");
         const alert: ProactiveAlert = {
           id: `alt_${randomUUID().slice(0, 8)}`,
-          type: item.categoria === "DESCALCE_STOCK" ? "STOCK_CRITICO" : "PROVEEEDOR_ANOMALIA",
+          type: isStockAnomaly ? "STOCK_CRITICO" : "PROVEEEDOR_ANOMALIA",
           severity: item.gravedad === "CRÍTICA" ? "CRITICAL" : item.gravedad === "ALTA" ? "HIGH" : "MEDIUM",
           title: `Alerta Logística: ${item.entidad}`,
           message: `${item.descripcion} Accion sugerida: ${item.accionSugerida}`,
-          metadata: item,
+          metadata: { ...item, companyId },
           createdAt: new Date(),
         };
 
@@ -52,7 +53,7 @@ export async function runProactiveAuditCycle(): Promise<ProactiveAlert[]> {
     }
 
     // Revisar caducidades próximas
-    const expiryRes = await executeReporteGeneral({ tipo_reporte: "caducidad" });
+    const expiryRes = await executeReporteGeneral({ tipo_reporte: "caducidad" }, { companyId });
     if (expiryRes.isSuccess && Array.isArray(expiryRes.data)) {
       for (const foodItem of expiryRes.data) {
         const food = foodItem as any;
@@ -61,24 +62,15 @@ export async function runProactiveAuditCycle(): Promise<ProactiveAlert[]> {
           type: "CADUCIDAD_PROXIMA",
           severity: food.dias_restantes <= 2 ? "CRITICAL" : "HIGH",
           title: `Alerta de Caducidad: ${food.nombre}`,
-          message: `El producto caduca en ${food.dias_restantes} días. Stock afectado: ${food.stock} unidades.`,
-          metadata: food,
+          message: `El producto caduca en ${food.dias_restantes} días. Stock afectado: ${food.stock_actual ?? food.stock ?? 0} unidades.`,
+          metadata: { ...food, companyId },
           createdAt: new Date(),
         };
         newAlerts.push(alert);
       }
     }
   } catch {
-    // Fallback de alerta demostrativa en standby
-    newAlerts.push({
-      id: `alt_standby_01`,
-      type: "STOCK_CRITICO",
-      severity: "HIGH",
-      title: "Alerta de Stock Crítico: Sensor ST-200",
-      message: "Quedan 2 unidades en inventario central (mínimo de seguridad: 15). Se sugiere generar orden de reabastecimiento.",
-      metadata: { productId: "prod_st200", currentStock: 2, minStock: 15 },
-      createdAt: new Date(),
-    });
+    // Sin conexión a BD no se inventan alertas ficticias
   }
 
   // Guardar en almacén en memoria y despachar evento en el bus interno

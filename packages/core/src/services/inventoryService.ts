@@ -65,31 +65,29 @@ function filterSimilar(productList: any[], query: string) {
 }
 
 export async function getStockByProduct(productId: string, companyId?: string) {
-  // 1. Buscar por ID exacto
+  // 1. Buscar por ID exacto (acotado por companyId si se provee)
   let product = await db
     .select()
     .from(products)
-    .where(eq(products.id, productId))
+    .where(companyId ? and(eq(products.id, productId), eq(products.companyId, companyId)) : eq(products.id, productId))
     .limit(1);
 
-  // 2. Si no coincide por ID, buscar por SKU o nombre parcial en la empresa activa
+  // 2. Si no coincide por ID, buscar por SKU o nombre parcial estrictamente dentro de la empresa activa
   if (product.length === 0) {
     try {
+      const skuOrNameCond = or(
+        eq(products.sku, productId),
+        ilike(products.name, `%${productId}%`),
+      );
       const bySkuOrName = await db
         .select()
         .from(products)
-        .where(
-          or(
-            eq(products.sku, productId),
-            ilike(products.name, `%${productId}%`),
-          ),
-        )
+        .where(companyId ? and(eq(products.companyId, companyId), skuOrNameCond) : skuOrNameCond)
         .limit(5);
       if (bySkuOrName.length > 0) {
         product = companyId
-          ? bySkuOrName.filter((p) => p.companyId === companyId)
+          ? bySkuOrName.filter((p) => !p.companyId || p.companyId === companyId)
           : bySkuOrName;
-        if (product.length === 0) product = [bySkuOrName[0]];
       }
     } catch {
       // Continuar con fuzzy search si el mock de test no soporta ilike/or
@@ -102,20 +100,31 @@ export async function getStockByProduct(productId: string, companyId?: string) {
   }
 
   const targetProd = product[0];
+  const effectiveCompanyId = companyId || targetProd.companyId;
   const items = await db
     .select()
     .from(inventory)
-    .where(eq(inventory.productId, targetProd.id));
+    .where(
+      effectiveCompanyId
+        ? and(eq(inventory.productId, targetProd.id), eq(inventory.companyId, effectiveCompanyId))
+        : eq(inventory.productId, targetProd.id),
+    );
   const totalStock = items.reduce((acc, item) => acc + item.stock, 0);
 
   const openOrders = await db
     .select()
     .from(purchaseOrders)
     .where(
-      and(
-        eq(purchaseOrders.productId, targetProd.id),
-        eq(purchaseOrders.status, "abierta"),
-      ),
+      effectiveCompanyId
+        ? and(
+            eq(purchaseOrders.productId, targetProd.id),
+            eq(purchaseOrders.companyId, effectiveCompanyId),
+            eq(purchaseOrders.status, "abierta"),
+          )
+        : and(
+            eq(purchaseOrders.productId, targetProd.id),
+            eq(purchaseOrders.status, "abierta"),
+          ),
     );
   const stockInTransit = openOrders.reduce(
     (acc, order) => acc + order.quantity,
@@ -334,11 +343,18 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
 
   // Inserción en decisions para consumo universal desde mint inbox y daemon
   try {
-    const [targetProd] = await db
-      .select({ name: products.name })
-      .from(products)
-      .where(and(eq(products.id, input.productId), eq(products.companyId, effectiveCompanyId)))
-      .limit(1);
+    const [targetProd, suppRow] = await Promise.all([
+      db
+        .select({ name: products.name, sku: products.sku })
+        .from(products)
+        .where(and(eq(products.id, input.productId), eq(products.companyId, effectiveCompanyId)))
+        .limit(1),
+      db
+        .select({ name: suppliers.name })
+        .from(suppliers)
+        .where(and(eq(suppliers.id, input.supplierId), eq(suppliers.companyId, effectiveCompanyId)))
+        .limit(1),
+    ]);
 
     await db
       .insert(decisions)
@@ -348,15 +364,16 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
         caseId: input.caseId,
         actionType: "crear_orden_compra",
         proposingAgent: "compras_agent",
-        title: `Reposición de ${input.quantity}u de ${input.productId} a ${input.supplierId}`,
+        title: `Reposición de ${input.quantity}u de ${targetProd[0]?.name || input.productId} a ${suppRow[0]?.name || input.supplierId}`,
         costMxn: totalAmount.toFixed(2),
         riskScore: "0.100",
         reversible: false,
         evidencePayload: {
           productId: input.productId,
-          productName: targetProd?.name || input.productId,
+          productName: targetProd[0]?.name || input.productId,
+          sku: targetProd[0]?.sku,
           supplierId: input.supplierId,
-          supplierName: supplierProduct[0] ? input.supplierId : "Proveedor Homologado",
+          supplierName: suppRow[0]?.name || input.supplierId,
           quantity: input.quantity,
           unitPrice: unitPrice.toFixed(2),
           totalAmount: totalAmount.toFixed(2),
@@ -372,7 +389,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
         },
         policyDecision: "pending_approval",
         policyReason: limitText,
-        expiresAt: new Date(Date.now() + 48 * 3600 * 1000),
+        expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -401,7 +418,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     decisionId,
     totalAmount,
     threshold: maxAllowedAmount,
-    message: `El agente ha generado la solicitud de compra por $${totalAmount.toFixed(2)} ${currency}. ${limitText} Pendiente de aprobación humana.`,
+    message: `El agente ha generado la solicitud de compra (${decisionId}) por $${totalAmount.toFixed(2)} ${currency}. ${limitText} Pendiente de aprobación humana en /inbox.`,
   };
 }
 
