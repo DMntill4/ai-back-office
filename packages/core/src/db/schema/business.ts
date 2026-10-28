@@ -192,7 +192,7 @@ export const businessConfig = pgTable(
       .references(() => companies.id, { onDelete: "cascade" })
       .notNull()
       .default("comp_default"),
-    key: varchar("key", { length: 100 }).notNull(),
+    key: text("key").notNull(),
     value: text("value").notNull(),
     currency: varchar("currency", { length: 10 }).notNull().default("MXN"),
     description: text("description"),

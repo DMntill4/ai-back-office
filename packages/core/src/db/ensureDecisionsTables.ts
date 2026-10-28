@@ -297,6 +297,9 @@ export async function ensureDecisionsTables(): Promise<void> {
       -- Columnas de precio y costo directo en Productos
       ALTER TABLE products ADD COLUMN IF NOT EXISTS price NUMERIC(10, 2);
       ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(10, 2);
+
+      -- Clave de configuración de negocio flexible para emails largos (OTP)
+      ALTER TABLE business_config ALTER COLUMN key TYPE TEXT;
     `);
     console.log("[OK] Tablas e infraestructura física/geográfica verificadas en PostgreSQL.");
   } catch (err) {
