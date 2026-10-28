@@ -84,20 +84,235 @@ function ask(rl: readline.Interface, question: string, defaultValue = ""): Promi
   });
 }
 
+export function isGibberish(str: string): boolean {
+  const clean = str.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (clean.length < 5) return false;
+
+  // 1. Caracteres idénticos repetidos consecutivamente >= 4 veces (ej: aaaa, 1111)
+  if (/(.)\1{3,}/.test(clean)) return true;
+
+  // 2. Patrones comunes de teclado (keyboard walks) de al menos 4 caracteres
+  const walks = [
+    "qwer", "wert", "erty", "rtyu", "tyui", "yuio", "uiop",
+    "asdf", "sdfg", "dfgh", "fghj", "ghjk", "hjkl",
+    "zxcv", "xcvb", "cvbn", "vbnm",
+    "1234", "2345", "3456", "4567", "5678", "6789", "0987", "9876",
+  ];
+  for (const walk of walks) {
+    if (clean.includes(walk)) return true;
+  }
+
+  // 3. Dígitos intercalados entre letras (ej: u9wb, bu98wb) - típico de aporreo o hashes
+  if (/[a-z]\d+[a-z]/.test(clean)) return true;
+
+  // 4. Demasiados dígitos mezclados (más de 6 dígitos en nombres o usuarios)
+  const digits = (clean.match(/[0-9]/g) || []).length;
+  if (digits > 6) return true;
+
+  // 5. Secuencia excesiva de consonantes consecutivas (>= 5)
+  if (/[bcdfghjklmnpqrstvwxyz]{5,}/.test(clean)) return true;
+
+  // 6. Cadenas con proporción absurda de vocales (< 20% en strings de más de 8 letras)
+  const letters = (clean.match(/[a-z]/g) || []).length;
+  const vowels = (clean.match(/[aeiou]/g) || []).length;
+  if (letters > 8 && vowels / letters < 0.20) return true;
+
+  // 7. Cadenas con sólo una vocal repetida muchas veces
+  if (letters >= 10) {
+    const uniqueVowels = new Set(clean.match(/[aeiou]/g) || []).size;
+    if (uniqueVowels <= 1 && vowels / letters < 0.35) return true;
+  }
+
+  return false;
+}
+
+export function validateEmailAddress(email: string): { valid: boolean; error?: string } {
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed) {
+    return { valid: false, error: "El correo electrónico no puede estar vacío." };
+  }
+  if (trimmed.length > 50) {
+    return { valid: false, error: "El correo no debe exceder 50 caracteres (límite de seguridad para cuentas operativas)." };
+  }
+  if (trimmed.length < 6) {
+    return { valid: false, error: "El correo es demasiado corto (mínimo 6 caracteres, ej: admin@empresa.com)." };
+  }
+
+  // Símbolos prohibidos explícitos
+  if (/[<>;{}[\]\\'"~`!#$%^&*()+=/?,]/.test(trimmed)) {
+    return { valid: false, error: "El correo contiene símbolos especiales no permitidos (<, >, ;, {, }, $, %, etc.)." };
+  }
+
+  const parts = trimmed.split("@");
+  if (parts.length !== 2) {
+    return { valid: false, error: "El correo debe tener un único '@' separando usuario y dominio." };
+  }
+
+  const [local, domain] = parts;
+  if (!local || !domain) {
+    return { valid: false, error: "Formato de correo incompleto." };
+  }
+
+  if (local.length < 2 || local.length > 30) {
+    return { valid: false, error: "El usuario antes del '@' debe tener entre 2 y 30 caracteres." };
+  }
+  if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$/.test(local)) {
+    return { valid: false, error: "El usuario contiene caracteres no permitidos o inicia/termina con puntos o guiones." };
+  }
+  if (local.includes("..") || local.includes("--") || local.includes("__")) {
+    return { valid: false, error: "El usuario no puede contener signos de puntuación repetidos consecutivos." };
+  }
+
+  if (domain.length < 4 || domain.length > 30) {
+    return { valid: false, error: "El dominio debe tener entre 4 y 30 caracteres." };
+  }
+  if (!domain.includes(".")) {
+    return { valid: false, error: "El dominio debe incluir una extensión reconocible (ej: .com, .co, .org)." };
+  }
+  const domainParts = domain.split(".");
+  const tld = domainParts[domainParts.length - 1];
+  if (!/^[a-zA-Z]{2,10}$/.test(tld)) {
+    return { valid: false, error: `Extensión de dominio '.${tld}' inválida. Debe ser alfabética de 2 a 10 letras (ej: .com, .co, .net).` };
+  }
+
+  for (const label of domainParts.slice(0, -1)) {
+    if (!label || label.length < 2 || label.length > 25) {
+      return { valid: false, error: "El fragmento de servidor/dominio debe tener entre 2 y 25 caracteres." };
+    }
+    if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(label)) {
+      return { valid: false, error: `El fragmento de dominio '${label}' contiene caracteres no permitidos.` };
+    }
+  }
+
+  // Detección de texto ficticio o teclado aporreado
+  if (isGibberish(local) || isGibberish(domainParts[0])) {
+    return {
+      valid: false,
+      error: "El correo parece una secuencia aleatoria de teclas o texto ficticio. Ingresa un correo corporativo o personal verosímil (ej: compras@miempresa.com o contacto@gmail.com).",
+    };
+  }
+
+  return { valid: true };
+}
+
+export function validateOperatorName(name: string): { valid: boolean; error?: string } {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { valid: false, error: "El nombre de operador es obligatorio. Debes ingresar tu nombre (ej: Carlos Méndez)." };
+  }
+  if (trimmed.length < 3) {
+    return { valid: false, error: "El nombre de operador es demasiado corto (mínimo 3 caracteres)." };
+  }
+  if (trimmed.length > 35) {
+    return { valid: false, error: "El nombre de operador es demasiado largo (máximo 35 caracteres)." };
+  }
+  // Prohibir números en el nombre de operador
+  if (/\d/.test(trimmed)) {
+    return { valid: false, error: "El nombre de operador solo puede contener letras y espacios (sin dígitos numéricos)." };
+  }
+  // Prohibir símbolos especiales: solo letras, espacios y acentos
+  if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ ]+$/.test(trimmed)) {
+    return { valid: false, error: "El nombre solo puede contener letras y espacios (sin caracteres como @, #, $, <, >, ;, _, etc.)." };
+  }
+  if (isGibberish(trimmed)) {
+    return { valid: false, error: "El nombre parece una secuencia aleatoria de teclado o texto ficticio. Ingresa un nombre real (ej: Carlos Méndez)." };
+  }
+  return { valid: true };
+}
+
+export function validateCompanyName(name: string): { valid: boolean; error?: string } {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { valid: false, error: "El nombre de la empresa es obligatorio. Debes ingresar el nombre o razón social de tu marca." };
+  }
+  if (trimmed.length < 3) {
+    return { valid: false, error: "El nombre de la empresa es demasiado corto (mínimo 3 caracteres)." };
+  }
+  if (trimmed.length > 50) {
+    return { valid: false, error: "El nombre de la empresa no debe exceder 50 caracteres." };
+  }
+  // Prohibir símbolos peligrosos / de inyección
+  if (/[<>;{}[\]\\`~$%^*+=?|!_]/.test(trimmed)) {
+    return { valid: false, error: "No se permiten caracteres como <, >, ;, {, }, $, %, *, etc. Usa solo letras, números, espacios y signos comerciales estándar (&, ., -)." };
+  }
+  if (!/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ .&'-]+$/.test(trimmed)) {
+    return { valid: false, error: "Solo se permiten letras, números, espacios y signos como punto, guion o ampersand (&)." };
+  }
+  // Debe tener al menos dos letras
+  const letters = (trimmed.match(/[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]/g) || []).length;
+  if (letters < 2) {
+    return { valid: false, error: "El nombre de la empresa debe contener al menos dos letras alfabéticas." };
+  }
+  if (isGibberish(trimmed)) {
+    return { valid: false, error: "El nombre parece una secuencia aleatoria de teclado o texto ficticio. Ingresa un nombre comercial verosímil (ej: Logística Central S.A.)." };
+  }
+  return { valid: true };
+}
+
+async function askValidOperatorName(
+  rl: readline.Interface,
+  question: string,
+  defaultValue = "",
+): Promise<string> {
+  while (true) {
+    const raw = (await ask(rl, question, defaultValue)).trim();
+    const check = validateOperatorName(raw);
+    if (!check.valid) {
+      console.log(`  ${theme.redBold("[ERROR]")} ${check.error}\n`);
+      continue;
+    }
+    return raw;
+  }
+}
+
+async function askValidCompanyName(
+  rl: readline.Interface,
+  question: string,
+  defaultValue = "",
+): Promise<string> {
+  while (true) {
+    const raw = (await ask(rl, question, defaultValue)).trim();
+    const check = validateCompanyName(raw);
+    if (!check.valid) {
+      console.log(`  ${theme.redBold("[ERROR]")} ${check.error}\n`);
+      continue;
+    }
+    return raw;
+  }
+}
+
 async function askValidString(
   rl: readline.Interface,
   question: string,
   defaultValue: string,
   fieldLabel: string,
-  minLen = 2,
+  minLen = 3,
+  maxLen = 60,
 ): Promise<string> {
   while (true) {
-    const val = await ask(rl, question, defaultValue);
-    const cleaned = sanitizeText(val, 100);
-    if (cleaned.length >= minLen && /[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]/.test(cleaned)) {
-      return cleaned;
+    const val = (await ask(rl, question, defaultValue)).trim();
+    if (val.length < minLen) {
+      console.log(`  ${theme.redBold(`[ERROR] ${fieldLabel} demasiado corto:`)} Debe contener al menos ${minLen} caracteres.\n`);
+      continue;
     }
-    console.log(`  ${theme.redBold(`[ERROR] ${fieldLabel} inválido:`)} Debe contener al menos ${minLen} caracteres válidos (letras o números).\n`);
+    if (val.length > maxLen) {
+      console.log(`  ${theme.redBold(`[ERROR] ${fieldLabel} demasiado largo:`)} No debe exceder ${maxLen} caracteres.\n`);
+      continue;
+    }
+    if (/[<>;{}[\]\\`~$%^*+=|!]/.test(val)) {
+      console.log(`  ${theme.redBold(`[ERROR] Símbolos especiales en ${fieldLabel}:`)} No se permiten caracteres especiales peligrosos (<, >, ;, {, }, $, etc.).\n`);
+      continue;
+    }
+    const letters = (val.match(/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/g) || []).length;
+    if (letters < 2) {
+      console.log(`  ${theme.redBold(`[ERROR] ${fieldLabel} inválido:`)} Debe contener al menos 2 letras (no solo números o símbolos).\n`);
+      continue;
+    }
+    if (isGibberish(val)) {
+      console.log(`  ${theme.redBold(`[ERROR] ${fieldLabel} sospechoso:`)} Parece una secuencia aleatoria de teclado o texto ficticio.\n`);
+      continue;
+    }
+    return sanitizeText(val, maxLen);
   }
 }
 
@@ -116,22 +331,104 @@ async function askValidChoice(
   }
 }
 
+export interface CurrencyParseResult {
+  currency: string;
+  supportedCurrencies: string[];
+  isMultiCurrency: boolean;
+}
+
+export function resolveExplicitCurrencyCode(token: string): string | null {
+  const norm = token.toLowerCase().trim();
+  if (norm === "usd" || norm.includes("dolar") || norm.includes("dollar") || norm === "$") return "USD";
+  if (norm === "eur" || norm.includes("euro") || norm === "€") return "EUR";
+  if (norm === "gbp" || norm.includes("libra") || norm.includes("pound") || norm === "£") return "GBP";
+  if (norm === "cop" || norm.includes("peso colombiano") || norm.includes("pesos colombianos")) return "COP";
+  if (norm === "mxn" || norm.includes("peso mexicano") || norm.includes("pesos mexicanos")) return "MXN";
+  if (norm === "ars" || norm.includes("peso argentino") || norm.includes("pesos argentinos")) return "ARS";
+  if (norm === "clp" || norm.includes("peso chileno") || norm.includes("pesos chilenos")) return "CLP";
+  if (norm === "pen" || norm.includes("sol") || norm.includes("soles") || norm === "s/") return "PEN";
+  if (norm === "brl" || norm.includes("real") || norm.includes("reais") || norm.includes("reales") || norm === "r$") return "BRL";
+  if (norm === "jpy" || norm.includes("yen") || norm === "¥") return "JPY";
+  if (norm === "cad" || norm.includes("dolar canadiense")) return "CAD";
+  return null;
+}
+
+export function parseCurrencyInput(input: string, defaultCurrency = "USD"): CurrencyParseResult | null {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return {
+      currency: defaultCurrency,
+      supportedCurrencies: [defaultCurrency],
+      isMultiCurrency: false,
+    };
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (["multi", "multidivisa", "global", "varias", "todas", "internacional", "all"].includes(lower)) {
+    return {
+      currency: "USD",
+      supportedCurrencies: ["USD", "EUR", "COP", "MXN"],
+      isMultiCurrency: true,
+    };
+  }
+
+  // Separar por comas, barras, espacios, puntos y comas, o conjunciones
+  const tokens = trimmed
+    .split(/[,/;\s+]+/)
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t && t !== "y" && t !== "and" && t !== "e");
+
+  const validCodes: string[] = [];
+
+  for (const token of tokens) {
+    const upper = token.toUpperCase();
+    if (isValidCurrency(upper)) {
+      if (!validCodes.includes(upper)) validCodes.push(upper);
+      continue;
+    }
+    const resolved = resolveExplicitCurrencyCode(token);
+    if (resolved && isValidCurrency(resolved)) {
+      if (!validCodes.includes(resolved)) validCodes.push(resolved);
+    }
+  }
+
+  if (validCodes.length === 0) {
+    return null;
+  }
+
+  // Divisa base de consolidación: Si USD está en la lista se toma por defecto, de lo contrario la primera
+  const baseCurrency = validCodes.includes("USD") ? "USD" : validCodes[0];
+
+  return {
+    currency: baseCurrency,
+    supportedCurrencies: validCodes,
+    isMultiCurrency: validCodes.length > 1,
+  };
+}
+
 async function askValidCurrency(
   rl: readline.Interface,
   question: string,
   defaultCurrency = "USD",
-): Promise<string> {
+): Promise<CurrencyParseResult> {
   while (true) {
     const input = (await ask(rl, question, defaultCurrency)).trim();
-    const upper = input.toUpperCase();
-    if (isValidCurrency(upper)) {
-      return upper;
+    const parsed = parseCurrencyInput(input, defaultCurrency);
+    if (parsed) {
+      if (parsed.isMultiCurrency) {
+        console.log(
+          `  ${theme.mintBold("[OK] Modo Multidivisa activado:")} Divisa base de consolidación: ${theme.bold(parsed.currency)}. Divisas operativas secundarias: ${theme.cyan(parsed.supportedCurrencies.join(", "))}.\n`
+        );
+      } else {
+        console.log(
+          `  ${theme.mintBold("[OK]")} Divisa de consolidación registrada: ${theme.bold(parsed.currency)}.\n`
+        );
+      }
+      return parsed;
     }
-    const resolved = cleanCurrencyCode(input);
-    if (isValidCurrency(resolved) && input.length <= 6) {
-      return resolved;
-    }
-    console.log(`  ${theme.redBold("[ERROR] Divisa inválida:")} '${input}' no es una divisa oficial reconocida. Ingresa un código ISO 4217 válido (ej: USD, COP, MXN, EUR, ARS, CLP, PEN, BRL).\n`);
+    console.log(
+      `  ${theme.redBold("[ERROR] Divisa no reconocida:")} '${input}' no contiene códigos ISO válidos. Puedes ingresar una divisa única (ej: USD, COP, EUR, MXN) o varias separadas por coma para multinacionales (ej: USD, EUR, COP).\n`
+    );
   }
 }
 
@@ -218,6 +515,8 @@ export interface OnboardingCheckpoint {
   companyId: string;
   userId: string;
   currency: string;
+  supportedCurrencies?: string[];
+  isMultiCurrency?: boolean;
   country: string;
   timezone: string;
   warehouseCity: string;
@@ -319,6 +618,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     let companyId = "comp_default";
     let userId = "usr_admin";
     let currency = "USD";
+    let supportedCurrencies: string[] = ["USD"];
+    let isMultiCurrency = false;
     let country = "Colombia";
     let timezone = "America/Bogota";
     let warehouseCity = "Sede Central";
@@ -342,6 +643,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         companyId = cp.companyId;
         userId = cp.userId;
         currency = cp.currency;
+        if (cp.supportedCurrencies) supportedCurrencies = cp.supportedCurrencies;
+        if (cp.isMultiCurrency !== undefined) isMultiCurrency = cp.isMultiCurrency;
         country = cp.country;
         timezone = cp.timezone;
         warehouseCity = cp.warehouseCity;
@@ -360,22 +663,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
       // PASO 1: IDENTIDAD DEL OPERADOR Y DE LA EMPRESA (SIN ASUMIR NADA)
       // -------------------------------------------------------------
       console.log(drawDivider("PASO 1 DE 5: IDENTIDAD DEL OPERADOR Y EMPRESA", 76));
-      userName = await askValidString(rl, `  ${theme.bold("1.1 Tu nombre o identificador de operador")}`, "Admin", "Nombre de operador");
-      companyName = await askValidString(rl, `  ${theme.bold("1.2 Nombre de tu empresa o marca")}`, "Mi Empresa", "Nombre de empresa");
-
-      const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      while (true) {
-        email = await ask(
-          rl,
-          `  ${theme.bold("1.3 Correo electrónico de contacto y alertas")}`,
-          "admin@empresa.com",
-        );
-        email = email.trim().toLowerCase();
-        if (EMAIL_REGEX.test(email)) {
-          break;
-        }
-        console.log(`  ${theme.redBold("[ERROR] Correo inválido:")} Ingresa un formato de correo válido (ej: admin@empresa.com).\n`);
-      }
+      userName = await askValidOperatorName(rl, `  ${theme.bold("1.1 Tu nombre de operador (obligatorio)")}`, "");
+      companyName = await askValidCompanyName(rl, `  ${theme.bold("1.2 Nombre de tu empresa o marca (obligatorio)")}`, "");
 
       companyId = cleanSlug(companyName, "comp", 20);
       userId = cleanSlug(userName, "usr", 20);
@@ -390,41 +679,99 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         })
         .onConflictDoNothing();
 
-      // Verificación real de correo con código OTP
-      try {
-        const sendRes = await sendEmailVerificationCode(companyId, email);
-        console.log(`\n  ${theme.mintBold("[OK]")} Código de verificación generado para ${email}.`);
-        console.log(`  ${theme.dim(`[CÓDIGO DE VERIFICACIÓN]: ${sendRes.code} (expira en 15 minutos)`)}`);
-        const inputCode = await ask(rl, `  ${theme.bold("1.4 Código de verificación de 6 dígitos recibido")}`, sendRes.code);
-        if (inputCode) {
-          const verifyRes = await verifyEmailCode(companyId, email, inputCode);
-          if (verifyRes.success) {
-            console.log(`  ${theme.mintBold("[OK]")} ${verifyRes.message}\n`);
-            emailVerified = true;
-          } else {
-            console.log(`  ${theme.redBold("[ERROR]")} ${verifyRes.message}`);
-            console.log(`  ${theme.amberBold("[ADVERTENCIA]")} El correo queda como 'no verificado'. MINT no lo usará para alertas oficiales.\n`);
+      // 1.3 y 1.4: Validación rigurosa de correo y verificación obligatoria (Sin aberraciones ni saltarse el paso)
+      while (true) {
+        while (true) {
+          email = (await ask(
+            rl,
+            `  ${theme.bold("1.3 Correo electrónico de contacto y alertas")}`,
+            "admin@empresa.com",
+          )).trim().toLowerCase();
+
+          const emailCheck = validateEmailAddress(email);
+          if (emailCheck.valid) {
+            break;
           }
-        } else {
-          console.log(`  ${theme.amberBold("[ADVERTENCIA]")} Verificación omitida. El correo queda como 'no verificado'.\n`);
+          console.log(`  ${theme.redBold("[ERROR] Correo no aceptado:")} ${emailCheck.error}\n`);
         }
-      } catch (err: any) {
-        console.log(`  ${theme.dim(`Nota de verificación: ${err.message}`)}`);
+
+        // Verificación real de correo con código OTP
+        try {
+          const sendRes = await sendEmailVerificationCode(companyId, email);
+          console.log(`\n  ${theme.mintBold("[OK]")} Código de verificación generado para ${email}.`);
+          console.log(`  ${theme.dim(`[CÓDIGO DE VERIFICACIÓN]: ${sendRes.code} (expira en 15 minutos)`)}`);
+
+          let verified = false;
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            const promptMsg = attempt === 1
+              ? `  ${theme.bold("1.4 Ingresa el código de 6 dígitos recibido")}`
+              : `  ${theme.bold(`1.4 Ingresa el código de 6 dígitos (Intento ${attempt}/3)`)}`;
+            const inputCode = (await ask(rl, promptMsg, sendRes.code)).trim();
+
+            if (!inputCode) {
+              console.log(`  ${theme.redBold("[ERROR]")} El código de verificación no puede estar vacío.`);
+              continue;
+            }
+
+            if (!/^\d{6}$/.test(inputCode)) {
+              console.log(`  ${theme.redBold("[ERROR] Formato de código inválido:")} El código debe contener exactamente 6 dígitos numéricos (sin letras ni caracteres especiales).\n`);
+              continue;
+            }
+
+            const verifyRes = await verifyEmailCode(companyId, email, inputCode);
+            if (verifyRes.success) {
+              console.log(`  ${theme.mintBold("[OK]")} ${verifyRes.message}\n`);
+              emailVerified = true;
+              verified = true;
+              break;
+            } else {
+              console.log(`  ${theme.redBold("[ERROR]")} ${verifyRes.message}`);
+            }
+          }
+
+          if (verified) {
+            break; // Correo verificado con éxito, avanzar a contraseña
+          }
+
+          console.log(`\n  ${theme.amberBold("[REINTENTO]")} No se completó la verificación del correo. Ingresa una dirección válida para continuar.\n`);
+        } catch (err: any) {
+          console.log(`  ${theme.redBold("[ERROR] Fallo al generar código OTP:")} ${err.message}. Ingresa un correo válido.\n`);
+        }
       }
 
       while (true) {
         password = await ask(
           rl,
-          `  ${theme.bold("1.5 Contraseña de acceso al back-office (mínimo 4 caracteres)")}`,
+          `  ${theme.bold("1.5 Contraseña de acceso al back-office (mínimo 6 caracteres)")}`,
           "admin123",
         );
-        if (password.length >= 4) {
-          break;
+        if (password.length < 6) {
+          console.log(`  ${theme.redBold("[ERROR] Contraseña corta:")} Debe tener al menos 6 caracteres.\n`);
+          continue;
         }
-        console.log(`  ${theme.redBold("[ERROR] Contraseña corta:")} Debe tener al menos 4 caracteres.\n`);
+        if (password.length > 50) {
+          console.log(`  ${theme.redBold("[ERROR] Contraseña demasiado larga:")} No debe exceder 50 caracteres.\n`);
+          continue;
+        }
+        if (/[<>;{}[\]\\`~]/.test(password)) {
+          console.log(`  ${theme.redBold("[ERROR] Símbolos no permitidos:")} Por seguridad, la contraseña no debe contener caracteres especiales como <, >, ;, {, }, \`, etc.\n`);
+          continue;
+        }
+        if (isGibberish(password) && password !== "admin123") {
+          console.log(`  ${theme.redBold("[ERROR] Contraseña débil:")} No uses secuencias repetidas como 'aaaaaa' o '123456'.\n`);
+          continue;
+        }
+        break;
       }
 
-      currency = await askValidCurrency(rl, `  ${theme.bold("1.6 Divisa oficial de la empresa (USD, COP, MXN, EUR)")}`, "USD");
+      const currResult = await askValidCurrency(
+        rl,
+        `  ${theme.bold("1.6 Divisa base de consolidación financiera (USD, COP, MXN, EUR, o 'USD, EUR, COP' si eres multinacional)")}`,
+        "USD",
+      );
+      currency = currResult.currency;
+      supportedCurrencies = currResult.supportedCurrencies;
+      isMultiCurrency = currResult.isMultiCurrency;
 
       const locResolved = await askValidCountry(rl, `  ${theme.bold("1.7 País o territorio de operación")}`, "Colombia");
       country = locResolved.country;
@@ -443,6 +790,37 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         .onConflictDoUpdate({
           target: [companies.id],
           set: { name: companyName, country, currency },
+        });
+
+      // Configuración de divisas para multinacionales
+      await db
+        .insert(businessConfig)
+        .values({
+          companyId,
+          key: "supported_currencies",
+          value: JSON.stringify(supportedCurrencies),
+          currency,
+          description: "Divisas operativas habilitadas para ventas y pagos",
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [businessConfig.companyId, businessConfig.key],
+          set: { value: JSON.stringify(supportedCurrencies), updatedAt: new Date() },
+        });
+
+      await db
+        .insert(businessConfig)
+        .values({
+          companyId,
+          key: "multi_currency_mode",
+          value: String(isMultiCurrency),
+          currency,
+          description: "Indicador de modalidad multidivisa para multinacionales",
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [businessConfig.companyId, businessConfig.key],
+          set: { value: String(isMultiCurrency), updatedAt: new Date() },
         });
 
       const passwordHash = hashPassword(password);
@@ -473,6 +851,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         companyId,
         userId,
         currency,
+        supportedCurrencies,
+        isMultiCurrency,
         country,
         timezone,
         warehouseCity,
@@ -843,6 +1223,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         companyId,
         userId,
         currency,
+        supportedCurrencies,
+        isMultiCurrency,
         country,
         timezone,
         warehouseCity,
@@ -890,6 +1272,8 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         companyId,
         userId,
         currency,
+        supportedCurrencies,
+        isMultiCurrency,
         country,
         timezone,
         warehouseCity,
