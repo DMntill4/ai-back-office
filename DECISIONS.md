@@ -181,5 +181,29 @@
        * 100% observancia de límites presupuestales autónomos y escalamiento HITL.
 - **Consecuencias:** Cobertura de pruebas ampliada a 82 tests pasando al 100% (23 suites), permitiendo un despliegue operativo seguro y robusto en producción.
 
+## ADR-015: Cierre Integral de Auditoria Tecnica: Unificacion Split-Brain, Flujo Completo de Dispersion Financiera, Blindaje Multi-Tenant y Gobernanza Bilingue
+- **Fecha:** 2026-10-27
+- **Estado:** Aceptado
+- **Contexto:** Una auditoria integral del codigo fuente evidencio tres deudas tecnicas criticas:
+  1. Fractura arquitectonica (split-brain) por duplicacion de archivos entre el codigo legado en `src/` y el monorepo moderno `@mint/core`.
+  2. Coexistencia de dos modelos de aprobacion paralelos (`approvals` vs `decisions`), con aprobacion que simulaba la notificacion a personal de pagos/finanzas con booleanos estaticos.
+  3. Discrepancia en la evaluacion del Punto de Reorden (ROP) entre el demonio de fondo y el motor de eventos, junto con riesgo de colision en identificadores multi-empresa.
+- **Decisión:**
+  1. **Eliminacion Definitiva del Split-Brain:**
+     - Todos los modulos dentro de `src/` (`events`, `agent`, `services`, `tools`, `policy`, `db`, `llm`) actuan exclusivamente como re-exportadores limpios (`export * from "@mint/core";`), consolidando la logica de dominio en `@mint/core` como paquete canónico.
+  2. **Unificacion del Flujo de Aprobaciones HITL y Notificacion Financiera:**
+     - La tabla `decisions` se consolida como la unica fuente de verdad para el circuito Human-in-the-Loop (`pending_approval`).
+     - Al aprobarse una decision, `decisionExecutionService` no solo crea la Orden de Compra (`purchase_orders`) y la Guia de Embarque (`shipments`), sino que despacha automaticamente una Orden de Dispersion de Pago formal (`sendPaymentDispersionOrder`) a los canales configurados para el personal de Finanzas y Pagos.
+     - Se incorporan roles granulares `finance` y `auditor` en la matriz RBAC de aprobacion.
+  3. **Blindaje Multi-Tenant en Sincronizacion e Ingesta:**
+     - Generacion de claves foraneas y compuestas prefijadas con el tenant (`prod_${cleanCompany}_${sku}`, `alm_central_${companyId}`).
+     - Resolucion del Two-Phase Deletion localizando productos unicamente por la tupla `(sku, companyId)` con periodo de gracia antes del pase a cuarentena.
+  4. **Alineacion de Disparadores ROP:**
+     - Se unifico la condicion de alerta y deliberacion en `stock <= minStock` en `daemon` y `eventEngine`.
+  5. **Configuracion Centralizada y Soporte Bilingue (ES/EN):**
+     - Comandos de canales y configuracion delegados al motor dinamico `mint config` / `mint settings`, eliminando mocks estaticos y soportando internacionalizacion.
+- **Consecuencias:** Cobertura de pruebas ampliada a 85 tests pasando al 100% (23 suites de prueba), 10/10 comprobaciones operativas superadas en `mint selftest`, eliminacion total de duplicidad en codigo y cero emojis en toda la plataforma.
+
+
 
 

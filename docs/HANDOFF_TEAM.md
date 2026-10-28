@@ -48,9 +48,11 @@ ai-back-office/
    - Sanitización preventiva de prompt injections y caracteres hostiles (`sanitizer.ts`).
    - Comandos de descubrimiento local: `mint source discover`, `inspect`, `sync` y `status`.
 
-3. **Gobernanza y Human-in-the-Loop (`@mint/core`):**
+3. **Gobernanza, Human-in-the-Loop y Dispersión Financiera (`@mint/core`):**
    - Regla determinista de frescura `RULE_STALE_DATA_REFUSAL`: El agente rehúsa auto-aprobar decisiones basadas en datos obsoletos o fuentes con drift.
    - Bloqueo de auto-aprobación (quien solicita la compra jamás puede ser el aprobador).
+   - Unificación de aprobaciones en la tabla `decisions`: Al autorizarse una orden, se genera la Orden de Compra (`purchase_orders`), la Guía de Embarque (`shipments`) y se despacha la Orden de Dispersión de Pagos al equipo de Finanzas/Tesoreria.
+   - Eliminación del Split-Brain: Los módulos de `src/` re-exportan limpiamente `@mint/core`, erradicando discrepancias de lógica.
    - Generación de comprobantes de auditoría con huella SHA-256 e idempotencia estricta.
 
 4. **Logística y Ruteo Vial Real:**
@@ -102,5 +104,7 @@ npm run mint -- source discover ./
 > npx drizzle-kit push
 > ```
 
+* **Pruebas Automatizadas:** `npm test` (85 de 85 pruebas pasando, 23 test suites, 100% de éxito).
+* **Diagnóstico Integral de Producción:** `npm run mint -- selftest` (10/10 comprobaciones operativas aprobadas).
 * **Linter de Emojis:** `npm run lint:emojis` (100% aprobado, 0 emojis).
 * **Chequeo de Tipos:** `npm run typecheck` (100% aprobado, 0 errores de tipado).

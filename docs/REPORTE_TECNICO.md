@@ -28,13 +28,13 @@ La plataforma trasciende los modelos conversacionales tradicionales y los pipeli
 | :--- | :--- |
 | **Nombre del Proyecto** | AI Back Office Agent (MINT) |
 | **Repositorio Oficial** | [DMntill4/ai-back-office](https://github.com/DMntill4/ai-back-office) |
-| **Versión / Hito** | v1.2.0 (Plataforma Fullstack con Consola Web Mint y Human-in-the-Loop) |
+| **Versión / Hito** | v2.6.0 (Monorepo Limpio: Mint CLI, Daemon Autónomo, Capa Ingesta, Notificadores y Consola Web) |
 | **Dominio de Aplicación** | Coordinación Logística, Compras, Auditoría de Stock y Control Financiero |
 | **Modelo Principal de IA** | xAI Grok (`grok-4.6`) mediante Gateway oficial de producción |
 | **Consola Web (Frontend)** | React 19, TypeScript, Vite 6, Tailwind CSS v4, Framer Motion |
 | **Servidor API Backend** | Fastify 5.x con soporte CORS y bus de eventos proactivos |
 | **Base de Datos & ORM** | PostgreSQL 16 (Dual: Supabase Cloud con SSL + Docker Alpine local) con Drizzle ORM 0.45 |
-| **Cobertura de Pruebas** | 20 de 20 pruebas automáticas en Vitest (100% pasando a costo $0 USD) |
+| **Cobertura de Pruebas** | 85 de 85 pruebas automáticas en Vitest (23 suites, 100% pasando a costo $0 USD) y 10/10 checks en selftest |
 | **Licencia** | ISC |
 
 ### Equipo Contribuidor
@@ -194,18 +194,24 @@ Para asegurar operaciones corporativas confiables, la plataforma implementa salv
 
 ## 6. Pruebas Técnicas y Escenarios Validados (Costo $0 USD)
 
-Se dispone de una suite de **20 pruebas automatizadas** en `Vitest` organizadas en 8 archivos de test. Gracias al adaptador `FakeGrokClient`, los tests reproducen llamadas al modelo sin consumir saldo real de API:
+Se dispone de una suite integral de **85 pruebas automatizadas** en `Vitest` organizadas en 23 suites de test a lo largo del monorepo (`@mint/core`, `@mint/cli`, `@mint/daemon`, `@mint/ingest`, `@mint/notifiers`). Gracias al adaptador `FakeGrokClient` y mocks deterministas, los tests reproducen llamadas al modelo y flujos de negocio sin consumir saldo real de API:
 
-| Archivo de Prueba | Escenarios Validados | Resultado |
+| Suite / Archivo de Prueba | Escenarios Validados | Resultado |
 | :--- | :--- | :---: |
-| `tests/agent_schema.test.ts` | Validaciones de esquemas Zod de casos y eventos | ✅ Aprobado |
-| `tests/agent_loop.test.ts` | Ciclo ReAct, resolución de casos y cierre estricto | ✅ Aprobado |
-| `tests/tools.test.ts` | Herramientas de stock, órdenes y control de aprobación | ✅ Aprobado |
-| `tests/scenarios.test.ts` | Escenarios de negocio complejos (reabastecimiento, desabasto, etc.) | ✅ Aprobado |
-| `tests/db.test.ts` | Consultas relacionales y persistencia de auditoría | ✅ Aprobado |
-| `tests/superpowers.test.ts` | Detección de intenciones e inyección de skills Markdown | ✅ Aprobado |
-| `tests/proactive.test.ts` | Worker de auditoría proactiva y generación de alertas | ✅ Aprobado |
-| `tests/idempotency.test.ts` | Prevención de duplicados en órdenes de compra concurrentes | ✅ Aprobado |
+| `tests/agent_schema.test.ts` | Validaciones de esquemas Zod de casos y eventos | [OK] Aprobado |
+| `tests/agent_loop.test.ts` | Ciclo ReAct, resolución de casos y cierre estricto | [OK] Aprobado |
+| `tests/tools.test.ts` | Herramientas de stock, órdenes y control de aprobación | [OK] Aprobado |
+| `tests/scenarios.test.ts` | Escenarios de negocio complejos (reabastecimiento, desabasto) | [OK] Aprobado |
+| `tests/db.test.ts` | Consultas relacionales y persistencia de auditoría | [OK] Aprobado |
+| `tests/superpowers.test.ts` | Detección de intenciones e inyección de skills Markdown | [OK] Aprobado |
+| `tests/proactive.test.ts` | Worker de auditoría proactiva y generación de alertas | [OK] Aprobado |
+| `tests/idempotency.test.ts` | Prevención de duplicados en órdenes de compra concurrentes | [OK] Aprobado |
+| `tests/daemon.test.ts` | Vigilancia en segundo plano y detección de desabasto/retrasos | [OK] Aprobado |
+| `tests/data_layer.test.ts` | Ingesta multi-fuente, fingerprinting y sanitización | [OK] Aprobado |
+| `tests/circuit_breaker.test.ts` | Protección contra borrado masivo (>20%) y two-phase deletion | [OK] Aprobado |
+| `tests/sales_channel.test.ts` | Canales remotos (Discord/Slack/Telegram) e idempotencia | [OK] Aprobado |
+| `tests/decision_execution.test.ts` | Ejecución de compras, guía logística y orden de dispersión financiera | [OK] Aprobado |
+| `tests/benchmark.test.ts` | Benchmark formal vs regla determinista simple ($Q = S_{min} - S_{actual}$) | [OK] Aprobado |
 
 ---
 
