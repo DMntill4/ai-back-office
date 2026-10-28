@@ -550,6 +550,16 @@ program
     return planTodayCommand(options);
   });
 
+// 43. mint telegram [subcommand]
+program
+  .command("telegram [subcommand]")
+  .description("Inicia el bot conversacional de Telegram para responder preguntas y aprobar decisiones en vivo")
+  .option("--token <token>", "Token de Telegram bot")
+  .action(async (_subcommand, options) => {
+    const { startTelegramListener } = await import("@mint/notifiers");
+    return startTelegramListener({ botToken: options.token });
+  });
+
 export function runCli(argv = process.argv) {
   if (argv.length <= 2) {
     printBanner();

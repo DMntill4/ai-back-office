@@ -8,3 +8,4 @@ export * from "./adapters/gmailAdapter";
 export * from "./adapters/discordAdapter";
 export * from "./salesChannelListener";
 export * from "./outboxQueueService";
+export * from "./telegramListener";

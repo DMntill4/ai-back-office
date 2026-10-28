@@ -6,6 +6,11 @@ import {
   isGibberish,
   parseCurrencyInput,
 } from "../packages/cli/src/commands/onboarding";
+import {
+  validateTelegramOperatorName,
+  validateTelegramCompanyName,
+  extractNameCandidate,
+} from "@mint/notifiers";
 
 describe("Validaciones Estrictas del Wizard de Onboarding", () => {
   describe("Validación de Correo Electrónico (validateEmailAddress)", () => {
@@ -194,6 +199,62 @@ describe("Validaciones Estrictas del Wizard de Onboarding", () => {
       expect(validateCompanyName("Logística Central S.A.").valid).toBe(true);
       expect(validateCompanyName("Distribuciones & Comercio El Trébol").valid).toBe(true);
       expect(validateCompanyName("Mi Tienda Online 2026").valid).toBe(true);
+    });
+  });
+
+  describe("Validaciones y Filtros del Asistente en Telegram (@mint/notifiers)", () => {
+    it("debe rechazar 'hola' y saludos genéricos como nombre de operador", () => {
+      const greetings = [
+        "hola",
+        "Hola",
+        "HOLA",
+        "buenas",
+        "buenos dias",
+        "saludos",
+        "que tal",
+        "admin",
+        "test",
+        "prueba",
+        "operador",
+      ];
+      for (const g of greetings) {
+        const res = validateTelegramOperatorName(g);
+        expect(res.valid).toBe(false);
+        expect(res.error).toMatch(/saludo o termino generico/);
+      }
+    });
+
+    it("debe extraer y registrar correctamente el nombre cuando el usuario usa frases de presentación", () => {
+      expect(extractNameCandidate("me llamo Andres")).toBe("Andres");
+      expect(extractNameCandidate("Hola, me llamo Carlos Mendez")).toBe("Carlos Mendez");
+      expect(extractNameCandidate("Soy Maria Rodriguez")).toBe("Maria Rodriguez");
+      expect(extractNameCandidate("Mi nombre es Pedro")).toBe("Pedro");
+
+      const res1 = validateTelegramOperatorName("me llamo Andres");
+      expect(res1.valid).toBe(true);
+      expect(res1.cleanName).toBe("Andres");
+
+      const res2 = validateTelegramOperatorName("Hola, me llamo Carlos Mendez");
+      expect(res2.valid).toBe(true);
+      expect(res2.cleanName).toBe("Carlos Mendez");
+    });
+
+    it("debe rechazar nombres de empresas genéricas o saludos en Telegram", () => {
+      const badCompanies = ["hola", "empresa", "mi empresa", "compania", "negocio", "test"];
+      for (const c of badCompanies) {
+        const res = validateTelegramCompanyName(c);
+        expect(res.valid).toBe(false);
+        expect(res.error).toMatch(/termino generico/);
+      }
+    });
+
+    it("debe aceptar nombres de empresas comerciales válidas en Telegram", () => {
+      const valid = ["Distribuidora El Roble", "Logística Express S.A.", "Supermercado Central"];
+      for (const c of valid) {
+        const res = validateTelegramCompanyName(c);
+        expect(res.valid).toBe(true);
+        expect(res.cleanName).toBe(c);
+      }
     });
   });
 });

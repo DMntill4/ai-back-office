@@ -1352,26 +1352,83 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
           }
         }
       } else if (chanChoice === "2") {
-        const token = await ask(rl, `  Ingresa el Bot Token de Telegram`);
-        const chatId = await ask(rl, `  Ingresa el Chat ID de Telegram`);
-        if (token && chatId) {
+        console.log(`\n  ${theme.cyanBold("─── CONFIGURACIÓN DE TELEGRAM BOT ───")}`);
+        console.log(`  Para recibir alertas y autorizaciones de compras HITL en tu celular:`);
+        console.log(`  1. Habla con @BotFather en Telegram y crea un bot con /newbot para obtener tu Bot Token.`);
+        const token = (await ask(rl, `  Ingresa el Bot Token de Telegram`)).trim();
+
+        if (token) {
+          let botUsername = "";
           try {
-            const { testNotificationChannel } = await import("@mint/notifiers");
-            const testRes = await testNotificationChannel("telegram", { botToken: token, chatId });
-            if (testRes.success) {
-              await addNotificationChannel({
-                companyId,
-                type: "telegram",
-                name: `Telegram (@${chatId})`,
-                config: { botToken: token, chatId, topics: ["logs", "stock", "sales", "critical", "finance", "payments"] },
-              });
-              channelDescription = `Telegram (@${chatId}) (Verificado en vivo)`;
-              console.log(`  ${theme.mintBold("[OK] Bot de Telegram verificado y mensaje entregado.")}\n`);
-            } else {
-              console.log(`  ${theme.amberBold(`[ADVERTENCIA] Telegram reportó: ${testRes.error}. Guardado en modo contingencia.`)}\n`);
+            const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+            if (meRes.ok) {
+              const meData = (await meRes.json()) as any;
+              if (meData.ok && meData.result?.username) {
+                botUsername = meData.result.username;
+                console.log(`  ${theme.mintBold(`[OK] Bot autenticado:`)} @${botUsername} (${meData.result.first_name || "Bot"})\n`);
+              }
             }
-          } catch (err: any) {
-            console.log(`  ${theme.amberBold(`[ADVERTENCIA] Error al conectar Telegram: ${err.message}.`)}\n`);
+          } catch {}
+
+          console.log(`  ${theme.cyanBold("¿Dónde consigues tu Chat ID de Telegram?")}`);
+          console.log(`  • ${theme.bold("Opción A (Recomendada y más rápida):")}`);
+          console.log(`    En Telegram busca el bot @userinfobot (o https://t.me/userinfobot) y dale /start.`);
+          console.log(`    Te responderá de inmediato con tu 'Id' numérico personal (ej: 589123456).`);
+          if (botUsername) {
+            console.log(`  • ${theme.bold("Opción B (Autodetección):")}`);
+            console.log(`    Abre tu bot @${botUsername} en Telegram, presiona 'Iniciar' (o mándale un mensaje como 'hola'),`);
+            console.log(`    y presiona Enter en blanco en esta consola para que MINT detecte tu Chat ID automáticamente.`);
+          }
+          console.log(`  • ${theme.bold("Para Grupos de Telegram:")}`);
+          console.log(`    Añade tu bot al grupo y el Chat ID comenzará con un signo menos (ej: -100123456789).\n`);
+
+          let chatId = (await ask(rl, `  Ingresa tu Chat ID (o presiona Enter para autodetectar)`)).trim();
+
+          // Autodetección si quedó en blanco o escribe 'auto'
+          if (!chatId || chatId.toLowerCase() === "auto") {
+            console.log(`  ${theme.dim("Consultando mensajes recientes en la API de Telegram...")}`);
+            try {
+              const updRes = await fetch(`https://api.telegram.org/bot${token}/getUpdates`);
+              if (updRes.ok) {
+                const updData = (await updRes.json()) as any;
+                if (updData.ok && Array.isArray(updData.result) && updData.result.length > 0) {
+                  const last = updData.result[updData.result.length - 1];
+                  const msg = last.message || last.channel_post || last.my_chat_member;
+                  if (msg && msg.chat && msg.chat.id) {
+                    chatId = String(msg.chat.id);
+                    const chatLabel = msg.chat.username ? `@${msg.chat.username}` : (msg.chat.first_name || msg.chat.title || "Privado");
+                    console.log(`  ${theme.mintBold(`[OK] Chat detectado automáticamente:`)} ID ${theme.bold(chatId)} (${chatLabel})\n`);
+                  }
+                }
+              }
+            } catch {}
+
+            if (!chatId || chatId.toLowerCase() === "auto") {
+              console.log(`  ${theme.amberBold("[AVISO]")} No se detectó ningún mensaje enviado a tu bot.`);
+              console.log(`  Abre en Telegram el bot @userinfobot para consultar tu número de Id rápidamente.`);
+              chatId = (await ask(rl, `  Ingresa tu Chat ID numérico`)).trim();
+            }
+          }
+
+          if (chatId) {
+            try {
+              const { testNotificationChannel } = await import("@mint/notifiers");
+              const testRes = await testNotificationChannel("telegram", { botToken: token, chatId });
+              if (testRes.success) {
+                await addNotificationChannel({
+                  companyId,
+                  type: "telegram",
+                  name: `Telegram (@${chatId})`,
+                  config: { botToken: token, chatId, topics: ["logs", "stock", "sales", "critical", "finance", "payments"] },
+                });
+                channelDescription = `Telegram (@${chatId}) (Verificado en vivo)`;
+                console.log(`  ${theme.mintBold("[OK] Bot de Telegram verificado y mensaje entregado con éxito a tu chat.")}\n`);
+              } else {
+                console.log(`  ${theme.amberBold(`[ADVERTENCIA] Telegram reportó: ${testRes.error}. Guardado en modo contingencia.`)}\n`);
+              }
+            } catch (err: any) {
+              console.log(`  ${theme.amberBold(`[ADVERTENCIA] Error al conectar Telegram: ${err.message}.`)}\n`);
+            }
           }
         }
       } else {
