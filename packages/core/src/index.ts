@@ -60,6 +60,7 @@ export * from "./services/businessAnalyticsService";
 export * from "./services/universalLocaleEngine";
 export * from "./services/autonomousInspectionService";
 export * from "./services/obsidianMemoryService";
+export * from "./services/goalSeekingService";
 
 // 7. Cliente LLM
 export * from "./llm/client";
@@ -73,4 +74,13 @@ export * from "./lib/logger";
 export * from "./worker/proactiveMonitor";
 export * from "./db/migrate";
 export * from "./db/seed/index";
+
+// 9. Motor de Grafos de Conocimiento Operativo
+export * from "./graph/graph.types";
+export * from "./graph/graph.queries";
+export * from "./graph/graph.service";
+
+// 10. Telemetría Desacoplada en Tiempo Real (Event Emitter / WebSockets)
+export * from "./telemetry/telemetry.types";
+export * from "./telemetry/telemetryPublisher";
 

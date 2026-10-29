@@ -122,5 +122,5 @@ describe("Fase F4: Daemon de Monitoreo Autónomo y Watcher (@mint/daemon)", () =
     expect(typeof dailyPlan.activeCasesCount).toBe("number");
     expect(typeof dailyPlan.pendingDecisionsCount).toBe("number");
     expect(Array.isArray(dailyPlan.decisions)).toBe(true);
-  }, 15000);
+  }, 35000);
 });

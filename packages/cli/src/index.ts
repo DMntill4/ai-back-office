@@ -32,8 +32,10 @@ program
 // 0.1 mint setup [file]
 program
   .command("setup [file]")
-  .description("Configuración ultrarrápida de 1 paso en 2 segundos (empresa, almacén, catálogo, proveedores)")
+  .description("Inicialización y configuración interactiva del Back Office (requisitos, BD, onboarding y catálogo)")
   .option("--company <name>", "Nombre personalizado de la empresa")
+  .option("--quick", "Inicialización no interactiva ultrarrápida con fixtures de muestra")
+  .option("--interactive", "Forzar asistente guiado conversacional paso a paso")
   .option("--json", "Salida en formato JSON")
   .action((file, options) => {
     const { setupCommand } = require("./commands/setup");
@@ -563,6 +565,20 @@ program
       process.exit(1);
     }
   });
+
+// 44. mint goal <prompt>
+program
+  .command("goal <prompt>")
+  .description("Motor de objetivos estratégicos cuantitativos y proyección de ahorro")
+  .option("--json", "Salida en formato JSON")
+  .action((prompt, options) => {
+    const { goalCommand } = require("./commands/goal");
+    return goalCommand(prompt, options);
+  });
+
+// 45. mint graph
+const { graphCommand } = require("./commands/graph");
+program.addCommand(graphCommand);
 
 export function runCli(argv = process.argv) {
   if (argv.length <= 2) {

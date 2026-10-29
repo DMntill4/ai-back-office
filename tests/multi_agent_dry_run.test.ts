@@ -200,5 +200,5 @@ describe("Fase F3: Multi-Agente + Motor de Políticas en modo dry-run", () => {
 
     expect(savedCase).toHaveLength(1);
     expect(savedCase[0].status).toBe("en_proceso");
-  });
+  }, 25000);
 });

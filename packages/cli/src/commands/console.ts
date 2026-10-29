@@ -221,6 +221,9 @@ export async function consoleCommand() {
       "/whoami",
       "/login",
       "/logout",
+      "/goal",
+      "/graph",
+      "/memory",
       "/help",
       "/clear",
       "/exit",
@@ -616,6 +619,29 @@ export async function consoleCommand() {
           case "conciliar": {
             const { reconcileCommand } = require("./reconcile");
             await reconcileCommand();
+            break;
+          }
+
+          case "goal":
+          case "meta":
+          case "objetivo": {
+            const { goalCommand } = require("./goal");
+            await goalCommand(args.join(" "), { noExit: true });
+            break;
+          }
+
+          case "graph":
+          case "grafo": {
+            const { runTuiGraph } = require("../graph/tuiGraph");
+            await runTuiGraph({ companyIdOverride: companyId });
+            break;
+          }
+
+          case "memory":
+          case "memoria":
+          case "obsidian": {
+            const { memoryCommand } = require("./memory");
+            await memoryCommand(args[0], args[1]);
             break;
           }
 

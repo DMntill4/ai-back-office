@@ -13,6 +13,8 @@ export interface StoredSession {
   companyName: string;
   savedAt: string;
   expiresAt?: string;
+  country?: string;
+  currency?: string;
 }
 
 function getConfigDir(): string {

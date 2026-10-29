@@ -25,7 +25,29 @@ export async function loginCommand(email?: string, password?: string, options: {
     }
 
     const u = foundUsers[0];
-    if (password && !verifyPassword(password, u.passwordHash)) {
+    let pwd = password;
+
+    if (!pwd) {
+      if (process.stdin.isTTY) {
+        const readline = require("node:readline");
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        pwd = await new Promise<string>((resolve) => {
+          rl.question("  Contraseña: ", (ans: string) => {
+            rl.close();
+            resolve(ans.trim());
+          });
+        });
+      } else {
+        if (options.json) {
+          console.log(JSON.stringify({ success: false, error: "Contraseña requerida" }));
+        } else {
+          console.error(theme.redBold(`[ERROR] Contraseña requerida para iniciar sesión con '${targetEmail}'.`));
+        }
+        process.exit(1);
+      }
+    }
+
+    if (!verifyPassword(pwd, u.passwordHash)) {
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: "Contraseña incorrecta" }));
       } else {

@@ -1,5 +1,8 @@
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { db } from "../db/client";
-import { decisions, purchaseOrders, inventory, cases, suppliers, warehouses, shipments, users } from "../db/schema";
+import { decisions, purchaseOrders, inventory, cases, suppliers, warehouses, shipments, users, products, companies } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { resolveNodeGeoPoint } from "./geocodingService";
@@ -8,13 +11,76 @@ import { executeWarehouseTransfer } from "./logisticsCoordinatorService";
 import { getCompanyConfig } from "./configService";
 import { hasPermission } from "./authAndSetupService";
 
+export interface PurchaseOrderVoucher {
+  orderId: string;
+  folioNumber: string;
+  issuedAt: string;
+  company: {
+    id: string;
+    name: string;
+    city: string;
+    country: string;
+    currency: string;
+  };
+  supplier: {
+    id: string;
+    name: string;
+    email: string;
+    city: string;
+    address: string;
+  };
+  items: Array<{
+    productId: string;
+    sku: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+  }>;
+  financials: {
+    subtotal: number;
+    taxRate: number;
+    taxAmount: number;
+    freightCost: number;
+    totalAmount: number;
+    currency: string;
+  };
+  logistics: {
+    carrier: string;
+    trackingNumber: string;
+    origin: string;
+    destination: string;
+    etaDate: string;
+    leadDays: number;
+    transitStatus: string;
+  };
+  governance: {
+    approvedBy: string;
+    decisionId: string;
+    caseId: string;
+    idempotencyKey: string;
+    sha256AuditHash: string;
+    policyReason: string;
+  };
+  receiptPath?: string;
+}
+
+export interface StateDiff {
+  entity: string;
+  previousState: string;
+  newState: string;
+  tablesAffected: string[];
+}
+
 export interface ExecutionResult {
   success: boolean;
   orderId?: string;
   trackingNumber?: string;
   verified: boolean;
   message: string;
+  diff?: StateDiff;
   error?: string;
+  voucher?: PurchaseOrderVoucher;
   notifiedChannels?: number;
   notifiedPersonnel?: Array<{ name: string; email: string; role: string }>;
 }

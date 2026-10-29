@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Filtro de Resplandor Neón (Glow) -->
+    <filter id="neon-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur1" />
+      <feGaussianBlur stdDeviation="14" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <radialGradient id="body-gradient" cx="45%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="45%" stop-color="#059669" />
+      <stop offset="85%" stop-color="#064e3b" />
+      <stop offset="100%" stop-color="#022c22" />
+    </radialGradient>
+
+    <radialGradient id="aura-gradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.8" />
+      <stop offset="60%" stop-color="#10b981" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#059669" stop-opacity="0" />
+    </radialGradient>
+
+    <linearGradient id="leaf-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#4ade80" />
+    </linearGradient>
+
+    <linearGradient id="eye-glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="60%" stop-color="#2dd4bf" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+  </defs>
+
+  <!-- Aura exterior difusa -->
+  <circle cx="100" cy="105" r="85" fill="url(#aura-gradient)" filter="url(#neon-glow)" />
+
+  <!-- Tallo superior de la Guanábana -->
+  <path d="M96 35 C94 22, 106 18, 102 10 C100 8, 97 10, 96 14 C94 22, 92 28, 94 36 Z" fill="#78350f" />
+  
+  <!-- Hoja fresca bioluminiscente -->
+  <path d="M102 24 C116 12, 138 20, 142 32 C134 38, 116 38, 102 24 Z" fill="url(#leaf-gradient)" />
+  <path d="M104 25 C118 24, 130 28, 138 31" stroke="#a7f3d0" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.8" />
+
+  <!-- Cuerpo de la Guanábana (Silueta acorazonada / ovalada asimétrica) -->
+  <g filter="url(#neon-glow)">
+    <path d="M100 38 
+             C135 38, 165 65, 162 108 
+             C160 142, 132 178, 100 188 
+             C68 178, 40 142, 38 108 
+             C35 65, 65 38, 100 38 Z" 
+          fill="url(#body-gradient)" 
+          stroke="#4ade80" 
+          stroke-width="2.5" />
+
+    <!-- Espinas / Púas suaves características de la guanábana (Bioluminiscentes) -->
+    <!-- Columna izquierda -->
+    <path d="M50 70 Q42 66 38 72 Q46 76 52 74 Z" fill="#22c55e" />
+    <path d="M42 95 Q32 92 28 98 Q38 102 44 100 Z" fill="#34d399" />
+    <path d="M42 122 Q32 122 30 128 Q40 132 46 128 Z" fill="#22c55e" />
+    <path d="M52 148 Q44 150 42 158 Q52 158 56 153 Z" fill="#10b981" />
+    <path d="M72 170 Q66 176 66 182 Q74 180 78 174 Z" fill="#10b981" />
+
+    <!-- Columna derecha -->
+    <path d="M150 70 Q158 66 162 72 Q154 76 148 74 Z" fill="#22c55e" />
+    <path d="M158 95 Q168 92 172 98 Q162 102 156 100 Z" fill="#34d399" />
+    <path d="M158 122 Q168 122 170 128 Q160 132 154 128 Z" fill="#22c55e" />
+    <path d="M148 148 Q156 150 158 158 Q148 158 144 153 Z" fill="#10b981" />
+    <path d="M128 170 Q134 176 134 182 Q126 180 122 174 Z" fill="#10b981" />
+
+    <!-- Espinas frontales en relieve -->
+    <path d="M70 56 Q66 48 62 52 Q66 58 72 58 Z" fill="#34d399" opacity="0.9" />
+    <path d="M130 56 Q134 48 138 52 Q134 58 128 58 Z" fill="#34d399" opacity="0.9" />
+    <path d="M68 95 Q60 90 58 96 Q66 100 70 98 Z" fill="#4ade80" opacity="0.8" />
+    <path d="M132 95 Q140 90 142 96 Q134 100 130 98 Z" fill="#4ade80" opacity="0.8" />
+    <path d="M68 130 Q62 130 60 136 Q68 138 72 134 Z" fill="#34d399" opacity="0.8" />
+    <path d="M132 130 Q138 130 140 136 Q132 138 128 134 Z" fill="#34d399" opacity="0.8" />
+    <path d="M100 165 Q100 174 96 176 Q104 174 102 165 Z" fill="#4ade80" />
+  </g>
+
+  <!-- Ojos / Sensores Cyber-Mascota de Mint -->
+  <g>
+    <!-- Ojo izquierdo -->
+    <ellipse cx="80" cy="100" rx="11" ry="15" fill="#022c22" stroke="#2dd4bf" stroke-width="2" />
+    <ellipse cx="80" cy="101" rx="8" ry="12" fill="url(#eye-glow)" />
+    <!-- Brillo pupilar -->
+    <circle cx="77" cy="95" r="3.5" fill="#ffffff" />
+    <circle cx="83" cy="106" r="1.8" fill="#a7f3d0" />
+
+    <!-- Ojo derecho -->
+    <ellipse cx="120" cy="100" rx="11" ry="15" fill="#022c22" stroke="#2dd4bf" stroke-width="2" />
+    <ellipse cx="120" cy="101" rx="8" ry="12" fill="url(#eye-glow)" />
+    <!-- Brillo pupilar -->
+    <circle cx="117" cy="95" r="3.5" fill="#ffffff" />
+    <circle cx="123" cy="106" r="1.8" fill="#a7f3d0" />
+
+    <!-- Mejillas sonrosadas de luz -->
+    <ellipse cx="66" cy="116" rx="6" ry="3.5" fill="#2dd4bf" opacity="0.4" filter="url(#neon-glow)" />
+    <ellipse cx="134" cy="116" rx="6" ry="3.5" fill="#2dd4bf" opacity="0.4" filter="url(#neon-glow)" />
+
+    <!-- Sonrisa / Boca sutil de la mascota -->
+    <path d="M94 116 Q100 122 106 116" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  </g>
+
+  <!-- Núcleo de Energía en el Pecho / Centro -->
+  <circle cx="100" cy="138" r="9" fill="#064e3b" stroke="#34d399" stroke-width="1.8" />
+  <circle cx="100" cy="138" r="5" fill="#4ade80" filter="url(#neon-glow)">
+    <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite" />
+  </circle>
+</svg>

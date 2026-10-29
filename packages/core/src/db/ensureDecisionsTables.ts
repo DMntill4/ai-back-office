@@ -217,6 +217,24 @@ export async function ensureDecisionsTables(): Promise<void> {
       ALTER TABLE decisions ADD COLUMN IF NOT EXISTS supervisor_notified BOOLEAN DEFAULT FALSE;
       ALTER TABLE decisions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
 
+      -- Columnas extendidas para Proveedores
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS bank_name TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS bank_account_number TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS bank_clabe VARCHAR(30);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS street_address TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS city TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS state TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS country VARCHAR(50);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 6);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 6);
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS origin VARCHAR(20) DEFAULT 'simulado';
+
+      -- Columnas extendidas para Órdenes de Compra
+      ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(32) DEFAULT 'pendiente_pago';
+      ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(255);
+      ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS case_id VARCHAR(64);
+
       -- Tablas adicionales de calidad, cuarentena, agregación y modo sombra (Segunda Pasada)
       CREATE TABLE IF NOT EXISTS mint_quarantine_records (
         id VARCHAR(128) PRIMARY KEY,

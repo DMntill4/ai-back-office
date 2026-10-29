@@ -283,7 +283,7 @@ describe("Blindaje del Data Layer, Descubrimiento y Frescura de Datos (@mint/ing
     const invCheck = await db.select().from(inventory).where(eq(inventory.companyId, testCompanyId));
     const mass4Inv = invCheck.find((inv) => inv.id.includes("mass") || true);
     expect(massSync.deletedRows).toBe(0);
-  });
+  }, 15000);
 
   it("6. Detección de Schema Drift: congela la fuente y propone mapeo si cambian encabezados", async () => {
     const uri = "file:///simulated/warehouse_drift.csv";

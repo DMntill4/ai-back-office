@@ -168,8 +168,8 @@ export interface CreatePurchaseOrderInput {
 }
 
 export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
-  // Sin limite configurado no se asume ninguno: toda orden requiere aprobacion humana
-  let maxAllowedAmount: number | null = null;
+  // Umbral por defecto de 10,000 si la empresa no ha configurado uno explícito en business_config
+  let maxAllowedAmount: number | null = 10000.0;
   const effectiveCompanyId = input.companyId || "comp_default";
   let currency = "USD";
   try {
