@@ -1,22 +1,30 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
-  History,
+  Clock,
+  Search,
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
-  ArrowUpRight,
-  Search,
-  GitBranch,
   ChevronRight,
-  X,
-  Copy,
   Terminal,
   Database,
   Calculator,
   Truck,
-  Shield,
-  KeyRound,
+  Cpu,
+  Copy,
+  Check,
+  Lock,
+  ArrowRight,
+  Filter,
+  Download,
+  Code2,
+  GitBranch,
+  Layers,
+  Sparkles,
+  Bot,
 } from "lucide-react";
+import { Button } from "../ui/Button";
 
 interface HistoryRecord {
   id: string;
@@ -28,408 +36,601 @@ interface HistoryRecord {
   date: string;
   tokens: number;
   cost: string;
+  model: string;
   reason: string;
-  thoughtTree?: {
+  hmacDigest: string;
+  thoughtTree: {
     step: string;
     agent: string;
     action: string;
     detail: string;
-    icon: string;
+    latencyMs: number;
   }[];
+  rawPayload: Record<string, any>;
 }
 
+const INITIAL_HISTORY_RECORDS: HistoryRecord[] = [
+  {
+    id: "case_99182_a",
+    title: "Reabastecimiento Martillo Demoledor SDS-Max (9u)",
+    status: "escalado",
+    statusLabel: "Escalado a HITL",
+    amountCop: "$3.780.000 COP",
+    supplier: "Ferreterías Unidas Bogotá",
+    date: "Hoy, 10:14",
+    tokens: 2840,
+    cost: "$0.0035 USD",
+    model: "Grok-4.6 (api.reto.pltk.mx)",
+    reason: "Propuesta formulada tras detección de caída en stock de seguridad en Bucaramanga. Requiere confirmación humana de contrato marco.",
+    hmacDigest: "hmac_sha256_e4b89f81a7b640192e591bc0",
+    thoughtTree: [
+      {
+        step: "1. Ingesta de Telemetría",
+        agent: "TelemetryWatcher",
+        action: "Auditoría de inventario físico en Bodega Matriz Bucaramanga.",
+        detail: "Stock actual: 1 unidad. ROP configurado: 10 unidades. Consumo promedio: 0.8 un/día. Días de cobertura: 1.25 días.",
+        latencyMs: 42,
+      },
+      {
+        step: "2. Cotización y Comparación",
+        agent: "SupplierMatcher",
+        action: "Análisis multicriterio de 3 proveedores homologados.",
+        detail: "Ferreterías Unidas ($3.780.000 COP, 2 días) seleccionada frente a DeWalt ($4.100.000 COP, 1 día) por delta costo favorable de $320.000 COP.",
+        latencyMs: 185,
+      },
+      {
+        step: "3. Enrutamiento Logístico",
+        agent: "LogisticsRouter",
+        action: "Cálculo de trayecto Bogotá → Bucaramanga vía OSRM Pescadero.",
+        detail: "Distancia: 398 km. ETA: 8.5 horas. Flete consolidado con despacho de pernos. Ahorro de transporte: 14.8%.",
+        latencyMs: 95,
+      },
+      {
+        step: "4. Evaluación de Gobernanza",
+        agent: "PolicyEngine",
+        action: "Verificación de umbrales presupuestales y reglas POL-01 / POL-02.",
+        detail: "Monto dentro de límite autónomo ($3.78M < $5.00M), pero proveedor no cuenta con contrato marco anual en vigor. Escalado preventivo.",
+        latencyMs: 64,
+      },
+    ],
+    rawPayload: {
+      event_type: "REORDER_TRIGGER",
+      target_sku: "HER-ROT-001",
+      warehouse_id: "wh_buc_01",
+      candidate_suppliers: ["supp_dewalt_col", "supp_ferr_bog", "supp_santander_ind"],
+      optimal_supplier: "supp_ferr_bog",
+      osrm_route_id: "rt_bog_buc_402",
+      policy_verdict: "ESCALATE_TO_HITL",
+      hmac_auth: "verified_sha256",
+    },
+  },
+  {
+    id: "case_99181_b",
+    title: "Consolidación de Pernos Estructurales Grado 8 (500u)",
+    status: "resuelto",
+    statusLabel: "Aprobado autónomamente",
+    amountCop: "$1.450.000 COP",
+    supplier: "Mundial de Tornillos S.A.S.",
+    date: "Ayer, 16:45",
+    tokens: 1420,
+    cost: "$0.0018 USD",
+    model: "Grok-beta",
+    reason: "Reorden autónomo procesado sin requerir intervención humana (POL-01 cumplida).",
+    hmacDigest: "hmac_sha256_82f1b99a03c4118d",
+    thoughtTree: [
+      {
+        step: "1. Detección de Umbral",
+        agent: "TelemetryWatcher",
+        action: "Revisión programada de bodega y proyección de quiebre.",
+        detail: "Stock actual: 420 cajas. ROP: 500 cajas. Ritmo de salida acelerado por obra en Girón.",
+        latencyMs: 38,
+      },
+      {
+        step: "2. Auto-Aprobación Determinista",
+        agent: "PolicyEngine",
+        action: "Evaluación de política HITL y guardrails financieros.",
+        detail: "$1.450.000 COP < $5.000.000 COP. Proveedor preferente con 98.1% de cumplimiento SLA y contrato anual activo.",
+        latencyMs: 72,
+      },
+      {
+        step: "3. Disparo de Orden de Compra",
+        agent: "ProcurementExec",
+        action: "Emisión de comprobante digital y notificación webhook.",
+        detail: "Generado receipts/po_2026_0142.json con firma criptográfica HMAC y despacho confirmado.",
+        latencyMs: 110,
+      },
+    ],
+    rawPayload: {
+      event_type: "AUTONOMOUS_PURCHASE",
+      target_sku: "FIJ-PER-101",
+      po_id: "PO-2026-0142",
+      total_cop: 1450000,
+      supplier_id: "supp_mundial_tor",
+      compliance_status: "PASSED",
+    },
+  },
+  {
+    id: "case_99180_c",
+    title: "Solicitud de Generador Diésel 5kVA (1u)",
+    status: "bloqueado",
+    statusLabel: "Bloqueado por política",
+    amountCop: "$8.900.000 COP",
+    supplier: "Energía & Motores Bucaramanga",
+    date: "27 oct 2026",
+    tokens: 3100,
+    cost: "$0.0042 USD",
+    model: "Grok-4.6 (api.reto.pltk.mx)",
+    reason: "Monto excede el presupuesto trimestral asignado a la categoría de maquinaria pesada (Guardrail POL-03).",
+    hmacDigest: "hmac_sha256_11a9c4b789e023",
+    thoughtTree: [
+      {
+        step: "1. Solicitud Recibida",
+        agent: "TelemetryWatcher",
+        action: "Ingesta de requisición extraordinaria de obra.",
+        detail: "Requerimiento de 1 generador de respaldo para planta de corte.",
+        latencyMs: 35,
+      },
+      {
+        step: "2. Regla de Guardrail Presupuestal",
+        agent: "PolicyEngine",
+        action: "Límite de presupuesto por familia excedido.",
+        detail: "Partida presupuestal Q4 agotada en un 94.2%. Monto de $8.900.000 COP supera el cupo remanente disponible de $2.100.000 COP.",
+        latencyMs: 55,
+      },
+      {
+        step: "3. Bloqueo Inmediato",
+        agent: "ComplianceGatekeeper",
+        action: "Emisión de código de bloqueo BLK-9901.",
+        detail: "Transacción rechazada unilateralmente. Se notificó al director financiero vía canal de alertas.",
+        latencyMs: 40,
+      },
+    ],
+    rawPayload: {
+      event_type: "BLOCKED_TRANSACTION",
+      error_code: "BUDGET_CAP_EXCEEDED",
+      rule_id: "POL-03",
+      requested_cop: 8900000,
+      remaining_budget_cop: 2100000,
+    },
+  },
+];
+
 export const HistoryView: React.FC = () => {
+  const [records] = useState<HistoryRecord[]>(INITIAL_HISTORY_RECORDS);
+  const [selectedCaseId, setSelectedCaseId] = useState<string>("case_99182_a");
+  const [filter, setFilter] = useState<"todos" | "resuelto" | "escalado" | "bloqueado">("todos");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCase, setSelectedCase] = useState<HistoryRecord | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"thought_tree" | "raw_json">("thought_tree");
+  const [copiedText, setCopiedText] = useState<string | null>(null);
 
-  const historyRecords: HistoryRecord[] = [
-    {
-      id: "case_99182_a",
-      title: "Reabastecimiento Martillo Demoledor 1500W (9u)",
-      status: "escalado",
-      statusLabel: "ESCALADO A HITL",
-      amountCop: "$3,780,000 COP",
-      supplier: "Ferreterías Unidas Bogotá",
-      date: "Hoy, 10:14",
-      tokens: 2840,
-      cost: "$0.0035 USD",
-      reason: "Propuesta de compra formulada por $3,780,000 COP. Encolada en /inbox para aprobación.",
-      thoughtTree: [
-        {
-          step: "1. Ingesta de Telemetría",
-          agent: "PostgreSQL Connector",
-          action: "SELECT stock, rop FROM inventory WHERE sku='SKU-MAN-SM400'",
-          detail: "Detectado stock actual de 3 unidades frente a un ROP de 12 unidades (déficit crítico: 9 unidades).",
-          icon: "database",
-        },
-        {
-          step: "2. Auditoría ROP & Consumo",
-          agent: "Especialista Inventario",
-          action: "Cálculo ROP = (ConsumoDiario 0.8 × LeadTime 10d) + SafetyStock 4u",
-          detail: "Cobertura residual estimada en 3.7 días. Se requiere reposición de lote económico por 9 unidades.",
-          icon: "calculator",
-        },
-        {
-          step: "3. Búsqueda y Cotización Proveedor",
-          agent: "Especialista Compras",
-          action: "Query a catálogo homologado: 'prov_herramientas_bogota'",
-          detail: "Cotización unitaria de $420,000 COP. Total: $3,780,000 COP con lead time de 3 días.",
-          icon: "truck",
-        },
-        {
-          step: "4. Evaluación de Motor de Políticas",
-          agent: "Policy Engine Guardrail",
-          action: "evaluatePolicy(amount=3780000 COP, threshold=5000000 COP)",
-          detail: "Monto inferior al tope de $5,000,000 COP, pero SKU catalogado como maquinaria pesada. Regla de negocio exige confirmación del operador.",
-          icon: "shield",
-        },
-        {
-          step: "5. Firma HMAC & Despacho a Bandeja",
-          agent: "Mint Coordinator",
-          action: "HMAC_SHA256(secret, payload) -> a7f93e18... encolado en /inbox",
-          detail: "Caso persistido en tabla inmutable 'case_events'. Notificación despachada a canales.",
-          icon: "key",
-        },
-      ],
-    },
-    {
-      id: "case_99181_b",
-      title: "Auditoría de Frescura y Drift en PostgreSQL",
-      status: "resuelto",
-      statusLabel: "RESUELTO",
-      amountCop: "$0 COP",
-      supplier: "N/A (Diagnóstico Interno)",
-      date: "Hoy, 09:45",
-      tokens: 1420,
-      cost: "$0.0018 USD",
-      reason: "15 tablas sincronizadas (< 1 hora). Esquema saludable y 154 SKUs validados.",
-      thoughtTree: [
-        {
-          step: "1. Escaneo Drizzle ORM",
-          agent: "Schema Auditor",
-          action: "SELECT count(*) FROM information_schema.tables WHERE schema='public'",
-          detail: "15 tablas mapeadas y sincronizadas. Latencia de conexión: 18ms.",
-          icon: "database",
-        },
-        {
-          step: "2. Verificación de Frescura",
-          agent: "Mint Daemon",
-          action: "Heartbeat de tablas transaccionales",
-          detail: "Staleness promedio < 0.1 horas. Invariantes de datos íntegros.",
-          icon: "shield",
-        },
-      ],
-    },
-    {
-      id: "case_99178_c",
-      title: "Rebalanceo de 15u Disco Diamantado 7'",
-      status: "resuelto",
-      statusLabel: "RESUELTO",
-      amountCop: "$420,000 COP (Flete)",
-      supplier: "Transferencia Bucaramanga -> Medellín",
-      date: "Ayer, 16:30",
-      tokens: 3950,
-      cost: "$0.0049 USD",
-      reason: "Rebalanceo ejecutado vía OSRM con ahorro neto de $1,280,000 COP frente a compra externa.",
-      thoughtTree: [
-        {
-          step: "1. Detección de Asimetría de Stock",
-          agent: "Especialista Logística",
-          action: "Medellín stock: 5u (déficit) vs Bucaramanga stock: 68u (excedente)",
-          detail: "Bucaramanga tiene 45 días de cobertura; Medellín tiene 3.1 días.",
-          icon: "database",
-        },
-        {
-          step: "2. Cotización Flete OSRM",
-          agent: "Transport Solver",
-          action: "Ruta Bucaramanga -> Medellín vía Pescadero",
-          detail: "Costo logístico de $420,000 COP frente a compra nueva de $1,700,000 COP.",
-          icon: "truck",
-        },
-        {
-          step: "3. Ejecución de Traslado",
-          agent: "Policy Engine",
-          action: "Aprobado autónomamente por ahorro neto de $1,280,000 COP",
-          detail: "Guía de despacho interbodegas generada.",
-          icon: "shield",
-        },
-      ],
-    },
-    {
-      id: "case_99175_d",
-      title: "Propuesta Duplicada Bloqueada Determinísticamente",
-      status: "bloqueado",
-      statusLabel: "BLOQUEADO (REGLA 72H)",
-      amountCop: "$6,200,000 COP",
-      supplier: "Distribuidora Santander",
-      date: "Ayer, 11:15",
-      tokens: 1910,
-      cost: "$0.0022 USD",
-      reason: "RULE_DUPLICATE_ORDER_PREVENTION: Orden idéntica activa emitida en las últimas 72 horas.",
-      thoughtTree: [
-        {
-          step: "1. Detección de Solicitud Repetida",
-          agent: "Policy Guardrail",
-          action: "Verificación de idempotencia en ventana temporal de 72 horas",
-          detail: "Existe una orden idéntica PO-2026-0082 emitida hace 14 horas.",
-          icon: "shield",
-        },
-        {
-          step: "2. Bloqueo Inmediato",
-          agent: "Circuit Breaker",
-          action: "Operación abortada antes de emisión",
-          detail: "Se previno duplicación de gasto presupuestal por $6,200,000 COP.",
-          icon: "key",
-        },
-      ],
-    },
-  ];
-
-  const filtered = historyRecords.filter(
-    (item) =>
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.supplier.toLowerCase().includes(searchQuery.toLowerCase())
+  const selectedCase = useMemo(
+    () => records.find((r) => r.id === selectedCaseId) || records[0],
+    [records, selectedCaseId]
   );
 
-  const handleCopyCliCommand = (caseId: string) => {
-    navigator.clipboard.writeText(`mint explain ${caseId}`);
-    setCopiedId(caseId);
-    setTimeout(() => setCopiedId(null), 2500);
-  };
+  const filteredRecords = useMemo(() => {
+    return records.filter((r) => {
+      const matchesFilter = filter === "todos" ? true : r.status === filter;
+      const matchesSearch =
+        r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.supplier.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+  }, [records, filter, searchQuery]);
 
-  const getStepIcon = (icon: string) => {
-    switch (icon) {
-      case "database":
-        return <Database className="w-3.5 h-3.5 text-mint-400" />;
-      case "calculator":
-        return <Calculator className="w-3.5 h-3.5 text-cyan-400" />;
-      case "truck":
-        return <Truck className="w-3.5 h-3.5 text-amber-400" />;
-      case "shield":
-        return <Shield className="w-3.5 h-3.5 text-purple-400" />;
-      case "key":
-        return <KeyRound className="w-3.5 h-3.5 text-emerald-400" />;
-      default:
-        return <GitBranch className="w-3.5 h-3.5 text-gray-400" />;
-    }
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard?.writeText(text);
+    setCopiedText(label);
+    setTimeout(() => setCopiedText(null), 2000);
   };
 
   return (
-    <div className="flex-1 h-full overflow-hidden flex flex-col bg-[#070c09] text-gray-100 select-none">
-      {/* Top Header */}
-      <div className="p-6 border-b border-[#14261c] bg-[#09120d] flex flex-wrap items-center justify-between gap-4 flex-shrink-0">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-mint-950 text-mint-400 border border-mint-500/30">
-              <History className="w-4 h-4" />
-            </div>
-            <h2 className="text-xl font-bold text-white tracking-tight">
-              Auditoría & Trazabilidad
-            </h2>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#102418] text-mint-400 border border-[#1b3d27]">
-              MINT EXPLAIN & AUDIT
+    <div className="flex-1 h-full min-h-0 flex flex-col bg-[#050806] text-[#F9FAFB] font-sans select-none overflow-hidden">
+      {/* 1. Header Bar Flowcraft */}
+      <div className="flex-none px-6 py-4 border-b border-white/[0.06] bg-[#0A0F0C]/80 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-[#8E9893] font-medium">Gobernanza</span>
+            <span className="text-white/20">/</span>
+            <span className="text-[#10B981] font-semibold flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              Trazabilidad Inmutable & Auditoría Forense
             </span>
           </div>
-          <p className="text-xs text-gray-400">
-            Registro inmutable de casos, dictámenes emitidos, costos en COP y desglose del árbol de razonamiento (`mint explain`).
+          <h1 className="text-2xl font-extrabold tracking-tight text-white mt-1 flex items-center gap-2.5">
+            Auditoría de Eventos y Decisiones
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#10B981]/10 text-[#34D399] border border-[#10B981]/25">
+              POSTGRESQL AUDIT LEDGER
+            </span>
+          </h1>
+          <p className="text-xs text-[#8E9893] mt-0.5">
+            Registro secuencial de decisiones tomadas por el agente, llamadas a modelos cognitivos, desglose de tokens y firmas criptográficas.
           </p>
         </div>
 
-        {/* Search */}
-        <div className="relative w-72">
-          <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Buscar por caso, SKU o proveedor..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-[#0c1510] border border-[#1b3425] text-xs text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-mint-500 font-mono"
-          />
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => handleCopy(JSON.stringify(records, null, 2), "all_records")}
+            className="border-white/10 text-white hover:border-[#10B981]/40 flex items-center gap-2"
+          >
+            <Download className="w-3.5 h-3.5 text-[#34D399]" />
+            <span className="text-xs font-semibold">
+              {copiedText === "all_records" ? "¡Copiado JSON!" : "Exportar Ledger JSON"}
+            </span>
+            <span className="text-[10px] bg-black/30 px-1.5 py-0.2 rounded font-mono text-white/80">[E]</span>
+          </Button>
+
+          {/* Segmented Filter */}
+          <div className="flex items-center p-1 rounded-xl bg-[#0E1511] border border-white/[0.06] text-xs">
+            <button
+              onClick={() => setFilter("todos")}
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                filter === "todos"
+                  ? "bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/30 shadow-sm"
+                  : "text-[#8E9893] hover:text-white"
+              }`}
+            >
+              Todos ({records.length})
+            </button>
+            <button
+              onClick={() => setFilter("resuelto")}
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                filter === "resuelto"
+                  ? "bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/30 shadow-sm"
+                  : "text-[#8E9893] hover:text-white"
+              }`}
+            >
+              Autónomos ({records.filter((r) => r.status === "resuelto").length})
+            </button>
+            <button
+              onClick={() => setFilter("escalado")}
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                filter === "escalado"
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm"
+                  : "text-[#8E9893] hover:text-white"
+              }`}
+            >
+              Escalados ({records.filter((r) => r.status === "escalado").length})
+            </button>
+            <button
+              onClick={() => setFilter("bloqueado")}
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                filter === "bloqueado"
+                  ? "bg-red-500/20 text-red-300 border border-red-500/30 shadow-sm"
+                  : "text-[#8E9893] hover:text-white"
+              }`}
+            >
+              Bloqueados ({records.filter((r) => r.status === "bloqueado").length})
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Main Area: Split into Cases List and Thought Tree Inspector */}
-      <div className="flex-1 flex overflow-hidden p-6 gap-4">
-        {/* Left: Cases List */}
-        <div className="flex-1 overflow-y-auto space-y-3">
-          {filtered.map((item) => {
-            const isSelected = selectedCase?.id === item.id;
-            return (
-              <div
-                key={item.id}
-                onClick={() => setSelectedCase(item)}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-3 ${
-                  isSelected
-                    ? "bg-[#0d1e14] border-mint-500 shadow-[0_0_15px_rgba(34,197,94,0.12)]"
-                    : "bg-[#0c1510] border-[#1b3425] hover:border-[#274f38]"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className={`w-2.5 h-2.5 rounded-full ${
-                        item.status === "resuelto"
-                          ? "bg-mint-400"
-                          : item.status === "escalado"
-                          ? "bg-amber-400"
-                          : "bg-red-400"
-                      }`}
-                    />
-                    <h4 className="text-sm font-bold text-gray-100">{item.title}</h4>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#111f17] text-gray-300 border border-[#1b3425]">
-                      {item.id}
-                    </span>
+      {/* 2. Franja de KPIs de Auditoría */}
+      <div className="flex-none px-6 py-3 border-b border-white/[0.06] bg-[#070B08]/90 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#10B981]/10 border border-[#10B981]/20 flex items-center justify-center text-[#34D399]">
+            <Clock className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[11px] text-[#8E9893] uppercase tracking-wider font-semibold block">
+              Eventos Registrados
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-extrabold font-mono text-white tabular-nums">48</span>
+              <span className="text-[10px] text-[#34D399] font-mono">Últimas 24h</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#10B981]/10 border border-[#10B981]/20 flex items-center justify-center text-[#34D399]">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[11px] text-[#8E9893] uppercase tracking-wider font-semibold block">
+              Tasa de Autonomía
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-extrabold font-mono text-[#34D399] tabular-nums">96.4%</span>
+              <span className="text-[10px] text-white/50 font-mono">0 quiebres no atendidos</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <Cpu className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[11px] text-[#8E9893] uppercase tracking-wider font-semibold block">
+              Consumo de Tokens
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-extrabold font-mono text-white tabular-nums">2.140</span>
+              <span className="text-[10px] text-[#8E9893] font-mono">Prom. por caso</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#10B981]/10 border border-[#10B981]/20 flex items-center justify-center text-[#34D399]">
+            <Lock className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[11px] text-[#8E9893] uppercase tracking-wider font-semibold block">
+              Integridad Criptográfica
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-extrabold font-mono text-[#34D399] tabular-nums">100%</span>
+              <span className="text-[10px] text-white/50 font-mono">HMAC-SHA256</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Contenedor Master-Detail (40% Timeline Cronológico / 60% Árbol de Pensamiento & Forense) */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+        {/* PANEL IZQUIERDO: 40% LISTA DE EVENTOS */}
+        <div className="flex-1 lg:w-[40%] flex flex-col min-h-0 border-r border-white/[0.06] bg-[#050806]">
+          {/* Buscador */}
+          <div className="flex-none p-3 border-b border-white/[0.06] bg-[#0A0F0C]/60">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-[#8E9893] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por ID de caso, producto o proveedor..."
+                className="w-full bg-[#0E1511] border border-white/[0.08] hover:border-white/20 focus:border-[#10B981]/60 focus:bg-[#070B08] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-[#8E9893]/70 focus:outline-none transition-all font-mono"
+              />
+            </div>
+          </div>
+
+          {/* Registros Cronológicos */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
+            {filteredRecords.map((item) => {
+              const isSelected = selectedCase?.id === item.id;
+              const isResolved = item.status === "resuelto";
+              const isEscalated = item.status === "escalado";
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedCaseId(item.id)}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-[#0A0F0C] border-[#10B981]/40 shadow-[0_0_20px_rgba(16,185,129,0.08)] ring-1 ring-[#10B981]/30"
+                      : "bg-[#080D09] border-white/[0.05] hover:border-white/15 hover:bg-[#0A0F0C]"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-white">
+                          {item.id}
+                        </span>
+                        <span className="text-white/20">·</span>
+                        <span className="text-[10px] text-[#8E9893] font-mono">
+                          {item.date}
+                        </span>
+                      </div>
+                      <p className="text-xs font-bold text-white/95 mt-1 line-clamp-1">
+                        {item.title}
+                      </p>
+                      <p className="text-[11px] text-[#8E9893] mt-0.5 line-clamp-1">
+                        {item.supplier}
+                      </p>
+                    </div>
+
+                    <div className="text-right flex flex-col items-end gap-1 flex-none">
+                      <span className="font-mono text-xs font-extrabold text-white tabular-nums">
+                        {item.amountCop}
+                      </span>
+                      {isResolved ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30 flex items-center gap-1">
+                          <CheckCircle2 className="w-2.5 h-2.5" />
+                          AUTÓNOMO
+                        </span>
+                      ) : isEscalated ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                          HITL
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-500/15 text-red-300 border border-red-500/30 flex items-center gap-1">
+                          <AlertCircle className="w-2.5 h-2.5" />
+                          BLOQUEADO
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
-                        item.status === "resuelto"
-                          ? "bg-[#0f2417] text-mint-400 border border-[#1b432a]"
-                          : item.status === "escalado"
-                          ? "bg-[#271e0c] text-amber-400 border border-[#443516]"
-                          : "bg-[#271010] text-red-400 border border-[#441a1a]"
-                      }`}
-                    >
-                      {item.statusLabel}
+                  <div className="mt-2.5 pt-2 border-t border-white/[0.04] flex items-center justify-between text-[10px] font-mono text-[#8E9893]">
+                    <span className="flex items-center gap-1">
+                      <Cpu className="w-3 h-3 text-[#10B981]" />
+                      {item.tokens} tokens
                     </span>
+                    <span>Costo: {item.cost}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* PANEL DERECHO: 60% VISUALIZADOR FORENSE & THOUGHT TREE */}
+        <div className="flex-1 lg:w-[60%] flex flex-col min-h-0 bg-[#070B08] overflow-y-auto p-6 space-y-5">
+          {selectedCase ? (
+            <>
+              {/* Encabezado del Caso */}
+              <div className="flex-none p-5 rounded-2xl bg-[#0A0F0C] border border-white/[0.08] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-48 h-48 pointer-events-none opacity-30 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.2),transparent_70%)]" />
+                <div className="flex items-start justify-between gap-4 relative z-10">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded font-mono text-[11px] font-extrabold bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/40">
+                        {selectedCase.id}
+                      </span>
+                      <span className="text-white/20">·</span>
+                      <span className="text-xs text-[#8E9893]">{selectedCase.date}</span>
+                    </div>
+                    <h2 className="text-base font-extrabold text-white mt-1.5 leading-snug">
+                      {selectedCase.title}
+                    </h2>
+                    <p className="text-xs text-[#8E9893] mt-0.5">
+                      Proveedor: <strong className="text-white">{selectedCase.supplier}</strong> · Modelo:{" "}
+                      <strong className="text-white font-mono">{selectedCase.model}</strong>
+                    </p>
+                  </div>
+
+                  <div className="text-right flex-none">
+                    <span className="text-[11px] text-[#8E9893] block font-semibold uppercase">
+                      Monto Involucrado
+                    </span>
+                    <span className="font-mono text-2xl font-black text-[#34D399] tabular-nums block mt-0.5">
+                      {selectedCase.amountCop}
+                    </span>
+                    <span className="text-[10px] text-white/40 font-mono">
+                      Costo Inferencia: {selectedCase.cost}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selector de Pestañas: Árbol de Razonamiento vs Raw JSON */}
+              <div className="flex-none flex items-center gap-2 border-b border-white/[0.06] pb-2">
+                <button
+                  onClick={() => setActiveTab("thought_tree")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+                    activeTab === "thought_tree"
+                      ? "bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/30"
+                      : "text-[#8E9893] hover:text-white"
+                  }`}
+                >
+                  <GitBranch className="w-3.5 h-3.5" />
+                  <span>Árbol de Inferencia (Thought Tree)</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("raw_json")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+                    activeTab === "raw_json"
+                      ? "bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/30"
+                      : "text-[#8E9893] hover:text-white"
+                  }`}
+                >
+                  <Code2 className="w-3.5 h-3.5" />
+                  <span>Payload RAW & Evidencia JSON</span>
+                </button>
+              </div>
+
+              {activeTab === "thought_tree" ? (
+                /* ÁRBOL DE INFERENCIA SECUENCIAL */
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-[#0A0F0C] border border-white/[0.08] space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-[#34D399]" />
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-white">
+                          Pasos de Decisión del Agente Autónomo
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-[#34D399] bg-[#10B981]/10 px-2 py-0.5 rounded border border-[#10B981]/25">
+                        {selectedCase.thoughtTree.length} FASES COMPLETADAS
+                      </span>
+                    </div>
+
+                    <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-[#10B981]/30">
+                      {selectedCase.thoughtTree.map((step, idx) => (
+                        <div key={idx} className="relative group">
+                          {/* Dot indicador del nodo */}
+                          <div className="absolute -left-6 top-1.5 w-3.5 h-3.5 rounded-full bg-[#0A0F0C] border-2 border-[#10B981] flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#34D399]" />
+                          </div>
+
+                          <div className="p-3.5 rounded-xl bg-[#0E1511] border border-white/[0.04] hover:border-white/10 transition-colors">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="font-bold text-white flex items-center gap-1.5">
+                                {step.step}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-[10px] text-[#34D399] bg-[#10B981]/10 px-2 py-0.2 rounded border border-[#10B981]/25">
+                                  {step.agent}
+                                </span>
+                                <span className="font-mono text-[10px] text-white/40">
+                                  {step.latencyMs}ms
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-white/90 font-medium mb-1">
+                              {step.action}
+                            </p>
+                            <p className="text-[11px] text-[#8E9893] leading-relaxed">
+                              {step.detail}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Panel Criptográfico */}
+                  <div className="p-4 rounded-2xl bg-[#0A0F0C] border border-white/[0.08] flex items-center justify-between gap-3">
+                    <div className="overflow-hidden">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-3.5 h-3.5 text-[#34D399]" />
+                        <span className="text-[10px] text-[#8E9893] uppercase font-bold">
+                          Hash Digest de Auditoría (PostgreSQL)
+                        </span>
+                      </div>
+                      <span className="font-mono text-xs text-white truncate block mt-1">
+                        {selectedCase.hmacDigest}
+                      </span>
+                    </div>
 
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCopyCliCommand(item.id);
-                      }}
-                      title="Copiar comando CLI: mint explain <id>"
-                      className="p-1 rounded-lg bg-[#070e0a] text-gray-500 hover:text-mint-400 border border-[#14261c] transition-colors"
+                      onClick={() => handleCopy(selectedCase.hmacDigest, "digest")}
+                      className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/60 hover:text-white transition-colors flex-none"
+                      title="Copiar Hash"
                     >
-                      <Terminal className="w-3.5 h-3.5" />
+                      {copiedText === "digest" ? (
+                        <Check className="w-4 h-4 text-[#10B981]" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>
-
-                <p className="text-xs text-gray-300 font-mono bg-[#080e0a] p-2.5 rounded-xl border border-[#15271d]">
-                  {item.reason}
-                </p>
-
-                <div className="flex flex-wrap items-center justify-between text-[11px] font-mono text-gray-400 pt-1">
-                  <div className="flex items-center gap-4">
-                    <span>
-                      Proveedor: <strong className="text-gray-200">{item.supplier}</strong>
+              ) : (
+                /* RAW JSON PAYLOAD */
+                <div className="p-4 rounded-2xl bg-[#0A0F0C] border border-white/[0.08] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono text-[#8E9893]">
+                      Payload Registrado en PostgreSQL · ai_back_office.event_logs
                     </span>
-                    <span>
-                      Monto: <strong className="text-mint-300">{item.amountCop}</strong>
-                    </span>
+                    <button
+                      onClick={() => handleCopy(JSON.stringify(selectedCase.rawPayload, null, 2), "payload")}
+                      className="flex items-center gap-1.5 text-xs text-[#34D399] hover:underline font-mono"
+                    >
+                      {copiedText === "payload" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedText === "payload" ? "¡Copiado!" : "Copiar JSON"}</span>
+                    </button>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span>{item.date}</span>
-                    <span className="text-gray-600">•</span>
-                    <span>
-                      {item.tokens} tokens ({item.cost})
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-gray-500" />
-                  </div>
+                  <pre className="p-4 rounded-xl bg-[#050806] border border-white/[0.06] text-xs font-mono text-[#34D399] overflow-x-auto leading-relaxed">
+                    {JSON.stringify(selectedCase.rawPayload, null, 2)}
+                  </pre>
                 </div>
-              </div>
-            );
-          })}
+              )}
+            </>
+          ) : (
+            <div className="p-12 text-center text-xs text-[#8E9893] border border-dashed border-white/10 rounded-2xl">
+              Selecciona un evento del historial.
+            </div>
+          )}
         </div>
-
-        {/* Right: Thought Tree Inspector (mint explain) */}
-        {selectedCase ? (
-          <div className="w-96 bg-[#0a120d] border border-[#162a1f] rounded-2xl p-5 flex flex-col justify-between overflow-y-auto space-y-4">
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="flex items-start justify-between pb-3 border-b border-[#14261c]">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#102418] text-mint-400 border border-[#1b3d27]">
-                      MINT EXPLAIN
-                    </span>
-                    <span className="text-[11px] font-mono text-gray-400">
-                      Caso: {selectedCase.id}
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-bold text-white pt-1">
-                    Árbol de Razonamiento del Agente
-                  </h3>
-                </div>
-
-                <button
-                  onClick={() => setSelectedCase(null)}
-                  className="p-1 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-[#121f17]"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* CLI Command Box */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#070e0a] border border-[#14261c] text-xs font-mono text-gray-300">
-                <div className="flex items-center gap-2">
-                  <Terminal className="w-3.5 h-3.5 text-mint-400" />
-                  <code>mint explain {selectedCase.id}</code>
-                </div>
-                <button
-                  onClick={() => handleCopyCliCommand(selectedCase.id)}
-                  className="text-[10px] text-gray-500 hover:text-mint-400 transition-colors"
-                >
-                  {copiedId === selectedCase.id ? "Copiado!" : "Copiar"}
-                </button>
-              </div>
-
-              {/* Thought Steps Sequence */}
-              <div className="space-y-3 pt-1">
-                <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider block">
-                  Pasos de Deducción Lógica:
-                </span>
-
-                <div className="space-y-3 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#152a1e]">
-                  {selectedCase.thoughtTree?.map((step, idx) => (
-                    <div key={idx} className="relative pl-7 text-xs font-mono space-y-1">
-                      {/* Step Marker Dot */}
-                      <div className="absolute left-1.5 top-1 -translate-x-1/2 w-4 h-4 rounded-full bg-[#0a120d] border border-mint-500/50 flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 rounded-full bg-mint-400" />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-mint-300">
-                          {step.step}
-                        </span>
-                        <span className="text-[10px] text-gray-500">
-                          {step.agent}
-                        </span>
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-[#070e0a] border border-[#14261c] text-[11px] text-gray-300 font-sans leading-relaxed">
-                        <code className="text-[10px] text-gray-400 block font-mono mb-1">
-                          {step.action}
-                        </code>
-                        <p>{step.detail}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer Summary */}
-            <div className="pt-3 border-t border-[#14261c] text-[11px] font-mono text-gray-500 space-y-1">
-              <p>• Invariante criptográfico firmado en PostgreSQL</p>
-              <p>• Costo de tokens: {selectedCase.tokens} tokens ({selectedCase.cost})</p>
-            </div>
-          </div>
-        ) : (
-          <div className="w-80 bg-[#0a120d] border border-[#162a1f] rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-2 text-gray-500">
-            <GitBranch className="w-8 h-8 text-gray-600" />
-            <h4 className="text-xs font-bold text-gray-400">
-              Selecciona un caso para inspeccionar
-            </h4>
-            <p className="text-[11px] font-mono">
-              Haz clic en cualquier registro para visualizar el árbol de razonamiento completo (`mint explain`).
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

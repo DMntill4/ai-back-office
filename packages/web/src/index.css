@@ -3,66 +3,67 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: dark;
+  }
+
   body {
-    background-color: #060a08;
-    color: #f0fdf4;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #070B08;
+    color: #EDF3EE;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.015em;
+  }
+
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #070B08, 0 0 0 4px #2BB656;
   }
 }
 
-/* Custom subtle scrollbar */
+/* Scrollbar en tonos bosque */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090e0b;
+  background: #070B08;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #192b20;
-  border-radius: 3px;
+  background: #19261E;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #254231;
+  background: #25372C;
 }
 
-/* Canvas dot grid pattern */
-.canvas-dot-grid {
-  background-color: #080d0a;
-  background-image: radial-gradient(rgba(34, 197, 94, 0.12) 1px, transparent 1px);
-  background-size: 24px 24px;
+/* Cuadrícula sutil (Flowcraft style) solo para fondos de baja densidad */
+.bg-forest-grid {
+  background-color: #070B08;
+  background-image: 
+    linear-gradient(to right, rgba(25, 38, 30, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(25, 38, 30, 0.35) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
-/* Glowing animations */
-@keyframes pulse-subtle {
-  0%, 100% {
-    opacity: 1;
-    filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.4));
+/* Gradiente de marca para cifras clave y wordmark (Banner Mint) */
+.text-gradient-mint {
+  background: linear-gradient(135deg, #9DE342 0%, #2BB656 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Cifras tabulares nativas */
+.tabular-numbers {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Respeto a accesibilidad y movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
-  50% {
-    opacity: 0.85;
-    filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.2));
-  }
-}
-
-.animate-glow {
-  animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Connector curve dash animation */
-@keyframes flow-line {
-  from {
-    stroke-dashoffset: 24;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-.connector-flow {
-  stroke-dasharray: 6 6;
-  animation: flow-line 1.5s linear infinite;
 }

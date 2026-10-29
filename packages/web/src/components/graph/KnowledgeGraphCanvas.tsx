@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
   MintGraphNode,
   MintGraphEdge,
+  MintGraphData,
   SimNode,
   SimEdge,
   GraphPhysicsSettings,
@@ -10,8 +11,10 @@ import { NODE_TYPE_COLORS } from "../../data/graphData";
 import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
 
 interface KnowledgeGraphCanvasProps {
-  nodes: MintGraphNode[];
-  edges: MintGraphEdge[];
+  nodes?: MintGraphNode[];
+  data?: MintGraphData;
+  onHoverNode?: (node: MintGraphNode | null) => void;
+  edges?: MintGraphEdge[];
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string | null) => void;
   physicsSettings: GraphPhysicsSettings;
@@ -19,14 +22,17 @@ interface KnowledgeGraphCanvasProps {
 }
 
 export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
-  nodes: rawNodes,
-  edges: rawEdges,
+  nodes: passedNodes,
+  data,
+  edges: passedEdges,
   selectedNodeId,
   onSelectNode,
   physicsSettings,
   focusNodeId,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rawNodes = passedNodes || data?.nodes || [];
+  const rawEdges = passedEdges || data?.edges || [];
 
   // Simulación y posiciones
   const simNodesRef = useRef<Map<string, SimNode>>(new Map());
@@ -220,7 +226,7 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
       ctx.scale(dpr, dpr);
 
       // Fondo oscuro uniforme de alta precisión
-      ctx.fillStyle = "#090D16";
+      ctx.fillStyle = "#050806";
       ctx.fillRect(0, 0, width, height);
 
       // Cuadrícula tenue casi imperceptible
@@ -558,9 +564,8 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        className={`w-full h-full block ${
-          draggedNodeId.current ? "cursor-grabbing" : hoveredNodeId ? "cursor-pointer" : "cursor-grab"
-        }`}
+        className={`w-full h-full block ${draggedNodeId.current ? "cursor-grabbing" : hoveredNodeId ? "cursor-pointer" : "cursor-grab"
+          }`}
       />
 
       {/* Mini HUD de Controles Flotantes en Esquina Inferior Izquierda */}
