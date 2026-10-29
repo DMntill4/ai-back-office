@@ -77,13 +77,33 @@ export const theme = {
     return str.replace(/\x1b\[[0-9;]*m/g, "");
   },
 
+  // Hacker / Terminal Semantic Tags (Linux / Kali Cyber-Ops style)
+  tag: {
+    system: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;6;182;212m", "\x1b[22m\x1b[39m")("[SYSTEM]")} ${msg}`,
+    scan: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;135;206;250m", "\x1b[22m\x1b[39m")("[SCAN]")} ${msg}`,
+    event: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;16;185;129m", "\x1b[22m\x1b[39m")("[EVENT]")} ${msg}`,
+    task: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;248;250;252m", "\x1b[22m\x1b[39m")("[TASK]")} ${msg}`,
+    alert: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;245;158;11m", "\x1b[22m\x1b[39m")("[ALERT]")} ${msg}`,
+    approval: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;245;158;11m", "\x1b[22m\x1b[39m")("[APPROVAL]")} ${msg}`,
+    delivery: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;16;185;129m", "\x1b[22m\x1b[39m")("[DELIVERY]")} ${msg}`,
+    error: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;239;68;68m", "\x1b[22m\x1b[39m")("[ERROR]")} ${msg}`,
+    ok: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;16;185;129m", "\x1b[22m\x1b[39m")("[OK]")} ${msg}`,
+    sec: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;139;92;246m", "\x1b[22m\x1b[39m")("[SECURITY]")} ${msg}`,
+  },
+
+  // Status Indicator Dot (Linux TUI / Kali)
+  statusDot(active: boolean): string {
+    if (!isColorSupported) return active ? "[ON]" : "[OFF]";
+    return active ? "\x1b[38;2;16;185;129m●\x1b[39m" : "\x1b[38;2;100;116;139m○\x1b[39m";
+  },
+
   // Canal de Auditoría Autónoma Visible
   audit(phase: "OBSERVE" | "DECIDE" | "EXECUTE" | "VERIFY", detail: string): string {
     const badges: Record<string, string> = {
       OBSERVE: wrap("\x1b[1m\x1b[38;2;92;207;230m", "\x1b[22m\x1b[39m")("[OBSERVE]"),
-      DECIDE: wrap("\x1b[1m\x1b[38;2;229;192;123m", "\x1b[22m\x1b[39m")("[[SISTEMA] DECIDE] "),
-      EXECUTE: wrap("\x1b[1m\x1b[38;2;140;207;126m", "\x1b[22m\x1b[39m")("[[ACCION] EXECUTE]"),
-      VERIFY: wrap("\x1b[1m\x1b[38;2;224;108;117m", "\x1b[22m\x1b[39m")("[[SEGURIDAD] VERIFY] "),
+      DECIDE: wrap("\x1b[1m\x1b[38;2;229;192;123m", "\x1b[22m\x1b[39m")("[DECIDE]"),
+      EXECUTE: wrap("\x1b[1m\x1b[38;2;140;207;126m", "\x1b[22m\x1b[39m")("[EXECUTE]"),
+      VERIFY: wrap("\x1b[1m\x1b[38;2;224;108;117m", "\x1b[22m\x1b[39m")("[VERIFY]"),
     };
     const time = new Date().toLocaleTimeString("es-CO", { hour12: false });
     const timeStr = wrap("\x1b[38;2;75;82;99m", "\x1b[39m")(time);
