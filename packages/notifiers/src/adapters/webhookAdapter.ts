@@ -4,8 +4,11 @@ import { type NotifierAdapter, type NotificationPayload, type SendResult } from 
 export class WebhookAdapter implements NotifierAdapter {
   type = "webhook" as const;
 
-  async send(payload: NotificationPayload, config: Record<string, any>): Promise<SendResult> {
-    const webhookUrl = config.webhookUrl || config.url || process.env.GENERIC_WEBHOOK_URL;
+  constructor(private defaultOptions: Record<string, any> = {}) {}
+
+  async send(payload: NotificationPayload, config: Record<string, any> = {}): Promise<SendResult> {
+    const effectiveConfig = { ...this.defaultOptions, ...config };
+    const webhookUrl = effectiveConfig.webhookUrl || effectiveConfig.url || process.env.GENERIC_WEBHOOK_URL;
     const messageId = `webhook_msg_${Date.now()}`;
 
     if (!webhookUrl) {
@@ -21,8 +24,10 @@ export class WebhookAdapter implements NotifierAdapter {
     const isPayment = payload.kind === "PAYMENT_DISPERSION" || Boolean(payload.paymentDetails);
     const currency = payload.currency || "USD";
 
+    const resolvedEvent = isPayment ? "PAYMENT_DISPERSION" : ((payload as any).eventType || payload.kind || "DECISION_APPROVAL");
     const webhookBody = {
-      event: isPayment ? "PAYMENT_DISPERSION" : (payload.kind || "DECISION_APPROVAL"),
+      event: resolvedEvent,
+      eventType: resolvedEvent,
       messageId,
       companyId: payload.companyId,
       decisionId: payload.decisionId,
@@ -48,7 +53,7 @@ export class WebhookAdapter implements NotifierAdapter {
       "User-Agent": "MINT-Autonomous-Back-Office/1.0",
     };
 
-    const secret = config.secret || process.env.WEBHOOK_SECRET;
+    const secret = effectiveConfig.secret || process.env.WEBHOOK_SECRET;
     if (secret) {
       const hmac = createHmac("sha256", secret);
       headers["X-Mint-Signature"] = `sha256=${hmac.update(rawPayload).digest("hex")}`;
@@ -56,7 +61,7 @@ export class WebhookAdapter implements NotifierAdapter {
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 7000);
+      const timeout = setTimeout(() => controller.abort(), effectiveConfig.timeoutMs || 7000);
 
       const response = await fetch(webhookUrl, {
         method: "POST",

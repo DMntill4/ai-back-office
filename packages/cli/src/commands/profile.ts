@@ -32,6 +32,7 @@ export async function profileCommand(options: { json?: boolean } = {}) {
       drawCard(
         [
           `${theme.dim("Empresa:")}     ${theme.bold(profile.company.name)} (ID: ${profile.company.id})`,
+          `${theme.dim("Modelo:")}      ${theme.cyanBold(profile.company.businessType.toUpperCase())}`,
           `${theme.dim("País:")}        ${profile.company.country || theme.dim("No especificado")}`,
           `${theme.dim("Divisa:")}      ${theme.mintBold(profile.company.currency)}`,
           `${theme.dim("Ciudad/Sede:")} ${profile.company.city || theme.dim("No especificada")}`,
@@ -69,7 +70,7 @@ export async function profileCommand(options: { json?: boolean } = {}) {
       [
         "Canales de Notificación",
         String(profile.metrics.activeChannelsCount),
-        "Discord / Telegram / Slack",
+        "Webhook / Discord / Telegram / Slack",
         profile.metrics.activeChannelsCount > 0 ? theme.mint("CONECTADO") : theme.amber("DESCONECTADO"),
       ],
       [
@@ -84,11 +85,35 @@ export async function profileCommand(options: { json?: boolean } = {}) {
       drawTable(
         ["ENTIDAD", "TOTAL", "DETALLE DE COBERTURA", "ESTADO"],
         metricsRows,
-        [26, 8, 34, 14],
+        [26, 8, 38, 14],
       ),
     );
 
-    // 3. Banco de preguntas pendientes (Truth in Data)
+    // 3. Matriz de Capacidades Empresariales
+    if (profile.capabilities && profile.capabilities.length > 0) {
+      console.log(`\n  ${theme.bold("MATRIZ DE CAPACIDADES EMPRESARIALES // AUTONOMÍA")}`);
+      const capRows = profile.capabilities.map((c) => {
+        let badge = theme.dim("DESCONOCIDO");
+        if (c.status === "DISPONIBLE_OPERATIVO") badge = theme.mint("OPERATIVO");
+        else if (c.status === "DISPONIBLE_CON_LIMITACIONES") badge = theme.amber("CON LIMITACIONES");
+        else if (c.status === "REQUIERE_CONFIGURACION") badge = theme.cyan("REQUIERE CONFIG");
+        else if (c.status === "REQUIERE_FUENTE_DATOS") badge = theme.amber("FALTA FUENTE");
+        else if (c.status === "NO_APLICA") badge = theme.dim("NO APLICA");
+        else if (c.status === "NO_DISPONIBLE") badge = theme.red("NO DISPONIBLE");
+
+        return [c.name, badge, c.description];
+      });
+
+      console.log(
+        drawTable(
+          ["CAPACIDAD", "ESTADO", "ALCANCE / RESTRICCIÓN OPERATIVA"],
+          capRows,
+          [34, 18, 44],
+        ),
+      );
+    }
+
+    // 4. Banco de preguntas pendientes (Truth in Data)
     console.log("\n" + drawDivider("BANCO DE PREGUNTAS PENDIENTES // DATOS FALTANTES", 88));
 
     if (profile.pendingQuestions.length === 0) {

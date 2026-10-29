@@ -158,20 +158,24 @@ export async function getOpenPurchaseOrders(productId?: string, companyId?: stri
 }
 
 export interface CreatePurchaseOrderInput {
-  caseId: string;
+  caseId?: string;
   companyId?: string;
   productId: string;
   supplierId: string;
   quantity: number;
-  idempotencyKey: string;
+  idempotencyKey?: string;
   estimatedUnitPrice?: number;
 }
 
 export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
-  // Umbral por defecto de 10,000 si la empresa no ha configurado uno explícito en business_config
-  let maxAllowedAmount: number | null = 10000.0;
+  // Sin umbral universal hardcodeado: cada empresa define sus límites y políticas en business_config
+  let maxAllowedAmount: number | null = null;
+  let allowRoutineReplenishment = false;
+  let routineLimit: number | null = null;
   const effectiveCompanyId = input.companyId || "comp_default";
+  const effectiveIdempotencyKey = input.idempotencyKey || `idem_${randomUUID().slice(0, 12)}`;
   let currency = "USD";
+
   try {
     const [comp] = await db
       .select({ currency: companies.currency })
@@ -187,7 +191,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
   const existing = await db
     .select()
     .from(purchaseOrders)
-    .where(eq(purchaseOrders.idempotencyKey, input.idempotencyKey))
+    .where(eq(purchaseOrders.idempotencyKey, effectiveIdempotencyKey))
     .limit(1);
 
   if (existing.length > 0) {
@@ -201,16 +205,14 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     };
   }
 
-  // Consultar umbral configurado por la empresa en la BD real
+  // Consultar configuración de la empresa en la BD real
   try {
     const configs = await db
       .select()
       .from(businessConfig)
       .where(eq(businessConfig.companyId, effectiveCompanyId));
 
-    const limitConfig = configs.find(
-      (c) => c.key === "approval_limit_amount",
-    );
+    const limitConfig = configs.find((c) => c.key === "approval_limit_amount");
     if (limitConfig && limitConfig.value) {
       const parsed = parseFloat(limitConfig.value);
       if (!isNaN(parsed) && parsed > 0) {
@@ -218,50 +220,223 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
         if (limitConfig.currency) currency = limitConfig.currency;
       }
     }
+
+    const routineConfig = configs.find((c) => c.key === "allow_routine_replenishment");
+    if (routineConfig?.value === "true") allowRoutineReplenishment = true;
+
+    const routineLimitCfg = configs.find((c) => c.key === "routine_replenishment_limit");
+    if (routineLimitCfg && routineLimitCfg.value) {
+      const parsed = parseFloat(routineLimitCfg.value);
+      if (!isNaN(parsed) && parsed > 0) routineLimit = parsed;
+    }
   } catch {
-    // Si no está configurado, usar umbral por defecto
+    // Sin configuración registrada se asume modo conservador
   }
 
+  const [targetProd] = await db
+    .select()
+    .from(products)
+    .where(
+      and(
+        eq(products.id, input.productId),
+        or(eq(products.companyId, effectiveCompanyId), eq(products.companyId, "comp_default")),
+      ),
+    )
+    .limit(1);
+
+  const productName = targetProd?.name || input.productId;
+  const productSku = targetProd?.sku;
+  const productPrice = targetProd?.price ? parseFloat(targetProd.price) : 0;
+
+  // 1. Caso: Sin proveedor especificado o proveedor no registrado en la empresa
+  const isNoSupplier = !input.supplierId || input.supplierId === "ninguno" || input.supplierId === "sin_proveedor";
+  let knownSupplier: (typeof suppliers.$inferSelect) | undefined;
+
+  if (!isNoSupplier) {
+    const [supp] = await db
+      .select()
+      .from(suppliers)
+      .where(
+        and(
+          eq(suppliers.id, input.supplierId),
+          or(eq(suppliers.companyId, effectiveCompanyId), eq(suppliers.companyId, "comp_default")),
+        ),
+      )
+      .limit(1);
+    knownSupplier = supp;
+  }
+
+  const effectiveCaseId = input.caseId || `case_ord_${randomUUID().slice(0, 8)}`;
+  try {
+    await db
+      .insert(cases)
+      .values({
+        id: effectiveCaseId,
+        companyId: effectiveCompanyId,
+        title: `Caso operativo ${effectiveCaseId}`,
+        description: "Generado automáticamente para flujo de inventario y compras",
+        status: "en_proceso",
+      })
+      .onConflictDoNothing();
+  } catch {}
+
+  // Si no hay proveedor registrado: Adaptar el flujo creando Solicitud Interna de Reposición
+  // (MINT no inventa proveedores ficticios, pero no bloquea las tareas internas de una tienda/empresa)
+  if (!knownSupplier) {
+    const approvalId = `appr_int_${randomUUID().slice(0, 8)}`;
+    const decisionId = approvalId.replace("appr_int_", "dec_int_");
+    const estPrice = input.estimatedUnitPrice || productPrice || 0;
+    const estTotal = estPrice * input.quantity;
+
+    // Verificar si la empresa autoriza automatización de reposición rutinaria de bajo riesgo
+    const isRoutineEligible = allowRoutineReplenishment && (routineLimit === null || estTotal <= routineLimit);
+    const justification = `Solicitud interna de reposición para ${input.quantity}u de '${productName}'. Sin proveedor registrado en catálogo: requiere abastecimiento local directo o cotización.`;
+
+    try {
+      await db
+        .insert(decisions)
+        .values({
+          id: decisionId,
+          companyId: effectiveCompanyId,
+          caseId: effectiveCaseId,
+          actionType: "solicitud_reposicion_interna",
+          proposingAgent: "compras_agent",
+          title: `Solicitud Interna de Reposición: ${input.quantity}u de ${productName}`,
+          costMxn: estTotal.toFixed(2),
+          riskScore: "0.050",
+          reversible: true,
+          evidencePayload: {
+            productId: input.productId,
+            productName,
+            sku: productSku,
+            quantity: input.quantity,
+            estimatedUnitPrice: estPrice,
+            estimatedTotal: estTotal,
+            supplierStatus: "SIN_PROVEEDOR_REGISTRADO",
+            justification,
+            currency,
+            approvalId,
+          },
+          riskPayload: { riskScore: 0.05, redFlags: [], supplierVerified: false },
+          policyDecision: isRoutineEligible ? "auto_executed" : "pending_approval",
+          policyReason: justification,
+          expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .onConflictDoNothing();
+    } catch {}
+
+    // Despachar log/notificación
+    try {
+      const notifiersMod: any = await import("@mint/notifiers");
+      if (typeof notifiersMod.dispatchStockLogNotification === "function") {
+        await notifiersMod.dispatchStockLogNotification({
+          companyId: effectiveCompanyId,
+          type: "STOCK_UPDATE",
+          title: `Solicitud Interna: ${productName}`,
+          description: justification,
+          productId: input.productId,
+          productName,
+          sku: productSku,
+          severity: isRoutineEligible ? "INFO" : "WARNING",
+        });
+      }
+    } catch {}
+
+    return {
+      success: true,
+      isInternalRequest: true,
+      requiresApproval: !isRoutineEligible,
+      verified: isRoutineEligible,
+      decisionId,
+      approvalId,
+      totalAmount: estTotal,
+      message: isRoutineEligible
+        ? `Solicitud interna de reposición rutinaria autorizada automáticamente (${decisionId}) para ${input.quantity}u de ${productName}. Sin proveedor registrado: asignada para abastecimiento local directo.`
+        : `Solicitud interna de reposición generada (${decisionId}) para ${input.quantity}u de ${productName}. Sin proveedor registrado en catálogo: requiere asignación de compra local o cotización. Pendiente de aprobación humana en bandeja HITL (/inbox).`,
+    };
+  }
+
+  // 2. Caso: Proveedor conocido, buscar si tiene precio en catálogo o RFQ
   const supplierProduct = await db
     .select()
     .from(supplierProducts)
     .where(
       and(
         eq(supplierProducts.productId, input.productId),
-        eq(supplierProducts.supplierId, input.supplierId),
+        eq(supplierProducts.supplierId, knownSupplier.id),
       ),
     )
     .limit(1);
 
   let unitPrice = 0;
+  let isRfq = false;
+  let leadDays = 3;
+
   if (supplierProduct.length > 0) {
     unitPrice = parseFloat(supplierProduct[0].unitPrice);
+    leadDays = supplierProduct[0].leadTimeDays || 3;
   } else if (input.estimatedUnitPrice && input.estimatedUnitPrice > 0) {
-    // Precio aportado explicitamente por el solicitante; el proveedor debe existir en la BD de la empresa
-    const [knownSupplier] = await db
-      .select({ id: suppliers.id })
-      .from(suppliers)
-      .where(and(eq(suppliers.id, input.supplierId), eq(suppliers.companyId, effectiveCompanyId)))
-      .limit(1);
-    if (!knownSupplier) {
-      return {
-        success: false,
-        requiresApproval: false,
-        verified: false,
-        message: `No tengo este dato: el proveedor '${input.supplierId}' no esta registrado en la empresa. No se crea proveedor ni orden.`,
-      };
-    }
     unitPrice = input.estimatedUnitPrice;
   } else {
-    return {
-      success: false,
-      requiresApproval: false,
-      verified: false,
-      message: `No tengo este dato: no hay precio registrado de '${input.supplierId}' para '${input.productId}'. No se fija ningun precio.`,
-    };
+    // Proveedor registrado pero sin precio en catálogo: Generar Solicitud de Cotización (RFQ)
+    isRfq = true;
+    unitPrice = productPrice;
   }
 
   const totalAmount = unitPrice * input.quantity;
+
+  if (isRfq) {
+    const approvalId = `appr_rfq_${randomUUID().slice(0, 8)}`;
+    const decisionId = approvalId.replace("appr_rfq_", "dec_rfq_");
+    const justification = `Solicitud de cotización (RFQ) para ${input.quantity}u de '${productName}' al proveedor '${knownSupplier.name}'. El proveedor no tiene precio registrado en catálogo: se requiere cotización formal previa a comprometer fondos.`;
+
+    try {
+      await db
+        .insert(decisions)
+        .values({
+          id: decisionId,
+          companyId: effectiveCompanyId,
+          caseId: effectiveCaseId,
+          actionType: "solicitud_cotizacion",
+          proposingAgent: "compras_agent",
+          title: `Solicitud de Cotización: ${input.quantity}u de ${productName} a ${knownSupplier.name}`,
+          costMxn: totalAmount.toFixed(2),
+          riskScore: "0.050",
+          reversible: true,
+          evidencePayload: {
+            productId: input.productId,
+            productName,
+            sku: productSku,
+            supplierId: knownSupplier.id,
+            supplierName: knownSupplier.name,
+            quantity: input.quantity,
+            justification,
+            currency,
+            approvalId,
+          },
+          riskPayload: { riskScore: 0.05, redFlags: [], supplierVerified: true },
+          policyDecision: "pending_approval",
+          policyReason: justification,
+          expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .onConflictDoNothing();
+    } catch {}
+
+    return {
+      success: true,
+      isRfq: true,
+      requiresApproval: true,
+      verified: false,
+      decisionId,
+      approvalId,
+      totalAmount,
+      message: `Solicitud de cotización generada (${decisionId}) para ${input.quantity}u de ${productName} a ${knownSupplier.name}. Sin precio registrado en catálogo: requiere cotización formal antes de comprometer fondos. Pendiente de aprobación humana en bandeja HITL (/inbox).`,
+    };
+  }
 
   if (input.caseId) {
     await db
@@ -281,29 +456,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
   const approvalId = `appr_${randomUUID().slice(0, 8)}`;
   const decisionId = approvalId.replace("appr_", "dec_");
 
-  let productName = input.productId;
-  let productSku: string | undefined;
-  let supplierName = input.supplierId;
-  let leadDays = supplierProduct[0]?.leadTimeDays || 3;
-
-  try {
-    const [targetProd, suppRow] = await Promise.all([
-      db
-        .select({ name: products.name, sku: products.sku })
-        .from(products)
-        .where(and(eq(products.id, input.productId), eq(products.companyId, effectiveCompanyId)))
-        .limit(1),
-      db
-        .select({ name: suppliers.name })
-        .from(suppliers)
-        .where(and(eq(suppliers.id, input.supplierId), eq(suppliers.companyId, effectiveCompanyId)))
-        .limit(1),
-    ]);
-
-    if (targetProd[0]?.name) productName = targetProd[0].name;
-    if (targetProd[0]?.sku) productSku = targetProd[0].sku;
-    if (suppRow[0]?.name) supplierName = suppRow[0].name;
-  } catch {}
+  const supplierName = knownSupplier.name || input.supplierId;
 
   const justification = `Proveedor '${supplierName}' recomendado por mejor precio ($${unitPrice.toFixed(2)} ${currency}/u) y plazo de entrega de ${leadDays} días. Requiere aprobación humana por ser un compromiso financiero vinculante.`;
 
@@ -314,7 +467,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
       .values({
         id: decisionId,
         companyId: effectiveCompanyId,
-        caseId: input.caseId,
+        caseId: effectiveCaseId,
         actionType: "crear_orden_compra",
         proposingAgent: "compras_agent",
         title: `Propuesta de Compra: ${input.quantity}u de ${productName} a ${supplierName}`,
@@ -356,7 +509,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     await db.insert(approvals).values({
       id: approvalId,
       companyId: effectiveCompanyId,
-      caseId: input.caseId,
+      caseId: effectiveCaseId,
       actionType: "crear_orden_compra",
       amount: totalAmount.toFixed(2),
       currency,

@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   db,
   products,
@@ -88,7 +89,7 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     companyId,
     sourceName,
     sourceType,
-    uriOrPath,
+    uriOrPath: inputUriOrPath,
     currentHeaders,
     rows,
     explicitMappings,
@@ -99,13 +100,14 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     allowImmediateDeletion = false,
   } = options;
 
+  const uriOrPath = inputUriOrPath || (options as any).sourceUri || "local://fuente_datos";
   const jobId = `job_sync_${randomUUID().slice(0, 8)}`;
 
   // 1. Extraer mtime de origen si es un archivo local
   let originMtime: string | null = null;
   if (options.originMtime) {
     originMtime = new Date(options.originMtime).toISOString();
-  } else if (fs.existsSync(uriOrPath)) {
+  } else if (uriOrPath && !uriOrPath.startsWith("memory://") && fs.existsSync(uriOrPath)) {
     try {
       originMtime = fs.statSync(uriOrPath).mtime.toISOString();
     } catch {
@@ -139,10 +141,15 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
       maxStalenessHours: options.maxStalenessHours || 24,
     };
 
+    const effectiveName =
+      sourceName ||
+      (uriOrPath ? path.basename(uriOrPath.replace(/^memory:\/\//, "")) : "Fuente de Datos") ||
+      "Fuente de Datos";
+
     await db.insert(dataSources).values({
       id: dataSourceId,
       companyId,
-      name: sourceName,
+      name: effectiveName,
       sourceType,
       uriOrPath,
       config: activeConfig,
@@ -293,14 +300,34 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     }
 
     try {
-      const sku = (sanitized[mappings.sku] || "").trim();
       const name = (sanitized[mappings.name] || "").trim();
+      let sku = (sanitized[mappings.sku] || "").trim();
+
+      if (!name) throw new Error("El campo 'name' es requerido y está vacío.");
+
+      // Si no hay columna de SKU o está vacía, auto-derivar un SKU determinista a partir del nombre
+      if (!sku || mappings.sku === mappings.name) {
+        const cleanSlug = name
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, "-")
+          .slice(0, 25)
+          .replace(/^-+|-+$/g, "");
+        sku = `SKU-${cleanSlug || "ITEM"}`;
+      }
+
       const stockRaw = sanitized[mappings.stock] || "0";
       const minStockRaw = mappings.minStock ? sanitized[mappings.minStock] || "10" : "10";
       const category = mappings.category ? (sanitized[mappings.category] || "general").trim() : "general";
 
-      if (!sku) throw new Error("El campo 'sku' es requerido y está vacío.");
-      if (!name) throw new Error("El campo 'name' es requerido y está vacío.");
+      let price: string | null = null;
+      if (mappings.unitCost && sanitized[mappings.unitCost]) {
+        const parsedPrice = parseFloat(sanitized[mappings.unitCost].replace(/[^0-9.]/g, ""));
+        if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+          price = parsedPrice.toFixed(2);
+        }
+      }
 
       const stock = parseInt(stockRaw.replace(/[^0-9-]/g, ""), 10);
       if (isNaN(stock) || stock < 0) {
@@ -331,6 +358,8 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
           name,
           category,
           minStock,
+          price: price || undefined,
+          costPrice: price || undefined,
           origin: "real",
         })
         .onConflictDoUpdate({
@@ -339,6 +368,8 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
             name,
             category,
             minStock,
+            price: price || undefined,
+            costPrice: price || undefined,
             origin: "real",
           },
         });

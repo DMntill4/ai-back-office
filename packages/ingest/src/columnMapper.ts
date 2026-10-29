@@ -82,6 +82,14 @@ export function proposeColumnMapping(headers: string[]): MappingResult {
     }
   }
 
+  // Tolerancia para comercios locales / tiendas de barrio: Si no tienen columna SKU pero sí Nombre del producto,
+  // MINT auto-deriva el SKU determinista a partir del nombre del producto en lugar de bloquear la importación.
+  if (missingRequired.includes("sku") && mappings.name) {
+    const skuIndex = missingRequired.indexOf("sku");
+    missingRequired.splice(skuIndex, 1);
+    mappings.sku = mappings.name;
+  }
+
   const unmappedHeaders = headers.filter((h) => !mappedHeaders.has(h));
   const mappedCount = Object.keys(mappings).length;
   const requiredCount = Object.values(FIELD_PATTERNS).filter((p) => p.required).length;
