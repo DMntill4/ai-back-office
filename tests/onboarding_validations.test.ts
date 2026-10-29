@@ -84,6 +84,23 @@ describe("Validaciones Estrictas del Wizard de Onboarding", () => {
       expect(isGibberish("bcdfghjklmnp")).toBe(true);
     });
 
+    it("debe rechazar secuencias de aporreo aleatorio reportadas (nwfonwofniowfiwfwkwnofwfno, weewuewew, fjritm)", () => {
+      // 1. Long keyboard smash
+      expect(isGibberish("nwfonwofniowfiwfwkwnofwfno")).toBe(true);
+      expect(validateOperatorName("nwfonwofniowfiwfwkwnofwfno").valid).toBe(false);
+      expect(validateTelegramOperatorName("nwfonwofniowfiwfwkwnofwfno").valid).toBe(false);
+
+      // 2. Repetitive low-entropy syllables
+      expect(isGibberish("weewuewew")).toBe(true);
+      expect(validateOperatorName("weewuewew").valid).toBe(false);
+      expect(validateTelegramOperatorName("weewuewew").valid).toBe(false);
+
+      // 3. Unpronounceable consonant mash / impossible syllable onset
+      expect(isGibberish("fjritm")).toBe(true);
+      expect(validateOperatorName("fjritm").valid).toBe(false);
+      expect(validateTelegramOperatorName("fjritm").valid).toBe(false);
+    });
+
     it("no debe marcar como gibberish nombres y palabras en español normales", () => {
       expect(isGibberish("Carlos Mendez")).toBe(false);
       expect(isGibberish("Logistica Central")).toBe(false);

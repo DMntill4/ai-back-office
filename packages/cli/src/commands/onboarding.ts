@@ -85,42 +85,92 @@ function ask(rl: readline.Interface, question: string, defaultValue = ""): Promi
 }
 
 export function isGibberish(str: string): boolean {
-  const clean = str.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (clean.length < 5) return false;
+  const trimmed = str.trim();
+  if (!trimmed) return true;
 
-  // 1. Caracteres idénticos repetidos consecutivamente >= 4 veces (ej: aaaa, 1111)
-  if (/(.)\1{3,}/.test(clean)) return true;
+  const words = trimmed
+    .split(/\s+/)
+    .map((w) => w.toLowerCase().replace(/[^a-záéíóúüñ0-9]/g, ""))
+    .filter(Boolean);
+  if (words.length === 0) return true;
 
-  // 2. Patrones comunes de teclado (keyboard walks) de al menos 4 caracteres
-  const walks = [
-    "qwer", "wert", "erty", "rtyu", "tyui", "yuio", "uiop",
-    "asdf", "sdfg", "dfgh", "fghj", "ghjk", "hjkl",
-    "zxcv", "xcvb", "cvbn", "vbnm",
-    "1234", "2345", "3456", "4567", "5678", "6789", "0987", "9876",
-  ];
-  for (const walk of walks) {
-    if (clean.includes(walk)) return true;
+  // 1. Caracteres idénticos repetidos consecutivamente >= 3 veces en cualquier palabra (ej: aaa, 111)
+  for (const w of words) {
+    if (/(.)\1{2,}/.test(w)) return true;
   }
 
-  // 3. Dígitos intercalados entre letras (ej: u9wb, bu98wb) - típico de aporreo o hashes
-  if (/[a-z]\d+[a-z]/.test(clean)) return true;
+  // 2. Patrones comunes de teclado (horizontal, diagonal, reversa)
+  const walks = [
+    // Filas horizontales QWERTY
+    "qwer", "wert", "erty", "rtyu", "tyui", "yuio", "uiop",
+    "asdf", "sdfg", "dfgh", "fghj", "ghjk", "hjkl", "jklñ",
+    "zxcv", "xcvb", "cvbn", "vbnm",
+    // Reversa horizontal
+    "poiu", "oiuy", "iuyt", "uytr", "ytre", "trew", "rewq",
+    "lkjh", "kjhg", "jhgf", "hgfd", "gfds", "fdsa",
+    "mnbv", "nbvc", "bvcx", "vcxz",
+    // Diagonales QWERTY
+    "qazw", "azws", "wsxe", "sxed", "edcr", "dcrf", "rfvt", "fvtg",
+    // Teclado numérico / secuencial
+    "1234", "2345", "3456", "4567", "5678", "6789", "0987", "9876", "8765", "7654", "6543", "5432", "4321",
+  ];
+  for (const w of words) {
+    for (const walk of walks) {
+      if (w.includes(walk)) return true;
+    }
+  }
 
-  // 4. Demasiados dígitos mezclados (más de 6 dígitos en nombres o usuarios)
-  const digits = (clean.match(/[0-9]/g) || []).length;
-  if (digits > 6) return true;
+  // 3. Subpatrones repetitivos dentro de palabras (ej: lalala, wewewe, jajaja, blabla, weewue, fjfjfj)
+  for (const w of words) {
+    if (/(.{2,4})\1{2,}/.test(w)) return true;
+    if (/^([a-z][a-z])\1{2,}$/.test(w)) return true;
+  }
 
-  // 5. Secuencia excesiva de consonantes consecutivas (>= 5)
-  if (/[bcdfghjklmnpqrstvwxyz]{5,}/.test(clean)) return true;
+  // 4. Dígitos intercalados entre letras (ej: u9wb, bu98wb)
+  for (const w of words) {
+    if (/[a-z]\d+[a-z]/.test(w)) return true;
+  }
 
-  // 6. Cadenas con proporción absurda de vocales (< 20% en strings de más de 8 letras)
-  const letters = (clean.match(/[a-z]/g) || []).length;
-  const vowels = (clean.match(/[aeiou]/g) || []).length;
-  if (letters > 8 && vowels / letters < 0.20) return true;
+  // 5. Más de 4 dígitos en total en el nombre completo
+  const allClean = words.join("");
+  const digits = (allClean.match(/[0-9]/g) || []).length;
+  if (digits > 4) return true;
 
-  // 7. Cadenas con sólo una vocal repetida muchas veces
-  if (letters >= 10) {
-    const uniqueVowels = new Set(clean.match(/[aeiou]/g) || []).size;
-    if (uniqueVowels <= 1 && vowels / letters < 0.35) return true;
+  // 6. Palabras individuales anormalmente largas sin espacios (> 15 letras)
+  for (const w of words) {
+    if (w.length > 15) return true;
+  }
+
+  // 7. Secuencia excesiva de consonantes consecutivas (>= 4 consonantes en español/inglés)
+  for (const w of words) {
+    if (/[bcdfghjklmnpqrstvwxyz]{4,}/i.test(w)) return true;
+  }
+
+  // 8. Proporción de vocales (< 25% o > 75% en palabras de más de 4 letras)
+  for (const w of words) {
+    const letters = (w.match(/[a-záéíóúüñ]/gi) || []).length;
+    const vowels = (w.match(/[aeiouáéíóúü]/gi) || []).length;
+    if (letters >= 5 && (vowels / letters < 0.25 || vowels / letters > 0.75)) return true;
+  }
+
+  // 9. Ratio de caracteres únicos extremadamente bajo por palabra (aporreo o bucle de 2-3 teclas)
+  for (const w of words) {
+    const letters = (w.match(/[a-záéíóúüñ]/gi) || []).length;
+    const uniqueChars = new Set(w.split("")).size;
+    if (letters >= 6 && uniqueChars / letters < 0.45) return true;
+    if (letters >= 7 && uniqueChars <= 3) return true;
+  }
+
+  // 10. Letras anómalas repetidas en nombres en español (ej: 'w' repetida >= 2 veces en una palabra corta)
+  for (const w of words) {
+    const wCount = (w.match(/w/g) || []).length;
+    if (wCount >= 2 && w.length <= 14) return true;
+  }
+
+  // 11. Fonotáctica: Combinaciones de consonantes iniciales imposibles en nombres occidentales
+  const invalidStarts = /^(?:fj|fv|fw|fx|fz|jr|jm|jn|jl|jk|jf|nw|wn|wk|zx|xz|bv|bz|df|dg|dh|dj|dk|dl|dm|dp|dq|dx|fb|fc|fd|fg|fh|fk|fm|fn|fp|fq|fv|fw|fx|fz|gb|gc|gd|gf|gj|gk|gp|gq|gv|gw|gx|gz|jb|jc|jd|jf|jg|jh|jj|jk|jl|jm|jn|jp|jq|jr|js|jt|jv|jw|jx|jy|jz|kb|kc|kd|kf|kg|kh|kj|kk|kp|kq|kt|kv|kx|kz|lb|lc|ld|lf|lg|lh|lj|lk|lm|ln|lp|lq|lr|ls|lt|lv|lw|lx|ly|lz|mb|mc|md|mf|mg|mh|mj|mk|ml|mm|mn|mp|mq|mr|ms|mt|mv|mw|mx|my|mz|nb|nc|nd|nf|ng|nh|nj|nk|nl|nm|nn|np|nq|nr|ns|nt|nv|nw|nx|ny|nz|pb|pc|pd|pf|pg|ph|pj|pk|pm|pn|pq|pv|pw|px|py|pz|qb|qc|qd|qf|qg|qh|qj|qk|ql|qm|qn|qp|qq|qr|qs|qt|qv|qw|qx|qy|qz|rb|rc|rd|rf|rg|rh|rj|rk|rl|rm|rn|rp|rq|rr|rs|rt|rv|rw|rx|ry|rz|tb|tc|td|tf|tg|th|tj|tk|tl|tm|tn|tp|tq|ts|tt|tv|tw|tx|ty|tz|vb|vc|vd|vf|vg|vh|vj|vk|vl|vm|vn|vp|vq|vr|vs|vt|vv|vw|vx|vy|vz|wb|wc|wd|wf|wg|wh|wj|wk|wl|wm|wn|wp|wq|wr|ws|wt|wv|ww|wx|wy|wz|xb|xc|xd|xf|xg|xh|xj|xk|xl|xm|xn|xp|xq|xr|xs|xt|xv|xw|xx|xy|xz|zb|zc|zd|zf|zg|zh|zj|zk|zl|zm|zn|zp|zq|zr|zs|zt|zv|zw|zx|zy|zz)/i;
+  for (const w of words) {
+    if (invalidStarts.test(w)) return true;
   }
 
   return false;

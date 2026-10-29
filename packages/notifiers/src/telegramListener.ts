@@ -148,6 +148,98 @@ export function extractNameCandidate(raw: string): string {
   return text;
 }
 
+export function isGibberish(str: string): boolean {
+  const trimmed = str.trim();
+  if (!trimmed) return true;
+
+  const words = trimmed
+    .split(/\s+/)
+    .map((w) => w.toLowerCase().replace(/[^a-záéíóúüñ0-9]/g, ""))
+    .filter(Boolean);
+  if (words.length === 0) return true;
+
+  // 1. Caracteres idénticos repetidos consecutivamente >= 3 veces en cualquier palabra (ej: aaa, 111)
+  for (const w of words) {
+    if (/(.)\1{2,}/.test(w)) return true;
+  }
+
+  // 2. Patrones comunes de teclado (horizontal, diagonal, reversa)
+  const walks = [
+    // Filas horizontales QWERTY
+    "qwer", "wert", "erty", "rtyu", "tyui", "yuio", "uiop",
+    "asdf", "sdfg", "dfgh", "fghj", "ghjk", "hjkl", "jklñ",
+    "zxcv", "xcvb", "cvbn", "vbnm",
+    // Reversa horizontal
+    "poiu", "oiuy", "iuyt", "uytr", "ytre", "trew", "rewq",
+    "lkjh", "kjhg", "jhgf", "hgfd", "gfds", "fdsa",
+    "mnbv", "nbvc", "bvcx", "vcxz",
+    // Diagonales QWERTY
+    "qazw", "azws", "wsxe", "sxed", "edcr", "dcrf", "rfvt", "fvtg",
+    // Teclado numérico / secuencial
+    "1234", "2345", "3456", "4567", "5678", "6789", "0987", "9876", "8765", "7654", "6543", "5432", "4321",
+  ];
+  for (const w of words) {
+    for (const walk of walks) {
+      if (w.includes(walk)) return true;
+    }
+  }
+
+  // 3. Subpatrones repetitivos dentro de palabras (ej: lalala, wewewe, jajaja, blabla, weewue, fjfjfj)
+  for (const w of words) {
+    if (/(.{2,4})\1{2,}/.test(w)) return true;
+    if (/^([a-z][a-z])\1{2,}$/.test(w)) return true;
+  }
+
+  // 4. Dígitos intercalados entre letras (ej: u9wb, bu98wb)
+  for (const w of words) {
+    if (/[a-z]\d+[a-z]/.test(w)) return true;
+  }
+
+  // 5. Más de 4 dígitos en total en el nombre completo
+  const allClean = words.join("");
+  const digits = (allClean.match(/[0-9]/g) || []).length;
+  if (digits > 4) return true;
+
+  // 6. Palabras individuales anormalmente largas sin espacios (> 15 letras)
+  for (const w of words) {
+    if (w.length > 15) return true;
+  }
+
+  // 7. Secuencia excesiva de consonantes consecutivas (>= 4 consonantes en español/inglés)
+  for (const w of words) {
+    if (/[bcdfghjklmnpqrstvwxyz]{4,}/i.test(w)) return true;
+  }
+
+  // 8. Proporción de vocales (< 25% o > 75% en palabras de más de 4 letras)
+  for (const w of words) {
+    const letters = (w.match(/[a-záéíóúüñ]/gi) || []).length;
+    const vowels = (w.match(/[aeiouáéíóúü]/gi) || []).length;
+    if (letters >= 5 && (vowels / letters < 0.25 || vowels / letters > 0.75)) return true;
+  }
+
+  // 9. Ratio de caracteres únicos extremadamente bajo por palabra (aporreo o bucle de 2-3 teclas)
+  for (const w of words) {
+    const letters = (w.match(/[a-záéíóúüñ]/gi) || []).length;
+    const uniqueChars = new Set(w.split("")).size;
+    if (letters >= 6 && uniqueChars / letters < 0.45) return true;
+    if (letters >= 7 && uniqueChars <= 3) return true;
+  }
+
+  // 10. Letras anómalas repetidas en nombres en español (ej: 'w' repetida >= 2 veces en una palabra corta)
+  for (const w of words) {
+    const wCount = (w.match(/w/g) || []).length;
+    if (wCount >= 2 && w.length <= 14) return true;
+  }
+
+  // 11. Fonotáctica: Combinaciones de consonantes iniciales imposibles en nombres occidentales
+  const invalidStarts = /^(?:fj|fv|fw|fx|fz|jr|jm|jn|jl|jk|jf|nw|wn|wk|zx|xz|bv|bz|df|dg|dh|dj|dk|dl|dm|dp|dq|dx|fb|fc|fd|fg|fh|fk|fm|fn|fp|fq|fv|fw|fx|fz|gb|gc|gd|gf|gj|gk|gp|gq|gv|gw|gx|gz|jb|jc|jd|jf|jg|jh|jj|jk|jl|jm|jn|jp|jq|jr|js|jt|jv|jw|jx|jy|jz|kb|kc|kd|kf|kg|kh|kj|kk|kp|kq|kt|kv|kx|kz|lb|lc|ld|lf|lg|lh|lj|lk|lm|ln|lp|lq|lr|ls|lt|lv|lw|lx|ly|lz|mb|mc|md|mf|mg|mh|mj|mk|ml|mm|mn|mp|mq|mr|ms|mt|mv|mw|mx|my|mz|nb|nc|nd|nf|ng|nh|nj|nk|nl|nm|nn|np|nq|nr|ns|nt|nv|nw|nx|ny|nz|pb|pc|pd|pf|pg|ph|pj|pk|pm|pn|pq|pv|pw|px|py|pz|qb|qc|qd|qf|qg|qh|qj|qk|ql|qm|qn|qp|qq|qr|qs|qt|qv|qw|qx|qy|qz|rb|rc|rd|rf|rg|rh|rj|rk|rl|rm|rn|rp|rq|rr|rs|rt|rv|rw|rx|ry|rz|tb|tc|td|tf|tg|th|tj|tk|tl|tm|tn|tp|tq|ts|tt|tv|tw|tx|ty|tz|vb|vc|vd|vf|vg|vh|vj|vk|vl|vm|vn|vp|vq|vr|vs|vt|vv|vw|vx|vy|vz|wb|wc|wd|wf|wg|wh|wj|wk|wl|wm|wn|wp|wq|wr|ws|wt|wv|ww|wx|wy|wz|xb|xc|xd|xf|xg|xh|xj|xk|xl|xm|xn|xp|xq|xr|xs|xt|xv|xw|xx|xy|xz|zb|zc|zd|zf|zg|zh|zj|zk|zl|zm|zn|zp|zq|zr|zs|zt|zv|zw|zx|zy|zz)/i;
+  for (const w of words) {
+    if (invalidStarts.test(w)) return true;
+  }
+
+  return false;
+}
+
 export function validateTelegramOperatorName(candidate: string): { valid: boolean; error?: string; cleanName?: string; normalized?: string } {
   const clean = extractNameCandidate(candidate);
   const normalized = clean
@@ -178,6 +270,13 @@ export function validateTelegramOperatorName(candidate: string): { valid: boolea
   if (!/[aeiouáéíóúü]/i.test(clean)) {
     return { valid: false, error: "El texto no parece ser un nombre de persona valido.", normalized };
   }
+  if (isGibberish(clean)) {
+    return {
+      valid: false,
+      error: "El texto parece una secuencia aleatoria de teclado o texto ficticio. Ingresa un nombre real (ej: Andres Perez o Carlos Mendez).",
+      normalized,
+    };
+  }
   return { valid: true, cleanName: clean, normalized };
 }
 
@@ -207,6 +306,12 @@ export function validateTelegramCompanyName(candidate: string): { valid: boolean
   if (/[<>;{}[\]\\`~$%^*+=?|!_]/.test(clean)) {
     return { valid: false, error: "No se permiten caracteres especiales peligrosos (<, >, ;, {, }, $, etc.)." };
   }
+  if (isGibberish(clean)) {
+    return {
+      valid: false,
+      error: "El nombre parece una secuencia aleatoria de teclado o texto ficticio. Ingresa un nombre comercial verosimil (ej: Distribuidora El Roble).",
+    };
+  }
   return { valid: true, cleanName: clean };
 }
 
@@ -224,8 +329,9 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
   let token = options.botToken || process.env.TELEGRAM_BOT_TOKEN;
   let defaultCompanyId = options.companyId || "comp_default";
 
-  // Si no se proporcionó token explícito, buscarlo en los canales registrados en PostgreSQL
-  if (!token) {
+  // Si no se proporcionó token explícito o era simulado, buscarlo en los canales registrados en PostgreSQL
+  if (!token || token.startsWith("simulated_")) {
+    token = undefined;
     try {
       const channels = await db
         .select()
@@ -233,7 +339,7 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
         .where(eq(notificationChannels.type, "telegram"));
       for (const ch of channels) {
         const cfg = (ch.config as any) || {};
-        if (cfg.botToken) {
+        if (cfg.botToken && !cfg.botToken.startsWith("simulated_")) {
           token = cfg.botToken;
           defaultCompanyId = ch.companyId || defaultCompanyId;
           break;
@@ -242,9 +348,16 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
     } catch {}
   }
 
-  if (!token) {
+  if (!token || token.startsWith("simulated_")) {
+    console.error(`\n[ERROR TELEGRAM] No se encontro ningun Bot Token real de Telegram configurado.`);
+    console.error(`  1. Para crear tu bot, abre Telegram, contacta a @BotFather y envia /newbot.`);
+    console.error(`  2. Copia el token proporcionado por BotFather (ej: 123456789:ABCdef...).`);
+    console.error(`  3. Agregalo en tu archivo .env:`);
+    console.error(`     TELEGRAM_BOT_TOKEN=tu_token_aqui`);
+    console.error(`     O pasalo directamente por CLI:`);
+    console.error(`     npm run mint -- telegram --token <TU_BOT_TOKEN>\n`);
     throw new Error(
-      "No se encontro ningun Bot Token de Telegram configurado en PostgreSQL ni en TELEGRAM_BOT_TOKEN.",
+      "No se encontro ningun Bot Token de Telegram valido en PostgreSQL ni en TELEGRAM_BOT_TOKEN.",
     );
   }
 
@@ -252,18 +365,37 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
   let botUsername = "mint_bot";
   try {
     const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
-    if (meRes.ok) {
-      const meData = (await meRes.json()) as any;
-      if (meData.ok && meData.result?.username) {
-        botUsername = meData.result.username;
-      }
+    if (!meRes.ok) {
+      const errorJson = (await meRes.json().catch(() => ({}))) as any;
+      const desc = errorJson.description || `HTTP ${meRes.status}`;
+      console.error(`\n[ERROR TELEGRAM] La API de Telegram rechazo el token: ${desc}`);
+      throw new Error(`Token de Telegram invalido (${desc})`);
     }
-  } catch {}
+    const meData = (await meRes.json()) as any;
+    if (meData.ok && meData.result?.username) {
+      botUsername = meData.result.username;
+    }
+  } catch (err: any) {
+    if (err.message.includes("Token de Telegram invalido")) {
+      throw err;
+    }
+    console.error(`[ERROR TELEGRAM] Fallo de conexion con Telegram:`, err.message);
+    throw err;
+  }
 
   console.log(`\n======================================================`);
   console.log(`  MINT TELEGRAM ASISTENTE AUTONOMO EN VIVO`);
   console.log(`  Bot: @${botUsername}`);
   console.log(`  Politica: Cero Emojis | Anti-Spam Rate-Limiting Activo`);
+
+  const allowedUserIdsRaw = process.env.TELEGRAM_ALLOWED_USER_IDS || "";
+  const allowedUserIds = allowedUserIdsRaw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (allowedUserIds.length > 0) {
+    console.log(`  Seguridad: Restringido a ${allowedUserIds.length} usuario(s) permitidos (${allowedUserIds.join(", ")})`);
+  }
   console.log(`  (Presiona Ctrl + C en esta terminal para detener el bot)`);
   console.log(`======================================================\n`);
 
@@ -308,6 +440,13 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
         `https://api.telegram.org/bot${token}/getUpdates?offset=${offset}&timeout=20`,
       );
       if (!res.ok) {
+        const errorJson = (await res.json().catch(() => ({}))) as any;
+        const desc = errorJson.description || `HTTP ${res.status}`;
+        console.error(`[TELEGRAM ERROR] Error en getUpdates: ${desc}`);
+        if (res.status === 401 || res.status === 404) {
+          console.error(`[TELEGRAM CRITICA] Token revocado o invalido. Deteniendo listener.`);
+          break;
+        }
         await new Promise((r) => setTimeout(r, 2000));
         continue;
       }
@@ -328,6 +467,18 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
           const cb = update.callback_query;
           const cbData = String(cb.data || "");
           const chatId = cb.message?.chat?.id;
+          const fromId = String(cb.from?.id || "");
+
+          if (allowedUserIds.length > 0 && !allowedUserIds.includes(fromId) && !allowedUserIds.includes(String(chatId))) {
+            try {
+              await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ callback_query_id: cb.id, text: "Usuario no autorizado." }),
+              });
+            } catch {}
+            continue;
+          }
 
           try {
             await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
@@ -492,8 +643,18 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
         if (update.message?.text) {
           const msg = update.message;
           const chatId = msg.chat.id;
+          const fromId = String(msg.from?.id || "");
           const rawText = msg.text.trim();
           const senderName = msg.from?.first_name || "Operador";
+
+          if (allowedUserIds.length > 0 && !allowedUserIds.includes(fromId) && !allowedUserIds.includes(String(chatId))) {
+            console.log(`[TELEGRAM SEGURIDAD] Mensaje rechazado de usuario no autorizado: ${senderName} (${fromId})`);
+            await sendTelegramMessage(
+              chatId,
+              `[SEGURIDAD] Tu ID de Telegram (${fromId}) no esta autorizado para operar este bot de MINT.`,
+            );
+            continue;
+          }
 
           // 2.1 Bloqueo Anti-Spam / Rate-Limiting por usuario (mínimo 1.2 segundos entre mensajes)
           const now = Date.now();
@@ -632,6 +793,45 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
                 continue;
               }
               const resolvedName = check.cleanName;
+
+              // Verificación Cognitiva de Verosimilitud con Grok (xAI) para descartar aporreo sutil o combinaciones impronunciables
+              let isLikelyHumanName = true;
+              try {
+                console.log(`[GROK AUDIT] Evaluando verosimilitud de nombre: "${resolvedName}"`);
+                const grokCheck = await grokClient.chatCompletion({
+                  messages: [
+                    {
+                      role: "system",
+                      content:
+                        "Eres un clasificador estricto de nombres propios para un sistema empresarial. Responde UNICAMENTE un JSON: {\"valid\": boolean, \"reason\": string}. " +
+                        "Determina si el texto es un nombre de persona verosimil y creible (en cualquier idioma: espanol, ingles, etc., ej: 'Carlos', 'Andres Perez', 'John Doe'). " +
+                        "Debes retornar valid=false si el texto es: aporreo de teclado aleatorio (ej: 'fjritm', 'kropli', 'weewuewew', 'nwfonw'), palabras comunes de objetos, acronimos, o combinaciones impronunciables.",
+                    },
+                    {
+                      role: "user",
+                      content: `Texto a evaluar: "${resolvedName}"`,
+                    },
+                  ],
+                  maxTokens: 60,
+                  temperature: 0,
+                });
+                const cleanContent = (grokCheck.content || "").trim().replace(/^```(?:json)?|```$/g, "").trim();
+                const parsed = JSON.parse(cleanContent);
+                if (parsed && typeof parsed.valid === "boolean") {
+                  isLikelyHumanName = parsed.valid;
+                }
+              } catch (grokErr: any) {
+                console.log(`[GROK VERIFY ERROR]`, grokErr.message);
+              }
+
+              if (!isLikelyHumanName) {
+                await sendTelegramMessage(
+                  chatId,
+                  `[ERROR] Nombre invalido: '${resolvedName}' no parece ser un nombre propio de persona.\nPor favor ingresa tu nombre real (ej: Andres Perez o Carlos Mendez):`,
+                );
+                continue;
+              }
+
               state.userName = resolvedName;
               state.step = "ASK_COMPANY";
               activeStates.set(chatId, state);
@@ -656,6 +856,45 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
                 continue;
               }
               const resolvedCompany = check.cleanName;
+
+              // Verificación Cognitiva de Verosimilitud de Empresa con Grok (xAI)
+              let isLikelyCompany = true;
+              try {
+                console.log(`[GROK AUDIT] Evaluando verosimilitud de empresa: "${resolvedCompany}"`);
+                const grokCheck = await grokClient.chatCompletion({
+                  messages: [
+                    {
+                      role: "system",
+                      content:
+                        "Eres un clasificador de nombres comerciales para un sistema empresarial. Responde UNICAMENTE un JSON: {\"valid\": boolean, \"reason\": string}. " +
+                        "Determina si el texto es un nombre de empresa, tienda o marca verosimil (ej: 'Distribuidora El Roble', 'Apple', 'Zapateria Gomez', 'Mi Tienda Online'). " +
+                        "Debes retornar valid=false si el texto es: aporreo de teclado aleatorio (ej: 'fjritm', 'asdfgh', 'qweqw'), insultos o combinaciones incoherentes.",
+                    },
+                    {
+                      role: "user",
+                      content: `Texto a evaluar: "${resolvedCompany}"`,
+                    },
+                  ],
+                  maxTokens: 60,
+                  temperature: 0,
+                });
+                const cleanContent = (grokCheck.content || "").trim().replace(/^```(?:json)?|```$/g, "").trim();
+                const parsed = JSON.parse(cleanContent);
+                if (parsed && typeof parsed.valid === "boolean") {
+                  isLikelyCompany = parsed.valid;
+                }
+              } catch (grokErr: any) {
+                console.log(`[GROK VERIFY ERROR]`, grokErr.message);
+              }
+
+              if (!isLikelyCompany) {
+                await sendTelegramMessage(
+                  chatId,
+                  `[ERROR] Nombre de empresa invalido: '${resolvedCompany}' no parece una empresa o marca real.\nPor favor ingresa el nombre de tu empresa (ej: Distribuidora El Roble):`,
+                );
+                continue;
+              }
+
               state.companyName = resolvedCompany;
               state.step = "ASK_CURRENCY";
               activeStates.set(chatId, state);
