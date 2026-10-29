@@ -371,9 +371,9 @@ async function executeProcessIncomingSale(
   } catch {}
 
   const replenishmentText = replenishmentDecision
-    ? `\n[AGENTE] *ACCIÓN AUTÓNOMA DE REABASTECIMIENTO:*` +
-      `\n   • Estado: ${replenishmentDecision.policyDecision === "auto_executed" ? "[OK] Orden emitida automáticamente" : "[PENDIENTE] Escalado a bandeja HITL para firma"}` +
-      `\n   • Costo reposición: $${replenishmentDecision.costMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}` +
+    ? `\n[AGENTE] *PROPUESTA FORMAL DE REABASTECIMIENTO:*` +
+      `\n   • Estado: [PROPUESTA] Enviada a bandeja HITL y canales para aprobacion` +
+      `\n   • Costo reposición estimado: $${replenishmentDecision.costMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}` +
       `\n   • Detalle: ${replenishmentDecision.reason}`
     : `\n[PAQUETE] *Estado de existencias:* Seguro (> ${minStock} u).`;
 

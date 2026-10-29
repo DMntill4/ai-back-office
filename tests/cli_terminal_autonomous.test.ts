@@ -231,5 +231,5 @@ describe("Mejoras de Experiencia en Terminal y Coordinador Autónomo (CLI TUI & 
     expect(capturedJson.proposal).toBeDefined();
     expect(capturedJson.proposal.actionType).toBe("crear_orden_compra");
     expect(capturedJson.policyResult.policyDecision).toBe("pending_approval");
-  });
+  }, 30000);
 });

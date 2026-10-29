@@ -112,6 +112,29 @@ export async function executeAjustarStock(
       }
     }
 
+    // 4. Despachar log del movimiento a los canales configurados (Discord, Slack, Webhook, Telegram)
+    try {
+      const notifiersMod: any = await import("@mint/notifiers");
+      if (typeof notifiersMod.dispatchStockLogNotification === "function") {
+        await notifiersMod.dispatchStockLogNotification({
+          companyId: effectiveCompanyId,
+          type: isCritical ? "STOCK_CRITICAL" : "STOCK_UPDATE",
+          title: isCritical
+            ? `Desabasto Critico: ${product.name}`
+            : `Ajuste de Stock: ${product.name}`,
+          description: `Stock de '${product.name}' (SKU: ${product.sku}) cambio de ${previousStock} u a ${newStock} u (Delta: ${args.cantidad_delta > 0 ? "+" : ""}${args.cantidad_delta} u). Motivo: ${args.motivo || "Ajuste directo"}.${isCritical ? ` Minimo requerido: ${product.minStock} u.` : ""}`,
+          productId: product.id,
+          productName: product.name,
+          sku: product.sku,
+          quantityDelta: args.cantidad_delta,
+          previousStock,
+          newStock,
+          minStock: product.minStock,
+          severity: isCritical ? "CRITICAL" : "INFO",
+        });
+      }
+    } catch {}
+
     return {
       isSuccess: true,
       verified: true,

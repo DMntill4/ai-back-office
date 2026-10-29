@@ -6,6 +6,7 @@ export * from "./adapters/telegramAdapter";
 export * from "./adapters/slackAdapter";
 export * from "./adapters/gmailAdapter";
 export * from "./adapters/discordAdapter";
+export * from "./adapters/webhookAdapter";
 export * from "./salesChannelListener";
 export * from "./outboxQueueService";
 export * from "./telegramListener";

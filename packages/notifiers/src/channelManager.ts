@@ -15,14 +15,16 @@ import { TelegramAdapter } from "./adapters/telegramAdapter";
 import { SlackAdapter } from "./adapters/slackAdapter";
 import { GmailAdapter } from "./adapters/gmailAdapter";
 import { DiscordAdapter } from "./adapters/discordAdapter";
+import { WebhookAdapter } from "./adapters/webhookAdapter";
 import { generateApprovalToken } from "./tokenService";
-import { type ChannelType, type NotifierAdapter, type NotificationPayload, type SendResult } from "./types";
+import { type ChannelType, type NotifierAdapter, type NotificationPayload, type SendResult, type NotificationSeverity } from "./types";
 
 const adapters: Record<ChannelType, NotifierAdapter> = {
   telegram: new TelegramAdapter(),
   slack: new SlackAdapter(),
   gmail: new GmailAdapter(),
   discord: new DiscordAdapter(),
+  webhook: new WebhookAdapter(),
 };
 
 export async function addNotificationChannel(params: {
@@ -94,6 +96,19 @@ async function resolveActiveChannels(companyId: string) {
         type: "telegram",
         name: "Telegram Bot (ENV)",
         config: { botToken: process.env.TELEGRAM_BOT_TOKEN, chatId: process.env.TELEGRAM_CHAT_ID },
+        isActive: true,
+        quietHoursStart: null,
+        quietHoursEnd: null,
+        createdAt: new Date(),
+      });
+    }
+    if (process.env.GENERIC_WEBHOOK_URL || process.env.WEBHOOK_URL) {
+      envChannels.push({
+        id: "chan_webhook_env",
+        companyId,
+        type: "webhook",
+        name: "Webhook Externo (ENV)",
+        config: { webhookUrl: process.env.GENERIC_WEBHOOK_URL || process.env.WEBHOOK_URL },
         isActive: true,
         quietHoursStart: null,
         quietHoursEnd: null,
@@ -462,3 +477,106 @@ export async function testNotificationChannel(
 
   return adapter.send(dummyPayload, config);
 }
+
+/**
+ * Despacha eventos de movimiento de stock, ventas, discrepancias o alertas criticas
+ * a los canales de logs y notificaciones configurados en la empresa (incluyendo Webhooks).
+ */
+export async function dispatchStockLogNotification(params: {
+  companyId: string;
+  type: "STOCK_UPDATE" | "STOCK_CRITICAL" | "DISCREPANCY" | "RAPID_MOVEMENT" | "SALE";
+  title: string;
+  description: string;
+  productId?: string;
+  productName?: string;
+  sku?: string;
+  quantityDelta?: number;
+  previousStock?: number;
+  newStock?: number;
+  minStock?: number;
+  metadata?: Record<string, any>;
+  severity?: NotificationSeverity;
+}): Promise<SendResult[]> {
+  const { companyId, type, title, description, metadata, severity = "INFO" } = params;
+
+  try {
+    await db.insert(operationalEvents).values({
+      id: `opev_${randomUUID().slice(0, 8)}`,
+      companyId,
+      eventType: type,
+      severity,
+      status: "PENDING",
+      title: `[${type}] ${title}`,
+      description,
+      payload: { ...params, timestamp: new Date().toISOString() },
+    });
+  } catch {}
+
+  const channels = await resolveActiveChannels(companyId);
+  const results: SendResult[] = [];
+
+  const payload: NotificationPayload = {
+    companyId,
+    decisionId: `log_${Date.now()}`,
+    kind: "GENERAL_ALERT",
+    title: `[${type}] ${title}`,
+    description,
+    costMxn: 0,
+    proposingAgent: "inventory_monitor",
+    severity,
+    evidenceSummary: description,
+    metadata: {
+      type,
+      productId: params.productId,
+      productName: params.productName,
+      sku: params.sku,
+      quantityDelta: params.quantityDelta,
+      previousStock: params.previousStock,
+      newStock: params.newStock,
+      minStock: params.minStock,
+      ...(metadata || {}),
+    },
+  };
+
+  for (const channel of channels) {
+    if (!channel.isActive) continue;
+
+    const cfg = (channel.config as Record<string, any>) || {};
+    const topics: string[] = Array.isArray(cfg.topics) ? cfg.topics : ["todos"];
+    const matchesTopic =
+      topics.includes("todos") ||
+      topics.includes("stock") ||
+      topics.includes("logs") ||
+      (severity === "CRITICAL" && topics.includes("critical"));
+
+    if (!matchesTopic) continue;
+
+    const adapter = adapters[channel.type as ChannelType];
+    if (!adapter) continue;
+
+    try {
+      const sendRes = await adapter.send(payload, cfg);
+      results.push(sendRes);
+
+      await db.insert(notificationLog).values({
+        id: `nlog_${randomUUID().slice(0, 8)}`,
+        companyId,
+        channelId: channel.id.startsWith("chan_") && !channel.id.endsWith("_env") ? channel.id : null,
+        decisionId: payload.decisionId,
+        severity,
+        status: sendRes.success ? "SENT" : "FAILED",
+        messageId: sendRes.messageId,
+        payload: { kind: "GENERAL_ALERT", type, sendResult: sendRes },
+      });
+    } catch (err: any) {
+      results.push({
+        success: false,
+        channelType: channel.type as ChannelType,
+        error: err.message,
+      });
+    }
+  }
+
+  return results;
+}
+

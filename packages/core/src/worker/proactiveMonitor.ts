@@ -20,6 +20,24 @@ class ProactiveMonitorEmitter extends NodeEventEmitter {}
 
 export const alertDispatcher = new ProactiveMonitorEmitter();
 
+// Reenvio automatico de alertas proactivas a los canales reales configurados
+alertDispatcher.on("proactive_alert", async (alert: ProactiveAlert) => {
+  try {
+    const notifiersMod: any = await import("@mint/notifiers");
+    if (typeof notifiersMod.dispatchStockLogNotification === "function") {
+      const companyId = alert.metadata?.companyId || "comp_default";
+      await notifiersMod.dispatchStockLogNotification({
+        companyId,
+        type: alert.type === "STOCK_CRITICO" ? "STOCK_CRITICAL" : "DISCREPANCY",
+        title: alert.title,
+        description: alert.message,
+        metadata: alert.metadata,
+        severity: alert.severity === "CRITICAL" ? "CRITICAL" : alert.severity === "HIGH" ? "WARNING" : "INFO",
+      });
+    }
+  } catch {}
+});
+
 const alertsMemoryStore: ProactiveAlert[] = [];
 
 /**

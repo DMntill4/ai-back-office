@@ -1,5 +1,5 @@
 export type NotificationSeverity = "INFO" | "WARNING" | "CRITICAL";
-export type ChannelType = "telegram" | "slack" | "gmail" | "discord";
+export type ChannelType = "telegram" | "slack" | "gmail" | "discord" | "webhook";
 export type NotificationKind = "DECISION_APPROVAL" | "PAYMENT_DISPERSION" | "GENERAL_ALERT";
 
 export interface NotificationPayload {
@@ -15,6 +15,7 @@ export interface NotificationPayload {
   rejectToken?: string;
   currency?: string;
   kind?: NotificationKind;
+  metadata?: Record<string, any>;
   paymentDetails?: {
     orderId: string;
     trackingNumber?: string;

@@ -27,6 +27,7 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
             `Para recibir avisos de desabasto, alertas críticas y decisiones HITL en tiempo real,`,
             `vincula tu webhook de Discord o Slack con los siguientes comandos:`,
             ``,
+            `  ${theme.mintBold("/channels add webhook <url>")}     Vincular webhook HTTP generico`,
             `  ${theme.mintBold("/channels add discord <url>")}     Vincular webhook de Discord`,
             `  ${theme.cyanBold("/channels add slack <url>")}       Vincular webhook de Slack`,
             `  ${theme.violet("/channels add telegram <t> <id>")} Vincular bot de Telegram`,
@@ -51,7 +52,9 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
             ? theme.cyanBold("[SLACK]")
             : ch.type === "telegram"
               ? theme.violet("[TELEGRAM]")
-              : theme.amberBold("[GMAIL]");
+              : ch.type === "webhook"
+                ? theme.mintBold("[WEBHOOK]")
+                : theme.amberBold("[GMAIL]");
 
       const statusBadge = ch.isActive ? theme.badge("ACTIVO", "mint") : theme.badge("PAUSADO", "gray");
       const cfg = (ch.config as any) || {};
@@ -85,7 +88,7 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
       }),
     );
     console.log(`  ${theme.dim("Para enviar un mensaje de prueba:")} ${theme.mintBold("/channels test <id|tipo>")}`);
-    console.log(`  ${theme.dim("Para agregar un nuevo canal:")}      ${theme.mintBold("/channels add <discord|slack|telegram> <url>")}\n`);
+    console.log(`  ${theme.dim("Para agregar un nuevo canal:")}      ${theme.mintBold("/channels add <webhook|discord|slack|telegram> <url>")}\n`);
     return;
   }
 
@@ -93,8 +96,8 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
     const rawType = (arg1 || "").toLowerCase();
     const targetUrl = arg2;
 
-    if (!rawType || !["discord", "slack", "telegram", "gmail"].includes(rawType)) {
-      console.log(theme.amber("Debes especificar la plataforma. Ej: /channels add discord <webhook_url>"));
+    if (!rawType || !["discord", "slack", "telegram", "gmail", "webhook"].includes(rawType)) {
+      console.log(theme.amber("Debes especificar la plataforma. Ej: /channels add webhook <url> o /channels add discord <url>"));
       return;
     }
 
@@ -110,9 +113,9 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
       topics: customTopics && customTopics.length > 0 ? customTopics : defaultTopics,
     };
 
-    if (type === "discord" || type === "slack") {
+    if (type === "discord" || type === "slack" || type === "webhook") {
       if (!targetUrl.startsWith("http")) {
-        console.log(theme.redBold("[ERROR] La URL del webhook debe iniciar con https://..."));
+        console.log(theme.redBold("[ERROR] La URL del webhook debe iniciar con https:// o http://"));
         return;
       }
       config.webhookUrl = targetUrl;

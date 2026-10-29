@@ -276,72 +276,16 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
       .onConflictDoNothing();
   }
 
-  // 1. Compra autónoma bajo umbral
-  if (maxAllowedAmount !== null && totalAmount <= maxAllowedAmount) {
-    const orderId = `po_${randomUUID().slice(0, 8)}`;
-    const [order] = await db
-      .insert(purchaseOrders)
-      .values({
-        id: orderId,
-        companyId: effectiveCompanyId,
-        caseId: input.caseId,
-        productId: input.productId,
-        supplierId: input.supplierId,
-        quantity: input.quantity,
-        unitPrice: unitPrice.toFixed(2),
-        totalAmount: totalAmount.toFixed(2),
-        idempotencyKey: input.idempotencyKey,
-        status: "abierta",
-      })
-      .returning();
-
-    // Crear guía de entrada automática (Inbound Shipment)
-    const trackingNumber = `TRK-IN-${randomUUID().slice(0, 6).toUpperCase()}`;
-    try {
-      const [suppRows, whRows] = await Promise.all([
-        db.select().from(suppliers).where(eq(suppliers.id, input.supplierId)).limit(1),
-        db.select().from(warehouses).where(eq(warehouses.companyId, effectiveCompanyId)).limit(1),
-      ]);
-      const originLabel = suppRows[0]?.city || suppRows[0]?.streetAddress || suppRows[0]?.name || "Planta Proveedor";
-      const destLabel = whRows[0]?.city || whRows[0]?.location || whRows[0]?.name || "Almacén Central";
-      const leadDays = supplierProduct[0]?.leadTimeDays || 3;
-
-      await db.insert(shipments).values({
-        id: `ship_${randomUUID().slice(0, 8)}`,
-        companyId: effectiveCompanyId,
-        trackingNumber,
-        purchaseOrderId: orderId,
-        carrier: "Mint Inbound Freight",
-        originLocation: originLabel,
-        destinationLocation: destLabel,
-        status: "en_transito",
-        estimatedDelivery: new Date(Date.now() + leadDays * 24 * 3600 * 1000),
-      });
-    } catch {
-      // Continuar si la creación de shipment falla en mocks
-    }
-
-    return {
-      success: true,
-      requiresApproval: false,
-      verified: true,
-      order,
-      trackingNumber,
-      totalAmount,
-      threshold: maxAllowedAmount,
-      message: `Orden de compra emitida autónomamente por $${totalAmount.toFixed(2)} ${currency} (dentro del umbral de $${maxAllowedAmount.toFixed(2)} ${currency}). Guía de embarque generada: ${trackingNumber}.`,
-    };
-  }
-
-  // 2. Requiere Aprobación Humana (HITL) por superar umbral
-  const limitText =
-    maxAllowedAmount === null
-      ? "No hay limite de aprobacion configurado; se requiere aprobacion humana."
-      : `Excede limite autonomo de $${maxAllowedAmount.toFixed(2)} ${currency}.`;
+  // 1. Toda orden de compra es una propuesta formal que requiere aprobación humana (HITL)
+  // MINT no tiene tarjetas de crédito, efectivo ni autoridad de pago autónoma sin supervisión.
   const approvalId = `appr_${randomUUID().slice(0, 8)}`;
   const decisionId = approvalId.replace("appr_", "dec_");
 
-  // Inserción en decisions para consumo universal desde mint inbox y daemon
+  let productName = input.productId;
+  let productSku: string | undefined;
+  let supplierName = input.supplierId;
+  let leadDays = supplierProduct[0]?.leadTimeDays || 3;
+
   try {
     const [targetProd, suppRow] = await Promise.all([
       db
@@ -356,6 +300,15 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
         .limit(1),
     ]);
 
+    if (targetProd[0]?.name) productName = targetProd[0].name;
+    if (targetProd[0]?.sku) productSku = targetProd[0].sku;
+    if (suppRow[0]?.name) supplierName = suppRow[0].name;
+  } catch {}
+
+  const justification = `Proveedor '${supplierName}' recomendado por mejor precio ($${unitPrice.toFixed(2)} ${currency}/u) y plazo de entrega de ${leadDays} días. Requiere aprobación humana por ser un compromiso financiero vinculante.`;
+
+  // Inserción en decisions para consumo universal desde mint inbox y daemon
+  try {
     await db
       .insert(decisions)
       .values({
@@ -364,51 +317,61 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
         caseId: input.caseId,
         actionType: "crear_orden_compra",
         proposingAgent: "compras_agent",
-        title: `Reposición de ${input.quantity}u de ${targetProd[0]?.name || input.productId} a ${suppRow[0]?.name || input.supplierId}`,
+        title: `Propuesta de Compra: ${input.quantity}u de ${productName} a ${supplierName}`,
         costMxn: totalAmount.toFixed(2),
-        riskScore: "0.100",
+        riskScore: "0.050",
         reversible: false,
         evidencePayload: {
           productId: input.productId,
-          productName: targetProd[0]?.name || input.productId,
-          sku: targetProd[0]?.sku,
+          productName,
+          sku: productSku,
           supplierId: input.supplierId,
-          supplierName: suppRow[0]?.name || input.supplierId,
+          supplierName,
           quantity: input.quantity,
           unitPrice: unitPrice.toFixed(2),
           totalAmount: totalAmount.toFixed(2),
+          leadTimeDays: leadDays,
+          justification,
           idempotencyKey: input.idempotencyKey,
           currency,
           approvalId,
           caseId: input.caseId,
         },
         riskPayload: {
-          riskScore: 0.1,
+          riskScore: 0.05,
           redFlags: [],
           supplierVerified: true,
         },
         policyDecision: "pending_approval",
-        policyReason: limitText,
+        policyReason: justification,
         expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
         createdAt: new Date(),
         updatedAt: new Date(),
       })
       .onConflictDoNothing();
-  } catch {
-    // Si la tabla decisions no estuviera disponible en mock de prueba
-  }
+  } catch {}
 
   // Inserción en approvals para compatibilidad con código legado
-  await db.insert(approvals).values({
-    id: approvalId,
-    companyId: effectiveCompanyId,
-    caseId: input.caseId,
-    actionType: "crear_orden_compra",
-    amount: totalAmount.toFixed(2),
-    currency,
-    reason: `Solicitud de compra generada por el agente para ${input.quantity} unidades de ${input.productId} al proveedor ${input.supplierId}. Total: $${totalAmount.toFixed(2)} ${currency}. ${limitText}`,
-    status: "pendiente",
-  });
+  try {
+    await db.insert(approvals).values({
+      id: approvalId,
+      companyId: effectiveCompanyId,
+      caseId: input.caseId,
+      actionType: "crear_orden_compra",
+      amount: totalAmount.toFixed(2),
+      currency,
+      reason: `Propuesta de orden de compra generada por MINT para ${input.quantity} unidades de ${productName} a ${supplierName}. Total: $${totalAmount.toFixed(2)} ${currency}. ${justification}`,
+      status: "pendiente",
+    });
+  } catch {}
+
+  // Despachar notificación a los canales configurados (Discord, Slack, Webhook, Telegram)
+  try {
+    const notifiersMod: any = await import("@mint/notifiers");
+    if (typeof notifiersMod.dispatchDecisionNotification === "function") {
+      await notifiersMod.dispatchDecisionNotification(decisionId, effectiveCompanyId);
+    }
+  } catch {}
 
   return {
     success: true,
@@ -418,7 +381,13 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
     decisionId,
     totalAmount,
     threshold: maxAllowedAmount,
-    message: `El agente ha generado la solicitud de compra (${decisionId}) por $${totalAmount.toFixed(2)} ${currency}. ${limitText} Pendiente de aprobación humana en /inbox.`,
+    supplier: {
+      id: input.supplierId,
+      name: supplierName,
+      unitPrice,
+      leadTimeDays: leadDays,
+    },
+    message: `Propuesta de compra formal generada (${decisionId}) para ${input.quantity}u de ${productName} a ${supplierName} por $${totalAmount.toFixed(2)} ${currency}. MINT no ejecuta compras directas. Pendiente de aprobación humana en bandeja HITL (/inbox) y enviada a los canales configurados.`,
   };
 }
 

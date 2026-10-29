@@ -83,8 +83,8 @@ describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umb
     expect(["saludable", "precaucion", "urgente_reabastecer"]).toContain(result.data!.status);
   });
 
-  it("crear_orden_compra debe emitir orden autónoma cuando el monto total está bajo el umbral de la empresa", async () => {
-    // 2 unidades a $450 MXN = $900 MXN (Menor al umbral por defecto de $10,000 MXN)
+  it("crear_orden_compra debe generar propuesta formal que requiere aprobación humana (HITL)", async () => {
+    // 2 unidades a $450 MXN = $900 MXN
     const result = await executeCrearOrdenCompra({
       case_id: `case_auto_${Date.now()}`,
       producto_id: "prod_st200",
@@ -94,14 +94,14 @@ describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umb
     });
 
     expect(result.isSuccess).toBe(true);
-    expect(result.requiresApproval).toBe(false);
-    expect(result.verified).toBe(true);
-    expect(result.message).toContain("Orden de compra emitida autónomamente");
-    expect(result.data).toBeDefined();
+    expect(result.requiresApproval).toBe(true);
+    expect(result.verified).toBe(false);
+    expect(result.decisionId).toBeDefined();
+    expect(result.message).toContain("Propuesta de compra formal generada");
   });
 
-  it("crear_orden_compra debe requerir aprobación humana (HITL) cuando el monto excede el umbral", async () => {
-    // 30 unidades a $450 MXN = $13,500 MXN (Supera el umbral por defecto de $10,000 MXN)
+  it("crear_orden_compra debe registrar propuesta en decisions para aprobación humana", async () => {
+    // 30 unidades a $450 MXN = $13,500 MXN
     const result = await executeCrearOrdenCompra({
       case_id: `case_hitl_${Date.now()}`,
       producto_id: "prod_st200",
@@ -113,10 +113,11 @@ describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umb
     expect(result.isSuccess).toBe(true);
     expect(result.requiresApproval).toBe(true);
     expect(result.verified).toBe(false);
-    expect(result.message).toContain("Pendiente de aprobación humana");
+    expect(result.decisionId).toBeDefined();
+    expect(result.message).toContain("Propuesta de compra formal generada");
   });
 
-  it("debe respetar el umbral autónomo personalizado por empresa", async () => {
+  it("createPurchaseOrder debe incluir justificación de proveedor y quedar pendiente de firma", async () => {
     const reg = await registerUser({
       name: "Ana Valdés",
       email: `ana_${Date.now()}@macro-tier.com`,
@@ -126,7 +127,6 @@ describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umb
 
     const companyId = reg.user!.companyId;
 
-    // Subir umbral a $50,000 MXN
     await saveBotSetupConfig({
       companyId,
       botName: "Mint VIP",
@@ -135,8 +135,6 @@ describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umb
       currency: "MXN",
     });
 
-    // Compra de 50 unidades a $450 = $22,500 MXN
-    // En comp_default requeriría aprobación, pero con $50,000 se aprueba autónomamente
     const { createPurchaseOrder } = await import("../src/services/inventoryService");
     const result = await createPurchaseOrder({
       caseId: `case_vip_${Date.now()}`,
@@ -148,9 +146,11 @@ describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umb
     });
 
     expect(result.success).toBe(true);
-    expect(result.requiresApproval).toBe(false);
-    expect(result.verified).toBe(true);
-    expect(result.message).toContain("Orden de compra emitida autónomamente");
+    expect(result.requiresApproval).toBe(true);
+    expect(result.decisionId).toBeDefined();
+    expect(result.supplier).toBeDefined();
+    expect(result.supplier?.id).toBe("prov_acme");
+    expect(result.message).toContain("Propuesta de compra formal generada");
   });
 
   it("consultar_envios debe rastrear órdenes y guías con transportista y fecha estimada de entrega", async () => {

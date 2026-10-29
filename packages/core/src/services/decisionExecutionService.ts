@@ -249,12 +249,12 @@ export async function executeAndVerifyDecision(
           companyId: dec.companyId,
           trackingNumber,
           purchaseOrderId: orderId,
-          carrier: "Mint Inbound Freight",
+          carrier: supp?.name ? `Logistica de ${supp.name}` : "Transporte por coordinar con proveedor",
           originLocation: originLabel,
           destinationLocation: destLabel,
-          status: "en_transito",
+          status: "en_preparacion",
           estimatedDelivery: eta,
-          notes: `Orden ${orderId} - Proveedor: ${supp?.name || supplierName}`,
+          notes: `Orden ${orderId} autorizada - En espera de preparacion y despacho por proveedor: ${supp?.name || supplierName}`,
         });
       } catch {
         // Guía secundaria opcional
