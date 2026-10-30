@@ -53,10 +53,11 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-pill text-caption font-medium border ${config.textClass} ${config.bgClass} ${config.borderClass} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-pill text-caption font-medium border whitespace-nowrap shrink-0 ${config.textClass} ${config.bgClass} ${config.borderClass} ${className}`}
     >
       <span className="font-bold text-caption select-none">{config.symbol}</span>
       <span>{label}</span>
     </span>
   );
 };
+

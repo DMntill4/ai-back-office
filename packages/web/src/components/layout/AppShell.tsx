@@ -211,7 +211,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Rol del usuario siempre visible */}
-          <span className="hidden xl:inline text-caption text-secondary font-medium">
+          <span className="hidden 2xl:inline text-caption text-secondary font-medium whitespace-nowrap">
             · Operador de Suministro
           </span>
         </div>

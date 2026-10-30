@@ -21,8 +21,8 @@ const BANNED_TECHNICAL_WORDS = [
   "\\bQUIEBRE_INMINENTE_84H\\b",
 ];
 
-// Archivos de la Fase 0 (Cimientos, Shell y Componentes Base)
-const PHASE_0_FILES = [
+// Archivos de la Fase 0 y Fase 1 (Cimientos, Shell, Componentes Base, Inicio y Aprobaciones)
+const PHASE_FILES = [
   "packages/web/index.html",
   "packages/web/src/index.css",
   "packages/web/tailwind.config.js",
@@ -41,6 +41,10 @@ const PHASE_0_FILES = [
   "packages/web/src/components/ui/EmptyState.tsx",
   "packages/web/src/components/ui/SegmentedTabs.tsx",
   "packages/web/src/components/ui/AgentParticleCloud.tsx",
+  "packages/web/src/components/ui/ReasoningStepList.tsx",
+  "packages/web/src/components/ui/SimulationSlider.tsx",
+  "packages/web/src/components/views/DashboardOverviewView.tsx",
+  "packages/web/src/components/views/HitlApprovalsView.tsx",
 ];
 
 function checkFile(filePath: string): Violation[] {
@@ -176,8 +180,8 @@ function main() {
     targetFiles.push(path.resolve(process.cwd(), "packages/web/index.html"));
     targetFiles.push(path.resolve(process.cwd(), "packages/web/tailwind.config.js"));
   } else {
-    console.log("Modo: Fase 0 (Cimientos, Shell y Componentes Base)");
-    targetFiles = PHASE_0_FILES.map((f) => path.resolve(process.cwd(), f)).filter((f) =>
+    console.log("Modo: Fase 0 y Fase 1 (Cimientos, Shell, Componentes, Inicio y Aprobaciones)");
+    targetFiles = PHASE_FILES.map((f) => path.resolve(process.cwd(), f)).filter((f) =>
       fs.existsSync(f)
     );
   }
@@ -214,3 +218,4 @@ function main() {
 }
 
 main();
+

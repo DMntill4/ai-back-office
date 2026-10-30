@@ -1,28 +1,21 @@
 import React, { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { HitlDecision } from "../../types/workflow";
+import { PageHeader } from "../ui/PageHeader";
+import { SegmentedTabs, TabItem } from "../ui/SegmentedTabs";
+import { StatusIndicator, OperationalStatus } from "../ui/StatusIndicator";
+import { Button } from "../ui/Button";
+import { Panel } from "../ui/Panel";
+import { ReasoningStepList, ReasoningStep } from "../ui/ReasoningStepList";
+import { SimulationSlider } from "../ui/SimulationSlider";
 import {
-  ShieldCheck,
-  ShieldAlert,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
   Search,
   Sparkles,
-  ChevronLeft,
+  ChevronDown,
   ChevronRight,
-  UserCheck,
-  Package,
-  Layers,
-  ArrowUpRight,
-  TrendingDown,
-  TrendingUp,
-  FileText,
-  DollarSign,
   Copy,
   Check,
+  ShieldCheck,
 } from "lucide-react";
+import { HitlDecision } from "../../types/workflow";
 
 interface EnrichedProposal {
   id: string;
@@ -37,88 +30,63 @@ interface EnrichedProposal {
   leadTime: string;
   policyTrigger: string;
   policyCode: string;
-  explain: {
-    context: string;
-    opportunityCost: string;
-  };
-  diffImpact: {
-    budgetBefore: string;
-    budgetAfter: string;
-    stockBefore: string;
-    stockAfter: string;
-    slaBefore: string;
-    slaAfter: string;
-  };
+  justification: string;
+  opportunityCost: string;
   hmacSignature: string;
   status: "pendiente" | "aprobado" | "rechazado";
-  timeline: {
-    title: string;
-    time: string;
-    description: string;
-    completed: boolean;
-  }[];
+  reasoningSteps: ReasoningStep[];
 }
 
-const DEFAULT_PROPOSALS: EnrichedProposal[] = [
+const INITIAL_PROPOSALS: EnrichedProposal[] = [
   {
     id: "DEC-2026-0041",
-    orderNumber: "#OC-402",
-    title: "Orden de compra extraordinaria: 50u Sierra Circular 7-1/4' 1800W",
-    sku: "SKU-SIE-IND18",
+    orderNumber: "PO-24A190",
+    title: "50× Sierra Circular DeWalt 7-1/4' 1800W",
+    sku: "SKU-DW-714",
     quantity: 50,
     unitPriceCop: 145000,
     totalCostCop: 7250000,
     amountFormatted: "$7.250.000 COP",
     supplier: "DeWalt Colombia (Mayorista Homologado)",
     leadTime: "2 días hábiles",
-    policyTrigger: "Monto total excede el umbral autónomo de $5.000.000 COP (POL-COMP-01)",
+    policyTrigger: "Monto total excede el umbral autónomo de $5.000.000 COP",
     policyCode: "POL-COMP-01",
-    explain: {
-      context: "El punto de reorden en Bucaramanga y Bogotá se alcanzó simultáneamente tras un incremento de demanda del 28% por proyectos de infraestructura vial.",
-      opportunityCost: "Ahorro negociado de $1.450.000 COP por consolidación de lote frente a compras individuales.",
-    },
-    diffImpact: {
-      budgetBefore: "$42.8M disponible",
-      budgetAfter: "$35.5M restante",
-      stockBefore: "4 unidades (Riesgo Quiebre 2d)",
-      stockAfter: "54 unidades (Cobertura 28d)",
-      slaBefore: "92% cumplimiento",
-      slaAfter: "98% cobertura proyectada",
-    },
-    hmacSignature: "9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f",
+    justification:
+      "El punto de reorden en Bucaramanga y Bogotá se alcanzó simultáneamente tras un incremento de demanda del 28% por proyectos de infraestructura vial.",
+    opportunityCost:
+      "Se obtuvo un 8% de descuento por volumen consolidado, ahorrando $1.450.000 COP frente a compras fraccionadas.",
+    hmacSignature:
+      "9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f",
     status: "pendiente",
-    timeline: [
+    reasoningSteps: [
       {
-        title: "Detección de Quiebre Crítico ROP",
-        time: "Hoy, 08:14 a. m.",
-        description: "Monitoreo continuo identificó stock por debajo del mínimo de seguridad.",
-        completed: true,
+        id: "step-1",
+        label: "Detección de necesidad por consumo acelerado",
+        description: "Existencias cayeron a 4 unidades (cobertura < 48 horas en obra).",
+        status: "completed",
+        timestamp: "08:14",
       },
       {
-        title: "Cotización Algorítmica & Consolidación",
-        time: "Hoy, 08:20 a. m.",
-        description: "Mejor oferta seleccionada con DeWalt Colombia con descuento por volumen.",
-        completed: true,
+        id: "step-2",
+        label: "Comparación de proveedores homologados",
+        description: "DeWalt Colombia ofreció menor tiempo de entrega y mejor tarifa.",
+        status: "completed",
+        timestamp: "08:18",
       },
       {
-        title: "Retención para Aprobación Ejecutiva",
-        time: "Hoy, 08:22 a. m.",
-        description: "Política POL-COMP-01: Requiere firma ejecutiva para montos > $5.000.000 COP.",
-        completed: true,
-      },
-      {
-        title: "Transmisión y Despacho ERP",
-        time: "Pendiente de Aprobación",
-        description: "Emisión de remisión y actualización de libro contable una vez firmada.",
-        completed: false,
+        id: "step-3",
+        label: "Aplicación de política de gobernanza POL-COMP-01",
+        description: "La orden supera $5.000.000 COP y se retiene para firma humana.",
+        status: "in_progress",
+        timestamp: "08:22",
       },
     ],
   },
   {
     id: "DEC-2026-0042",
-    orderNumber: "#OC-405",
-    title: "Reabastecimiento preventivo: 1.200u Pernos Grado 8 1/2' x 3'",
-    sku: "SKU-PER-HEX8",
+    orderNumber: "PO-24A192",
+    title: "1.200× Pernos Grado 8 Alta Resistencia 1/2' x 3'",
+    sku: "SKU-PRN-083",
     quantity: 1200,
     unitPriceCop: 2800,
     totalCostCop: 3360000,
@@ -127,446 +95,424 @@ const DEFAULT_PROPOSALS: EnrichedProposal[] = [
     leadTime: "3 días hábiles",
     policyTrigger: "Suministro crítico para obras del Anillo Vial Metropolitano",
     policyCode: "POL-STK-04",
-    explain: {
-      context: "Consumo acelerado en CD Bucaramanga por entrega programada a consorcio vial.",
-      opportunityCost: "Garantía de precio congelado por 60 días pactada con el proveedor.",
-    },
-    diffImpact: {
-      budgetBefore: "$35.5M disponible",
-      budgetAfter: "$32.1M restante",
-      stockBefore: "12 unidades (Quiebre inminente)",
-      stockAfter: "1.212 unidades (Cobertura 45d)",
-      slaBefore: "88% cumplimiento",
-      slaAfter: "99% cobertura",
-    },
-    hmacSignature: "4f5e6d7c8b9a0f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6b7a8f9e0d1c2b3a",
+    justification:
+      "Despacho masivo a obra redujo existencias por debajo del umbral de seguridad en CD Bucaramanga.",
+    opportunityCost:
+      "Garantía de precio congelado por 60 días pactada con el proveedor habitual.",
+    hmacSignature:
+      "8f7e6d5c4b3a291807162534435261708f7e6d5c4b3a29180716253443526170",
     status: "pendiente",
-    timeline: [
+    reasoningSteps: [
       {
-        title: "Alerta de Consumo Acelerado",
-        time: "Hoy, 09:30 a. m.",
-        description: "Salida imprevista de 400 unidades para proyecto vial.",
-        completed: true,
+        id: "step-1",
+        label: "Consumo proyectado en Bodega Bucaramanga",
+        description: "Entrega masiva para consorcio vial.",
+        status: "completed",
+        timestamp: "07:45",
       },
       {
-        title: "Formulación de Orden de Compra",
-        time: "Hoy, 09:35 a. m.",
-        description: "Condiciones de pago a 45 días aplicadas exitosamente.",
-        completed: true,
+        id: "step-2",
+        label: "Cotización de lote con proveedor habitual",
+        description: "Tarifa pactada de $2.800 COP por unidad.",
+        status: "completed",
+        timestamp: "07:50",
       },
       {
-        title: "Revisión en Bandeja de Gobernanza",
-        time: "Hoy, 09:40 a. m.",
-        description: "Esperando confirmación de despacho.",
-        completed: true,
+        id: "step-3",
+        label: "Retención para autorización ejecutiva",
+        description: "Consolidación de lote para despacho de obra.",
+        status: "in_progress",
+        timestamp: "07:55",
+      },
+    ],
+  },
+  {
+    id: "DEC-2026-0043",
+    orderNumber: "PO-24A188",
+    title: "80× Disco de Corte Diamantado 4-1/2'",
+    sku: "SKU-DSC-412",
+    quantity: 80,
+    unitPriceCop: 22000,
+    totalCostCop: 1760000,
+    amountFormatted: "$1.760.000 COP",
+    supplier: "Bosch Herramientas Colombia",
+    leadTime: "1 día hábil",
+    policyTrigger: "Aprobada por el director operativo",
+    policyCode: "POL-COMP-02",
+    justification:
+      "Reabastecimiento preventivo autorizado para Bodega Fontibón.",
+    opportunityCost: "Descuento por pronto pago del 5% aplicado.",
+    hmacSignature:
+      "7e6d5c4b3a291807162534435261708f7e6d5c4b3a291807162534435261708f",
+    status: "aprobado",
+    reasoningSteps: [
+      {
+        id: "step-1",
+        label: "Detección de rotación alta en Fontibón",
+        description: "Demanda sostenida de 12 unidades por día.",
+        status: "completed",
+        timestamp: "Ayer, 16:30",
       },
       {
-        title: "Emisión de Orden a Proveedor",
-        time: "Pendiente",
-        description: "Envío telemático automático tras aprobación.",
-        completed: false,
+        id: "step-2",
+        label: "Autorización ejecutiva emitida",
+        description: "Orden firmada y transmitida al ERP.",
+        status: "completed",
+        timestamp: "Ayer, 16:45",
       },
     ],
   },
 ];
 
-interface HitlApprovalsViewProps {
+export interface HitlApprovalsViewProps {
   decisions?: HitlDecision[];
-  onApprove?: (id: string) => void;
-  onReject?: (id: string) => void;
+  onApprove?: (decisionId: string) => void;
+  onReject?: (decisionId: string) => void;
   onSimulateNew?: () => void;
+  onNavigateTo?: (tabId: string) => void;
 }
 
 export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
   onApprove,
   onReject,
 }) => {
-  const [proposals, setProposals] = useState<EnrichedProposal[]>(DEFAULT_PROPOSALS);
+  const [proposals, setProposals] = useState<EnrichedProposal[]>(INITIAL_PROPOSALS);
   const [selectedId, setSelectedId] = useState<string>("DEC-2026-0041");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [activeSubTab, setActiveSubTab] = useState<string>("pendientes");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
+  const [copiedHmac, setCopiedHmac] = useState<boolean>(false);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
+  // Subpestañas oficiales de Aprobaciones según Mint-DESIGN.md
+  const pendingCount = proposals.filter((p) => p.status === "pendiente").length;
+  const subTabs: TabItem[] = [
+    { id: "pendientes", label: "Pendientes", badge: pendingCount },
+    { id: "historial", label: "Historial de aprobaciones" },
+  ];
 
-  const currentIdx = proposals.findIndex((p) => p.id === selectedId);
-  const selectedProposal = proposals[currentIdx] || proposals[0];
+  // Filtrado de propuestas
+  const filteredProposals = useMemo(() => {
+    return proposals.filter((item) => {
+      const matchesTab =
+        activeSubTab === "pendientes"
+          ? item.status === "pendiente"
+          : item.status !== "pendiente";
 
-  const handlePrev = () => {
-    const nextIdx = (currentIdx - 1 + proposals.length) % proposals.length;
-    setSelectedId(proposals[nextIdx].id);
-  };
+      const query = searchQuery.toLowerCase();
+      const matchesQuery =
+        !searchQuery ||
+        item.orderNumber.toLowerCase().includes(query) ||
+        item.title.toLowerCase().includes(query) ||
+        item.supplier.toLowerCase().includes(query);
 
-  const handleNext = () => {
-    const nextIdx = (currentIdx + 1) % proposals.length;
-    setSelectedId(proposals[nextIdx].id);
-  };
+      return matchesTab && matchesQuery;
+    });
+  }, [proposals, activeSubTab, searchQuery]);
+
+  const selectedProposal =
+    proposals.find((p) => p.id === selectedId) ||
+    filteredProposals[0] ||
+    proposals[0];
+
+  // Simulación interactiva de cantidad
+  const [simulatedQuantity, setSimulatedQuantity] = useState<number>(
+    selectedProposal?.quantity || 50
+  );
 
   const handleApprove = (id: string) => {
     setProposals((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: "aprobado" } : p))
+      prev.map((item) => (item.id === id ? { ...item, status: "aprobado" } : item))
     );
     if (onApprove) onApprove(id);
-    showToast(`Decisión ${id} aprobada con éxito. Orden de compra emitida al ERP.`);
   };
 
   const handleReject = (id: string) => {
     setProposals((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: "rechazado" } : p))
+      prev.map((item) => (item.id === id ? { ...item, status: "rechazado" } : item))
     );
     if (onReject) onReject(id);
-    showToast(`Decisión ${id} rechazada. Se notificó al especialista para reformular.`);
+  };
+
+  const handleCopyHmac = () => {
+    if (selectedProposal) {
+      navigator.clipboard.writeText(selectedProposal.hmacSignature);
+      setCopiedHmac(true);
+      setTimeout(() => setCopiedHmac(false), 2000);
+    }
+  };
+
+  const getStatusMapping = (
+    status: "pendiente" | "aprobado" | "rechazado"
+  ): { status: OperationalStatus; label: string } => {
+    switch (status) {
+      case "pendiente":
+        return { status: "pending", label: "Pendiente" };
+      case "aprobado":
+        return { status: "ok", label: "Aprobada" };
+      case "rechazado":
+        return { status: "error", label: "Rechazada" };
+    }
   };
 
   return (
-    <div className="flex-1 h-full flex flex-col bg-canvas text-[#F9FAFB] font-sans select-none overflow-hidden relative">
-      {/* Toast Notification */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E]/95 border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)] backdrop-blur-xl"
-          >
-            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span className="text-xs font-mono font-medium tracking-tight">{toastMessage}</span>
-            <button
-              onClick={() => setToastMessage(null)}
-              className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
-            >
-              ✕
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div className="flex-1 h-full flex flex-col bg-canvas text-primary font-sans overflow-hidden">
+      {/* 1. Header con Subpestañas */}
+      <div className="p-group pb-0">
+        <PageHeader
+          title="Aprobaciones"
+          description="Supervisión ejecutiva y firma de compras que superan el umbral autónomo."
+          actions={
+            <StatusIndicator
+              status="pending"
+              label={`${pendingCount} pendientes de firma`}
+            />
+          }
+          filterControl={
+            <SegmentedTabs
+              tabs={subTabs}
+              activeTab={activeSubTab}
+              onChange={setActiveSubTab}
+            />
+          }
+        />
+      </div>
 
-      {/* ========================================================= */}
-      {/* HEADER SUPERIOR EJECUTIVO                                 */}
-      {/* ========================================================= */}
-      <header className="px-6 py-4 bg-canvas border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-20 shrink-0">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-zinc-400">
-            <span>Gobernanza</span>
-            <span className="text-white/20">/</span>
-            <span className="text-zinc-200">Supervisión Ejecutiva</span>
-          </div>
-          <h1 className="text-xl font-bold text-white tracking-tight mt-0.5 font-sans">
-            Aprobaciones
-          </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Supervisión y firma ejecutiva de decisiones y órdenes de compra del agente autónomo
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-1 border border-white/[0.06] text-xs">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-zinc-300 font-sans">
-              {proposals.filter((p) => p.status === "pendiente").length} decisiones pendientes de firma
-            </span>
-          </div>
-        </div>
-      </header>
-
-      {/* ========================================================= */}
-      {/* SPLIT-SCREEN 50 / 50 (ESTILO FIKRI SHP-5567)              */}
-      {/* ========================================================= */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative min-h-0">
-        {/* ------------------------------------------------------- */}
-        {/* PANEL IZQUIERDO (50%): DOSSIER OPERATIVO & HITOS        */}
-        {/* ------------------------------------------------------- */}
-        <div className="w-full lg:w-1/2 h-full bg-canvas overflow-y-auto p-6 flex flex-col gap-5 border-b lg:border-b-0 lg:border-r border-white/[0.06]">
-          {/* Fila 1: Selector, Badges y Acciones */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
-                <span className="text-xl sm:text-2xl font-bold tracking-tight text-white font-mono">
-                  {selectedProposal.id}
-                </span>
-
-                {selectedProposal.status === "pendiente" ? (
-                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
-                    Pendiente Firma
-                  </span>
-                ) : selectedProposal.status === "aprobado" ? (
-                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Aprobado
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center gap-1.5">
-                    <XCircle className="w-3.5 h-3.5" />
-                    Rechazado
-                  </span>
-                )}
-
-                <div className="flex items-center bg-surface-1 rounded-lg border border-white/[0.08] p-0.5">
-                  <button
-                    onClick={handlePrev}
-                    className="p-1 hover:bg-white/[0.06] rounded text-zinc-400 hover:text-white transition-colors"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-[11px] font-mono px-1.5 text-zinc-400">
-                    {currentIdx + 1}/{proposals.length}
-                  </span>
-                  <button
-                    onClick={handleNext}
-                    className="p-1 hover:bg-white/[0.06] rounded text-zinc-400 hover:text-white transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-xs text-zinc-400">
-                Orden Vinculada:{" "}
-                <span className="text-emerald-400 font-mono font-medium">
-                  {selectedProposal.orderNumber}
-                </span>{" "}
-                · Proveedor:{" "}
-                <span className="text-zinc-300 font-medium">
-                  {selectedProposal.supplier}
-                </span>
-              </p>
+      {/* 2. Layout de Dos Paneles: Lista Izquierda (360px) + Detalle Derecho */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 p-group pt-compact gap-compact">
+        {/* PANEL IZQUIERDO (360px según Mint-DESIGN.md) */}
+        <aside className="w-full lg:w-[360px] h-full bg-panel rounded-container border border-border flex flex-col shrink-0 overflow-hidden">
+          {/* Buscador de Órdenes */}
+          <div className="p-compact border-b border-border">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filtrar por orden, SKU o proveedor..."
+                className="w-full pl-8 pr-3 py-1.5 rounded-control bg-raised border border-border focus:border-brand text-caption text-primary placeholder:text-muted focus:outline-none transition-colors"
+              />
             </div>
+          </div>
 
-            {/* Acciones de Firma y Aprobación */}
-            {selectedProposal.status === "pendiente" && (
-              <div className="flex items-center gap-2.5">
-                <button
-                  onClick={() => handleReject(selectedProposal.id)}
-                  className="px-3.5 py-1.5 rounded-full bg-surface-well hover:bg-rose-500/15 text-xs font-medium text-zinc-300 hover:text-rose-400 border border-white/[0.08] hover:border-rose-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>Rechazar</span>
-                </button>
-
-                {/* Botón Principal: Píldora Blanca con Círculo y Flecha (Estilo Donezo) */}
-                <button
-                  onClick={() => handleApprove(selectedProposal.id)}
-                  className="pl-4 pr-1.5 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-black font-semibold text-xs flex items-center gap-2 shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all cursor-pointer group"
-                >
-                  <span>Aprobar Ejecución</span>
-                  <span className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-                    <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
-                  </span>
-                </button>
+          {/* Lista Scrollable de Decisiones */}
+          <div className="flex-1 overflow-y-auto divide-y divide-border">
+            {filteredProposals.length === 0 ? (
+              <div className="p-group text-center text-caption text-muted">
+                No hay compras en esta categoría.
               </div>
+            ) : (
+              filteredProposals.map((item) => {
+                const isSelected = item.id === selectedProposal.id;
+                const statusMeta = getStatusMapping(item.status);
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      setSelectedId(item.id);
+                      setSimulatedQuantity(item.quantity);
+                    }}
+                    className={`p-compact transition-colors cursor-pointer border-l-[3px] ${
+                      isSelected
+                        ? "bg-raised border-l-brand"
+                        : "hover:bg-raised/40 border-l-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-compact mb-hairline">
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                        <span className="font-mono text-caption text-primary font-medium whitespace-nowrap">
+                          {item.orderNumber}
+                        </span>
+                        <span className="text-muted">·</span>
+                        <span className="font-mono text-caption text-muted whitespace-nowrap">
+                          {item.id}
+                        </span>
+                      </div>
+                      <StatusIndicator
+                        status={statusMeta.status}
+                        label={statusMeta.label}
+                      />
+                    </div>
+
+                    <h4 className="text-body font-medium text-primary line-clamp-1 mt-hairline">
+                      {item.title}
+                    </h4>
+
+                    <div className="flex items-center justify-between mt-compact pt-compact border-t border-border text-caption text-secondary">
+                      <span className="truncate pr-compact">{item.supplier}</span>
+                      <span className="font-sans font-bold text-primary tabular-nums shrink-0">
+                        {item.amountFormatted}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
+        </aside>
 
-          {/* Fila 2: Tarjeta con Stepper de 4 Fases y 3 Métricas */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">
-            <h3 className="text-sm font-bold text-white mb-2 font-sans">
-              {selectedProposal.title}
-            </h3>
+        {/* PANEL DERECHO: Detalle, Razonamiento, Simulación y Firma */}
+        {selectedProposal ? (
+          <main className="flex-1 h-full bg-panel rounded-container border border-border overflow-y-auto p-group space-y-group">
+            {/* Cabecera del Detalle: Monto, Proveedor y Acciones Siempre Visibles */}
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-group pb-compact border-b border-border">
+              <div className="space-y-hairline flex-1 min-w-0">
+                <div className="flex items-center gap-compact flex-wrap text-caption text-secondary">
+                  <span className="font-mono font-medium text-primary">
+                    {selectedProposal.orderNumber}
+                  </span>
+                  <span className="text-muted">·</span>
+                  <span className="font-mono text-muted">{selectedProposal.id}</span>
+                  <span className="text-muted">·</span>
+                  <span>Tiempo de entrega: {selectedProposal.leadTime}</span>
+                </div>
+                <h2 className="text-page-title font-bold text-primary tracking-tight">
+                  {selectedProposal.title}
+                </h2>
+                <div className="flex flex-wrap items-center gap-x-group gap-y-hairline pt-hairline text-body">
+                  <p className="text-secondary">
+                    Proveedor:{" "}
+                    <strong className="text-primary font-medium">
+                      {selectedProposal.supplier}
+                    </strong>
+                  </p>
+                  <span className="text-muted hidden sm:inline">·</span>
+                  <p className="text-secondary">
+                    Monto total:{" "}
+                    <strong className="text-primary font-bold tabular-nums">
+                      {selectedProposal.amountFormatted}
+                    </strong>
+                  </p>
+                </div>
+              </div>
 
-            {/* Stepper de 4 Fases de Gobernanza */}
-            <div className="bg-surface-well rounded-xl p-4 mt-3 border border-white/[0.04]">
-              <div className="relative flex items-center justify-between">
-                <div className="absolute top-1/2 left-4 right-4 h-1 bg-white/[0.08] -translate-y-1/2 z-0" />
-                <div className="absolute top-1/2 left-4 h-1 bg-emerald-500 -translate-y-1/2 z-0 w-2/3" />
+              {/* Botones de Acción: Aprobar (Píldora Cálida con Flecha) y Rechazar */}
+              {selectedProposal.status === "pendiente" ? (
+                <div className="flex items-center gap-compact shrink-0 pt-hairline">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleReject(selectedProposal.id)}
+                  >
+                    Rechazar
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={() => handleApprove(selectedProposal.id)}
+                    showArrow={true}
+                  >
+                    Aprobar compra
+                  </Button>
+                </div>
+              ) : (
+                <div className="shrink-0 pt-hairline">
+                  <StatusIndicator
+                    status={getStatusMapping(selectedProposal.status).status}
+                    label={getStatusMapping(selectedProposal.status).label}
+                  />
+                </div>
+              )}
+            </div>
 
-                {[
-                  { label: "Detección IA", icon: Sparkles, status: "completed" },
-                  { label: "Validación Reglas", icon: ShieldCheck, status: "completed" },
-                  { label: "Firma Ejecutiva", icon: UserCheck, status: "current" },
-                  { label: "Ejecución ERP", icon: CheckCircle2, status: "pending" },
-                ].map((step, idx) => (
-                  <div key={idx} className="relative z-10 flex flex-col items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        step.status === "completed"
-                          ? "bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]"
-                          : step.status === "current"
-                          ? "bg-surface-1 text-amber-400 border-2 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                          : "bg-surface-1 text-zinc-500 border border-white/10"
-                      }`}
-                    >
-                      <step.icon className="w-3.5 h-3.5" />
-                    </div>
-                    <span className="text-xs font-medium text-zinc-300 mt-1.5 whitespace-nowrap font-sans">
-                      {step.label}
+            {/* Justificación del Agente Autónomo */}
+            <Panel className="space-y-compact bg-raised/50">
+              <div className="flex items-center gap-compact text-body font-semibold text-primary">
+                <Sparkles className="w-4 h-4 text-brand" />
+                <span>Justificación del agente</span>
+              </div>
+              <p className="text-body text-secondary leading-relaxed">
+                {selectedProposal.justification}
+              </p>
+              <div className="p-compact rounded-control bg-panel border border-border text-caption text-secondary">
+                <span className="text-brand font-medium block">
+                  Costo de oportunidad evaluado:
+                </span>
+                <p className="mt-hairline">{selectedProposal.opportunityCost}</p>
+              </div>
+            </Panel>
+
+            {/* Razonamiento Paso a Paso (ReasoningStepList) */}
+            <div className="space-y-compact">
+              <h3 className="text-section-title font-bold text-primary">
+                Razonamiento del agente
+              </h3>
+              <ReasoningStepList steps={selectedProposal.reasoningSteps} />
+            </div>
+
+            {/* Deslizador de Simulación Interactivo (SimulationSlider) */}
+            <div className="space-y-compact">
+              <h3 className="text-section-title font-bold text-primary">
+                Simulación de escenario
+              </h3>
+              <SimulationSlider
+                label="Ajustar cantidad a ordenar"
+                value={simulatedQuantity}
+                min={10}
+                max={150}
+                step={5}
+                unit="unidades"
+                unitPriceCop={selectedProposal.unitPriceCop}
+                dailyConsumption={1.8}
+                onChange={setSimulatedQuantity}
+              />
+            </div>
+
+            {/* Detalle Técnico Oculto tras 'Ver detalle técnico' */}
+            <div className="pt-compact border-t border-border">
+              <button
+                onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                className="flex items-center gap-compact text-caption font-medium text-muted hover:text-primary transition-colors cursor-pointer"
+              >
+                {showTechnicalDetails ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-muted" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-muted" />
+                )}
+                <span>Ver detalle técnico (Firma criptográfica y directivas)</span>
+              </button>
+
+              {showTechnicalDetails && (
+                <div className="mt-compact p-compact rounded-control bg-canvas border border-border space-y-compact text-caption">
+                  <div>
+                    <span className="text-muted block">Directiva de Gobernanza:</span>
+                    <span className="font-mono text-primary">
+                      {selectedProposal.policyCode} — {selectedProposal.policyTrigger}
                     </span>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Fila de 3 Métricas Clave (Sin tracking exagerado ni font-mono innecesario) */}
-            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-white/[0.06]">
-              <div>
-                <span className="text-xs text-zinc-400 block mb-1 font-sans">
-                  Monto a Autorizar
-                </span>
-                <span className="text-sm font-bold text-white font-sans tabular-nums">
-                  {selectedProposal.amountFormatted}
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-zinc-400 block mb-1 font-sans">
-                  Ahorro Negociado
-                </span>
-                <span className="text-sm font-bold text-emerald-400 font-sans tabular-nums">
-                  +$1.450.000 COP
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-zinc-400 block mb-1 font-sans">
-                  Confianza Algorítmica
-                </span>
-                <span className="text-sm font-bold text-white font-sans tabular-nums">
-                  99.2%
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Fila 3: Callout Banner Contextual */}
-          <div className="rounded-2xl p-4 bg-amber-500/10 border border-amber-500/30 text-amber-200">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-              <div className="text-xs leading-relaxed">
-                <span className="font-bold block mb-0.5">
-                  Disparador de Gobernanza: {selectedProposal.policyCode}
-                </span>
-                <p className="text-zinc-300">
-                  {selectedProposal.policyTrigger}
-                </p>
-                <p className="text-zinc-400 mt-2">
-                  <strong className="text-emerald-400">Justificación del Agente:</strong>{" "}
-                  {selectedProposal.explain.context}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Fila 4: Bitácora de Eventos de la Propuesta */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">
-            <h3 className="text-sm font-bold text-white tracking-tight mb-4">
-              Trazabilidad de la Propuesta
-            </h3>
-            <div className="relative pl-6 space-y-5">
-              <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-white/[0.08]" />
-              {selectedProposal.timeline.map((evt, idx) => (
-                <div key={idx} className="relative">
-                  <div
-                    className={`absolute -left-6 top-1 w-3.5 h-3.5 rounded-full border-2 ${
-                      evt.completed
-                        ? "bg-emerald-500 border-canvas shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                        : "bg-surface-well border-zinc-600"
-                    }`}
-                  />
-                  <div className="flex items-center justify-between">
-                    <h4 className={`text-xs font-bold ${evt.completed ? "text-white" : "text-zinc-500"}`}>
-                      {evt.title}
-                    </h4>
-                    <span className="text-[11px] font-mono text-zinc-500">{evt.time}</span>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted">Firma Criptográfica HMAC-SHA256:</span>
+                      <button
+                        onClick={handleCopyHmac}
+                        className="flex items-center gap-1 text-caption text-brand hover:underline cursor-pointer"
+                      >
+                        {copiedHmac ? (
+                          <>
+                            <Check className="w-3 h-3" />
+                            <span>Copiada</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>Copiar</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <code className="block mt-hairline font-mono text-secondary break-all bg-panel p-compact rounded-control border border-border">
+                      {selectedProposal.hmacSignature}
+                    </code>
                   </div>
-                  <p className="text-xs text-zinc-400 mt-0.5">{evt.description}</p>
                 </div>
-              ))}
+              )}
             </div>
+          </main>
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-panel rounded-container border border-border p-group text-secondary text-body">
+            Selecciona una orden de compra para revisar su detalle.
           </div>
-        </div>
-
-        {/* ------------------------------------------------------- */}
-        {/* PANEL DERECHO (50%): INSPECTOR VISUAL DE IMPACTO        */}
-        {/* ------------------------------------------------------- */}
-        <div className="w-full lg:w-1/2 h-full bg-[#070C09] overflow-y-auto p-6 flex flex-col gap-5">
-          {/* Tarjeta de Comparativa Antes vs Después */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/[0.06]">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Layers className="w-4 h-4 text-emerald-400" />
-                <span>Simulación de Impacto Operativo</span>
-              </h3>
-              <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                Sin Riesgo de Quiebre
-              </span>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              {/* Presupuesto */}
-              <div>
-                <div className="flex justify-between text-zinc-400 mb-1">
-                  <span>Presupuesto Mensual</span>
-                  <span className="font-sans font-semibold text-white">
-                    {selectedProposal.diffImpact.budgetBefore} ➔ {selectedProposal.diffImpact.budgetAfter}
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-white/[0.08] rounded-full overflow-hidden flex">
-                  <div className="h-full bg-emerald-500" style={{ width: "65%" }} />
-                  <div className="h-full bg-hatched-emerald" style={{ width: "15%" }} />
-                </div>
-              </div>
-
-              {/* Stock de Seguridad */}
-              <div>
-                <div className="flex justify-between text-zinc-400 mb-1">
-                  <span>Stock y Cobertura de Días</span>
-                  <span className="font-sans font-semibold text-white">
-                    {selectedProposal.diffImpact.stockBefore} ➔ {selectedProposal.diffImpact.stockAfter}
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-white/[0.08] rounded-full overflow-hidden flex">
-                  <div className="h-full bg-amber-500" style={{ width: "12%" }} />
-                  <div className="h-full bg-emerald-500" style={{ width: "76%" }} />
-                </div>
-              </div>
-
-              {/* SLA de Servicio */}
-              <div>
-                <div className="flex justify-between text-zinc-400 mb-1">
-                  <span>Cumplimiento de SLA a Clientes</span>
-                  <span className="font-sans font-semibold text-white">
-                    {selectedProposal.diffImpact.slaBefore} ➔ {selectedProposal.diffImpact.slaAfter}
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-white/[0.08] rounded-full overflow-hidden flex">
-                  <div className="h-full bg-emerald-500" style={{ width: "98%" }} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tarjeta de Recibo Criptográfico con Firma HMAC-SHA256 */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
-              <span className="text-xs font-bold text-white flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Recibo de Auditoría Criptográfica</span>
-              </span>
-              <span className="text-[10px] font-mono text-zinc-500">
-                HMAC-SHA256
-              </span>
-            </div>
-
-            <div className="bg-surface-well rounded-xl p-4 border border-white/[0.04] space-y-3 font-mono text-xs">
-              <div>
-                <span className="text-[10px] uppercase text-zinc-500 block">Firma Digital del Agente</span>
-                <span className="text-emerald-400 text-[11px] break-all">
-                  {selectedProposal.hmacSignature}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t border-white/[0.04]">
-                <div>
-                  <span className="text-zinc-500 block">Emisor</span>
-                  <span className="text-white">MINT Autonomous Core</span>
-                </div>
-                <div>
-                  <span className="text-zinc-500 block">Estado Criptográfico</span>
-                  <span className="text-emerald-400 font-bold">Verificado ✓</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
