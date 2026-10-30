@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../services/apiClient";
 import type { MintGraphData } from "../types/graph";
+import { sanitizeGraphData } from "../lib/graphSanitizer";
 
 export interface UseLiveGraphOptions {
     enabled?: boolean;
@@ -44,11 +45,21 @@ export function useLiveGraph(options: UseLiveGraphOptions = {}): UseLiveGraphRes
         try {
             const res = await api.graph.data({ mode, searchQuery });
             if (!mountedRef.current) return;
-            setGraphData(res.data ?? null);
+
+            // Saneamiento defensivo: ids normalizados, aristas huérfanas
+            // descartadas y textos mojibake reparados antes de llegar al canvas.
+            const sanitized = sanitizeGraphData(res.data);
+            setGraphData({
+                nodes: sanitized.nodes,
+                edges: sanitized.edges,
+                metadata: res.data?.metadata,
+            });
             setIsFallback(res.isFallback);
             if (res.isFallback && res.message) setError(res.message);
         } catch (err) {
             if (!mountedRef.current) return;
+            // Nunca dejamos el grafo en un estado indefinido: se degrada a vacío.
+            setGraphData({ nodes: [], edges: [] });
             setError(err instanceof Error ? err.message : "Error desconocido al cargar el grafo");
         } finally {
             if (mountedRef.current) setLoading(false);

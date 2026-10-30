@@ -51,6 +51,22 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   });
 
+  // Codificación UTF-8 explícita en toda respuesta JSON.
+  // Sin `charset=utf-8` algunos navegadores/proxies interpretan el cuerpo como
+  // Latin-1 y las tildes/eñes se muestran como mojibake (ej. "polÃ­ticas").
+  server.addHook("onSend", async (request, reply, payload) => {
+    const contentType = reply.getHeader("content-type");
+    if (typeof contentType === "string" && contentType.includes("application/json")) {
+      if (!/charset=/i.test(contentType)) {
+        reply.header("content-type", "application/json; charset=utf-8");
+      }
+    } else if (contentType === undefined && typeof payload === "string") {
+      // Respuestas serializadas por Fastify sin content-type explícito.
+      reply.header("content-type", "application/json; charset=utf-8");
+    }
+    return payload;
+  });
+
   // Enable native WebSocket support for real-time telemetry streaming
   server.register(fastifyWebsocket);
 
@@ -63,6 +79,40 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   startTelemetryBridge();
   server.addHook("onClose", async () => {
     stopTelemetryBridge();
+  });
+
+  // Red de seguridad global: ninguna excepción no controlada debe escapar como
+  // un 500 opaco. Siempre se responde JSON con `success: false` y el detalle,
+  // de modo que la consola web pueda degradar a su estado de respaldo.
+  server.setErrorHandler((error: any, request, reply) => {
+    const statusCode =
+      typeof error?.statusCode === "number" && error.statusCode >= 400
+        ? error.statusCode
+        : 500;
+
+    const message = error?.message || "Error interno no controlado en el servidor.";
+    const isServerError = statusCode >= 500;
+
+    if (isServerError) {
+      console.error(
+        `[MINT API] ${request.method} ${request.url} -> ${statusCode}: ${message}`,
+        error?.stack ? `\n${error.stack}` : "",
+      );
+    }
+
+    if (reply.sent) return;
+
+    reply.status(statusCode).send({
+      success: false,
+      data: null,
+      error: message,
+      message: isServerError
+        ? `Error interno del servidor: ${message}`
+        : message,
+      path: request.url,
+      method: request.method,
+      timestamp: new Date().toISOString(),
+    });
   });
 
   // Register modular API routes
@@ -126,13 +176,13 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       }
       const indexPath = path.join(resolvedStaticPath!, "index.html");
       if (fs.existsSync(indexPath)) {
-        return reply.type("text/html").sendFile("index.html");
+        return reply.type("text/html; charset=utf-8").sendFile("index.html");
       }
       return reply.status(404).send("Web UI not found");
     });
   } else {
     server.get("/", async (request, reply) => {
-      return reply.type("application/json").send({
+      return reply.type("application/json; charset=utf-8").send({
         name: "MINT Autonomous Back Office API",
         version: "2.5.0",
         status: "ONLINE",

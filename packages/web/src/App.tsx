@@ -25,36 +25,109 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { HitlDecision } from "./types/workflow";
 import { INITIAL_HITL_DECISIONS } from "./data/mockData";
 
+/**
+ * Mapa canónico de rutas → vista.
+ *
+ * Cualquier alias (p. ej. `agente`, `compras`, `ajustes`) se resuelve a una
+ * única vista estable. Esto evita que un id desconocido o desincronizado deje
+ * la interfaz en un estado ambiguo y rompa el historial de navegación.
+ */
+const TAB_ALIASES: Record<string, string> = {
+  agente: "flujo_agente",
+  compras: "compras_ordenes",
+  reportes: "analisis_reportes",
+  ajustes: "configuracion_general",
+};
+
+const KNOWN_TABS = new Set<string>([
+  "inicio",
+  "aprobaciones",
+  "inventario",
+  "rutas_logistica",
+  "productos",
+  "compras_ordenes",
+  "proveedores",
+  "flujo_agente",
+  "mapa_conocimiento",
+  "memoria_agente",
+  "auditoria_eventos",
+  "reglas_politicas",
+  "modelos",
+  "nodos",
+  "objetivos",
+  "analisis_reportes",
+  "configuracion_general",
+  "empresas_sucursales",
+  "integraciones",
+  "canales_notificaciones",
+  "webhooks_api",
+  "roles_permisos",
+  "componentes",
+]);
+
+const DEFAULT_TAB = "inicio";
+
+/** Normaliza cualquier entrada (hash, id de pestaña) a una ruta válida. */
+const normalizeTab = (raw: string | null | undefined): string => {
+  const clean = (raw ?? "").trim().replace(/^#/, "").toLowerCase();
+  if (!clean) return DEFAULT_TAB;
+  const resolved = TAB_ALIASES[clean] ?? clean;
+  return KNOWN_TABS.has(resolved) ? resolved : DEFAULT_TAB;
+};
+
+const readTabFromLocation = (): string => {
+  if (typeof window === "undefined") return DEFAULT_TAB;
+  return normalizeTab(window.location.hash);
+};
+
 export const App: React.FC = () => {
   // Pestaña inicial sincrónica con URL hash (e.g. #inventario)
-  const [currentTab, setCurrentTab] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const hash = window.location.hash.replace("#", "");
-      if (hash) return hash;
-    }
-    return "inicio";
-  });
+  const [currentTab, setCurrentTab] = useState<string>(readTabFromLocation);
   const [decisions, setDecisions] = useState<HitlDecision[]>(INITIAL_HITL_DECISIONS);
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState<boolean>(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("#OC-402");
 
-  // Sync hash with currentTab (e.g. #inventario, #aprobaciones, etc.)
+  // Sincroniza el estado con el hash del navegador (botones atrás/adelante).
+  // Se usa un único listener y se limpia al desmontar para no filtrar memoria.
   useEffect(() => {
     const syncFromHash = () => {
-      const hash = window.location.hash.replace("#", "");
-      if (hash) {
-        setCurrentTab(hash);
-      }
+      setCurrentTab(readTabFromLocation());
     };
-    syncFromHash();
     window.addEventListener("hashchange", syncFromHash);
-    return () => window.removeEventListener("hashchange", syncFromHash);
+    window.addEventListener("popstate", syncFromHash);
+    return () => {
+      window.removeEventListener("hashchange", syncFromHash);
+      window.removeEventListener("popstate", syncFromHash);
+    };
   }, []);
 
+  /**
+   * Cambio de vista controlado.
+   *
+   * - Normaliza el destino (alias + fallback al Dashboard).
+   * - Cierra overlays abiertos para que ninguna vista herede estado sucio.
+   * - Escribe el hash con `replaceState` cuando es el mismo destino, evitando
+   *   entradas duplicadas en el historial que dejaban el botón "atrás" inerte.
+   */
   const handleTabChange = (tab: string) => {
-    setCurrentTab(tab);
+    const nextTab = normalizeTab(tab);
+    setIsApprovalDialogOpen(false);
+    setCurrentTab(nextTab);
+
     if (typeof window !== "undefined") {
-      window.location.hash = tab;
+      const nextHash = `#${nextTab}`;
+      if (window.location.hash !== nextHash) {
+        window.history.pushState(null, "", nextHash);
+      }
+    }
+  };
+
+  /** Escape global: vuelve al Dashboard desde cualquier punto de la app. */
+  const handleResetToDashboard = () => {
+    setIsApprovalDialogOpen(false);
+    setCurrentTab(DEFAULT_TAB);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `#${DEFAULT_TAB}`);
     }
   };
 
@@ -137,7 +210,6 @@ export const App: React.FC = () => {
         return <ProductsCatalogView onNavigateTo={handleTabChange} />;
 
       // 4. COMPRAS (Órdenes y Proveedores)
-      case "compras":
       case "compras_ordenes":
         return (
           <PurchaseOrdersView
@@ -149,7 +221,6 @@ export const App: React.FC = () => {
         return <SuppliersView />;
 
       // 5. AGENTE (Flujo, Grafo, Memoria, Auditoría, Reglas)
-      case "agente":
       case "flujo_agente":
         return (
           <WorkflowCanvas
@@ -186,12 +257,10 @@ export const App: React.FC = () => {
         return <ObjectivesView />;
 
       // 6. REPORTES (Análisis)
-      case "reportes":
       case "analisis_reportes":
         return <AnalyticsReportsView />;
 
       // 7. AJUSTES (contenedor maestro con 6 sub-pestañas)
-      case "ajustes":
       case "configuracion_general":
         return <SettingsView initialTab="configuracion_general" />;
 
@@ -243,7 +312,9 @@ export const App: React.FC = () => {
           transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
           className="w-full flex-1 flex flex-col h-full min-h-0"
         >
-          <ErrorBoundary viewKey={currentTab}>{renderContent()}</ErrorBoundary>
+          <ErrorBoundary viewKey={currentTab} onReset={handleResetToDashboard}>
+            {renderContent()}
+          </ErrorBoundary>
         </motion.div>
       </AnimatePresence>
 

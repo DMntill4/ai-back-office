@@ -10,6 +10,7 @@ import {
   AgentTelemetryAction,
 } from "../../types/telemetry";
 import { useLiveGraph } from "../../hooks/useLiveGraph";
+import { normalizeGraphId, repairText } from "../../lib/graphSanitizer";
 import {
   Activity,
   Play,
@@ -242,10 +243,21 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
       };
     }
 
-    const sourceNodes = liveGraph?.nodes ?? [];
-    const sourceEdges = liveGraph?.edges ?? [];
+    const sourceNodes = Array.isArray(liveGraph?.nodes) ? liveGraph!.nodes : [];
+    const sourceEdges = Array.isArray(liveGraph?.edges) ? liveGraph!.edges : [];
 
-    const fullNodes: TelemetryGraphNode[] = sourceNodes.map((n) => {
+    // Normalización defensiva de identificadores: react-force-graph-2d indexa
+    // por `id` y resuelve `source`/`target` por coincidencia exacta. Un id con
+    // espacios o mojibake deja aristas huérfanas y bloquea la simulación.
+    const fullNodes: TelemetryGraphNode[] = [];
+    const validIds = new Set<string>();
+
+    for (const n of sourceNodes) {
+      if (!n || typeof n !== "object") continue;
+      const id = normalizeGraphId(n.id);
+      if (!id || validIds.has(id)) continue;
+      validIds.add(id);
+
       let grp: TelemetryGraphNode["group"] = "node";
       if (n.type === "agent") grp = "agent";
       else if (n.type === "database") grp = "database";
@@ -255,9 +267,9 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
       else if (n.type === "sku") grp = "file";
       else if (n.type === "decision") grp = "database";
 
-      return {
-        id: n.id,
-        label: n.label,
+      fullNodes.push({
+        id,
+        label: repairText(n.label) || id,
         group: grp,
         interactionCount: Math.max(3, n.degree || 4),
         bytesOrRowsTotal: 1000,
@@ -265,16 +277,34 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
           ...(n.metadata ?? {}),
           hasAlert: n.status === "warning",
         },
-      };
-    });
+      });
+    }
 
-    const fullLinks: TelemetryGraphLink[] = sourceEdges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      action: e.relation === "modifies" ? "write" : e.relation === "queries" ? "read" : "execute",
-      interactionCount: 2,
-    }));
+    const fullLinks: TelemetryGraphLink[] = [];
+    const seenLinkIds = new Set<string>();
+
+    for (const e of sourceEdges) {
+      if (!e || typeof e !== "object") continue;
+      const source = normalizeGraphId(e.source);
+      const target = normalizeGraphId(e.target);
+      if (!source || !target || source === target) continue;
+      if (!validIds.has(source) || !validIds.has(target)) continue;
+
+      const baseId = normalizeGraphId(e.id) || `${source}__${target}`;
+      let linkId = baseId;
+      let suffix = 2;
+      while (seenLinkIds.has(linkId)) linkId = `${baseId}__${suffix++}`;
+      seenLinkIds.add(linkId);
+
+      fullLinks.push({
+        id: linkId,
+        source,
+        target,
+        action:
+          e.relation === "modifies" ? "write" : e.relation === "queries" ? "read" : "execute",
+        interactionCount: 2,
+      });
+    }
 
     return { nodes: fullNodes, links: fullLinks };
   }, [datasetMode, liveGraph]);
@@ -897,6 +927,21 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
 
       {/* 4. Canvas Principal ForceGraph2D con Física D3 */}
       <div className="flex-1 relative overflow-hidden">
+        {/* Estado vacío amigable: evita montar la simulación sin nodos, que
+            deja el canvas en blanco y consume CPU en un bucle sin convergencia. */}
+        {filteredData.nodes.length === 0 && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-compact text-center px-group">
+            <Layers className="w-8 h-8 text-secondary" />
+            <p className="text-body font-medium text-primary">
+              Sin entidades para mostrar
+            </p>
+            <p className="text-caption text-secondary max-w-sm">
+              {liveGraphLoading
+                ? "Cargando el grafo de conocimiento..."
+                : "El servicio no reporta nodos para los filtros activos. Activa más grupos o reintenta la carga."}
+            </p>
+          </div>
+        )}
         <ForceGraph2D
           ref={fgRef}
           graphData={filteredData}

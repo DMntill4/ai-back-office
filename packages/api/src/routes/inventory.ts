@@ -59,28 +59,58 @@ interface RopAlert {
     warehouseBreakdown: DynamicInventoryHealth["warehouseBreakdown"];
 }
 
+/** Número finito o 0: evita `NaN`/`undefined` llegando al cliente. */
+function safeNumber(value: unknown): number {
+    const n = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Normaliza una fila de salud de inventario al contrato `RopAlert`.
+ * Tolerante a nulos: `daysOfCoverage` puede ser `null` (SKU sin historial de
+ * ventas) y `warehouseBreakdown` puede venir vacío si el producto no tiene
+ * existencias registradas en ningún almacén.
+ */
 function toRopAlert(h: DynamicInventoryHealth): RopAlert {
+    const breakdown = Array.isArray(h.warehouseBreakdown) ? h.warehouseBreakdown : [];
     return {
         productId: h.productId,
         sku: h.sku,
         name: h.name,
-        category: h.category,
-        totalStock: h.totalStock,
-        minStock: h.minStockStatic,
-        reorderPoint: h.reorderPointDynamic,
-        dailyBurnRate: h.dailyBurnRate,
-        daysOfCoverage: h.daysOfCoverage,
-        suggestedOrderQty: h.suggestedOrderQty ?? 0,
-        unitCostEstimate: h.unitCostEstimate ?? 0,
+        category: h.category || "General",
+        totalStock: safeNumber(h.totalStock),
+        minStock: safeNumber(h.minStockStatic),
+        reorderPoint: safeNumber(h.reorderPointDynamic),
+        dailyBurnRate: safeNumber(h.dailyBurnRate),
+        daysOfCoverage:
+            h.daysOfCoverage === null || h.daysOfCoverage === undefined
+                ? null
+                : safeNumber(h.daysOfCoverage),
+        suggestedOrderQty: safeNumber(h.suggestedOrderQty),
+        unitCostEstimate: safeNumber(h.unitCostEstimate),
         status: h.status,
         preferredSupplierName: h.preferredSupplierName,
-        warehouseBreakdown: h.warehouseBreakdown,
+        warehouseBreakdown: breakdown.map((w) => ({
+            warehouseId: w.warehouseId,
+            warehouseName: w.warehouseName || w.warehouseId,
+            city: w.city ?? null,
+            stock: safeNumber(w.stock),
+        })),
     };
+}
+
+/** Mensaje legible de cualquier excepción (incluye `AggregateError` de pg). */
+function describeError(err: unknown): string {
+    if (err instanceof Error) {
+        const code = (err as any).code ? ` [${(err as any).code}]` : "";
+        return `${err.message}${code}`;
+    }
+    return String(err);
 }
 
 export async function inventoryRoutes(fastify: FastifyInstance) {
     // 1. Resumen de salud del catálogo
-    fastify.get("/api/inventory/summary", async (request: FastifyRequest) => {
+    fastify.get("/api/inventory/summary", async (request: FastifyRequest, reply: FastifyReply) => {
         const query = (request.query as any) || {};
         const companyId = query.companyId || currentSession.companyId;
 
@@ -122,24 +152,27 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
             };
 
             return { success: true, data: summary };
-        } catch (err: any) {
+        } catch (err: unknown) {
+            // 503: la causa típica es la base de datos inaccesible, no un bug de la ruta.
+            reply.code(503);
             return {
                 success: false,
                 data: null,
-                message: `Error al calcular el resumen de inventario: ${err.message}`,
+                error: describeError(err),
+                message: `Error al calcular el resumen de inventario: ${describeError(err)}`,
             };
         }
     });
 
     // 2. Alertas de punto de reorden
-    fastify.get("/api/inventory/rop-alerts", async (request: FastifyRequest) => {
+    fastify.get("/api/inventory/rop-alerts", async (request: FastifyRequest, reply: FastifyReply) => {
         const query = (request.query as any) || {};
         const companyId = query.companyId || currentSession.companyId;
 
         try {
             const health = await analyzeDynamicCatalogHealth(companyId);
-            const alerts = health
-                .filter((h) => h.status !== "OPTIMO")
+            const alerts = (Array.isArray(health) ? health : [])
+                .filter((h) => h && h.status !== "OPTIMO")
                 .map(toRopAlert)
                 .sort((a, b) => (a.daysOfCoverage ?? Infinity) - (b.daysOfCoverage ?? Infinity));
 
@@ -148,12 +181,14 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
                 count: alerts.length,
                 data: alerts,
             };
-        } catch (err: any) {
+        } catch (err: unknown) {
+            reply.code(503);
             return {
                 success: false,
                 count: 0,
                 data: [],
-                message: `Error al consultar alertas de reorden: ${err.message}`,
+                error: describeError(err),
+                message: `Error al consultar alertas de reorden: ${describeError(err)}`,
             };
         }
     });
@@ -196,14 +231,19 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
             });
 
             return { success: true, message: result.message, data: result };
-        } catch (err: any) {
+        } catch (err: unknown) {
             reply.code(500);
-            return { success: false, message: `Error al ajustar stock: ${err.message}` };
+            return {
+                success: false,
+                data: null,
+                error: describeError(err),
+                message: `Error al ajustar stock: ${describeError(err)}`,
+            };
         }
     });
 
     // 4. Detalle de stock por producto (compatibilidad con vistas de inventario)
-    fastify.get("/api/inventory/items", async (request: FastifyRequest) => {
+    fastify.get("/api/inventory/items", async (request: FastifyRequest, reply: FastifyReply) => {
         const query = (request.query as any) || {};
         const companyId = query.companyId || currentSession.companyId;
 
@@ -216,9 +256,10 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
 
             const items = prods.map((p) => {
                 const itemInvs = invs.filter((i) => i.productId === p.id);
-                const totalStock = itemInvs.reduce((sum, i) => sum + i.stock, 0);
+                const totalStock = itemInvs.reduce((sum, i) => sum + safeNumber(i.stock), 0);
                 const primary = itemInvs[0];
                 const wh = primary ? whs.find((w) => w.id === primary.warehouseId) : undefined;
+                const minStock = safeNumber(p.minStock);
                 return {
                     id: p.id,
                     sku: p.sku,
@@ -227,32 +268,41 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
                     warehouseId: wh?.id ?? null,
                     warehouseName: wh?.name ?? "Sin almacén",
                     currentStock: totalStock,
-                    minStock: p.minStock,
+                    minStock,
                     unitPriceCop: 0,
                     status:
-                        totalStock === 0 ? "quiebre" : totalStock < p.minStock ? "alerta" : "optimo",
+                        totalStock === 0 ? "quiebre" : totalStock < minStock ? "alerta" : "optimo",
                 };
             });
 
             return { success: true, count: items.length, data: items };
-        } catch (err: any) {
-            return { success: false, count: 0, data: [], message: err.message };
+        } catch (err: unknown) {
+            reply.code(503);
+            return {
+                success: false,
+                count: 0,
+                data: [],
+                error: describeError(err),
+                message: `Error al consultar existencias: ${describeError(err)}`,
+            };
         }
     });
 
     // 5. Inteligencia de inventario (quiebre predictivo, ABC/Pareto, sobrestock)
-    fastify.get("/api/inventory/intelligence", async (request: FastifyRequest) => {
+    fastify.get("/api/inventory/intelligence", async (request: FastifyRequest, reply: FastifyReply) => {
         const query = (request.query as any) || {};
         const companyId = query.companyId || currentSession.companyId;
 
         try {
             const data = await getInventoryIntelligence(companyId);
             return { success: true, data };
-        } catch (err: any) {
+        } catch (err: unknown) {
+            reply.code(503);
             return {
                 success: false,
                 data: null,
-                message: `Error al calcular la inteligencia de inventario: ${err.message}`,
+                error: describeError(err),
+                message: `Error al calcular la inteligencia de inventario: ${describeError(err)}`,
             };
         }
     });

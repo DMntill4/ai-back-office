@@ -1,9 +1,14 @@
 import React from "react";
-import { AlertTriangle, RotateCcw } from "lucide-react";
+import { AlertTriangle, RotateCcw, Home } from "lucide-react";
 
 export interface ErrorBoundaryProps {
     /** Identificador de la vista, usado para reiniciar el boundary al navegar. */
     viewKey?: string;
+    /**
+     * Escape global: resetea la ruta al Dashboard. Se invoca desde el botón
+     * "Volver al Dashboard" cuando una vista queda atrapada en un error.
+     */
+    onReset?: () => void;
     children: React.ReactNode;
 }
 
@@ -53,6 +58,17 @@ export class ErrorBoundary extends React.Component<
         this.setState({ hasError: false, error: null });
     };
 
+    /**
+     * Escape de un solo clic: limpia el error y delega en el router para
+     * volver al Dashboard. Si no hay handler, recarga la vista actual.
+     */
+    private handleBackToDashboard = (): void => {
+        this.setState({ hasError: false, error: null });
+        if (this.props.onReset) {
+            this.props.onReset();
+        }
+    };
+
     render(): React.ReactNode {
         if (!this.state.hasError) {
             return this.props.children;
@@ -82,11 +98,19 @@ export class ErrorBoundary extends React.Component<
                         </pre>
                     ) : null}
 
-                    <div className="flex items-center gap-compact">
+                    <div className="flex flex-wrap items-center gap-compact">
+                        <button
+                            type="button"
+                            onClick={this.handleBackToDashboard}
+                            className="inline-flex items-center gap-hairline rounded-control bg-brand text-canvas px-compact py-hairline text-body font-medium hover:opacity-90 transition-opacity"
+                        >
+                            <Home className="w-4 h-4" />
+                            Volver al Dashboard
+                        </button>
                         <button
                             type="button"
                             onClick={this.handleReload}
-                            className="inline-flex items-center gap-hairline rounded-control bg-brand text-canvas px-compact py-hairline text-body font-medium hover:opacity-90 transition-opacity"
+                            className="inline-flex items-center gap-hairline rounded-control bg-raised border border-border text-primary px-compact py-hairline text-body font-medium hover:border-strong transition-colors"
                         >
                             <RotateCcw className="w-4 h-4" />
                             Recargar vista

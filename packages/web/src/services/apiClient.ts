@@ -150,7 +150,8 @@ export interface RopAlert {
     minStock: number;
     reorderPoint: number;
     dailyBurnRate: number;
-    daysOfCoverage: number;
+    /** `null` cuando el SKU no tiene historial de ventas (cobertura desconocida). */
+    daysOfCoverage: number | null;
     suggestedOrderQty: number;
     unitCostEstimate: number;
     status: "OPTIMO" | "ATENCION_ROP" | "BAJO" | "AGOTADO";

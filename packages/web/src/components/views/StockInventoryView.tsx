@@ -69,18 +69,27 @@ function toSkuStatus(status: RopAlert["status"]): StockSkuItem["status"] {
  * Conserva los datos visuales de la semilla (rack, lote, historial) cuando
  * existe una referencia equivalente; si no, sintetiza valores coherentes.
  */
+/** Número finito o el valor por defecto: blinda la vista ante `null`/`NaN` del API. */
+function num(value: unknown, fallback = 0): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function toEnrichedSku(alert: RopAlert, seed?: EnrichedSkuItem): EnrichedSkuItem {
-  const primaryWarehouse = alert.warehouseBreakdown[0];
-  const coverageDays = Number.isFinite(alert.daysOfCoverage)
-    ? alert.daysOfCoverage
-    : 0;
+  const breakdown = Array.isArray(alert.warehouseBreakdown) ? alert.warehouseBreakdown : [];
+  const primaryWarehouse = breakdown[0];
+  // `daysOfCoverage` es `null` cuando el SKU no tiene historial de ventas:
+  // se muestra 0 días de cobertura en lugar de romper el render.
+  const coverageDays = num(alert.daysOfCoverage, 0);
   const status = toSkuStatus(alert.status);
+  const minStock = num(alert.minStock);
+  const sku = alert.sku || alert.productId || "SIN-SKU";
 
   return {
-    id: seed?.id ?? alert.productId,
-    sku: alert.sku,
-    name: alert.name,
-    category: alert.category,
+    id: seed?.id ?? alert.productId ?? sku,
+    sku,
+    name: alert.name || sku,
+    category: alert.category || "General",
     warehouseId: primaryWarehouse?.warehouseId ?? seed?.warehouseId ?? "wh_bga",
     warehouseName:
       primaryWarehouse?.warehouseName ??
@@ -89,14 +98,14 @@ function toEnrichedSku(alert: RopAlert, seed?: EnrichedSkuItem): EnrichedSkuItem
     locationRack:
       seed?.locationRack ??
       `${primaryWarehouse?.city ?? "Bucaramanga"} · Sin ubicación asignada`,
-    lotNumber: seed?.lotNumber ?? `LT-${alert.sku.replace(/[^A-Z0-9]/gi, "").slice(-6)}`,
-    currentStock: alert.totalStock,
-    minStock: alert.minStock,
-    safetyStock: seed?.safetyStock ?? Math.round(alert.minStock * 0.4),
-    dailyBurnRate: alert.dailyBurnRate,
+    lotNumber: seed?.lotNumber ?? `LT-${sku.replace(/[^A-Z0-9]/gi, "").slice(-6)}`,
+    currentStock: num(alert.totalStock),
+    minStock,
+    safetyStock: seed?.safetyStock ?? Math.round(minStock * 0.4),
+    dailyBurnRate: num(alert.dailyBurnRate),
     coverageDays,
-    unitPriceCop: alert.unitCostEstimate,
-    ropThreshold: alert.reorderPoint,
+    unitPriceCop: num(alert.unitCostEstimate),
+    ropThreshold: num(alert.reorderPoint),
     status,
     demandHistory: seed?.demandHistory ?? [],
     demandTrendPct: seed?.demandTrendPct ?? 0,
@@ -123,12 +132,14 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
   });
 
   // Sincroniza las alertas ROP reales (o el fallback) con el estado local de la vista.
+  // Si el backend responde vacío o con filas corruptas, se conserva el estado
+  // previo en lugar de vaciar la tabla (degradación elegante).
   useEffect(() => {
-    if (ropAlerts.length === 0) return;
+    if (!Array.isArray(ropAlerts) || ropAlerts.length === 0) return;
     setItems((prev) =>
-      ropAlerts.map((alert) =>
-        toEnrichedSku(alert, prev.find((s) => s.sku === alert.sku)),
-      ),
+      ropAlerts
+        .filter((alert) => alert && typeof alert === "object")
+        .map((alert) => toEnrichedSku(alert, prev.find((s) => s.sku === alert.sku))),
     );
   }, [ropAlerts]);
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
@@ -495,8 +506,18 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
       )}
 
       {inventoryError && (
-        <div className="rounded-control border border-state-error/40 bg-state-error-surface px-compact py-compact text-caption text-state-error">
-          {inventoryError}
+        <div
+          role="alert"
+          className="rounded-control border border-state-error/40 bg-state-error-surface px-compact py-compact text-caption text-state-error flex flex-wrap items-center justify-between gap-compact"
+        >
+          <span>
+            {inventoryIsFallback
+              ? "No se pudo conectar con el servicio de inventario. Los datos mostrados son de respaldo."
+              : `El servicio de inventario reportó un problema: ${inventoryError}`}
+          </span>
+          <Button variant="ghost" size="table" onClick={() => void refreshInventory()} disabled={inventoryLoading}>
+            Reintentar
+          </Button>
         </div>
       )}
 

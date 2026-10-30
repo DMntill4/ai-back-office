@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import {
   MintGraphNode,
   MintGraphEdge,
@@ -45,8 +45,40 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
   focusNodeId,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const rawNodes = passedNodes || data?.nodes || [];
-  const rawEdges = passedEdges || data?.edges || [];
+
+  // Validación defensiva: el motor de fuerzas nunca debe recibir `undefined`,
+  // entradas sin `id` ni aristas con extremos inválidos. Un solo nodo corrupto
+  // puede dejar la simulación en un bucle infinito y congelar el hilo principal.
+  const rawNodes = useMemo(() => {
+    const source = passedNodes ?? data?.nodes ?? [];
+    if (!Array.isArray(source)) return [];
+    const seen = new Set<string>();
+    return source.filter((node) => {
+      if (!node || typeof node !== "object") return false;
+      const id = typeof node.id === "string" ? node.id.trim() : "";
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [passedNodes, data]);
+
+  const rawEdges = useMemo(() => {
+    const source = passedEdges ?? data?.edges ?? [];
+    if (!Array.isArray(source)) return [];
+    const ids = new Set(rawNodes.map((n) => n.id));
+    return source.filter((edge) => {
+      if (!edge || typeof edge !== "object") return false;
+      const sourceId = typeof edge.source === "string" ? edge.source.trim() : "";
+      const targetId = typeof edge.target === "string" ? edge.target.trim() : "";
+      return (
+        sourceId !== "" &&
+        targetId !== "" &&
+        sourceId !== targetId &&
+        ids.has(sourceId) &&
+        ids.has(targetId)
+      );
+    });
+  }, [passedEdges, data, rawNodes]);
 
   const simNodesRef = useRef<Map<string, SimNode>>(new Map());
   const simEdgesRef = useRef<SimEdge[]>([]);
@@ -253,6 +285,20 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
             n.x += n.vx;
             n.y += n.vy;
           }
+        }
+
+        // Guarda anti-NaN: una coordenada corrupta envenenaría toda la
+        // simulación (los nodos se vuelven invisibles y el bucle no converge).
+        if (
+          !Number.isFinite(n.x) ||
+          !Number.isFinite(n.y) ||
+          !Number.isFinite(n.vx) ||
+          !Number.isFinite(n.vy)
+        ) {
+          n.x = 0;
+          n.y = 0;
+          n.vx = 0;
+          n.vy = 0;
         }
       }
 

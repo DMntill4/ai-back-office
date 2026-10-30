@@ -33,30 +33,30 @@ interface KnowledgeGraphViewProps {
 
 // Diccionario de etiquetas legibles de negocio (cero camelCase o jerga de base de datos)
 const BUSINESS_FIELD_LABELS: Record<string, string> = {
-  rolOperativo: "FunciÃ³n principal",
-  limiteAutonomo: "LÃ­mite de compra autÃ³noma",
+  rolOperativo: "Función principal",
+  limiteAutonomo: "Límite de compra autónoma",
   sedesMonitoreadas: "Sedes supervisadas",
-  frecuenciaRevision: "Frecuencia de revisiÃ³n",
-  ciudad: "Ciudad / UbicaciÃ³n",
-  direccion: "DirecciÃ³n física",
+  frecuenciaRevision: "Frecuencia de revisión",
+  ciudad: "Ciudad / Ubicación",
+  direccion: "Dirección física",
   capacidadTotal: "Capacidad instalada",
-  ocupacionActual: "OcupaciÃ³n actual",
-  referenciasBajoMinimo: "Referencias bajo mÃ­nimo",
+  ocupacionActual: "Ocupación actual",
+  referenciasBajoMinimo: "Referencias bajo mínimo",
   tiempoTraslado: "Tiempo de traslado a matriz",
   existenciaActual: "Existencias actuales",
   puntoReorden: "Punto de reorden",
-  minimoSeguridad: "MÃ­nimo de seguridad",
+  minimoSeguridad: "Mínimo de seguridad",
   costoUnitario: "Costo unitario",
-  categoria: "CategorÃ­a de producto",
+  categoria: "Categoría de producto",
   coberturaEstimada: "Cobertura proyectada",
   tiempoEntrega: "Tiempo de entrega",
-  cumplimientoHistorico: "Cumplimiento histÃ³rico",
+  cumplimientoHistorico: "Cumplimiento histórico",
   descuentoVolumen: "Descuento por volumen",
   montoTotal: "Monto total de la orden",
   cantidadSolicitada: "Cantidad solicitada",
   proveedorAsignado: "Proveedor asignado",
-  motivoRetencion: "Motivo de revisiÃ³n",
-  reglaAplicada: "PolÃ­tica de negocio",
+  motivoRetencion: "Motivo de revisión",
+  reglaAplicada: "Política de negocio",
   responsableFirma: "Responsable de Aprobación",
 };
 
@@ -80,23 +80,32 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
 
   // Grafo en vivo desde PostgreSQL (/api/graph/data). Sin datos semilla locales.
-  const { graphData: liveGraph, loading: graphLoading, isFallback: graphIsFallback } =
-    useLiveGraph({ mode: activeFilter, searchQuery });
+  const {
+    graphData: liveGraph,
+    loading: graphLoading,
+    isFallback: graphIsFallback,
+    refresh: refreshGraph,
+  } = useLiveGraph({ mode: activeFilter, searchQuery });
 
   const [graphNodes, setGraphNodes] = useState<MintGraphNode[]>([]);
   const [graphEdges, setGraphEdges] = useState<MintGraphEdge[]>([]);
 
   // Sincroniza el grafo real con el estado local de la vista.
+  // Validación defensiva: nunca se propaga `undefined` ni arreglos corruptos
+  // al motor de renderizado (evita el bucle infinito de la simulación).
   useEffect(() => {
-    if (liveGraph) {
-      setGraphNodes(liveGraph.nodes ?? []);
-      setGraphEdges(liveGraph.edges ?? []);
-    }
+    const safeNodes = Array.isArray(liveGraph?.nodes) ? liveGraph!.nodes : [];
+    const safeEdges = Array.isArray(liveGraph?.edges) ? liveGraph!.edges : [];
+    setGraphNodes(safeNodes);
+    setGraphEdges(safeEdges);
   }, [liveGraph]);
 
   // Si el nodo seleccionado desaparece del grafo vivo, reencuadra al primer nodo disponible.
   useEffect(() => {
-    if (graphNodes.length === 0) return;
+    if (graphNodes.length === 0) {
+      if (selectedNodeId !== "") setSelectedNodeId("");
+      return;
+    }
     if (!graphNodes.some((n) => n.id === selectedNodeId)) {
       setSelectedNodeId(graphNodes[0].id);
     }
@@ -111,16 +120,16 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     showAllLabels: true,
   };
 
-  // SubpestaÃ±as del destino Agente segÃºn Mint-DESIGN.md
+  // Subpestañas del destino Agente según Mint-DESIGN.md
   const agentSubTabs: TabItem[] = [
     { id: "flujo_agente", label: "Flujo del agente" },
     { id: "mapa_conocimiento", label: "Mapa de conocimiento" },
     { id: "memoria_agente", label: "Memoria del agente" },
     { id: "auditoria_eventos", label: "Historial de decisiones" },
-    { id: "reglas_politicas", label: "Reglas y polÃ­ticas" },
+    { id: "reglas_politicas", label: "Reglas y políticas" },
   ];
 
-  // Un solo control de filtros por categorÃ­a
+  // Un solo control de filtros por categoría
   const filterTabs: TabItem[] = [
     { id: "all", label: "Todos", badge: graphNodes.length },
     { id: "warehouse", label: "Bodegas" },
@@ -149,17 +158,26 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     }
 
     if (query) {
-      nodes = nodes.filter(
-        (n) =>
-          n.label.toLowerCase().includes(query) ||
-          (n.sublabel && n.sublabel.toLowerCase().includes(query)) ||
-          n.id.toLowerCase().includes(query)
-      );
+      nodes = nodes.filter((n) => {
+        const label = (n.label ?? "").toLowerCase();
+        const sublabel = (n.sublabel ?? "").toLowerCase();
+        const id = (n.id ?? "").toLowerCase();
+        return (
+          label.includes(query) ||
+          sublabel.includes(query) ||
+          id.includes(query)
+        );
+      });
     }
 
+    // Solo se dibujan aristas cuyos dos extremos siguen visibles.
     const visibleIds = new Set(nodes.map((n) => n.id));
     const edges = graphEdges.filter(
-      (e) => visibleIds.has(e.source) && visibleIds.has(e.target)
+      (e) =>
+        e &&
+        visibleIds.has(e.source) &&
+        visibleIds.has(e.target) &&
+        e.source !== e.target
     );
 
     return { nodes, edges };
@@ -213,7 +231,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
 
   return (
     <div className="flex-1 h-full flex flex-col bg-canvas text-primary font-sans overflow-hidden">
-      {/* 1. Cabecera con SubpestaÃ±as del Destino Agente */}
+      {/* 1. Cabecera con Subpestañas del Destino Agente */}
       <div className="p-group pb-0">
         <PageHeader
           title="Mapa de conocimiento"
@@ -240,7 +258,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
         />
       </div>
 
-      {/* 2. Un Solo Control de Filtros Unificado (Cero SuperposiciÃ³n) */}
+      {/* 2. Un Solo Control de Filtros Unificado (Cero Superposición) */}
       <div className="px-group pt-compact">
         <div className="p-compact rounded-container bg-panel border border-border flex flex-col md:flex-row md:items-center justify-between gap-compact">
           {/* Buscador a la izquierda */}
@@ -257,7 +275,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
               <button
                 onClick={() => setSearchQuery("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-primary cursor-pointer"
-                title="Limpiar bÃºsqueda"
+                title="Limpiar búsqueda"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -288,9 +306,17 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
             <div className="absolute inset-0 flex items-center justify-center p-group">
               <EmptyState
                 title="Sin nodos en el grafo"
-                description="El backend no reporta entidades para este filtro. Ajusta los filtros o verifica que el vault tenga documentos indexados."
-                actionLabel="Limpiar filtros"
+                description={
+                  graphIsFallback
+                    ? "No fue posible conectar con el servicio del grafo. Reintenta la carga o revisa que la API esté en línea."
+                    : "El backend no reporta entidades para este filtro. Ajusta los filtros o verifica que el vault tenga documentos indexados."
+                }
+                actionLabel={graphIsFallback ? "Reintentar carga" : "Limpiar filtros"}
                 onAction={() => {
+                  if (graphIsFallback) {
+                    void refreshGraph();
+                    return;
+                  }
                   setActiveFilter("all");
                   setSearchQuery("");
                 }}
@@ -334,6 +360,14 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
 
         {/* Inspector Derecho en Lenguaje de Negocio (360px) */}
         <aside className="w-full lg:w-[360px] h-full rounded-container bg-panel border border-border overflow-y-auto p-base space-y-base shrink-0">
+          {!selectedNode && (
+            <div className="h-full flex items-center justify-center">
+              <EmptyState
+                title="Sin entidad seleccionada"
+                description="Selecciona un nodo del mapa para inspeccionar su información operativa."
+              />
+            </div>
+          )}
           {selectedNode && (
             <>
               {/* Cabecera de la Entidad Seleccionada */}
@@ -365,10 +399,10 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 </div>
               </div>
 
-              {/* Ficha Operativa de Negocio (Sin camelCase ni tÃ©rminos de BD) */}
+              {/* Ficha Operativa de Negocio (Sin camelCase ni términos de BD) */}
               <div className="space-y-compact">
                 <h3 className="text-label font-semibold text-secondary">
-                  InformaciÃ³n operativa
+                  Información operativa
                 </h3>
                 <div className="p-compact rounded-control bg-raised border border-border divide-y divide-border">
                   {Object.entries(selectedNode.metadata || {}).map(
@@ -391,7 +425,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 </div>
               </div>
 
-              {/* AcciÃ³n Contextual si es una Orden o Aprobación */}
+              {/* Acción Contextual si es una Orden o Aprobación */}
               {(selectedNode.type === "purchase_order" ||
                 selectedNode.type === "decision") &&
                 onNavigateTo && (
@@ -416,7 +450,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                   <span className="text-caption text-muted tabular-nums">
                     {connectedEdges.incoming.length +
                       connectedEdges.outgoing.length}{" "}
-                    vÃ­nculos
+                    vínculos
                   </span>
                 </div>
 
@@ -459,7 +493,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 </div>
               </div>
 
-              {/* Detalle TÃ©cnico Oculto tras "Ver detalle tÃ©cnico" */}
+              {/* Detalle Técnico Oculto tras "Ver detalle técnico" */}
               <div className="pt-compact border-t border-border">
                 <button
                   onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
@@ -470,7 +504,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                   ) : (
                     <ChevronRight className="w-3.5 h-3.5 text-muted" />
                   )}
-                  <span>Ver detalle tÃ©cnico</span>
+                  <span>Ver detalle técnico</span>
                 </button>
 
                 {showTechnicalDetails && (
@@ -480,7 +514,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                       <span>Identificador interno verificado</span>
                     </div>
                     <div>ID: {selectedNode.id}</div>
-                    <div>Grado de conexiÃ³n: {selectedNode.degree || 1}</div>
+                    <div>Grado de conexión: {selectedNode.degree || 1}</div>
                   </div>
                 )}
               </div>
