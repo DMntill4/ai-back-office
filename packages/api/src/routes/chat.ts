@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+﻿import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
   db,
   cases,
@@ -83,7 +83,6 @@ export async function chatRoutes(fastify: FastifyInstance) {
               agent: ev.agent,
               action: ev.action,
               details: ev.details,
-              resultSummary: ev.resultSummary,
               payload: ev,
             });
           },
@@ -161,3 +160,4 @@ export async function chatRoutes(fastify: FastifyInstance) {
     }
   });
 }
+

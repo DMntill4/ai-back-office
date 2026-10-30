@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+﻿import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
     db,
     products,
@@ -50,7 +50,7 @@ interface RopAlert {
     minStock: number;
     reorderPoint: number;
     dailyBurnRate: number;
-    daysOfCoverage: number;
+    daysOfCoverage: number | null;
     suggestedOrderQty: number;
     unitCostEstimate: number;
     status: DynamicInventoryHealth["status"];
@@ -69,8 +69,8 @@ function toRopAlert(h: DynamicInventoryHealth): RopAlert {
         reorderPoint: h.reorderPointDynamic,
         dailyBurnRate: h.dailyBurnRate,
         daysOfCoverage: h.daysOfCoverage,
-        suggestedOrderQty: h.suggestedOrderQty,
-        unitCostEstimate: h.unitCostEstimate,
+        suggestedOrderQty: h.suggestedOrderQty ?? 0,
+        unitCostEstimate: h.unitCostEstimate ?? 0,
         status: h.status,
         preferredSupplierName: h.preferredSupplierName,
         warehouseBreakdown: h.warehouseBreakdown,
@@ -140,7 +140,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
             const alerts = health
                 .filter((h) => h.status !== "OPTIMO")
                 .map(toRopAlert)
-                .sort((a, b) => a.daysOfCoverage - b.daysOfCoverage);
+                .sort((a, b) => (a.daysOfCoverage ?? Infinity) - (b.daysOfCoverage ?? Infinity));
 
             return {
                 success: true,
@@ -239,3 +239,5 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
         }
     });
 }
+
+

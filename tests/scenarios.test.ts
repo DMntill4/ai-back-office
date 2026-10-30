@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll } from "vitest";
+﻿import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { runAgentLoop, FakeGrokClient } from "@mint/core";
 
 describe("Business Scenarios and Automated Tests with Fake LLM", () => {
@@ -360,7 +360,8 @@ describe("Business Scenarios and Automated Tests with Fake LLM", () => {
   });
 
   afterAll(async () => {
-    const { pool } = await import("../src/db/client");
+    const { pool } = await import("../packages/core/src/db/client");
     await pool.end();
   });
 });
+

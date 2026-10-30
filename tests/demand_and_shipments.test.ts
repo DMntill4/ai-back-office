@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+﻿import { describe, it, expect, beforeAll } from "vitest";
 import {
   executePronosticarDemanda,
   executeConsultarEnvios,
@@ -135,7 +135,7 @@ describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umb
       currency: "MXN",
     });
 
-    const { createPurchaseOrder } = await import("../src/services/inventoryService");
+    const { createPurchaseOrder } = await import("../packages/core/src/services/inventoryService");
     const result = await createPurchaseOrder({
       caseId: `case_vip_${Date.now()}`,
       companyId,
@@ -166,3 +166,4 @@ describe("Herramientas Nuevas: Pronóstico de Demanda, Compra Autónoma bajo Umb
     expect(trackingRes.data![0].currentLocation).toBeDefined();
   });
 });
+

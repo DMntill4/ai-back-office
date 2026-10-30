@@ -1,4 +1,4 @@
-import {
+﻿import {
   tickOnce,
   readDaemonState,
   writeDaemonState,
@@ -133,6 +133,7 @@ class ApiDaemonRunner {
         isPaused: true,
         stockDeficitsTriggered: 0,
         shipmentDelaysTriggered: 0,
+        recoveredEventsCount: 0,
       };
       this.lastTickSummary = summary;
       return summary;
@@ -165,6 +166,7 @@ class ApiDaemonRunner {
         isPaused: false,
         stockDeficitsTriggered: 0,
         shipmentDelaysTriggered: 0,
+        recoveredEventsCount: 0,
       };
       this.lastTickSummary = errSummary;
       return errSummary;
@@ -222,3 +224,4 @@ class ApiDaemonRunner {
 }
 
 export const apiDaemonRunner = new ApiDaemonRunner();
+

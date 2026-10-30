@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @mint/core
  * Paquete central del motor multi-agente autónomo y lógica de dominio.
  * CERO dependencias de frameworks HTTP (Fastify) o UI.
@@ -70,6 +70,7 @@ export * from "./services/universalLocaleEngine";
 export * from "./services/autonomousInspectionService";
 export * from "./services/obsidianMemoryService";
 export * from "./services/goalSeekingService";
+export * from "./services/vaultService";
 
 // 7. Cliente LLM
 export * from "./llm/client";
@@ -95,4 +96,5 @@ export * from "./telemetry/telemetryPublisher";
 
 // 11. Seguridad, Detección de Prompt Injection, Anti-SSRF y Guardrails
 export * from "./security/index";
+
 

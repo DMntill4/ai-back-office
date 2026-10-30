@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll } from "vitest";
+﻿import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { runAgentLoop, FakeGrokClient } from "@mint/core";
 
 describe("Bucle del Agente (Agent Loop)", () => {
@@ -232,7 +232,8 @@ describe("Bucle del Agente (Agent Loop)", () => {
   }, 15000);
 
   afterAll(async () => {
-    const { pool } = await import("../src/db/client");
+    const { pool } = await import("../packages/core/src/db/client");
     await pool.end();
   });
 });
+
