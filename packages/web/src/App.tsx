@@ -135,7 +135,7 @@ export const App: React.FC = () => {
         return <LogisticsRoutesView />;
 
       case "productos":
-        return <ProductsCatalogView />;
+        return <ProductsCatalogView onNavigateTo={handleTabChange} />;
 
       // 4. COMPRAS (Órdenes y Proveedores)
       case "compras":

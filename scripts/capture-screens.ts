@@ -15,6 +15,7 @@ const PAGES = [
   { hash: "flujo_agente", filePrefix: "flujo-agente" },
   { hash: "mapa_conocimiento", filePrefix: "mapa-conocimiento" },
   { hash: "inventario", filePrefix: "inventario" },
+  { hash: "productos", filePrefix: "productos" },
 ];
 
 const DOCS_DIR = path.resolve(process.cwd(), "docs/screens");
