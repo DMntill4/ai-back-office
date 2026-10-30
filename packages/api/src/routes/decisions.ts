@@ -30,7 +30,7 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
 
       const formatted = rows.map((d) => {
         const evidence = (d.evidencePayload as any) || {};
-        const risk = (d.riskAnalysisPayload as any) || {};
+        const risk = ((d as any).riskAnalysisPayload || (d as any).riskPayload) || {};
         const costNum = Number(d.costMxn || 0);
 
         return {
@@ -127,9 +127,9 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
             resultSummary: `Verificado en PostgreSQL. ${result.message}`,
             payload: result,
           });
-          return { success: true, ...result };
+          return { ...result };
         }
-        return reply.status(400).send({ success: false, ...result });
+        return reply.status(400).send({ ...result });
       } catch (err: any) {
         return reply.status(500).send({ success: false, error: err.message });
       }
@@ -144,7 +144,7 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
           resultSummary: "Archivada y descartada en base de datos",
           payload: result,
         });
-        return { success: true, ...result };
+        return { ...result };
       } catch (err: any) {
         return reply.status(500).send({ success: false, error: err.message });
       }

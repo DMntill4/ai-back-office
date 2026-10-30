@@ -26,7 +26,18 @@ import {
   Layers,
   ArrowRight,
   Percent,
+  LayoutGrid,
+  List,
+  RotateCcw,
+  MoreHorizontal,
+  MapPin,
+  Truck,
+  Package,
+  ShoppingBag,
+  UserCheck,
 } from "lucide-react";
+import { MilestoneStepper, MilestoneStep } from "../ui/MilestoneStepper";
+import { StatusBadge } from "../ui/StatusBadge";
 
 interface OrderLineItem {
   sku: string;
@@ -69,8 +80,8 @@ interface PurchaseOrder {
 const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   {
     id: "po_24a1902e",
-    orderNumber: "PO-2026-0089",
-    receiptFile: "receipts/po_2026_0089.json",
+    orderNumber: "PO-24A190",
+    receiptFile: "receipts/po_24a190.json",
     origin: "agente",
     specialist: "comprasSpecialist",
     supplier: "Ferreterías Unidas Bogotá S.A.S.",
@@ -107,8 +118,8 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: "po_40bfb88c",
-    orderNumber: "PO-2026-0090",
-    receiptFile: "receipts/po_2026_0090.json",
+    orderNumber: "PO-40BFB8",
+    receiptFile: "receipts/po_40bfb8.json",
     origin: "agente",
     specialist: "financial_maestro",
     supplier: "DeWalt Colombia (Mayorista Homologado)",
@@ -145,8 +156,8 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: "po_89cc412d",
-    orderNumber: "PO-2026-0091",
-    receiptFile: "receipts/po_2026_0091.json",
+    orderNumber: "PO-89CC41",
+    receiptFile: "receipts/po_89cc41.json",
     origin: "agente",
     specialist: "comprasSpecialist",
     supplier: "Mundial de Tornillos S.A.S.",
@@ -183,8 +194,8 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: "po_19ea78b1",
-    orderNumber: "PO-2026-0092",
-    receiptFile: "receipts/po_2026_0092.json",
+    orderNumber: "PO-19EA78",
+    receiptFile: "receipts/po_19ea78.json",
     origin: "manual",
     specialist: "comprasSpecialist",
     supplier: "Distribuidora del Centro S.A.S.",
@@ -221,8 +232,8 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: "po_99fa120e",
-    orderNumber: "PO-2026-0093",
-    receiptFile: "receipts/po_2026_0093.json",
+    orderNumber: "PO-99FA12",
+    receiptFile: "receipts/po_99fa12.json",
     origin: "agente",
     specialist: "financial_maestro",
     supplier: "Bosch Sistemas Industriales Colombia",
@@ -232,7 +243,7 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
     lineItems: [
       {
         sku: "SKU-TAL-IMP20",
-        description: "Taladro de Impacto Inalámbrico 20V",
+        description: "Taladro de Impacto Inalámbrico 20V Industrial",
         quantity: 45,
         unitPriceCop: 420000,
         subtotalCop: 18900000,
@@ -259,8 +270,8 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: "po_22ba8110",
-    orderNumber: "PO-2026-0094",
-    receiptFile: "receipts/po_2026_0094.json",
+    orderNumber: "PO-22BA81",
+    receiptFile: "receipts/po_22ba81.json",
     origin: "agente",
     specialist: "comprasSpecialist",
     supplier: "Siderúrgica de Santander S.A.S.",
@@ -307,10 +318,17 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
   const [orders, setOrders] = useState<PurchaseOrder[]>(INITIAL_PURCHASE_ORDERS);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("po_24a1902e");
   const [searchQuery, setSearchQuery] = useState("");
-  const [originFilter, setOriginFilter] = useState<"all" | "agente" | "manual">("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "borrador_ia" | "emitida" | "recibida_bodega">("all");
+  const [warehouseFilter, setWarehouseFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
+  const [approvalFilter, setApprovalFilter] = useState<string>("all");
+  const [minAmount, setMinAmount] = useState<string>("");
+  const [maxAmount, setMaxAmount] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
-  // Receipt view mode: Formatted receipt vs Raw JSON
+  // Receipt Drawer Mode
+  const [isReceiptDrawerOpen, setIsReceiptDrawerOpen] = useState(false);
   const [receiptMode, setReceiptMode] = useState<"formatted" | "json">("formatted");
 
   // Modal: Nueva Orden de Compra
@@ -323,7 +341,6 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
   // Reconcile processing state
   const [isReconciling, setIsReconciling] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [copiedReceipt, setCopiedReceipt] = useState(false);
 
   const selectedOrder = useMemo(
     () => orders.find((o) => o.id === selectedOrderId) || orders[0],
@@ -335,33 +352,85 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
     setTimeout(() => setToastMessage(null), 4500);
   };
 
+  const handleResetFilters = () => {
+    setStatusFilter("all");
+    setWarehouseFilter("all");
+    setDateFilter("all");
+    setSupplierFilter("all");
+    setApprovalFilter("all");
+    setMinAmount("");
+    setMaxAmount("");
+    setSearchQuery("");
+    showToast("Filtros restablecidos a valores por defecto.");
+  };
+
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
+      // 1. Search Query
       const matchesSearch =
+        searchQuery === "" ||
         o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.supplier.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.lineItems.some((item) =>
-          item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.sku.toLowerCase().includes(searchQuery.toLowerCase())
+        o.lineItems.some(
+          (item) =>
+            item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.sku.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
-      const matchesOrigin =
-        originFilter === "all" || o.origin === originFilter;
-
+      // 2. Estado (2x2 Buttons)
       const matchesStatus =
-        statusFilter === "all" || o.status === statusFilter;
+        statusFilter === "all" ||
+        (statusFilter === "borrador_ia" && o.status === "borrador_ia") ||
+        (statusFilter === "emitida" && (o.status === "emitida" || o.status === "pendiente_gobernanza")) ||
+        (statusFilter === "recibida_bodega" && o.status === "recibida_bodega");
 
-      return matchesSearch && matchesOrigin && matchesStatus;
+      // 3. Sede / Bodega
+      const matchesWarehouse =
+        warehouseFilter === "all" ||
+        (warehouseFilter === "wh_bga" && o.destination.includes("Bucaramanga")) ||
+        (warehouseFilter === "wh_bog" && o.destination.includes("Bogotá")) ||
+        (warehouseFilter === "wh_med" && o.destination.includes("Medellín"));
+
+      // 4. Proveedor
+      const matchesSupplier =
+        supplierFilter === "all" ||
+        (supplierFilter === "ferreterias_unidas" && o.supplier.includes("Ferreterías Unidas")) ||
+        (supplierFilter === "dewalt" && o.supplier.includes("DeWalt")) ||
+        (supplierFilter === "mundial" && o.supplier.includes("Mundial de Tornillos")) ||
+        (supplierFilter === "distribuidora" && o.supplier.includes("Distribuidora del Centro")) ||
+        (supplierFilter === "bosch" && o.supplier.includes("Bosch")) ||
+        (supplierFilter === "siderurgica" && o.supplier.includes("Siderúrgica"));
+
+      // 5. Nivel de Aprobación
+      const matchesApproval =
+        approvalFilter === "all" ||
+        (approvalFilter === "autonoma" && !o.isHitlEscalated) ||
+        (approvalFilter === "hitl" && o.isHitlEscalated);
+
+      // 6. Rango de Monto
+      const minVal = minAmount ? parseFloat(minAmount) : 0;
+      const maxVal = maxAmount ? parseFloat(maxAmount) : Infinity;
+      const matchesAmount = o.totalCop >= minVal && o.totalCop <= maxVal;
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesWarehouse &&
+        matchesSupplier &&
+        matchesApproval &&
+        matchesAmount
+      );
     });
-  }, [orders, searchQuery, originFilter, statusFilter]);
-
-  // KPIs de Flujo de Caja
-  const totalOpenOrders = orders.filter((o) => o.status !== "recibida_bodega").length;
-  const committedCapitalCop = orders
-    .filter((o) => o.status !== "borrador_ia")
-    .reduce((sum, o) => sum + o.totalCop, 0);
-  const totalAiSavingsCop = orders.reduce((sum, o) => sum + o.aiDiscountCop, 0);
-  const pendingApprovalCount = orders.filter((o) => o.status === "pendiente_gobernanza").length;
+  }, [
+    orders,
+    searchQuery,
+    statusFilter,
+    warehouseFilter,
+    supplierFilter,
+    approvalFilter,
+    minAmount,
+    maxAmount,
+  ]);
 
   const handleCreateOrder = () => {
     const subtotal = newOrderQuantity * newOrderUnitPrice;
@@ -371,8 +440,8 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
 
     const newPO: PurchaseOrder = {
       id: `po_${Date.now()}`,
-      orderNumber: `PO-2026-${Math.floor(100 + Math.random() * 900)}`,
-      receiptFile: `receipts/po_2026_${Date.now()}.json`,
+      orderNumber: `PO-${Math.random().toString(16).substring(2, 8).toUpperCase()}`,
+      receiptFile: `receipts/po_${Date.now()}.json`,
       origin: "manual",
       specialist: "comprasSpecialist",
       supplier: newOrderSupplier,
@@ -440,8 +509,20 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
     }, 900);
   };
 
+  // 2x2 Filter Buttons definition matching user specification
+  const statusButtons: {
+    id: "all" | "borrador_ia" | "emitida" | "recibida_bodega";
+    label: string;
+    count: number;
+  }[] = [
+    { id: "all", label: "Todas", count: 32 },
+    { id: "borrador_ia", label: "Borrador IA", count: 8 },
+    { id: "emitida", label: "En Tránsito", count: 14 },
+    { id: "recibida_bodega", label: "Recibidas", count: 10 },
+  ];
+
   return (
-    <div className="flex-1 h-full overflow-hidden flex flex-col bg-[#050806] text-[#F9FAFB] font-sans select-none relative">
+    <div className="flex-1 h-full overflow-hidden flex flex-col bg-canvas text-[#F9FAFB] font-sans select-none relative">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -452,9 +533,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
             className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E]/95 border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)] backdrop-blur-xl"
           >
             <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span className="text-xs font-mono font-medium tracking-tight">
-              {toastMessage}
-            </span>
+            <span className="text-xs font-mono font-medium">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
               className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
@@ -466,712 +545,788 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
       </AnimatePresence>
 
       {/* ========================================================= */}
-      {/* 1. HEADER CON KPIS DE FLUJO DE CAJA (financial_maestro)   */}
+      {/* 1. HEADER SUPERIOR EJECUTIVO (INVENTAR STYLE)             */}
       {/* ========================================================= */}
-      <header className="px-6 py-3 border-b border-white/[0.06] bg-[#070B08]/90 backdrop-blur-md shrink-0 space-y-3 z-20">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#8E9893]">
-                OPERACIONES
-              </span>
-              <span className="text-white/20">/</span>
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#10B981] bg-[#10B981]/10 px-2 py-0.5 rounded-full border border-[#10B981]/25">
-                ABASTECIMIENTO & GOBERNANZA HITL
-              </span>
-            </div>
-            <h1 className="text-base font-bold tracking-tight text-[#F9FAFB] flex items-center gap-2 mt-0.5">
-              Compras y Órdenes
-              <span className="text-xs font-normal font-mono text-[#8E9893]">
-                (verOrdenesAbiertas • Conciliación Criptográfica)
-              </span>
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsNewOrderModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold text-[#050806] bg-[#10B981] hover:bg-[#34D399] transition-all shadow-[0_0_20px_rgba(16,185,129,0.28)]"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Nueva Orden de Compra</span>
-              <span className="font-mono text-[10px] bg-black/20 text-[#050806] px-1.5 py-0.2 rounded">
-                crearOrdenCompra
-              </span>
-            </button>
-          </div>
+      <header className="px-6 py-4 bg-canvas border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-20 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Purchase Order
+          </h1>
+          <span className="text-zinc-500 font-mono text-xs hidden md:inline">
+            · Flujo de Abastecimiento & Gobernanza
+          </span>
         </div>
 
-        {/* Franja de KPIs de Flujo de Caja (4 métricas separadas por 1px hairlines) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-white/[0.06] pt-2 border-t border-white/[0.05]">
-          {/* KPI 1 */}
-          <div className="pr-4 py-1 flex flex-col">
-            <span className="text-[10px] font-mono uppercase text-[#8E9893] flex items-center gap-1.5">
-              <ShoppingCart className="w-3 h-3 text-[#10B981]" />
-              POs Abiertas (verOrdenesAbiertas)
+        <div className="flex items-center gap-3">
+          {/* Buscador de productos y órdenes */}
+          <div className="relative flex items-center">
+            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3.5 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar producto, PO o proveedor..."
+              className="h-9 w-60 sm:w-72 bg-surface-1 border border-white/[0.08] hover:border-white/20 focus:border-emerald-500/50 rounded-xl pl-9 pr-9 text-xs text-white placeholder:text-zinc-500 focus:outline-none transition-all font-sans"
+            />
+            <span className="absolute right-2.5 text-[10px] font-mono text-zinc-500 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] pointer-events-none">
+              ⌘F
             </span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="font-mono text-xl sm:text-2xl font-bold text-[#F9FAFB]">
-                {totalOpenOrders}
-              </span>
-              <span className="text-[11px] font-mono text-[#8E9893]">
-                órdenes activas
-              </span>
-            </div>
           </div>
 
-          {/* KPI 2 */}
-          <div className="px-0 lg:px-4 py-1 flex flex-col">
-            <span className="text-[10px] font-mono uppercase text-[#8E9893] flex items-center gap-1.5">
-              <DollarSign className="w-3 h-3 text-[#10B981]" />
-              Capital Comprometido Mes
-            </span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="font-mono text-xl sm:text-2xl font-bold text-[#F9FAFB]">
-                ${(committedCapitalCop / 1000000).toFixed(1)}M
-              </span>
-              <span className="text-[11px] font-mono text-[#8E9893]">
-                COP en Octubre
-              </span>
-            </div>
+          {/* Switcher de Vista (Tarjetas Inventar vs Tabla) */}
+          <div className="flex items-center p-1 rounded-xl bg-surface-1 border border-white/[0.08]">
+            <button
+              onClick={() => setViewMode("cards")}
+              className={`p-1.5 rounded-lg transition-colors ${
+                viewMode === "cards"
+                  ? "bg-emerald-500/20 text-emerald-300"
+                  : "text-zinc-500 hover:text-white"
+              }`}
+              title="Vista de Tarjetas con Stepper (Inventar)"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("table")}
+              className={`p-1.5 rounded-lg transition-colors ${
+                viewMode === "table"
+                  ? "bg-emerald-500/20 text-emerald-300"
+                  : "text-zinc-500 hover:text-white"
+              }`}
+              title="Vista de Tabla"
+            >
+              <List className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* KPI 3 */}
-          <div className="px-0 lg:px-4 py-1 flex flex-col">
-            <span className="text-[10px] font-mono uppercase text-[#8E9893] flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-[#34D399]" />
-              Ahorro por Negociación IA
-            </span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="font-mono text-xl sm:text-2xl font-bold text-[#34D399]">
-                ${(totalAiSavingsCop / 1000000).toFixed(2)}M
-              </span>
-              <span className="text-[11px] font-mono text-[#10B981]">
-                (11.2% promedio)
-              </span>
-            </div>
-          </div>
-
-          {/* KPI 4 */}
-          <div className="pl-0 lg:pl-4 py-1 flex flex-col">
-            <span className="text-[10px] font-mono uppercase text-[#8E9893] flex items-center gap-1.5">
-              <AlertTriangle className="w-3 h-3 text-[#F59E0B]" />
-              Esperando Aprobación
-            </span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="font-mono text-xl sm:text-2xl font-bold text-[#F59E0B]">
-                {pendingApprovalCount}
-              </span>
-              <span className="text-[11px] font-mono text-[#8E9893]">
-                superan umbral $5M COP
-              </span>
-            </div>
-          </div>
+          {/* Botón Primario: Nueva Orden de Compra */}
+          <button
+            onClick={() => setIsNewOrderModalOpen(true)}
+            className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.45)]"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Nueva Orden</span>
+          </button>
         </div>
       </header>
 
       {/* ========================================================= */}
-      {/* 2. ÁREA CENTRAL: PIPELINE 65% + VISOR DE RECIBO 35%       */}
+      {/* 2. ÁREA PRINCIPAL: MASTER-FILTER LATERAL (260px) + LISTA  */}
       {/* ========================================================= */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative min-h-0">
+      <div className="flex-1 overflow-hidden flex flex-col md:flex-row p-6 gap-6 min-h-0">
         {/* ------------------------------------------------------- */}
-        {/* COLUMNA IZQUIERDA (65%): TABLA / PIPELINE DE ÓRDENES    */}
+        {/* PANEL IZQUIERDO DE FILTROS (260px)                      */}
         {/* ------------------------------------------------------- */}
-        <div className="flex-1 lg:w-[65%] h-full flex flex-col bg-[#050806] border-b lg:border-b-0 lg:border-r border-white/[0.06] overflow-hidden min-h-0">
-          {/* Toolbar con Filtro de Origen & Búsqueda */}
-          <div className="p-3.5 border-b border-white/[0.06] bg-[#070B08]/60 space-y-2.5 shrink-0">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              {/* Buscador Rápido */}
-              <div className="relative flex-1">
-                <Search className="w-3.5 h-3.5 text-[#8E9893] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filtrar por PO, SKU o proveedor..."
-                  className="w-full bg-[#0A0F0C] border border-white/[0.08] hover:border-white/20 focus:border-[#10B981]/50 rounded-full pl-9 pr-4 py-1.5 text-xs text-[#F9FAFB] placeholder:text-[#8E9893]/70 focus:outline-none transition-all font-mono"
-                />
-              </div>
-
-              {/* Selector de Origen: Autónomas vs Manuales */}
-              <div className="flex items-center gap-1.5 p-1 rounded-full bg-[#0A0F0C] border border-white/[0.06]">
-                <button
-                  onClick={() => setOriginFilter("all")}
-                  className={`px-3 py-1 rounded-full text-xs font-mono transition-all ${
-                    originFilter === "all"
-                      ? "bg-white/10 text-[#F9FAFB] font-semibold"
-                      : "text-[#8E9893] hover:text-white"
-                  }`}
-                >
-                  Todas
-                </button>
-                <button
-                  onClick={() => setOriginFilter("agente")}
-                  className={`px-3 py-1 rounded-full text-xs font-mono flex items-center gap-1.5 transition-all ${
-                    originFilter === "agente"
-                      ? "bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/40 font-semibold"
-                      : "text-[#8E9893] hover:text-white"
-                  }`}
-                >
-                  <Sparkles className="w-3 h-3 text-[#34D399]" />
-                  <span>Autónomas IA</span>
-                </button>
-                <button
-                  onClick={() => setOriginFilter("manual")}
-                  className={`px-3 py-1 rounded-full text-xs font-mono transition-all ${
-                    originFilter === "manual"
-                      ? "bg-white/10 text-[#F9FAFB] font-semibold"
-                      : "text-[#8E9893] hover:text-white"
-                  }`}
-                >
-                  Manuales
-                </button>
-              </div>
-            </div>
-
-            {/* Selector de Estado */}
-            <div className="flex items-center gap-1.5 overflow-x-auto">
-              <span className="text-[10px] font-mono text-[#8E9893] uppercase mr-1">
-                Estado:
+        <aside className="w-full md:w-[260px] flex-shrink-0 bg-surface-1 rounded-2xl p-4 border border-white/[0.06] shadow-card flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-5">
+          <div className="space-y-5">
+            {/* Sección: ESTADO DE ORDEN (Grid 2x2) */}
+            <div className="space-y-2.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
+                ESTADO DE ORDEN
               </span>
-              {[
-                { id: "all", label: "Todos" },
-                { id: "pendiente_gobernanza", label: "Pendiente Gobernanza" },
-                { id: "emitida", label: "Emitida" },
-                { id: "recibida_bodega", label: "Recibida en Bodega" },
-                { id: "borrador_ia", label: "Borrador IA" },
-              ].map((st) => (
-                <button
-                  key={st.id}
-                  onClick={() => setStatusFilter(st.id)}
-                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono transition-all whitespace-nowrap ${
-                    statusFilter === st.id
-                      ? "bg-white/10 text-[#F9FAFB] border border-white/25"
-                      : "text-[#8E9893] hover:text-[#EDF3EE]"
-                  }`}
-                >
-                  {st.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tabla de Órdenes */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-white/[0.08] bg-[#070B08]/80 text-[#8E9893] text-[10px] font-mono uppercase tracking-wider sticky top-0 z-10 backdrop-blur-md">
-                  <th className="py-2.5 px-4">ID de Orden</th>
-                  <th className="py-2.5 px-3">Especialista</th>
-                  <th className="py-2.5 px-3">Proveedor</th>
-                  <th className="py-2.5 px-3">Items / SKUs</th>
-                  <th className="py-2.5 px-3 text-right">Total ($)</th>
-                  <th className="py-2.5 px-3">Política Aplicada</th>
-                  <th className="py-2.5 px-4 text-center">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {filteredOrders.map((o) => {
-                  const isSelected = selectedOrderId === o.id;
-                  const isPendiente = o.status === "pendiente_gobernanza";
-                  const isEmitida = o.status === "emitida";
-                  const isRecibida = o.status === "recibida_bodega";
-                  const isBorrador = o.status === "borrador_ia";
-
-                  return (
-                    <tr
-                      key={o.id}
-                      onClick={() => setSelectedOrderId(o.id)}
-                      className={`hover:bg-[#10B981]/[0.04] transition-all cursor-pointer group ${
-                        isSelected
-                          ? "bg-[#10B981]/[0.08] border-l-2 border-l-[#10B981]"
-                          : "border-l-2 border-l-transparent"
+              <div className="grid grid-cols-2 gap-2">
+                {statusButtons.map((st) => (
+                  <button
+                    key={st.id}
+                    onClick={() => setStatusFilter(st.id)}
+                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      statusFilter === st.id
+                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)] font-bold"
+                        : "bg-surface-well border-white/[0.04] text-zinc-400 hover:text-white hover:border-white/10"
+                    }`}
+                  >
+                    <span className="text-[11px] leading-tight block">{st.label}</span>
+                    <span
+                      className={`text-[10px] font-mono mt-1 px-1.5 py-0.2 rounded w-fit ${
+                        statusFilter === st.id
+                          ? "bg-emerald-500/20 text-emerald-300 font-bold"
+                          : "bg-white/[0.04] text-zinc-500"
                       }`}
                     >
-                      {/* ID de Orden */}
-                      <td className="py-3 px-4 font-mono font-bold">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[#10B981] group-hover:text-[#34D399]">
-                            {o.orderNumber}
-                          </span>
-                          {o.origin === "agente" && (
-                            <span title="Generada de forma autónoma por agente IA">
-                              <Sparkles className="w-2.5 h-2.5 text-[#34D399]" />
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] font-normal text-[#586B5F] block">
-                          {o.date}
-                        </span>
-                      </td>
-
-                      {/* Especialista */}
-                      <td className="py-3 px-3 font-mono">
-                        <span className="text-[11px] text-[#EDF3EE] bg-white/[0.03] px-2 py-0.5 rounded border border-white/[0.06]">
-                          {o.specialist}
-                        </span>
-                      </td>
-
-                      {/* Proveedor */}
-                      <td className="py-3 px-3">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-[#F9FAFB] truncate max-w-[170px]">
-                            {o.supplier}
-                          </span>
-                          <span className="text-[10px] font-mono text-[#8E9893]">
-                            {o.destination.replace("Bodega Matriz ", "").replace("CD ", "")}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Items / SKUs */}
-                      <td className="py-3 px-3">
-                        <div className="flex flex-col">
-                          <span className="text-xs text-[#EDF3EE] truncate max-w-[160px]">
-                            {o.lineItems[0]?.description}
-                          </span>
-                          <span className="text-[10px] font-mono text-[#586B5F]">
-                            {o.lineItems[0]?.quantity} un. · {o.lineItems[0]?.sku}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Total ($ COP) */}
-                      <td className="py-3 px-3 text-right font-mono font-bold text-[#F9FAFB] tabular-nums">
-                        ${o.totalCop.toLocaleString("es-CO")}
-                      </td>
-
-                      {/* Política Aplicada */}
-                      <td className="py-3 px-3">
-                        <span
-                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                            o.isHitlEscalated
-                              ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30"
-                              : "bg-[#10B981]/10 text-[#34D399] border-[#10B981]/30"
-                          }`}
-                        >
-                          {o.policyApplied.split("(")[0]}
-                        </span>
-                      </td>
-
-                      {/* Estado */}
-                      <td className="py-3 px-4 text-center">
-                        {isPendiente && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[#F59E0B] text-[10px] font-mono font-medium">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] shadow-[0_0_6px_#F59E0B] animate-pulse" />
-                            Pendiente HITL
-                          </span>
-                        )}
-                        {isEmitida && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#10B981]/10 border border-[#10B981]/30 text-[#34D399] text-[10px] font-mono font-medium">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shadow-[0_0_6px_#10B981]" />
-                            Emitida
-                          </span>
-                        )}
-                        {isRecibida && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#10B981]/15 border border-[#10B981]/40 text-[#34D399] text-[10px] font-mono font-medium">
-                            <CheckCircle2 className="w-2.5 h-2.5 text-[#10B981]" />
-                            Recibida
-                          </span>
-                        )}
-                        {isBorrador && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#3B82F6]/10 border border-[#3B82F6]/30 text-[#60A5FA] text-[10px] font-mono font-medium">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
-                            Borrador IA
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            {filteredOrders.length === 0 && (
-              <div className="p-12 text-center text-xs font-mono text-[#8E9893]">
-                No se encontraron órdenes de compra que coincidan con los filtros.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ------------------------------------------------------- */}
-        {/* COLUMNA DERECHA (35%): VISOR DE RECIBO DIGITAL (JSON)   */}
-        {/* ------------------------------------------------------- */}
-        <div className="w-full lg:w-[35%] xl:w-[460px] h-full bg-[#0A0F0C] flex flex-col justify-between overflow-y-auto custom-scrollbar relative z-10 shadow-2xl min-h-0 border-l border-white/[0.06]">
-          {/* Subtle Top-Edge Radial Highlight */}
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-36 opacity-35"
-            style={{
-              background:
-                "radial-gradient(60% 50% at 50% 0%, rgba(16, 185, 129, 0.18) 0%, transparent 100%)",
-            }}
-          />
-
-          <div className="p-4 space-y-4">
-            {/* Header del Visor: File Path & Mode Switcher */}
-            <div className="p-3 rounded-2xl bg-[#070B08] border border-white/[0.08] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#10B981]" />
-                <span className="font-mono text-xs font-bold text-[#F9FAFB]">
-                  {selectedOrder.receiptFile}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
-                <button
-                  onClick={() => setReceiptMode("formatted")}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
-                    receiptMode === "formatted"
-                      ? "bg-[#10B981]/20 text-[#34D399]"
-                      : "text-[#8E9893] hover:text-white"
-                  }`}
-                >
-                  Recibo
-                </button>
-                <button
-                  onClick={() => setReceiptMode("json")}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
-                    receiptMode === "json"
-                      ? "bg-[#10B981]/20 text-[#34D399]"
-                      : "text-[#8E9893] hover:text-white"
-                  }`}
-                >
-                  JSON
-                </button>
+                      {st.count}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {receiptMode === "formatted" ? (
-              /* MODO: RECIBO TÉCNICO FORMATEADO */
-              <div
-                className="p-5 rounded-2xl bg-[#070B08] border border-white/[0.08] relative overflow-hidden space-y-4 shadow-xl"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px)",
-                  backgroundSize: "16px 16px",
-                }}
-              >
-                {/* Encabezado del Recibo */}
-                <div className="flex items-start justify-between pb-3 border-b border-white/[0.06]">
-                  <div>
-                    <span className="font-mono text-xs font-bold text-[#10B981]">
-                      {selectedOrder.orderNumber}
-                    </span>
-                    <h3 className="text-sm font-bold text-[#F9FAFB] mt-0.5">
-                      {selectedOrder.supplier}
-                    </h3>
-                    <span className="text-[10px] font-mono text-[#8E9893]">
-                      Destino: {selectedOrder.destination}
-                    </span>
-                  </div>
+            {/* Sección: FILTRAR POR (Selectores Desplegables en Well) */}
+            <div className="space-y-3">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
+                FILTRAR POR
+              </span>
 
-                  <div className="text-right">
-                    <span className="text-[9px] uppercase font-mono text-[#8E9893] block">
-                      Emisión
-                    </span>
-                    <span className="text-[11px] font-mono text-[#EDF3EE]">
-                      {selectedOrder.date}
-                    </span>
-                  </div>
+              {/* Sede / Bodega */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-zinc-500 block">Sede / Bodega</label>
+                <select
+                  value={warehouseFilter}
+                  onChange={(e) => setWarehouseFilter(e.target.value)}
+                  className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl px-2.5 text-xs text-zinc-300 font-sans focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                >
+                  <option value="all">Todas las sedes</option>
+                  <option value="wh_bga">Bodega Matriz Bucaramanga</option>
+                  <option value="wh_bog">CD Bogotá D.C.</option>
+                  <option value="wh_med">CD Medellín</option>
+                </select>
+              </div>
+
+              {/* Fecha de Orden */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-zinc-500 block">Fecha de Orden</label>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl px-2.5 text-xs text-zinc-300 font-sans focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                >
+                  <option value="all">Todas las fechas</option>
+                  <option value="hoy">Hoy (29 Oct)</option>
+                  <option value="semana">Últimos 7 días</option>
+                  <option value="mes">Mes de Octubre</option>
+                </select>
+              </div>
+
+              {/* Proveedor */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-zinc-500 block">Proveedor</label>
+                <select
+                  value={supplierFilter}
+                  onChange={(e) => setSupplierFilter(e.target.value)}
+                  className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl px-2.5 text-xs text-zinc-300 font-sans focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                >
+                  <option value="all">Todos los proveedores</option>
+                  <option value="ferreterias_unidas">Ferreterías Unidas Bogotá</option>
+                  <option value="dewalt">DeWalt Colombia</option>
+                  <option value="mundial">Mundial de Tornillos</option>
+                  <option value="distribuidora">Distribuidora del Centro</option>
+                  <option value="bosch">Bosch Sistemas Industriales</option>
+                  <option value="siderurgica">Siderúrgica de Santander</option>
+                </select>
+              </div>
+
+              {/* Nivel de Aprobación */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-zinc-500 block">Nivel de Aprobación</label>
+                <select
+                  value={approvalFilter}
+                  onChange={(e) => setApprovalFilter(e.target.value)}
+                  className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl px-2.5 text-xs text-zinc-300 font-sans focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                >
+                  <option value="all">Todos los niveles</option>
+                  <option value="autonoma">Autonomía &lt; $5M COP (GOV-01)</option>
+                  <option value="hitl">Escalada HITL &gt; $5M COP (GOV-03)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Sección: RANGO DE MONTO ($) */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
+                RANGO DE MONTO ($)
+              </span>
+              <div className="space-y-2">
+                <div className="relative flex items-center">
+                  <span className="absolute left-2.5 text-xs font-mono text-zinc-500">$</span>
+                  <input
+                    type="number"
+                    placeholder="Monto mínimo"
+                    value={minAmount}
+                    onChange={(e) => setMinAmount(e.target.value)}
+                    className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl pl-6 pr-2.5 text-xs text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50"
+                  />
                 </div>
-
-                {/* Justificación Matemática del Agente */}
-                <div className="p-3 rounded-xl bg-[#10B981]/[0.06] border border-[#10B981]/25 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#34D399]">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Justificación de Algoritmo ROP</span>
-                  </div>
-                  <p className="text-[11px] text-[#EDF3EE] leading-relaxed">
-                    {selectedOrder.mathJustification.recommendationText}
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#10B981]/20 text-[10px] font-mono text-[#8E9893]">
-                    <span>Burn Rate: {selectedOrder.mathJustification.dailyBurnRate} un/día</span>
-                    <span>Cobertura: {selectedOrder.mathJustification.coverageDays} días</span>
-                  </div>
+                <div className="relative flex items-center">
+                  <span className="absolute left-2.5 text-xs font-mono text-zinc-500">$</span>
+                  <input
+                    type="number"
+                    placeholder="Monto máximo"
+                    value={maxAmount}
+                    onChange={(e) => setMaxAmount(e.target.value)}
+                    className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl pl-6 pr-2.5 text-xs text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50"
+                  />
                 </div>
+              </div>
+            </div>
+          </div>
 
-                {/* Desglose de Líneas de Productos */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-mono uppercase text-[#8E9893] block">
-                    Líneas de la Orden
-                  </span>
-                  <div className="space-y-1.5">
-                    {selectedOrder.lineItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between text-xs font-mono"
-                      >
-                        <div className="space-y-0.5">
-                          <span className="font-semibold text-[#F9FAFB] block">
-                            {item.description}
-                          </span>
-                          <span className="text-[10px] text-[#8E9893]">
-                            {item.sku} · {item.quantity} un. × ${item.unitPriceCop.toLocaleString("es-CO")}
-                          </span>
-                        </div>
-                        <span className="font-bold text-[#EDF3EE]">
-                          ${item.subtotalCop.toLocaleString("es-CO")}
+          {/* Botón Restablecer Filtros */}
+          <button
+            onClick={handleResetFilters}
+            className="w-full h-8 rounded-xl bg-surface-well hover:bg-white/[0.04] border border-white/[0.06] text-zinc-400 hover:text-white text-xs font-mono flex items-center justify-center gap-2 transition-colors mt-2"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>Restablecer Filtros</span>
+          </button>
+        </aside>
+
+        {/* ------------------------------------------------------- */}
+        {/* LISTA DERECHA DE ÓRDENES DE COMPRA (INVENTAR CARDS)     */}
+        {/* ------------------------------------------------------- */}
+        <main className="flex-1 overflow-y-auto custom-scrollbar space-y-3.5 min-h-0">
+          {viewMode === "cards" ? (
+            <div className="space-y-3.5">
+              {filteredOrders.map((o) => {
+                const isSelected = selectedOrderId === o.id;
+
+                // Configuración del Stepper de 4 etapas:
+                // 1. Creación IA -> 2. Aprobación Gobernanza -> 3. Despacho Proveedor -> 4. Recepción Bodega
+                let stepperTitle = "";
+                let stepperMeta = "";
+                let stepperAction: React.ReactNode = null;
+                let steps: MilestoneStep[] = [];
+
+                if (o.status === "emitida") {
+                  stepperTitle = `Orden en tránsito hacia ${o.destination.replace("Bodega Matriz ", "").replace("CD ", "")} • ${o.date}`;
+                  stepperMeta = `Destino: ${o.destination}`;
+                  stepperAction = (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOrderId(o.id);
+                        setIsReceiptDrawerOpen(true);
+                      }}
+                      className="flex items-center gap-1 font-mono text-xs text-emerald-400 hover:text-emerald-300 font-semibold hover:underline"
+                    >
+                      <span>Rastrear envío</span>
+                      <ArrowUpRight className="w-3 h-3" />
+                    </button>
+                  );
+                  steps = [
+                    { label: "Creación IA", timestamp: "Autónoma", status: "completed", icon: <Sparkles className="w-3.5 h-3.5" /> },
+                    { label: "Aprobación Gobernanza", timestamp: "GOV-01 Aprobada", status: "completed", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+                    { label: "Despacho Proveedor", timestamp: "En ruta (48 km)", status: "active", icon: <Truck className="w-3.5 h-3.5" /> },
+                    { label: "Recepción Bodega", timestamp: "Pendiente", status: "pending", icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+                  ];
+                } else if (o.status === "pendiente_gobernanza") {
+                  stepperTitle = `Retenida en gobernanza HITL (> $5M COP) • ${o.date}`;
+                  stepperMeta = o.policyApplied;
+                  stepperAction = (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenApprovalModal) onOpenApprovalModal();
+                      }}
+                      className="flex items-center gap-1 font-mono text-xs text-amber-400 hover:text-amber-300 font-semibold hover:underline"
+                    >
+                      <span>Revisar en Inbox</span>
+                      <ArrowUpRight className="w-3 h-3" />
+                    </button>
+                  );
+                  steps = [
+                    { label: "Creación IA", timestamp: "Formulada", status: "completed", icon: <Sparkles className="w-3.5 h-3.5" /> },
+                    { label: "Aprobación Gobernanza", timestamp: "En espera firma", status: "warning", icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+                    { label: "Despacho Proveedor", timestamp: "Retenido", status: "pending", icon: <Truck className="w-3.5 h-3.5" /> },
+                    { label: "Recepción Bodega", timestamp: "Pendiente", status: "pending", icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+                  ];
+                } else if (o.status === "recibida_bodega") {
+                  stepperTitle = `Paquete recibido y conciliado en bodega • ${o.date}`;
+                  stepperMeta = "Factura cotejada: 0 discrepancias físicas";
+                  stepperAction = (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOrderId(o.id);
+                        setIsReceiptDrawerOpen(true);
+                      }}
+                      className="flex items-center gap-1 font-mono text-xs text-emerald-400 hover:text-emerald-300 font-semibold hover:underline"
+                    >
+                      <span>Ver recibo digital</span>
+                      <ArrowUpRight className="w-3 h-3" />
+                    </button>
+                  );
+                  steps = [
+                    { label: "Creación IA", timestamp: "Completada", status: "completed", icon: <Sparkles className="w-3.5 h-3.5" /> },
+                    { label: "Aprobación Gobernanza", timestamp: "Aprobada", status: "completed", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+                    { label: "Despacho Proveedor", timestamp: "Entregado", status: "completed", icon: <Truck className="w-3.5 h-3.5" /> },
+                    { label: "Recepción Bodega", timestamp: "Conciliada", status: "completed", icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+                  ];
+                } else {
+                  stepperTitle = `Borrador de cotización en formulación por agente • ${o.date}`;
+                  stepperMeta = "Landed Cost calculado por financial_maestro";
+                  stepperAction = (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOrderId(o.id);
+                        setIsReceiptDrawerOpen(true);
+                      }}
+                      className="flex items-center gap-1 font-mono text-xs text-blue-400 hover:text-blue-300 font-semibold hover:underline"
+                    >
+                      <span>Ver justificación</span>
+                      <ArrowUpRight className="w-3 h-3" />
+                    </button>
+                  );
+                  steps = [
+                    { label: "Creación IA", timestamp: "En formulación", status: "active", icon: <Sparkles className="w-3.5 h-3.5" /> },
+                    { label: "Aprobación Gobernanza", timestamp: "Pendiente", status: "pending", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+                    { label: "Despacho Proveedor", timestamp: "Pendiente", status: "pending", icon: <Truck className="w-3.5 h-3.5" /> },
+                    { label: "Recepción Bodega", timestamp: "Pendiente", status: "pending", icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+                  ];
+                }
+
+                const badgeStatus =
+                  o.status === "recibida_bodega"
+                    ? "paid"
+                    : o.status === "emitida"
+                    ? "shipped"
+                    : o.status === "pendiente_gobernanza"
+                    ? "pendiente"
+                    : "en_curso";
+
+                const badgeLabel =
+                  o.status === "recibida_bodega"
+                    ? "Recibida / Conciliada"
+                    : o.status === "emitida"
+                    ? "Aprobada / En Tránsito"
+                    : o.status === "pendiente_gobernanza"
+                    ? "Pendiente HITL"
+                    : "Borrador IA";
+
+                return (
+                  <div
+                    key={o.id}
+                    onClick={() => {
+                      setSelectedOrderId(o.id);
+                    }}
+                    className={`bg-surface-1 rounded-2xl p-5 mb-3.5 border transition-all cursor-pointer shadow-card hover:border-white/10 ${
+                      isSelected
+                        ? "border-emerald-500/40 ring-1 ring-emerald-500/20 bg-[#14201A]"
+                        : "border-white/[0.06]"
+                    }`}
+                  >
+                    {/* NIVEL SUPERIOR: Código PO + Nombre insumo y cantidad + Monto + Badge + Botón ••• */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="font-mono text-base font-bold text-white tracking-tight flex-shrink-0">
+                          {o.orderNumber}
+                        </span>
+                        <span className="text-zinc-600 font-mono">·</span>
+                        <span className="text-sm font-semibold text-zinc-100 truncate">
+                          {o.lineItems[0]?.description} x {o.lineItems[0]?.quantity} u.
                         </span>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Totales y Liquidación */}
-                <div className="space-y-1 pt-2 border-t border-white/[0.06] text-xs font-mono">
-                  <div className="flex justify-between text-[#8E9893]">
-                    <span>Subtotal Neto:</span>
-                    <span>${selectedOrder.subtotalCop.toLocaleString("es-CO")} COP</span>
-                  </div>
-                  <div className="flex justify-between text-[#8E9893]">
-                    <span>IVA (19%):</span>
-                    <span>+${selectedOrder.ivaCop.toLocaleString("es-CO")} COP</span>
-                  </div>
-                  {selectedOrder.aiDiscountCop > 0 && (
-                    <div className="flex justify-between text-[#34D399]">
-                      <span>Descuento Negociado IA:</span>
-                      <span>-${selectedOrder.aiDiscountCop.toLocaleString("es-CO")} COP</span>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="font-mono text-sm font-bold text-white tabular-nums">
+                          ${o.totalCop.toLocaleString("es-CO")} COP
+                        </span>
+                        <StatusBadge status={badgeStatus} label={badgeLabel} size="sm" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrderId(o.id);
+                            setIsReceiptDrawerOpen(true);
+                          }}
+                          className="w-8 h-8 rounded-lg bg-surface-well border border-white/[0.04] text-zinc-400 hover:text-white flex items-center justify-center transition-colors"
+                          title="Opciones y recibo digital"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  )}
-                  <div className="flex justify-between text-sm font-bold text-[#F9FAFB] pt-2 border-t border-white/[0.06]">
-                    <span>Total Liquidado:</span>
-                    <span className="text-[#10B981]">
-                      ${selectedOrder.totalCop.toLocaleString("es-CO")} COP
-                    </span>
+
+                    {/* SUBTÍTULO CON AVATAR DE PROVEEDOR */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2 text-xs text-zinc-400">
+                      <div className="flex items-center gap-2 font-mono text-[11px]">
+                        <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                          {o.supplier.charAt(0)}
+                        </div>
+                        <span className="text-zinc-200 font-medium truncate max-w-[200px]">
+                          {o.supplier}
+                        </span>
+                        <span className="text-zinc-600">·</span>
+                        <div className="flex items-center gap-1 text-zinc-400">
+                          <MapPin className="w-3 h-3 text-zinc-500" />
+                          <span>{o.destination}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
+                        <span className="bg-white/[0.04] px-1.5 py-0.5 rounded text-zinc-300">
+                          Billed · Facturado
+                        </span>
+                        <span className="text-zinc-600">·</span>
+                        <span>{o.specialist}</span>
+                      </div>
+                    </div>
+
+                    {/* NIVEL INFERIOR: CONTENEDOR "WELL" CON MILESTONE STEPPER */}
+                    <div className="bg-surface-well rounded-xl p-4 mt-3 border border-white/[0.04] shadow-inner space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-white tracking-tight">
+                          {stepperTitle}
+                        </span>
+                        {stepperAction}
+                      </div>
+
+                      {/* Stepper de 4 etapas con iconos */}
+                      <MilestoneStepper steps={steps} />
+                    </div>
                   </div>
-                </div>
+                );
+              })}
 
-                {/* Firma Criptográfica de Gobernanza */}
-                <div className="p-3 rounded-xl bg-[#050806] border border-white/[0.06] space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs font-mono text-[#10B981]">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Firma Criptográfica HMAC-SHA256 Verificada</span>
-                  </div>
-                  <p className="font-mono text-[10px] text-[#8E9893] break-all">
-                    {selectedOrder.hmacSignature}
-                  </p>
-                  <span className="text-[10px] text-[#586B5F] block">
-                    Gobernanza: {selectedOrder.policyApplied}
-                  </span>
+              {filteredOrders.length === 0 && (
+                <div className="p-12 text-center text-xs font-mono text-zinc-500 bg-surface-1 rounded-2xl border border-white/[0.06]">
+                  No se encontraron órdenes de compra que coincidan con los filtros aplicados.
                 </div>
-              </div>
-            ) : (
-              /* MODO: RAW JSON INSPECTOR */
-              <div className="p-4 rounded-2xl bg-[#050806] border border-white/[0.08] font-mono text-[11px] text-[#34D399] overflow-x-auto space-y-2">
-                <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
-                  <span className="text-[#8E9893] text-[10px]">
-                    application/json
-                  </span>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(JSON.stringify(selectedOrder, null, 2));
-                      setCopiedReceipt(true);
-                      setTimeout(() => setCopiedReceipt(false), 2000);
-                      showToast("JSON de orden copiado al portapapeles.");
-                    }}
-                    className="text-[#8E9893] hover:text-white flex items-center gap-1 text-[10px]"
-                  >
-                    {copiedReceipt ? <Check className="w-3 h-3 text-[#10B981]" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedReceipt ? "¡Copiado!" : "Copiar"}</span>
-                  </button>
-                </div>
-                <pre className="text-[#EDF3EE] whitespace-pre-wrap leading-relaxed">
-                  {JSON.stringify(selectedOrder, null, 2)}
-                </pre>
-              </div>
-            )}
-
-            {/* Acciones del Recibo: Descargar y Reconciliar */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center gap-2">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(JSON.stringify(selectedOrder, null, 2));
-                  showToast(`Recibo ${selectedOrder.orderNumber} copiado para exportación JSON.`);
-                }}
-                className="w-full sm:flex-1 py-2 px-3 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-mono font-medium text-[#F9FAFB] transition-all flex items-center justify-center gap-1.5"
-              >
-                <Download className="w-3.5 h-3.5 text-[#10B981]" />
-                <span>Descargar Recibo JSON</span>
-              </button>
-
-              <button
-                onClick={() => handleReconcileOrder(selectedOrder.id)}
-                disabled={isReconciling || selectedOrder.status === "recibida_bodega"}
-                className={`w-full sm:flex-1 py-2 px-3 rounded-full text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  selectedOrder.status === "recibida_bodega"
-                    ? "bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30 cursor-default"
-                    : "bg-[#10B981] hover:bg-[#34D399] text-[#050806] shadow-[0_0_15px_rgba(16,185,129,0.25)]"
-                }`}
-              >
-                {isReconciling ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Reconciliando...</span>
-                  </>
-                ) : selectedOrder.status === "recibida_bodega" ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Reconciliada OK</span>
-                  </>
-                ) : (
-                  <>
-                    <FileCheck className="w-3.5 h-3.5" />
-                    <span>Ejecutar Reconciliación</span>
-                  </>
-                )}
-              </button>
+              )}
             </div>
-          </div>
-        </div>
+          ) : (
+            /* Vista de Tabla Alternativa */
+            <div className="rounded-2xl bg-surface-1 border border-white/[0.06] shadow-card overflow-hidden">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[#0B110E] border-b border-white/[0.06] text-zinc-400 font-mono text-[10px] uppercase tracking-wider">
+                    <th className="py-3 px-4 font-semibold">ID de Orden</th>
+                    <th className="py-3 px-3 font-semibold">Proveedor</th>
+                    <th className="py-3 px-3 font-semibold">Ítems / Cantidad</th>
+                    <th className="py-3 px-3 font-semibold text-right">Monto Total</th>
+                    <th className="py-3 px-3 font-semibold text-center">Estado</th>
+                    <th className="py-3 px-4 font-semibold text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {filteredOrders.map((o) => (
+                    <tr
+                      key={o.id}
+                      onClick={() => {
+                        setSelectedOrderId(o.id);
+                        setIsReceiptDrawerOpen(true);
+                      }}
+                      className="hover:bg-[#151E19] transition-colors cursor-pointer"
+                    >
+                      <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">
+                        {o.orderNumber}
+                      </td>
+                      <td className="py-3.5 px-3">
+                        <span className="font-semibold text-white block">{o.supplier}</span>
+                        <span className="text-[10px] text-zinc-500 font-mono">{o.destination}</span>
+                      </td>
+                      <td className="py-3.5 px-3">
+                        <span className="text-zinc-200 block truncate max-w-[200px]">
+                          {o.lineItems[0]?.description}
+                        </span>
+                        <span className="text-[10px] text-zinc-500 font-mono">
+                          {o.lineItems[0]?.quantity} un.
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-mono font-bold text-white tabular-nums">
+                        ${o.totalCop.toLocaleString("es-CO")} COP
+                      </td>
+                      <td className="py-3.5 px-3 text-center">
+                        <StatusBadge
+                          status={
+                            o.status === "recibida_bodega"
+                              ? "paid"
+                              : o.status === "emitida"
+                              ? "shipped"
+                              : o.status === "pendiente_gobernanza"
+                              ? "pendiente"
+                              : "en_curso"
+                          }
+                          size="sm"
+                        />
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrderId(o.id);
+                            setIsReceiptDrawerOpen(true);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-surface-well border border-white/[0.06] text-zinc-300 hover:text-white font-mono text-[10px]"
+                        >
+                          Ver Recibo
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </main>
       </div>
 
       {/* ========================================================= */}
-      {/* MODAL: NUEVA ORDEN DE COMPRA (crearOrdenCompra)           */}
+      {/* DRAWER LATERAL DE AUDITORÍA Y RECIBO DIGITAL (SLIDE-OVER) */}
       {/* ========================================================= */}
       <AnimatePresence>
-        {isNewOrderModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        {isReceiptDrawerOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.2 }}
-              className="w-full max-w-lg rounded-2xl bg-[#0A0F0C] border border-[#10B981]/40 p-6 shadow-2xl relative overflow-hidden"
+              initial={{ x: 450 }}
+              animate={{ x: 0 }}
+              exit={{ x: 450 }}
+              transition={{ type: "spring", damping: 30, stiffness: 350 }}
+              className="w-full max-w-[460px] h-full bg-surface-1 border-l border-white/[0.08] p-6 flex flex-col justify-between overflow-y-auto custom-scrollbar shadow-2xl relative"
             >
-              <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-[#10B981]/15 border border-[#10B981]/30">
-                    <ShoppingCart className="w-5 h-5 text-[#34D399]" />
-                  </div>
+              <div className="space-y-5">
+                {/* Header del Drawer */}
+                <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
                   <div>
-                    <h3 className="text-base font-bold text-[#F9FAFB] tracking-tight">
-                      Nueva Orden de Compra
-                    </h3>
-                    <span className="font-mono text-xs text-[#10B981]">
-                      crearOrdenCompra · Gobernanza Verificada
+                    <span className="font-mono text-[10px] text-emerald-400 uppercase tracking-wider block font-bold">
+                      RECIBO DIGITAL AUDITABLE
                     </span>
+                    <h2 className="text-base font-bold text-white mt-0.5">
+                      {selectedOrder.orderNumber}
+                    </h2>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center p-0.5 rounded-lg bg-surface-well border border-white/[0.04]">
+                      <button
+                        onClick={() => setReceiptMode("formatted")}
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                          receiptMode === "formatted"
+                            ? "bg-emerald-500/20 text-emerald-300 font-bold"
+                            : "text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        Recibo
+                      </button>
+                      <button
+                        onClick={() => setReceiptMode("json")}
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                          receiptMode === "json"
+                            ? "bg-emerald-500/20 text-emerald-300 font-bold"
+                            : "text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        JSON
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => setIsReceiptDrawerOpen(false)}
+                      className="w-8 h-8 rounded-lg bg-surface-well border border-white/[0.04] text-zinc-400 hover:text-white flex items-center justify-center transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                <button
-                  onClick={() => setIsNewOrderModalOpen(false)}
-                  className="p-1 rounded-lg text-[#8E9893] hover:text-[#F9FAFB]"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+
+                {receiptMode === "formatted" ? (
+                  /* VISTA DE RECIBO FORMATEADO */
+                  <div className="space-y-4">
+                    {/* Proveedor y Destino */}
+                    <div className="bg-surface-well rounded-xl p-4 border border-white/[0.04] space-y-2">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-xs font-bold text-white">{selectedOrder.supplier}</span>
+                        <span className="text-[10px] font-mono text-zinc-500">{selectedOrder.date}</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 font-mono">
+                        Destino: {selectedOrder.destination} · Especialista: {selectedOrder.specialist}
+                      </p>
+                    </div>
+
+                    {/* Justificación de Algoritmo ROP */}
+                    <div className="p-3.5 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-400">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Justificación de Algoritmo ROP</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-300 leading-relaxed">
+                        {selectedOrder.mathJustification.recommendationText}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-emerald-500/20 text-[10px] font-mono text-zinc-400">
+                        <span>Burn Rate: {selectedOrder.mathJustification.dailyBurnRate} un/día</span>
+                        <span>Cobertura: {selectedOrder.mathJustification.coverageDays} días</span>
+                      </div>
+                    </div>
+
+                    {/* Ítems y Desglose */}
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-mono uppercase text-zinc-400 block font-bold">
+                        Ítems de la Orden
+                      </span>
+                      {selectedOrder.lineItems.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-xl bg-surface-well border border-white/[0.04] flex justify-between items-center text-xs font-mono"
+                        >
+                          <div>
+                            <span className="font-semibold text-white block">{item.description}</span>
+                            <span className="text-[10px] text-zinc-500">
+                              {item.sku} · {item.quantity} un. × ${item.unitPriceCop.toLocaleString("es-CO")}
+                            </span>
+                          </div>
+                          <span className="font-bold text-white">
+                            ${item.subtotalCop.toLocaleString("es-CO")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Totales */}
+                    <div className="space-y-1.5 pt-2 border-t border-white/[0.06] text-xs font-mono">
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Subtotal Neto:</span>
+                        <span>${selectedOrder.subtotalCop.toLocaleString("es-CO")} COP</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>IVA (19%):</span>
+                        <span>+${selectedOrder.ivaCop.toLocaleString("es-CO")} COP</span>
+                      </div>
+                      {selectedOrder.aiDiscountCop > 0 && (
+                        <div className="flex justify-between text-emerald-400">
+                          <span>Descuento Negociado IA:</span>
+                          <span>-${selectedOrder.aiDiscountCop.toLocaleString("es-CO")} COP</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-white/[0.06]">
+                        <span>Total Liquidado:</span>
+                        <span className="text-emerald-400 font-bold">
+                          ${selectedOrder.totalCop.toLocaleString("es-CO")} COP
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Firma Criptográfica HMAC */}
+                    <div className="p-3 rounded-xl bg-surface-well border border-white/[0.04] space-y-1 font-mono text-[10px]">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Firma Criptográfica HMAC-SHA256 Verificada</span>
+                      </div>
+                      <span className="text-zinc-500 block truncate">{selectedOrder.hmacSignature}</span>
+                    </div>
+                  </div>
+                ) : (
+                  /* VISTA RAW JSON */
+                  <pre className="p-4 rounded-xl bg-surface-well border border-white/[0.04] text-[11px] font-mono text-emerald-300 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                    {JSON.stringify(selectedOrder, null, 2)}
+                  </pre>
+                )}
               </div>
 
-              <div className="mt-4 space-y-4">
-                {/* Selector de Proveedor */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono text-[#8E9893]">
-                    Proveedor Homologado
-                  </label>
-                  <select
-                    value={newOrderSupplier}
-                    onChange={(e) => setNewOrderSupplier(e.target.value)}
-                    className="w-full bg-[#050806] border border-white/[0.1] focus:border-[#10B981]/60 rounded-xl py-2 px-3 text-xs text-[#F9FAFB] font-sans focus:outline-none"
-                  >
-                    <option value="Ferreterías Unidas Bogotá S.A.S.">
-                      Ferreterías Unidas Bogotá S.A.S. (Consumibles de Corte)
-                    </option>
-                    <option value="Bosch Sistemas Industriales Colombia">
-                      Bosch Sistemas Industriales Colombia (Rotomartillos)
-                    </option>
-                    <option value="Mundial de Tornillos S.A.S.">
-                      Mundial de Tornillos S.A.S. (Tornillería Grado 8)
-                    </option>
-                    <option value="Siderúrgica de Santander S.A.S.">
-                      Siderúrgica de Santander S.A.S. (Perfiles & Acero)
-                    </option>
-                  </select>
-                </div>
-
-                {/* Producto & SKU */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono text-[#8E9893]">
-                    Producto / Descripción
-                  </label>
-                  <input
-                    type="text"
-                    value={newOrderProduct}
-                    onChange={(e) => setNewOrderProduct(e.target.value)}
-                    className="w-full bg-[#050806] border border-white/[0.1] focus:border-[#10B981]/60 rounded-xl py-2 px-3 text-xs text-[#F9FAFB] font-sans focus:outline-none"
-                  />
-                </div>
-
-                {/* Cantidad y Precio Unitario */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-mono text-[#8E9893]">
-                      Cantidad (unidades)
-                    </label>
-                    <input
-                      type="number"
-                      value={newOrderQuantity}
-                      onChange={(e) => setNewOrderQuantity(Number(e.target.value))}
-                      className="w-full bg-[#050806] border border-white/[0.1] focus:border-[#10B981]/60 rounded-xl py-2 px-3 text-xs font-mono text-[#F9FAFB] focus:outline-none"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-mono text-[#8E9893]">
-                      Precio Unitario ($ COP)
-                    </label>
-                    <input
-                      type="number"
-                      value={newOrderUnitPrice}
-                      onChange={(e) => setNewOrderUnitPrice(Number(e.target.value))}
-                      className="w-full bg-[#050806] border border-white/[0.1] focus:border-[#10B981]/60 rounded-xl py-2 px-3 text-xs font-mono text-[#F9FAFB] focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Total Liquidado y Verificación de Guardrail */}
-                <div className="p-3.5 rounded-xl bg-[#050806] border border-white/[0.06] space-y-1.5 font-mono text-xs">
-                  <div className="flex justify-between text-[#8E9893]">
-                    <span>Total Estimado (con IVA 19%):</span>
-                    <span className="font-bold text-sm text-[#34D399]">
-                      ${(newOrderQuantity * newOrderUnitPrice * 1.19).toLocaleString("es-CO")} COP
-                    </span>
-                  </div>
-
-                  {newOrderQuantity * newOrderUnitPrice * 1.19 > 5000000 ? (
-                    <div className="pt-2 border-t border-white/[0.06] flex items-start gap-1.5 text-[#F59E0B]">
-                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                      <span className="text-[11px] leading-tight">
-                        Excede el umbral autónomo de $5.000.000 COP. La orden se generará en estado <strong>Pendiente Gobernanza HITL</strong>.
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="pt-2 border-t border-white/[0.06] flex items-center gap-1.5 text-[#10B981]">
-                      <Check className="w-3.5 h-3.5" />
-                      <span className="text-[11px]">
-                        Dentro del umbral de autonomía. Se emitirá con firma criptográfica inmediata.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-white/[0.06]">
+              {/* Botón Inferior de Reconciliación */}
+              <div className="pt-4 border-t border-white/[0.06] flex items-center gap-2">
                 <button
-                  onClick={() => setIsNewOrderModalOpen(false)}
-                  className="px-4 py-2 rounded-full text-xs font-medium text-[#8E9893] hover:text-[#F9FAFB]"
+                  onClick={() => {
+                    handleReconcileOrder(selectedOrder.id);
+                  }}
+                  disabled={isReconciling || selectedOrder.status === "recibida_bodega"}
+                  className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)]"
                 >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleCreateOrder}
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#10B981] hover:bg-[#34D399] text-[#050806] font-semibold text-xs transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Firmar y Emitir Orden</span>
+                  <RefreshCw className={`w-3.5 h-3.5 ${isReconciling ? "animate-spin" : ""}`} />
+                  <span>
+                    {selectedOrder.status === "recibida_bodega"
+                      ? "Orden Conciliada"
+                      : "Ejecutar Reconciliación Física"}
+                  </span>
                 </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* ========================================================= */}
+      {/* MODAL: NUEVA ORDEN DE COMPRA                              */}
+      {/* ========================================================= */}
+      {isNewOrderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-surface-1 border border-white/[0.1] shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-xs font-sans">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+              <div>
+                <span className="font-mono text-[10px] text-emerald-400 block font-bold">
+                  CREAR ORDEN DE COMPRA · GOBERNANZA HITL
+                </span>
+                <h3 className="text-sm font-bold text-white tracking-tight mt-0.5">
+                  Nueva Solicitud de Abastecimiento
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsNewOrderModalOpen(false)}
+                className="text-zinc-500 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 font-mono">
+              <div>
+                <label className="text-zinc-400 block mb-1 font-sans font-medium">Proveedor:</label>
+                <select
+                  value={newOrderSupplier}
+                  onChange={(e) => setNewOrderSupplier(e.target.value)}
+                  className="w-full h-9 bg-surface-well border border-white/[0.08] rounded-xl px-3 text-zinc-300 font-sans text-xs focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="Ferreterías Unidas Bogotá S.A.S.">Ferreterías Unidas Bogotá S.A.S.</option>
+                  <option value="DeWalt Colombia (Mayorista Homologado)">DeWalt Colombia</option>
+                  <option value="Mundial de Tornillos S.A.S.">Mundial de Tornillos S.A.S.</option>
+                  <option value="Distribuidora del Centro S.A.S.">Distribuidora del Centro S.A.S.</option>
+                  <option value="Bosch Sistemas Industriales Colombia">Bosch Sistemas Industriales</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-zinc-400 block mb-1 font-sans font-medium">Descripción del Producto:</label>
+                <input
+                  type="text"
+                  value={newOrderProduct}
+                  onChange={(e) => setNewOrderProduct(e.target.value)}
+                  className="w-full h-9 bg-surface-well border border-white/[0.08] rounded-xl px-3 text-white font-sans text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-zinc-400 block mb-1 font-sans font-medium">Cantidad:</label>
+                  <input
+                    type="number"
+                    value={newOrderQuantity}
+                    onChange={(e) => setNewOrderQuantity(parseInt(e.target.value) || 0)}
+                    className="w-full h-9 bg-surface-well border border-white/[0.08] rounded-xl px-3 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-zinc-400 block mb-1 font-sans font-medium">Precio Unitario (COP):</label>
+                  <input
+                    type="number"
+                    value={newOrderUnitPrice}
+                    onChange={(e) => setNewOrderUnitPrice(parseInt(e.target.value) || 0)}
+                    className="w-full h-9 bg-surface-well border border-white/[0.08] rounded-xl px-3 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-surface-well border border-white/[0.04] space-y-1 text-xs">
+                <div className="flex justify-between text-zinc-400">
+                  <span>Subtotal:</span>
+                  <span>${(newOrderQuantity * newOrderUnitPrice).toLocaleString("es-CO")} COP</span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>IVA (19%):</span>
+                  <span>+${(newOrderQuantity * newOrderUnitPrice * 0.19).toLocaleString("es-CO")} COP</span>
+                </div>
+                <div className="flex justify-between text-white font-bold pt-1 border-t border-white/[0.04]">
+                  <span>Total Estimado:</span>
+                  <span className="text-emerald-400">
+                    ${(newOrderQuantity * newOrderUnitPrice * 1.19).toLocaleString("es-CO")} COP
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end gap-2 border-t border-white/[0.08]">
+              <button
+                onClick={() => setIsNewOrderModalOpen(false)}
+                className="px-3.5 py-2 rounded-xl bg-transparent hover:bg-white/[0.04] text-zinc-400 text-xs font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateOrder}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+              >
+                <span>Generar Orden</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

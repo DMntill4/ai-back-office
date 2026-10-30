@@ -6,13 +6,13 @@
 export interface AgentTelemetrySource {
   id: string;
   label: string;
-  group: "agent" | "subagent";
+  group?: "agent" | "subagent" | string;
 }
 
 export interface AgentTelemetryTarget {
   id: string;
   label: string;
-  group: "file" | "database" | "tool" | "node";
+  group?: "file" | "database" | "tool" | "node" | string;
   metadata?: Record<string, any>;
 }
 

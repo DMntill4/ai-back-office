@@ -9,7 +9,20 @@ import {
   X,
   Plus,
   Minus,
+  Download,
+  AlertTriangle,
+  CheckCircle2,
+  Package,
+  Boxes,
+  ShieldAlert,
+  Wrench,
+  ArrowUpRight,
+  TrendingUp,
+  ChevronRight,
+  FileText,
 } from "lucide-react";
+import { KpiStrip } from "../ui/KpiStrip";
+import { StatusBadge } from "../ui/StatusBadge";
 
 export interface StockInventoryViewProps {
   onTriggerRebalance?: (sku: StockSkuItem) => void;
@@ -268,50 +281,6 @@ const EXTENDED_STOCK_DATA: EnrichedSkuItem[] = [
   },
 ];
 
-// Isometric Wireframe Illustrations (1px hairlines)
-const IsometricRackWireframe: React.FC = () => (
-  <svg viewBox="0 0 68 68" className="w-16 h-16 pointer-events-none opacity-40" fill="none">
-    {/* Outer Isometric Cube Frame */}
-    <polygon points="34,6 62,22 34,38 6,22" stroke="#10B981" strokeWidth="1" strokeDasharray="3 3" />
-    <polygon points="6,22 34,38 34,62 6,46" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-    <polygon points="34,38 62,22 62,46 34,62" stroke="rgba(52,211,153,0.3)" strokeWidth="1" />
-    {/* Internal Shelves */}
-    <line x1="6" y1="30" x2="34" y2="46" stroke="#10B981" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="34" y1="46" x2="62" y2="30" stroke="#10B981" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="6" y1="38" x2="34" y2="54" stroke="#10B981" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="34" y1="54" x2="62" y2="38" stroke="#10B981" strokeWidth="1" strokeOpacity="0.5" />
-    {/* Shelf Uprights */}
-    <line x1="20" y1="14" x2="20" y2="54" stroke="rgba(255,255,255,0.15)" strokeWidth="0.8" />
-    <line x1="48" y1="14" x2="48" y2="54" stroke="rgba(255,255,255,0.15)" strokeWidth="0.8" />
-  </svg>
-);
-
-const IsometricLedgerWireframe: React.FC = () => (
-  <svg viewBox="0 0 68 68" className="w-16 h-16 pointer-events-none opacity-40" fill="none">
-    {/* Stacked Isometric Blocks */}
-    <polygon points="34,8 58,20 34,32 10,20" stroke="#10B981" strokeWidth="1" />
-    <polygon points="10,20 34,32 34,40 10,28" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-    <polygon points="34,32 58,20 58,28 34,40" stroke="rgba(52,211,153,0.4)" strokeWidth="1" />
-
-    <polygon points="34,22 58,34 34,46 10,34" stroke="#10B981" strokeWidth="1" strokeDasharray="2 2" />
-    <polygon points="10,34 34,46 34,54 10,42" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-    <polygon points="34,46 58,34 58,42 34,54" stroke="rgba(52,211,153,0.3)" strokeWidth="1" />
-
-    {/* Center node cross */}
-    <circle cx="34" cy="20" r="2" fill="#10B981" />
-  </svg>
-);
-
-const IsometricPrismWireframe: React.FC = () => (
-  <svg viewBox="0 0 68 68" className="w-16 h-16 pointer-events-none opacity-40" fill="none">
-    {/* Isometric Triangular Prism / Sensor Node */}
-    <polygon points="34,6 60,30 8,30" stroke="#EF4444" strokeWidth="1" strokeDasharray="3 2" strokeOpacity="0.8" />
-    <polygon points="8,30 60,30 34,60" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-    <line x1="34" y1="6" x2="34" y2="60" stroke="#EF4444" strokeWidth="1" strokeOpacity="0.5" />
-    <circle cx="34" cy="30" r="3" fill="#EF4444" fillOpacity="0.6" stroke="#fff" strokeWidth="0.8" />
-  </svg>
-);
-
 export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
   onTriggerRebalance,
   onNavigateToInbox,
@@ -342,7 +311,8 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
+      const isInput =
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
@@ -386,13 +356,11 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
     setIsAuditing(true);
     setTimeout(() => {
       setIsAuditing(false);
-      showToast(
-        "inventarioSpecialist: 2 propuestas de órdenes de compra formuladas en /inbox."
-      );
+      showToast("Propuestas de reorden formuladas por el agente para 8 SKUs críticos.");
       if (onNavigateToInbox) {
-        setTimeout(() => onNavigateToInbox(), 1000);
+        setTimeout(() => onNavigateToInbox(), 900);
       }
-    }, 700);
+    }, 600);
   };
 
   const openAdjustModal = (skuItem: EnrichedSkuItem) => {
@@ -409,22 +377,24 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
       const updated = items.map((i) =>
         i.sku === adjustModalSku.sku
           ? {
-              ...i,
-              currentStock: adjustQuantity,
-              status:
-                adjustQuantity <= i.safetyStock
-                  ? ("quiebre" as const)
-                  : adjustQuantity <= i.ropThreshold
+            ...i,
+            currentStock: adjustQuantity,
+            status:
+              adjustQuantity <= i.safetyStock
+                ? ("quiebre" as const)
+                : adjustQuantity <= i.ropThreshold
                   ? ("alerta" as const)
                   : ("optimo" as const),
-            }
+          }
           : i
       );
       setItems(updated);
       setIsSubmittingAdjust(false);
       setAdjustModalSku(null);
       showToast(
-        `Ajuste confirmado para ${adjustModalSku.sku}: Stock ajustado a ${adjustQuantity} un. (Δ ${delta >= 0 ? `+${delta}` : delta} un.). Firma HMAC-256 asentada.`
+        `Ajuste confirmado para ${adjustModalSku.sku}: Stock ajustado a ${adjustQuantity} un. (Δ ${
+          delta >= 0 ? `+${delta}` : delta
+        } un.). Firma HMAC-256 asentada.`
       );
     }, 600);
   };
@@ -444,661 +414,610 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
     });
   }, [items, selectedWarehouse, selectedStatus, searchQuery]);
 
-  // Depletion projection mini-bars data for Cell 1
-  const criticalItems = useMemo(
-    () =>
-      items
-        .filter((i) => i.status === "quiebre" || i.status === "alerta")
-        .sort((a, b) => a.coverageDays - b.coverageDays)
-        .slice(0, 3),
-    [items]
-  );
-
-  // Equalizer Segmented Mini-Bar Renderer (2px blocks)
-  const renderEqualizerBar = (coverageDays: number) => {
-    const totalBlocks = 14;
-    // Map 0 to 6 days to 0 to 14 blocks
-    const filledBlocks = Math.min(totalBlocks, Math.max(1, Math.round((coverageDays / 5) * totalBlocks)));
-    const isCritical = coverageDays <= 2.5;
-
-    return (
-      <div className="flex items-center gap-[2px]">
-        {Array.from({ length: totalBlocks }).map((_, idx) => {
-          const isFilled = idx < filledBlocks;
-          return (
-            <span
-              key={idx}
-              className={`w-[2.5px] h-[7px] rounded-[0.5px] ${
-                isFilled
-                  ? isCritical
-                    ? "bg-[#EF4444]"
-                    : "bg-[#F59E0B]"
-                  : "bg-white/[0.06]"
-              }`}
-            />
-          );
-        })}
-      </div>
-    );
-  };
-
-  // Sparkline Renderer with text to the right
-  const renderSparklineWithPct = (points: number[], trendPct: number) => {
-    const min = Math.min(...points);
-    const max = Math.max(...points) || 1;
-    const range = max - min || 1;
-    const width = 46;
-    const height = 13;
-    const coords = points
-      .map((p, idx) => {
-        const x = (idx / (points.length - 1)) * width;
-        const y = height - ((p - min) / range) * (height - 2) - 1;
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(" ");
-
-    const isPositive = trendPct >= 0;
-    const strokeColor = isPositive ? "#10B981" : "#EF4444";
-
-    return (
-      <div className="flex items-center gap-2">
-        <svg width={width} height={height} className="overflow-visible inline-block">
-          <polyline
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            points={coords}
-          />
-        </svg>
-        <span
-          className={`font-mono text-[10px] font-semibold tabular-nums ${
-            isPositive ? "text-emerald-400" : "text-rose-400"
-          }`}
-        >
-          {isPositive ? `+${trendPct.toFixed(1)}%` : `${trendPct.toFixed(1)}%`}
-        </span>
-      </div>
-    );
-  };
-
-  // Precision Linear Gauge (100px ruler with white tick mark for ROP)
-  const renderPrecisionGauge = (current: number, rop: number, status: string) => {
-    const max = Math.max(rop * 1.5, current * 1.1) || 1;
-    const fillPct = Math.min(100, Math.max(3, (current / max) * 100));
-    const ropTickPct = Math.min(96, (rop / max) * 100);
-
-    const fillColor =
-      status === "quiebre"
-        ? "#EF4444"
-        : status === "alerta"
-        ? "#F59E0B"
-        : "#10B981";
-
-    return (
-      <div className="flex items-center gap-2.5">
-        <div className="relative w-[100px] h-[5px] bg-[#121A15] rounded-[1px] overflow-hidden">
-          {/* Fill Bar */}
-          <div
-            className="h-full transition-all duration-300"
-            style={{ width: `${fillPct}%`, backgroundColor: fillColor }}
-          />
-          {/* ROP White Graduation Tick */}
-          <span
-            className="absolute top-0 bottom-0 w-[1.5px] bg-white z-10 shadow-sm"
-            style={{ left: `${ropTickPct}%` }}
-            title={`ROP: ${rop} un.`}
-          />
-        </div>
-        <div className="font-mono text-[11px] tabular-nums whitespace-nowrap flex items-baseline gap-1">
-          <span className={`font-semibold ${status === "quiebre" ? "text-rose-400 font-bold" : "text-white"}`}>
-            {current.toString().padStart(2, "0")} u.
-          </span>
-          <span className="text-[10px] text-zinc-500">/ {rop} ROP</span>
-        </div>
-      </div>
-    );
-  };
+  // Project Analytics (Donezo Style Demand & Burn-rate bars)
+  const demandDays = [
+    { day: "L", val: 65, type: "solid", label: "24 u." },
+    { day: "M", val: 88, type: "deep", label: "31 u." },
+    { day: "M", val: 55, type: "hatched", label: "20 u." },
+    { day: "J", val: 100, type: "deep", label: "36 u. Pico", peak: true },
+    { day: "V", val: 78, type: "hatched", label: "28 u." },
+    { day: "S", val: 42, type: "solid", label: "15 u." },
+    { day: "D", val: 32, type: "hatched", label: "12 u." },
+  ];
 
   return (
-    <div className="flex-1 h-full flex flex-col bg-[#040705] text-[#F9FAFB] font-sans select-none overflow-hidden">
+    <div className="flex-1 h-full overflow-y-auto bg-canvas text-[#F9FAFB] font-sans select-none p-6 space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E]/95 border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)] backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+          <span className="text-xs font-mono font-medium">{toastMessage}</span>
+          <button onClick={() => setToastMessage(null)} className="text-[#8E9893] hover:text-white text-xs ml-1">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* ========================================================= */}
-      {/* A. BARRA SUPERIOR DE TELEMETRÍA E IDENTIDAD (44px)        */}
+      {/* 1. HEADER EJECUTIVO LIMPIO                                */}
       {/* ========================================================= */}
-      <header className="h-[44px] flex-none px-4 bg-[#040705] border-b border-white/[0.07] flex items-center justify-between z-20">
-        {/* Left: Breadcrumb + Divider + Compact Title + Monospace LED Status */}
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[11px] text-[#8E9893] uppercase tracking-wider">
-            OPERACIONES / STOCK_&_ROP
-          </span>
-          <span className="text-white/20 font-mono text-[11px]">|</span>
-          <h1 className="text-[15px] font-semibold text-[#F9FAFB] tracking-tight">
-            Inventario
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Inventario y Salud de Stock
           </h1>
-          <span className="text-white/20 font-mono text-[11px]">|</span>
-          {/* Plain Monospace Status with 6x6px Square Pulsing LED */}
-          <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
-            <span className="w-[6px] h-[6px] rounded-[1px] bg-[#10B981] animate-pulse inline-block shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-            <span>verificarFrescuraDatos() · 14s · pg_local</span>
-          </div>
+          <p className="text-xs text-txt-secondary mt-0.5">
+            Monitoreo autónomo de punto de reorden (ROP) y balanceo entre sedes
+          </p>
         </div>
 
-        {/* Right: Embedded Search + Technical Button */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
+          {/* Buscador limpio con ⌘F */}
           <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3.5 pointer-events-none" />
             <input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar SKU, producto o rack..."
-              className="h-[28px] w-72 bg-[#070C09] border border-white/[0.08] hover:border-white/20 focus:border-[#10B981]/60 focus:bg-[#070C09] rounded-[3px] pl-8 pr-9 text-xs text-white placeholder:text-zinc-600 focus:outline-none font-mono transition-all"
+              placeholder="Buscar SKU, producto o sede..."
+              className="h-9 w-60 sm:w-72 bg-surface-1 border border-white/[0.08] hover:border-white/20 focus:border-emerald-500/50 rounded-xl pl-9 pr-9 text-xs text-white placeholder:text-zinc-500 focus:outline-none transition-all font-sans"
             />
-            <span className="absolute right-2 text-[10px] font-mono text-zinc-500 pointer-events-none">
+            <span className="absolute right-2.5 text-[10px] font-mono text-zinc-500 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] pointer-events-none">
               ⌘F
             </span>
           </div>
 
+          {/* Botón secundario: Exportar CSV/PDF */}
+          <button
+            onClick={() => showToast("Exportando reporte consolidado de existencias a CSV y PDF...")}
+            className="h-9 px-3.5 rounded-xl bg-surface-1 border border-white/[0.08] hover:border-white/20 hover:bg-[#18221D] text-zinc-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all shadow-card"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Exportar CSV/PDF</span>
+          </button>
+
+          {/* Botón primario sólido verde bosque: + Simular Escenario */}
           <button
             onClick={() => setIsSimulationOpen(true)}
-            className="h-[28px] px-3 rounded-[3px] bg-[#070C09] border border-white/[0.08] border-t-emerald-500/80 hover:border-emerald-500/60 hover:bg-[#0A120D] text-emerald-400 font-mono text-[11px] font-medium flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(16,185,129,0.08)]"
+            className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.45)]"
           >
-            <Sparkles className="w-3 h-3 text-[#34D399]" />
-            <span>✦ Simular Escenario [simularEscenario]</span>
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Simular Escenario</span>
           </button>
         </div>
-      </header>
-
-      {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-12 right-6 z-50 px-3.5 py-2 rounded-[3px] bg-[#070C09] border border-emerald-500/40 text-emerald-300 font-mono text-xs flex items-center gap-2.5 shadow-2xl backdrop-blur-md">
-          <span className="w-1.5 h-1.5 rounded-[1px] bg-emerald-400 animate-pulse" />
-          <span>{toastMessage}</span>
-          <button onClick={() => setToastMessage(null)} className="text-zinc-500 hover:text-white ml-1">✕</button>
-        </div>
-      )}
+      </div>
 
       {/* ========================================================= */}
-      {/* B. BANDA DE INSTRUMENTACIÓN (190px - HAIRLINE GRID)       */}
+      {/* 2. FILA 1: KPI STRIP DE 4 TARJETAS CON HERO (DONEZO)       */}
       {/* ========================================================= */}
-      <div className="h-[190px] flex-none grid grid-cols-12 bg-[#121A15] gap-[1px] border-b border-white/[0.07] relative">
-        {/* Crosshairs at grid borders */}
-        <span className="absolute -bottom-[3px] left-[41.666%] text-[10px] font-mono text-emerald-400/40 select-none pointer-events-none z-20 leading-none">+</span>
-        <span className="absolute -bottom-[3px] left-[75%] text-[10px] font-mono text-emerald-400/40 select-none pointer-events-none z-20 leading-none">+</span>
+      <KpiStrip
+        metrics={[
+          {
+            value: "98.4%",
+            context: "Salud del Catálogo · 338 SKUs activos verificados",
+            isHighlight: true,
+          },
+          {
+            value: "8",
+            context: "SKUs Bajo Punto de Reorden · Riesgo de quiebre < 4 días",
+          },
+          {
+            value: "4",
+            context: "Registros en Cuarentena · Retenidos en Vault para revisión",
+          },
+          {
+            value: "$482.5M",
+            context: "Valorización de Inventario · +6.4% vs mes anterior",
+            isHighlight: true,
+          },
+        ]}
+      />
 
-        {/* CELDA 1 (Col-Span 5) — MONITOR ROP CRÍTICO */}
-        <div
-          className="col-span-5 bg-[#040705] p-3.5 flex flex-col justify-between relative overflow-hidden group"
-          style={{
-            background: "radial-gradient(80% 50% at 50% 0%, rgba(16, 185, 129, 0.08) 0%, #040705 100%)",
-          }}
-        >
-          {/* Reactive Dot Matrix (Amber/Crimson Tint) */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: "radial-gradient(rgba(239, 68, 68, 0.16) 1px, transparent 1px)",
-              backgroundSize: "12px 12px",
-              maskImage: "linear-gradient(to bottom, black 20%, transparent 95%)",
-              WebkitMaskImage: "linear-gradient(to bottom, black 20%, transparent 95%)",
-            }}
-          />
-
-          {/* Isometric Wireframe Rack in Top-Right Corner */}
-          <div className="absolute top-2 right-2">
-            <IsometricRackWireframe />
-          </div>
-
-          {/* Cell Header */}
-          <div className="flex items-center justify-between relative z-10">
-            <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-[#6B7280]">
-              01 // MONITOR ROP CRÍTICO
-            </span>
-            <span className="font-mono text-[10px] text-emerald-400/90 pr-16">
-              fn: inventario_rop
-            </span>
-          </div>
-
-          {/* 2-Column Internal Layout */}
-          <div className="grid grid-cols-12 gap-3 relative z-10 my-auto items-center">
-            {/* Left Column: Number 08 + Label + [R] Generar POs Button */}
-            <div className="col-span-5">
-              <div className="flex items-baseline gap-2">
-                <span className="text-[44px] font-light font-mono tracking-tighter text-white tabular-nums leading-none">
-                  08
-                </span>
-                <span className="text-[10px] font-mono text-rose-400 uppercase font-semibold">
-                  SKUs
-                </span>
-              </div>
-              <span className="text-[10px] font-mono text-zinc-400 block mt-1 leading-snug">
-                Bajo punto de reorden crítico
-              </span>
-              <button
-                onClick={handleGeneratePOs}
-                disabled={isAuditing}
-                className="mt-2.5 h-[24px] px-2.5 rounded-[3px] bg-[#0E1611] border border-emerald-500/30 hover:border-emerald-500 hover:bg-emerald-500/10 text-emerald-400 font-mono text-[10px] flex items-center gap-1.5 transition-all"
-              >
-                <RefreshCw className={`w-2.5 h-2.5 ${isAuditing ? "animate-spin" : ""}`} />
-                <span>[R] Generar POs</span>
-              </button>
+      {/* ========================================================= */}
+      {/* 3. FILA 2: BENTO GRID VISUAL (3 COLUMNAS ASIMÉTRICAS)     */}
+      {/* ========================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* COLUMNA 1 (5 cols): Velocidad de Agotamiento y Demanda (Donezo Project Analytics) */}
+        <div className="lg:col-span-5 rounded-2xl bg-surface-1 border border-white/[0.06] p-5 shadow-card flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-white tracking-tight">
+                Velocidad de Agotamiento y Demanda
+              </h2>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Consumo diario de bodega vs. predicción algorítmica IA
+              </p>
             </div>
+            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              7 Días · IA Predictiva
+            </span>
+          </div>
 
-            {/* Right Column: 3 Depletion Items with Segmented Equalizer Bars */}
-            <div className="col-span-7 space-y-2 border-l border-white/[0.06] pl-3">
-              <span className="text-[9px] font-mono text-zinc-500 uppercase block tracking-wider mb-1">
-                Agotamiento Inminente (Lead Time)
-              </span>
-              {criticalItems.map((item) => (
-                <div key={item.id} className="space-y-0.5">
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <span className="text-zinc-300 truncate max-w-[130px]">{item.name}</span>
-                    <span className="text-amber-400 font-bold tabular-nums">
-                      {item.coverageDays.toFixed(1)}d
+          {/* Gráfico de barras gruesas redondeadas */}
+          <div className="pt-6 pb-2 px-3">
+            <div className="h-36 flex items-end justify-between gap-2.5 sm:gap-3.5 relative">
+              {demandDays.map((bar, idx) => {
+                const barColor =
+                  bar.type === "solid"
+                    ? "bg-[#10B981]"
+                    : bar.type === "deep"
+                    ? "bg-[#047857]"
+                    : "bg-hatched-emerald";
+
+                return (
+                  <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end relative group">
+                    {/* Tooltip flotante sobre barra pico */}
+                    {bar.peak && (
+                      <div className="absolute -top-7 px-2 py-0.5 rounded-full bg-[#14201A] border border-emerald-400/40 text-[10px] font-mono font-bold text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)] whitespace-nowrap z-20">
+                        <span>74% Pico</span>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#14201A] border-r border-b border-emerald-400/40 transform rotate-45 -mt-0.5" />
+                      </div>
+                    )}
+
+                    {/* Barra gruesa redondeada */}
+                    <div
+                      style={{ height: `${bar.val}%` }}
+                      className={`w-full max-w-[38px] rounded-2xl transition-all duration-300 group-hover:scale-y-105 origin-bottom shadow-sm ${barColor}`}
+                      title={`${bar.day}: ${bar.label}`}
+                    />
+
+                    {/* Letra del día */}
+                    <span className="text-xs font-mono font-medium text-zinc-400 mt-2.5">
+                      {bar.day}
                     </span>
                   </div>
-                  {renderEqualizerBar(item.coverageDays)}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* CELDA 2 (Col-Span 4) — INTEGRIDAD DE CATÁLOGO (LEDGER MATRIX) */}
-        <div
-          className="col-span-4 bg-[#040705] p-3.5 flex flex-col justify-between relative overflow-hidden group"
-          style={{
-            background: "radial-gradient(80% 50% at 50% 0%, rgba(16, 185, 129, 0.11) 0%, #040705 100%)",
-          }}
-        >
-          {/* Reactive Dot Matrix (Emerald Tint) */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: "radial-gradient(rgba(16, 185, 129, 0.18) 1px, transparent 1px)",
-              backgroundSize: "12px 12px",
-              maskImage: "linear-gradient(to bottom, black 20%, transparent 95%)",
-              WebkitMaskImage: "linear-gradient(to bottom, black 20%, transparent 95%)",
-            }}
-          />
-
-          {/* Isometric Wireframe Ledger in Top-Right Corner */}
-          <div className="absolute top-2 right-2">
-            <IsometricLedgerWireframe />
-          </div>
-
-          {/* Cell Header */}
-          <div className="flex items-center justify-between relative z-10">
-            <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-[#6B7280]">
-              02 // INTEGRIDAD DE CATÁLOGO
-            </span>
-            <span className="font-mono text-[10px] text-emerald-400/90 pr-16">
-              fn: dataHealthService
-            </span>
-          </div>
-
-          {/* Center: Memory Block Matrix / Ledger (40 blocks: 39 emerald, 1 blinking amber) + 98.4% */}
-          <div className="relative z-10 my-auto">
-            <div className="flex items-baseline justify-between mb-2">
-              <span className="text-[36px] font-light font-mono tracking-tighter text-emerald-400 tabular-nums leading-none">
-                98.4%
-              </span>
-              <span className="text-[10px] font-mono text-zinc-400">
-                Consistencia Criptográfica
-              </span>
-            </div>
-
-            {/* Matrix of 40 small blocks (4x14px) */}
-            <div className="flex items-center gap-[2px] p-1.5 rounded-[2px] bg-[#070C09] border border-white/[0.04]">
-              {Array.from({ length: 40 }).map((_, idx) => {
-                const isAnomaly = idx === 28; // 1 block blinks in amber
-                return (
-                  <span
-                    key={idx}
-                    title={isAnomaly ? "Discrepancia en Bloque 28 (QUAR-081)" : "Bloque OK"}
-                    className={`flex-1 h-[14px] rounded-[1px] transition-all ${
-                      isAnomaly
-                        ? "bg-[#F59E0B] animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]"
-                        : "bg-[#10B981] opacity-80 hover:opacity-100"
-                    }`}
-                  />
                 );
               })}
             </div>
           </div>
 
-          {/* Bottom Telemetry Table with Dot Leaders */}
-          <div className="space-y-1 font-mono text-[10px] text-zinc-400 relative z-10 pt-1 border-t border-white/[0.04]">
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-500">Registros Activos</span>
-              <span className="text-zinc-600">.......................</span>
-              <span className="text-white font-medium">338 SKUs</span>
+          {/* Leyenda de colores */}
+          <div className="flex flex-wrap items-center justify-between pt-3 border-t border-white/[0.04] text-[11px] text-zinc-400 font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
+              <span>Consumo Real</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-500">Vault Cuarentena</span>
-              <span className="text-zinc-600">......................</span>
-              <span className="text-amber-400 font-medium">4 [QUAR-*.md]</span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#047857]" />
+              <span>Media Histórica</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-500">Sync Latency</span>
-              <span className="text-zinc-600">..........................</span>
-              <span className="text-emerald-400 font-medium">1.2 ms</span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-hatched-emerald border border-emerald-400/30" />
+              <span>Proyección IA</span>
             </div>
           </div>
         </div>
 
-        {/* CELDA 3 (Col-Span 3) — STREAM DE ANOMALÍAS DETECTADAS */}
-        <div
-          className="col-span-3 bg-[#040705] p-3.5 flex flex-col justify-between relative overflow-hidden group"
-          style={{
-            background: "radial-gradient(80% 50% at 50% 0%, rgba(16, 185, 129, 0.06) 0%, #040705 100%)",
-          }}
-        >
-          {/* Reactive Dot Matrix */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: "radial-gradient(rgba(16, 185, 129, 0.14) 1px, transparent 1px)",
-              backgroundSize: "12px 12px",
-              maskImage: "linear-gradient(to bottom, black 20%, transparent 95%)",
-              WebkitMaskImage: "linear-gradient(to bottom, black 20%, transparent 95%)",
-            }}
-          />
-
-          {/* Isometric Wireframe Prism in Top-Right Corner */}
-          <div className="absolute top-2 right-2">
-            <IsometricPrismWireframe />
+        {/* COLUMNA 2 (3 cols): Cobertura de Stock Semicircular (Donezo Project Progress 41%) */}
+        <div className="lg:col-span-3 rounded-2xl bg-surface-1 border border-white/[0.06] p-5 shadow-card flex flex-col justify-between space-y-3">
+          <div>
+            <h2 className="text-sm font-bold text-white tracking-tight">
+              Cobertura y Nivel de Servicio
+            </h2>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Disponibilidad ROP en los 3 almacenes
+            </p>
           </div>
 
-          {/* Cell Header */}
-          <div className="flex items-center justify-between relative z-10">
-            <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-[#6B7280]">
-              03 // ANOMALÍAS DETECTADAS
-            </span>
-            <span className="font-mono text-[10px] text-emerald-400/90 pr-16">
-              fn: auditarAnomalias
-            </span>
-          </div>
-
-          {/* Terminal Log List with 1px dividers */}
-          <div className="divide-y divide-white/[0.04] relative z-10 font-mono text-[10px]">
-            <div className="py-1.5 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="w-[2px] h-[12px] bg-[#EF4444] rounded-[0.5px] flex-none" />
-                <span className="text-rose-400 font-bold flex-none">DISC7</span>
-                <span className="text-zinc-400 truncate">Stock 8 &lt; ROP 25</span>
-              </div>
-              <span className="text-zinc-600 flex-none">4m</span>
-            </div>
-
-            <div className="py-1.5 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="w-[2px] h-[12px] bg-[#F59E0B] rounded-[0.5px] flex-none" />
-                <span className="text-amber-400 font-bold flex-none">HEXG8</span>
-                <span className="text-zinc-400 truncate">Burn rate +33% acelerado</span>
-              </div>
-              <span className="text-zinc-600 flex-none">18m</span>
-            </div>
-
-            <div className="py-1.5 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="w-[2px] h-[12px] bg-[#3B82F6] rounded-[0.5px] flex-none" />
-                <span className="text-blue-400 font-bold flex-none">VAL01</span>
-                <span className="text-zinc-400 truncate">Discrepancia dim. QA</span>
-              </div>
-              <span className="text-zinc-600 flex-none">1h</span>
-            </div>
-
-            <div className="py-1.5 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="w-[2px] h-[12px] bg-[#10B981] rounded-[0.5px] flex-none" />
-                <span className="text-emerald-400 font-bold flex-none">IMP20</span>
-                <span className="text-zinc-400 truncate">Rebalanceo BOG -&gt; BGA</span>
-              </div>
-              <span className="text-zinc-600 flex-none">2h</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================= */}
-      {/* C. BARRA DE SUB-NAVEGACIÓN Y FILTROS DE SEDE (38px)       */}
-      {/* ========================================================= */}
-      <div className="h-[38px] flex-none px-4 bg-[#060A08] border-b border-white/[0.07] flex items-center justify-between z-10 text-xs">
-        {/* Left: Sedes Tabs with 2px bottom emerald line (ZERO pills) */}
-        <div className="flex items-center h-full space-x-5">
-          <button
-            onClick={() => setSelectedWarehouse("all")}
-            className={`h-full flex items-center text-xs transition-colors relative ${
-              selectedWarehouse === "all"
-                ? "text-white font-medium"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            <span>Todas las sedes (3)</span>
-            {selectedWarehouse === "all" && (
-              <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#10B981]" />
-            )}
-          </button>
-
-          <button
-            onClick={() => setSelectedWarehouse("wh_bga")}
-            className={`h-full flex items-center text-xs transition-colors relative ${
-              selectedWarehouse === "wh_bga"
-                ? "text-white font-medium"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            <span>Bodega Matriz Bucaramanga</span>
-            {selectedWarehouse === "wh_bga" && (
-              <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#10B981]" />
-            )}
-          </button>
-
-          <button
-            onClick={() => setSelectedWarehouse("wh_bog")}
-            className={`h-full flex items-center text-xs transition-colors relative ${
-              selectedWarehouse === "wh_bog"
-                ? "text-white font-medium"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            <span>CD Bogotá D.C.</span>
-            {selectedWarehouse === "wh_bog" && (
-              <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#10B981]" />
-            )}
-          </button>
-
-          <button
-            onClick={() => setSelectedWarehouse("wh_med")}
-            className={`h-full flex items-center text-xs transition-colors relative ${
-              selectedWarehouse === "wh_med"
-                ? "text-white font-medium"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            <span>CD Medellín</span>
-            {selectedWarehouse === "wh_med" && (
-              <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#10B981]" />
-            )}
-          </button>
-        </div>
-
-        {/* Right: Status Filters with Monospace Bracketed Counters */}
-        <div className="flex items-center gap-3 font-mono text-[11px]">
-          <button
-            onClick={() => setSelectedStatus("all")}
-            className={`transition-colors ${
-              selectedStatus === "all" ? "text-emerald-400 font-bold" : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            Todos <span className="text-zinc-400">[338]</span>
-          </button>
-          <span className="text-white/10">·</span>
-
-          <button
-            onClick={() => setSelectedStatus("quiebre")}
-            className={`flex items-center gap-1 transition-colors ${
-              selectedStatus === "quiebre" ? "text-rose-400 font-bold" : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-[1px] bg-rose-500" />
-            <span>Quiebre</span> <span className="text-rose-400/80">[8]</span>
-          </button>
-          <span className="text-white/10">·</span>
-
-          <button
-            onClick={() => setSelectedStatus("alerta")}
-            className={`flex items-center gap-1 transition-colors ${
-              selectedStatus === "alerta" ? "text-amber-400 font-bold" : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-[1px] bg-amber-500" />
-            <span>Riesgo ROP</span> <span className="text-amber-400/80">[14]</span>
-          </button>
-          <span className="text-white/10">·</span>
-
-          <button
-            onClick={() => setSelectedStatus("optimo")}
-            className={`flex items-center gap-1 transition-colors ${
-              selectedStatus === "optimo" ? "text-emerald-400 font-bold" : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            <span>Óptimo</span> <span className="text-zinc-400">[312]</span>
-          </button>
-          <span className="text-white/10">·</span>
-
-          <button
-            onClick={() => setSelectedStatus("cuarentena")}
-            className={`flex items-center gap-1 transition-colors ${
-              selectedStatus === "cuarentena" ? "text-indigo-400 font-bold" : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            <span>Cuarentena</span> <span className="text-zinc-400">[4]</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ========================================================= */}
-      {/* D. DATA GRID DE ALTA DENSIDAD (OCUPA RESTO VERTICAL)      */}
-      {/* ========================================================= */}
-      <div className="flex-1 min-h-0 overflow-y-auto bg-[#040705]">
-        <table className="w-full text-left border-collapse">
-          <thead className="sticky top-0 z-10 h-[28px] bg-[#070C09] border-b border-white/[0.07] text-zinc-500 font-mono text-[10px] uppercase tracking-wider">
-            <tr>
-              <th className="px-4 font-medium w-36">SKU</th>
-              <th className="px-3 font-medium">PRODUCTO / LOTE</th>
-              <th className="px-3 font-medium">UBICACIÓN</th>
-              <th className="px-3 font-medium w-48">STOCK vs. ROP</th>
-              <th className="px-3 font-medium w-36">TENDENCIA (7D)</th>
-              <th className="px-3 font-medium w-32">ESTADO</th>
-              <th className="px-4 font-medium text-right w-28">ACCIÓN</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/[0.04]">
-            {filteredItems.map((item) => {
-              const isQuarantine = item.status === "cuarentena";
-              const isAlert = item.status === "alerta";
-              const isCritical = item.status === "quiebre";
-
-              return (
-                <tr
-                  key={item.id}
-                  className="group h-[38px] min-h-[38px] max-h-[38px] transition-colors relative hover:bg-[#070C09] hover:bg-opacity-80"
+          {/* Medidor en Arco Semicircular de 180° */}
+          <div className="flex flex-col items-center justify-center py-1 relative">
+            <svg viewBox="0 0 200 115" className="w-52 max-w-full overflow-visible">
+              <defs>
+                {/* Patrón rayado diagonal para el segmento Riesgo ROP */}
+                <pattern
+                  id="ropHatchPattern"
+                  width="8"
+                  height="8"
+                  patternTransform="rotate(45)"
+                  patternUnits="userSpaceOnUse"
                 >
-                  {/* SKU Column */}
-                  <td className="px-4 font-mono text-[11px] font-bold text-[#34D399] whitespace-nowrap relative">
-                    {/* Instant 2px Left indicator on hover */}
-                    <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#10B981] opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="flex items-center gap-1.5">
-                      <span>{item.sku}</span>
-                      <button
-                        onClick={() => handleCopySku(item.sku)}
-                        className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-white transition-opacity"
-                        title="Copiar SKU"
-                      >
-                        {copiedSku === item.sku ? (
-                          <Check className="w-2.5 h-2.5 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-2.5 h-2.5" />
-                        )}
-                      </button>
-                    </div>
-                  </td>
+                  <line x1="0" y1="0" x2="0" y2="8" stroke="#F59E0B" strokeWidth="3" />
+                </pattern>
+              </defs>
 
-                  {/* PRODUCTO / LOTE Column (Single Line) */}
-                  <td className="px-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[13px] font-normal text-[#F3F4F6] truncate max-w-[280px]">
-                        {item.name}
+              {/* Arco Fondo Sutil */}
+              <path
+                d="M 25,100 A 75,75 0 0,1 175,100"
+                fill="none"
+                stroke="#16221B"
+                strokeWidth="16"
+                strokeLinecap="round"
+              />
+
+              {/* Segmento 1: Stock Óptimo (Verde Esmeralda Sólido) */}
+              <path
+                d="M 25,100 A 75,75 0 0,1 175,100"
+                fill="none"
+                stroke="#10B981"
+                strokeWidth="16"
+                strokeDasharray="150 236"
+                strokeDashoffset="0"
+                strokeLinecap="round"
+              />
+
+              {/* Segmento 2: En Tránsito (Verde Bosque) */}
+              <path
+                d="M 25,100 A 75,75 0 0,1 175,100"
+                fill="none"
+                stroke="#047857"
+                strokeWidth="16"
+                strokeDasharray="56 236"
+                strokeDashoffset="-150"
+              />
+
+              {/* Segmento 3: Riesgo ROP (Rayado Diagonal a 45°) */}
+              <path
+                d="M 25,100 A 75,75 0 0,1 175,100"
+                fill="none"
+                stroke="url(#ropHatchPattern)"
+                strokeWidth="16"
+                strokeDasharray="30 236"
+                strokeDashoffset="-206"
+                strokeLinecap="round"
+              />
+            </svg>
+
+            {/* Texto Central */}
+            <div className="absolute top-[52px] text-center">
+              <span className="text-3xl font-extrabold font-mono text-white tracking-tight">
+                92%
+              </span>
+              <span className="block text-[11px] font-medium text-zinc-400 -mt-0.5">
+                Nivel de Servicio
+              </span>
+            </div>
+          </div>
+
+          {/* Leyenda Horizontal */}
+          <div className="space-y-1.5 text-[11px] font-mono text-zinc-400 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+                <span>Stock Óptimo</span>
+              </span>
+              <span className="text-white font-bold">68%</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#047857]" />
+                <span>En Tránsito</span>
+              </span>
+              <span className="text-white font-bold">24%</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-hatched-slate border border-amber-500/40" />
+                <span className="text-amber-400">Riesgo ROP</span>
+              </span>
+              <span className="text-amber-400 font-bold">8%</span>
+            </div>
+          </div>
+
+          {/* Botón directo: Generar Órdenes de Reposición */}
+          <button
+            onClick={handleGeneratePOs}
+            disabled={isAuditing}
+            className="w-full mt-2 h-9 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isAuditing ? "animate-spin text-emerald-400" : ""}`} />
+            <span>Generar Órdenes de Reposición</span>
+          </button>
+        </div>
+
+        {/* COLUMNA 3 (4 cols): Anomalías Recientes del Agente (CheckinOs & Donezo Tasks) */}
+        <div className="lg:col-span-4 rounded-2xl bg-surface-1 border border-white/[0.06] p-5 shadow-card flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-emerald-400" />
+              <h2 className="text-sm font-bold text-white tracking-tight">
+                Anomalías del Agente
+              </h2>
+            </div>
+            <button
+              onClick={() => showToast("Auditoría completa ejecutada: 74 SKUs escaneados.")}
+              className="text-xs text-emerald-400 hover:text-emerald-300 font-medium hover:underline flex items-center gap-1"
+            >
+              <span>Auditar ahora</span>
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+
+          <div className="space-y-2.5">
+            {/* Anomalía 1 */}
+            <div className="p-3 rounded-xl bg-surface-well border border-white/[0.04] flex items-center justify-between gap-3 hover:border-white/10 transition-colors">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 flex-shrink-0">
+                  <Wrench className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-white truncate">
+                    Disco Diamantado 7&apos; Concreto
+                  </p>
+                  <p className="text-[11px] font-mono text-rose-400">
+                    Físico 8u vs Sistema 12u (-4u)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => openAdjustModal(items[0])}
+                className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-[11px] font-mono font-medium flex-shrink-0 transition-colors"
+              >
+                Ajustar
+              </button>
+            </div>
+
+            {/* Anomalía 2 */}
+            <div className="p-3 rounded-xl bg-surface-well border border-white/[0.04] flex items-center justify-between gap-3 hover:border-white/10 transition-colors">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-white truncate">
+                    Pernos Hexagonales Grado 8
+                  </p>
+                  <p className="text-[11px] font-mono text-amber-400">
+                    Burn rate acelerado (57 u/día)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleGeneratePOs}
+                className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[11px] font-mono font-medium flex-shrink-0 transition-colors"
+              >
+                Reorden
+              </button>
+            </div>
+
+            {/* Anomalía 3 */}
+            <div className="p-3 rounded-xl bg-surface-well border border-white/[0.04] flex items-center justify-between gap-3 hover:border-white/10 transition-colors">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-white truncate">
+                    Válvula Inoxidable 2&apos; ANSI
+                  </p>
+                  <p className="text-[11px] font-mono text-blue-400">
+                    Retenido en cuarentena dimensional
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => showToast("Registro QUAR-081 abierto en /vault/Auditoria")}
+                className="px-2.5 py-1 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-300 text-[11px] font-mono font-medium flex-shrink-0 transition-colors"
+              >
+                Revisar
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-white/[0.04] flex items-center justify-between text-[10px] font-mono text-zinc-500">
+            <span>Última sincronización física: 10:24 AM</span>
+            <span className="text-emerald-400">0 discrepancias no resueltas</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 4. FILA 3: CATÁLOGO DE STOCK CON BARRAS WELL (INVENTAR)    */}
+      {/* ========================================================= */}
+      <div className="rounded-2xl bg-surface-1 border border-white/[0.06] shadow-card overflow-hidden space-y-0">
+        {/* Sub-header / Toolbar con Filtro de Sedes y Estados */}
+        <div className="p-4 border-b border-white/[0.06] bg-[#0C1310] flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Selector de Sedes */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-well border border-white/[0.04] overflow-x-auto">
+            {[
+              { id: "all", label: "Todas las sedes" },
+              { id: "wh_bga", label: "Bucaramanga" },
+              { id: "wh_bog", label: "Bogotá D.C." },
+              { id: "wh_med", label: "Medellín" },
+            ].map((wh) => (
+              <button
+                key={wh.id}
+                onClick={() => setSelectedWarehouse(wh.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+                  selectedWarehouse === wh.id
+                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                {wh.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Filtros de Estado */}
+          <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-mono">
+            {[
+              { id: "all", label: "Todos", count: 338 },
+              { id: "quiebre", label: "Quiebre", count: 8 },
+              { id: "alerta", label: "Alerta ROP", count: 14 },
+              { id: "optimo", label: "Óptimo", count: 312 },
+              { id: "cuarentena", label: "Cuarentena", count: 4 },
+            ].map((st) => (
+              <button
+                key={st.id}
+                onClick={() => setSelectedStatus(st.id)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] transition-all whitespace-nowrap ${
+                  selectedStatus === st.id
+                    ? "bg-white/10 text-white font-bold border border-white/20"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                {st.label} <span className="opacity-60 font-normal">({st.count})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tabla de Productos con Barras Well Embutidas */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-[#0B110E] border-b border-white/[0.06] text-zinc-400 font-mono text-[10px] uppercase tracking-wider">
+                <th className="py-3 px-4 font-semibold">Producto & SKU</th>
+                <th className="py-3 px-3 font-semibold">Sede / Ubicación</th>
+                <th className="py-3 px-3 font-semibold w-56">Stock vs. ROP (Well)</th>
+                <th className="py-3 px-3 font-semibold">Cobertura / Burn Rate</th>
+                <th className="py-3 px-3 font-semibold text-right">Valorización</th>
+                <th className="py-3 px-3 font-semibold text-center">Condición</th>
+                <th className="py-3 px-4 font-semibold text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04]">
+              {filteredItems.map((item) => {
+                const maxGauge = Math.max(item.ropThreshold * 1.5, item.currentStock * 1.1) || 1;
+                const fillPct = Math.min(100, Math.max(4, (item.currentStock / maxGauge) * 100));
+                const ropTickPct = Math.min(96, (item.ropThreshold / maxGauge) * 100);
+
+                const statusBadgeType =
+                  item.status === "quiebre"
+                    ? "error"
+                    : item.status === "alerta"
+                    ? "alerta"
+                    : item.status === "cuarentena"
+                    ? "pendiente"
+                    : "ok";
+
+                const badgeLabel =
+                  item.status === "quiebre"
+                    ? "Quiebre ROP"
+                    : item.status === "alerta"
+                    ? "Alerta ROP"
+                    : item.status === "cuarentena"
+                    ? "Cuarentena"
+                    : "Óptimo";
+
+                return (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-[#151E19] transition-colors group cursor-default"
+                  >
+                    {/* Producto & SKU */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-[#19241F] border border-white/[0.04] text-emerald-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                          {item.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-semibold text-white block truncate max-w-[220px]">
+                            {item.name}
+                          </span>
+                          <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-400 mt-0.5">
+                            <span className="text-emerald-400 font-bold">{item.sku}</span>
+                            <button
+                              onClick={() => handleCopySku(item.sku)}
+                              className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-white transition-opacity"
+                              title="Copiar SKU"
+                            >
+                              {copiedSku === item.sku ? (
+                                <Check className="w-2.5 h-2.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-2.5 h-2.5" />
+                              )}
+                            </button>
+                            <span className="text-zinc-600">·</span>
+                            <span className="truncate max-w-[120px]">{item.category}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Sede / Ubicación */}
+                    <td className="py-3.5 px-3">
+                      <div className="flex flex-col font-mono text-[11px]">
+                        <span className="text-zinc-200">{item.warehouseName.replace("Bodega Matriz ", "").replace("CD ", "")}</span>
+                        <span className="text-[10px] text-zinc-500">{item.locationRack.split("·")[1]?.trim() || item.locationRack}</span>
+                      </div>
+                    </td>
+
+                    {/* Stock vs. ROP en Contenedor Well (Inventar Style) */}
+                    <td className="py-3.5 px-3">
+                      <div className="bg-surface-well rounded-xl p-2.5 border border-white/[0.04] w-52 space-y-1.5 shadow-inner">
+                        <div className="flex justify-between items-baseline text-[11px] font-mono">
+                          <span className={`font-bold ${item.status === "quiebre" ? "text-rose-400" : "text-white"}`}>
+                            {item.currentStock.toString().padStart(2, "0")} u.
+                          </span>
+                          <span className="text-[10px] text-zinc-500">
+                            Punto ROP: {item.ropThreshold} u.
+                          </span>
+                        </div>
+
+                        {/* Barra de progreso con marca vertical blanca de ROP */}
+                        <div className="relative w-full h-2 rounded-full bg-[#19241F] overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              item.status === "quiebre"
+                                ? "bg-rose-500"
+                                : item.status === "alerta"
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
+                            }`}
+                            style={{ width: `${fillPct}%` }}
+                          />
+                          {/* Marca vertical blanca para el umbral ROP */}
+                          <span
+                            className="absolute top-0 bottom-0 w-[1.5px] bg-white z-10 shadow-sm"
+                            style={{ left: `${ropTickPct}%` }}
+                            title={`Umbral ROP: ${item.ropThreshold} un.`}
+                          />
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Cobertura / Burn Rate */}
+                    <td className="py-3.5 px-3 font-mono">
+                      <div className="flex flex-col text-[11px]">
+                        <span className={`font-semibold ${item.coverageDays < 4 ? "text-amber-400" : "text-white"}`}>
+                          {item.coverageDays.toFixed(1)} días
+                        </span>
+                        <span className="text-[10px] text-zinc-500">
+                          {item.dailyBurnRate} u/día
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Valorización Total */}
+                    <td className="py-3.5 px-3 text-right font-mono tabular-nums">
+                      <span className="text-white font-bold text-xs block">
+                        ${(item.currentStock * item.unitPriceCop).toLocaleString("es-CO")}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded-[2px] bg-[#0E1511] border border-white/[0.06] font-mono text-[10px] text-zinc-400 flex-none">
-                        {item.lotNumber}
+                      <span className="text-[10px] text-zinc-500">
+                        ${item.unitPriceCop.toLocaleString("es-CO")} /u
                       </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* UBICACIÓN Column (Single Line) */}
-                  <td className="px-3 whitespace-nowrap font-mono text-[11px] text-zinc-400">
-                    {item.locationRack}
-                  </td>
+                    {/* Condición / StatusBadge */}
+                    <td className="py-3.5 px-3 text-center">
+                      <StatusBadge status={statusBadgeType} label={badgeLabel} size="sm" />
+                    </td>
 
-                  {/* STOCK vs. ROP Precision Gauge */}
-                  <td className="px-3 whitespace-nowrap">
-                    {renderPrecisionGauge(item.currentStock, item.ropThreshold, item.status)}
-                  </td>
+                    {/* Acciones */}
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => openAdjustModal(item)}
+                          className="px-2.5 py-1 rounded-lg bg-surface-well border border-white/[0.06] hover:border-emerald-500/40 text-zinc-300 hover:text-emerald-300 font-mono text-[10px] transition-colors"
+                        >
+                          Ajustar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
-                  {/* TENDENCIA (7D) Sparkline with Percentage at Right */}
-                  <td className="px-3 whitespace-nowrap">
-                    {renderSparklineWithPct(item.demandHistory, item.demandTrendPct)}
-                  </td>
-
-                  {/* ESTADO: Glowing 6x6px square + Plain Uppercase Text (NO OVAL PILL) */}
-                  <td className="px-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2 font-mono text-[10px] uppercase font-bold tracking-wider">
-                      <span
-                        className={`w-[6px] h-[6px] rounded-[1px] flex-none ${
-                          isCritical
-                            ? "bg-[#EF4444] shadow-[0_0_8px_rgba(239,68,68,0.8)]"
-                            : isAlert
-                            ? "bg-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.8)]"
-                            : isQuarantine
-                            ? "bg-[#818CF8] shadow-[0_0_8px_rgba(129,140,248,0.8)]"
-                            : "bg-[#10B981] shadow-[0_0_8px_rgba(16,185,129,0.8)]"
-                        }`}
-                      />
-                      <span
-                        className={
-                          isCritical
-                            ? "text-[#EF4444]"
-                            : isAlert
-                            ? "text-[#F59E0B]"
-                            : isQuarantine
-                            ? "text-[#818CF8]"
-                            : "text-[#10B981]"
-                        }
-                      >
-                        {item.status.toUpperCase()}
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* ACCIÓN Technical Button (Illuminates on row hover) */}
-                  <td className="px-4 text-right whitespace-nowrap">
-                    <button
-                      onClick={() => openAdjustModal(item)}
-                      className="px-2 py-0.5 rounded-[2px] bg-[#0A0F0C] border border-white/[0.06] group-hover:border-emerald-500/40 text-zinc-400 group-hover:text-emerald-300 font-mono text-[10px] opacity-70 group-hover:opacity-100 transition-all"
-                    >
-                      [Ajustar ⌘E]
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+          {filteredItems.length === 0 && (
+            <div className="p-12 text-center text-xs font-mono text-zinc-500">
+              No se encontraron SKUs que coincidan con los filtros de sede o estado.
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ========================================================= */}
@@ -1106,11 +1025,11 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
       {/* ========================================================= */}
       {adjustModalSku && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[3px] bg-[#070C09] border border-white/[0.1] border-t-emerald-500 shadow-2xl p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-xs">
+          <div className="w-full max-w-md rounded-2xl bg-surface-1 border border-white/[0.1] shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-xs">
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <div>
-                <span className="font-mono text-[10px] text-emerald-400 block">
-                  AJUSTE DE STOCK FÍSICO · TAURI RUNTIME
+                <span className="font-mono text-[10px] text-emerald-400 block font-bold">
+                  AJUSTE DE STOCK FÍSICO · REGISTRO AUDITABLE
                 </span>
                 <h3 className="text-sm font-bold text-white tracking-tight mt-0.5">
                   {adjustModalSku.sku} — {adjustModalSku.name}
@@ -1125,7 +1044,7 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
             </div>
 
             <div className="space-y-3 font-mono">
-              <div className="flex items-center justify-between bg-[#040705] p-2.5 rounded-[2px] border border-white/[0.04]">
+              <div className="flex items-center justify-between bg-surface-well p-3 rounded-xl border border-white/[0.04]">
                 <span className="text-zinc-400">Stock Actual en DB:</span>
                 <span className="text-white font-bold">{adjustModalSku.currentStock} un.</span>
               </div>
@@ -1138,22 +1057,22 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setAdjustQuantity((prev) => Math.max(0, prev - 1))}
-                    className="w-8 h-8 rounded-[2px] bg-[#0E1511] border border-white/[0.08] text-white flex items-center justify-center hover:border-emerald-500/50"
+                    className="w-9 h-9 rounded-xl bg-surface-well border border-white/[0.08] text-white flex items-center justify-center hover:border-emerald-500/50"
                   >
-                    <Minus className="w-3.5 h-3.5" />
+                    <Minus className="w-4 h-4" />
                   </button>
                   <input
                     type="number"
                     value={adjustQuantity}
                     onChange={(e) => setAdjustQuantity(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="flex-1 h-8 bg-[#040705] border border-white/[0.08] focus:border-emerald-500 rounded-[2px] text-center font-bold text-emerald-400 font-mono text-sm focus:outline-none"
+                    className="flex-1 h-9 bg-surface-well border border-white/[0.08] focus:border-emerald-500 rounded-xl text-center font-bold text-emerald-400 font-mono text-base focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => setAdjustQuantity((prev) => prev + 1)}
-                    className="w-8 h-8 rounded-[2px] bg-[#0E1511] border border-white/[0.08] text-white flex items-center justify-center hover:border-emerald-500/50"
+                    className="w-9 h-9 rounded-xl bg-surface-well border border-white/[0.08] text-white flex items-center justify-center hover:border-emerald-500/50"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -1165,7 +1084,7 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
                 <select
                   value={adjustReason}
                   onChange={(e) => setAdjustReason(e.target.value)}
-                  className="w-full h-8 bg-[#040705] border border-white/[0.08] rounded-[2px] px-2 text-zinc-300 font-sans text-xs focus:outline-none focus:border-emerald-500"
+                  className="w-full h-9 bg-surface-well border border-white/[0.08] rounded-xl px-3 text-zinc-300 font-sans text-xs focus:outline-none focus:border-emerald-500"
                 >
                   <option value="Descuadre en conteo físico cíclico">Descuadre en conteo físico cíclico</option>
                   <option value="Merma o rotura en bodega">Merma o rotura en bodega</option>
@@ -1174,25 +1093,25 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
                 </select>
               </div>
 
-              <div className="p-2.5 rounded-[2px] bg-emerald-500/[0.05] border border-emerald-500/20 text-[10px] text-emerald-300 space-y-0.5">
+              <div className="p-3 rounded-xl bg-emerald-500/[0.05] border border-emerald-500/20 text-[10px] text-emerald-300 space-y-0.5">
                 <span className="block font-bold">FIRMA DIGITAL HMAC-SHA256:</span>
-                <span className="text-zinc-500 block">7f3a8b29c01d4e5f...asentada en /vault/Auditoria</span>
+                <span className="text-zinc-400 block">7f3a8b29c01d4e5f...asentada en /vault/Auditoria</span>
               </div>
             </div>
 
             <div className="pt-2 flex justify-end gap-2 border-t border-white/[0.08]">
               <button
                 onClick={() => setAdjustModalSku(null)}
-                className="px-3 py-1.5 rounded-[2px] bg-transparent hover:bg-white/[0.04] text-zinc-400 text-xs"
+                className="px-3 py-2 rounded-xl bg-transparent hover:bg-white/[0.04] text-zinc-400 text-xs font-medium"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmAdjust}
                 disabled={isSubmittingAdjust}
-                className="px-4 py-1.5 rounded-[2px] bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 font-medium text-xs flex items-center gap-1.5 transition-all"
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)]"
               >
-                <RefreshCw className={`w-3 h-3 ${isSubmittingAdjust ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${isSubmittingAdjust ? "animate-spin" : ""}`} />
                 <span>Confirmar Ajuste</span>
               </button>
             </div>
@@ -1205,12 +1124,12 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
       {/* ========================================================= */}
       {isSimulationOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[3px] bg-[#070C09] border border-white/[0.1] border-t-emerald-500 shadow-2xl p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-xs font-mono">
+          <div className="w-full max-w-md rounded-2xl bg-surface-1 border border-white/[0.1] shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-xs font-sans">
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#34D399]" />
+                <Sparkles className="w-4 h-4 text-emerald-400" />
                 <h3 className="text-sm font-bold text-white tracking-tight">
-                  Simular Escenario de Stock [simularEscenario]
+                  Simular Escenario de Shock de Demanda
                 </h3>
               </div>
               <button
@@ -1221,11 +1140,11 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <div className="flex justify-between text-xs mb-1">
+                <div className="flex justify-between text-xs mb-1.5">
                   <span className="text-zinc-400">Pico de Demanda Simulado:</span>
-                  <span className="text-amber-400 font-bold">+{demandSurgePct}%</span>
+                  <span className="text-amber-400 font-bold font-mono">+{demandSurgePct}%</span>
                 </div>
                 <input
                   type="range"
@@ -1237,7 +1156,7 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
                 />
               </div>
 
-              <div className="p-3 rounded-[2px] bg-[#040705] border border-white/[0.04] space-y-1.5 text-[11px]">
+              <div className="p-3.5 rounded-xl bg-surface-well border border-white/[0.04] space-y-2 text-xs font-mono">
                 <span className="text-[10px] text-zinc-500 block uppercase font-sans font-bold">
                   Impacto Proyectado en ROP
                 </span>
@@ -1259,7 +1178,7 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
             <div className="pt-2 flex justify-end gap-2 border-t border-white/[0.08]">
               <button
                 onClick={() => setIsSimulationOpen(false)}
-                className="px-3 py-1.5 rounded-[2px] bg-transparent hover:bg-white/[0.04] text-zinc-400 text-xs"
+                className="px-3.5 py-2 rounded-xl bg-transparent hover:bg-white/[0.04] text-zinc-400 text-xs font-medium"
               >
                 Cerrar
               </button>
@@ -1268,4 +1187,14 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
                   showToast(`Escenario +${demandSurgePct}% aplicado: 11 nuevos SKUs entraron en zona de reorden.`);
                   setIsSimulationOpen(false);
                 }}
-                className="px-4 py-1.5 rounded-[2px] bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 font-medium te
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+              >
+                Aplicar Escenario
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

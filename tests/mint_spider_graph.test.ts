@@ -146,10 +146,11 @@ describe("MINT CLI: Grafo en vivo del agente (Spider Graph)", () => {
       id: `core_evt_${Date.now()}`,
       action: "write" as const,
       timestamp: Date.now(),
-      source: { id: "agent_mint", label: "MINT" },
+      source: { id: "agent_mint", label: "MINT", group: "agent" as const },
       target: {
         id: "prod_xss",
         label: "<script>alert('xss')</script>",
+        group: "node" as const,
         metadata: {
           apiKey: "sk-super-secret-12345",
           password: "mySecretPassword!",

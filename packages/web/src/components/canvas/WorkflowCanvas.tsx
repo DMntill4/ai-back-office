@@ -205,7 +205,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         </div>
       </div>
 
-      {/* 2. Franja de Telemetría Operativa (5 KPI chips Landa style) */}
+      {/* 2. Franja de Telemetría Operativa */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-white/[0.06] backdrop-blur-md">
           <div className="flex items-center justify-between">

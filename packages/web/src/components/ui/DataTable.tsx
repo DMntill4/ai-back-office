@@ -27,11 +27,11 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   return (
     <div
-      className={`w-full overflow-x-auto rounded-xl border border-forest-border bg-forest-card shadow-subtle ${className}`}
+      className={`w-full overflow-x-auto rounded-2xl border border-white/[0.06] bg-surface-1 shadow-[0_8px_30px_rgb(0,0,0,0.4)] ${className}`}
     >
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-forest-border bg-forest-surface/80">
+          <tr className="border-b border-white/[0.06] bg-[#0B110E]">
             {columns.map((col) => {
               const alignClass =
                 col.align === "right"
@@ -43,7 +43,7 @@ export function DataTable<T>({
                 <th
                   key={col.key}
                   style={col.width ? { width: col.width } : undefined}
-                  className={`px-3.5 py-2.5 text-[11px] font-medium text-txt-secondary ${alignClass}`}
+                  className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-txt-secondary ${alignClass}`}
                 >
                   {col.header}
                 </th>
@@ -51,12 +51,12 @@ export function DataTable<T>({
             })}
           </tr>
         </thead>
-        <tbody className="divide-y divide-forest-border/50 text-xs">
+        <tbody className="divide-y divide-white/[0.04] text-xs">
           {data.length === 0 ? (
             <tr>
               <td
                 colSpan={columns.length}
-                className="px-4 py-8 text-center text-xs text-txt-tertiary"
+                className="px-4 py-10 text-center text-xs text-txt-tertiary"
               >
                 {emptyMessage}
               </td>
@@ -68,8 +68,8 @@ export function DataTable<T>({
                 onClick={onRowClick ? () => onRowClick(item) : undefined}
                 className={`transition-colors ${
                   onRowClick
-                    ? "cursor-pointer hover:bg-forest-surface/60"
-                    : "hover:bg-forest-surface/30"
+                    ? "cursor-pointer hover:bg-[#16211C]"
+                    : "hover:bg-[#16211C]/50"
                 }`}
               >
                 {columns.map((col) => {
@@ -82,7 +82,7 @@ export function DataTable<T>({
                   return (
                     <td
                       key={col.key}
-                      className={`px-3.5 py-2.5 text-txt-primary ${alignClass}`}
+                      className={`px-4 py-3 text-txt-primary ${alignClass}`}
                     >
                       {col.render ? col.render(item) : (item as any)[col.key]}
                     </td>
@@ -96,4 +96,3 @@ export function DataTable<T>({
     </div>
   );
 }
-

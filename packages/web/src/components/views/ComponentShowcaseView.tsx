@@ -9,12 +9,21 @@ import { ApprovalDialog } from "../ui/ApprovalDialog";
 import { EmptyState } from "../ui/EmptyState";
 import { AgentEventChip } from "../ui/AgentEventChip";
 import { KpiStrip } from "../ui/KpiStrip";
+import { MilestoneStepper } from "../ui/MilestoneStepper";
+import { DataCard } from "../ui/DataCard";
 import { AgentParticleOrb, AgentState } from "../ui/AgentParticleOrb";
 import {
   Search,
   Plus,
   Play,
   RotateCcw,
+  Package,
+  Truck,
+  CheckCircle2,
+  ShoppingBag,
+  ExternalLink,
+  ShieldCheck,
+  TrendingUp,
 } from "lucide-react";
 
 interface SampleRow {
@@ -123,7 +132,7 @@ export const ComponentShowcaseView: React.FC = () => {
   ];
 
   return (
-    <div className="p-8 max-w-6xl mx-auto w-full space-y-12">
+    <div className="flex-1 h-full overflow-y-auto p-8 max-w-6xl mx-auto w-full space-y-12">
       {/* Page Header (Flowcraft Style: Bold Grotesque + Dramatic Contrast) */}
       <div className="border-b border-forest-border pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -158,14 +167,20 @@ export const ComponentShowcaseView: React.FC = () => {
         </div>
       </div>
 
-      {/* SECCIÓN 1: FRANJA DE KPIS (FLOWCRAFT KPI STRIP SIN TARJETAS) */}
+      {/* SECCIÓN 1: FRANJA DE KPIS TÁCTIL (DONEZO & CHECKINOS DARK EMERALD) */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold text-txt-tertiary uppercase tracking-wider">
-            1. Franja de KPIs (Sin tarjetas · Separadores de filete fino)
-          </h2>
-          <span className="text-[11px] text-txt-tertiary">
-            Degradé lima-a-menta solo en cifras estelares
+          <div>
+            <h2 className="text-xs font-semibold text-txt-primary uppercase tracking-wider flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              1. Franja de KPIs Táctil (Donezo & CheckinOs Theme)
+            </h2>
+            <p className="text-[11px] text-txt-secondary mt-0.5">
+              Tarjeta 0 con gradiente esmeralda estelar (<code className="text-emerald-400">bg-hero-emerald</code>) y botón de acción circular ↗; tarjetas 1..3 en superficie táctil elevada con íconos enmarcados.
+            </p>
+          </div>
+          <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+            4-Card Grid · 16px Radius
           </span>
         </div>
 
@@ -173,7 +188,7 @@ export const ComponentShowcaseView: React.FC = () => {
           metrics={[
             {
               value: "$48.250.000",
-              context: "Valor total del inventario vigilado en 3 sedes",
+              context: "Valor total inventario vigilado en 3 sedes",
               isHighlight: true,
             },
             {
@@ -182,15 +197,169 @@ export const ComponentShowcaseView: React.FC = () => {
             },
             {
               value: "2 órdenes",
-              context: "Retenidas por superar umbral autónomo de $5M COP",
+              context: "Retenidas por superar umbral autónomo $5M COP",
             },
             {
               value: "$1.240.000",
-              context: "Ahorro del mes por consolidación de fletes",
+              context: "Ahorro del mes por consolidación de fletes IA",
               isHighlight: true,
             },
           ]}
         />
+      </section>
+
+      {/* SECCIÓN 1.5: TRACKING DE ÓRDENES Y LOGÍSTICA (INVENTAR & FIKRI STORE MILESTONE STEPPER) */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xs font-semibold text-txt-primary uppercase tracking-wider flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              1.5 Tracking de Órdenes & Logística (Inventar & Fikri Store Stepper)
+            </h2>
+            <p className="text-[11px] text-txt-secondary mt-0.5">
+              Nodos de 32x32px interconectados por barras de 4px con soporte para tramas diagonales (<code className="text-emerald-400">bg-hatched-emerald</code>), alertas de demora y estados completados.
+            </p>
+          </div>
+          <span className="text-[11px] font-mono text-zinc-400 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06]">
+            MilestoneStepper.tsx
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          {/* Tarjeta PO estilo Inventar #1: En tránsito con trama diagonal */}
+          <div className="p-4 rounded-2xl bg-surface-1 border border-white/[0.06] shadow-card space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-sm font-bold text-emerald-400">PO-2026-0089</span>
+                <span className="text-xs text-white font-medium">Disco Diamantado 7&apos; Concreto Industrial x30</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-sm font-bold text-white tabular-nums">$1.549.800 COP</span>
+                <StatusBadge status="paid" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-txt-secondary">
+              <div className="flex items-center gap-2 font-mono text-[11px]">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-[10px]">
+                  F
+                </span>
+                <span>Ferreterías Unidas Bogotá S.A.S.</span>
+                <span className="text-zinc-600">·</span>
+                <span>Bodega Matriz Bucaramanga</span>
+              </div>
+              <span className="text-[10px] font-mono text-zinc-500">Facturado & Criptoverificado</span>
+            </div>
+
+            {/* Stepper incrustado en contenedor Well */}
+            <MilestoneStepper
+              title="Orden en despacho logístico internacional"
+              dateOrMeta="Salida: 29 Oct 10:18 AM · Estimada: 31 Oct"
+              actionButton={
+                <button className="flex items-center gap-1 hover:underline">
+                  <span>Rastrear despacho</span>
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              }
+              steps={[
+                { label: "Orden Emitida", timestamp: "Hoy, 10:18 AM", status: "completed" },
+                { label: "Empaque & Picking", timestamp: "Hoy, 11:45 AM", status: "completed" },
+                { label: "En Tránsito Fedex", timestamp: "En ruta (48 km)", status: "active" },
+                { label: "Recibida en Bodega", timestamp: "Pendiente", status: "pending" },
+              ]}
+            />
+          </div>
+
+          {/* Tarjeta PO estilo Inventar #2: Demora / Alerta ROP */}
+          <div className="p-4 rounded-2xl bg-surface-1 border border-white/[0.06] shadow-card space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-sm font-bold text-amber-400">PO-2026-0093</span>
+                <span className="text-xs text-white font-medium">Taladro de Impacto Inalámbrico 20V x45</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-sm font-bold text-white tabular-nums">$21.546.000 COP</span>
+                <StatusBadge status="pendiente" label="Aprobación HITL" />
+              </div>
+            </div>
+
+            <MilestoneStepper
+              title="Retenida por política de gobernanza (> $5M COP)"
+              dateOrMeta="Regla GOV-03 · Requiere firma humana"
+              steps={[
+                { label: "Generada por IA", timestamp: "26 Oct", status: "completed" },
+                { label: "Validación ROP", timestamp: "Aprobada", status: "completed" },
+                { label: "Aprobación Humana", timestamp: "En espera", status: "warning" },
+                { label: "Emisión a Bosch", timestamp: "Pendiente", status: "pending" },
+              ]}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* SECCIÓN 1.6: CONTENEDORES TÁCTILES Y SUPERFICIES MULTICAPA (SURFACE LEVEL 1 & WELL) */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xs font-semibold text-txt-primary uppercase tracking-wider flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              1.6 Superficies Multicapa (Surface Level 1 + Well Container)
+            </h2>
+            <p className="text-[11px] text-txt-secondary mt-0.5">
+              Jerarquía táctil: Canvas (<code className="text-zinc-400">#0A0F0D</code>) &rarr; Surface Level 1 (<code className="text-emerald-400">#121A16</code>) &rarr; Surface Level 2 Well (<code className="text-emerald-300">#0B110E</code>).
+            </p>
+          </div>
+          <span className="text-[11px] font-mono text-zinc-400 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06]">
+            DataCard.tsx
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DataCard
+            title="Inventario de Alta Rotación"
+            value="74 SKUs"
+            context="Monitoreo continuo en Bodega Matriz Bucaramanga"
+            trend={{ direction: "up", label: "+8.4% vs mes anterior" }}
+            wellContent={
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-txt-secondary">Nivel de cumplimiento ROP:</span>
+                  <span className="font-mono text-emerald-400 font-bold">96.2%</span>
+                </div>
+                <div className="h-2 rounded-full bg-[#19241F] overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full w-[96.2%]" />
+                </div>
+                <div className="flex justify-between text-[10px] font-mono text-txt-tertiary pt-1">
+                  <span>0 quiebres de stock</span>
+                  <span>4 órdenes programadas</span>
+                </div>
+              </div>
+            }
+          />
+
+          <DataCard
+            title="Ahorro en Adquisiciones IA"
+            value="$4.890.000"
+            context="Descuentos negociados automáticamente con mayoristas"
+            trend={{ direction: "up", label: "-12.5% vs costo base" }}
+            isHero={true}
+            wellContent={
+              <div className="space-y-2 text-white/90">
+                <div className="flex justify-between items-center text-xs">
+                  <span>Volumen acumulado negociado:</span>
+                  <span className="font-mono font-bold text-white">$42.8M COP</span>
+                </div>
+                <div className="h-2 rounded-full bg-black/30 overflow-hidden">
+                  <div className="h-full bg-hatched-emerald rounded-full w-[78%]" />
+                </div>
+                <div className="flex justify-between text-[10px] font-mono text-emerald-200/80 pt-1">
+                  <span>7 proveedores activos</span>
+                  <span>Playbook de descuentos activo</span>
+                </div>
+              </div>
+            }
+          />
+        </div>
       </section>
 
       {/* SECCIÓN 2: PRESENCIA DEL AGENTE (PARTICLE CLOUD DE LA GUANÁBANA) */}
@@ -329,6 +498,27 @@ export const ComponentShowcaseView: React.FC = () => {
               </Button>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* SECCIÓN 4.5: BADGES DE ESTADO TÁCTILES (INVENTAR & DONEZO STYLE) */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-txt-primary flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            4.5 Insignias de Estado Táctiles con Punto Luminoso (StatusBadge.tsx)
+          </h2>
+          <span className="text-xs text-txt-secondary font-mono">Píldoras 10px con halo semántico</span>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-surface-1 border border-white/[0.06] flex flex-wrap items-center gap-3">
+          <StatusBadge status="paid" />
+          <StatusBadge status="shipped" />
+          <StatusBadge status="en_curso" />
+          <StatusBadge status="ok" />
+          <StatusBadge status="pendiente" />
+          <StatusBadge status="alerta" />
+          <StatusBadge status="error" />
         </div>
       </section>
 

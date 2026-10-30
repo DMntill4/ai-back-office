@@ -624,7 +624,7 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
 
       const km = mascotKinematics.current;
 
-      if (!km.initialized && targetNode && targetNode.x !== undefined) {
+      if (!km.initialized && targetNode && targetNode.x !== undefined && targetNode.y !== undefined) {
         km.x = targetNode.x;
         km.y = targetNode.y;
         km.initialized = true;
@@ -666,7 +666,7 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
       }
 
       // B. Haz de escaneo sobrio si está LEYENDO (línea fina de 1px)
-      if (currentAgentState === "READING" && targetNode && targetNode.x !== undefined) {
+      if (currentAgentState === "READING" && targetNode && targetNode.x !== undefined && targetNode.y !== undefined) {
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(km.x, km.y);

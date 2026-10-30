@@ -1,160 +1,219 @@
 import React, { useState } from "react";
-import { Cpu, Sparkles, Check, Sliders, Shield } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Cpu,
+  Sparkles,
+  Check,
+  Sliders,
+  Shield,
+  Zap,
+  Clock,
+  DollarSign,
+  Layers,
+  CheckCircle2,
+} from "lucide-react";
+import { KpiStrip, KpiCardItem } from "../ui/KpiStrip";
 
 export const ModelsView: React.FC = () => {
-  const [selectedModel, setSelectedModel] = useState("grok-4.6");
+  const [selectedModel, setSelectedModel] = useState("gemini-2-flash");
   const [temperature, setTemperature] = useState(0.1);
-  const [maxTokens, setMaxTokens] = useState(4000);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   const models = [
     {
-      id: "grok-4.6",
-      name: "Grok-4.6 (xAI)",
-      badge: "RECOMENDADO S2",
-      context: "128k tokens",
-      latency: "180ms",
-      costPer1k: "$0.0015",
-      desc: "Excelente fidelidad para razonamiento ReAct estructurado, cero alucinaciones y herramientas JSON.",
+      id: "gemini-2-flash",
+      name: "Google Gemini 2.0 Flash",
+      badge: "RECOMENDADO OPERACIONES",
+      context: "1.000k tokens",
+      latency: "142 ms",
+      costPer1k: "$0.0001 USD",
+      desc: "Excelente velocidad y precisión para razonamiento estructurado en tiempo real, balanceo ROP y cálculo de fletes.",
     },
     {
-      id: "grok-beta",
-      name: "Grok-Beta (xAI)",
-      badge: "ALTA VELOCIDAD",
-      context: "128k tokens",
-      latency: "110ms",
-      costPer1k: "$0.0010",
-      desc: "Ideal para el daemon continuo en segundo plano y chequeos rápidos de inventario cada 30 segundos.",
-    },
-    {
-      id: "gpt-4o",
-      name: "GPT-4o (OpenAI)",
-      badge: "MULTIMODAL",
-      context: "128k tokens",
-      latency: "260ms",
-      costPer1k: "$0.0025",
-      desc: "Adecuado para ingesta de albaranes escaneados y notas de entrega complejas con OCR.",
+      id: "gemini-1-5-pro",
+      name: "Google Gemini 1.5 Pro",
+      badge: "ALTO RAZONAMIENTO",
+      context: "2.000k tokens",
+      latency: "280 ms",
+      costPer1k: "$0.0012 USD",
+      desc: "Ideal para síntesis profunda de auditoría, conciliación de contratos marco y análisis financiero multidimensional.",
     },
     {
       id: "claude-3-5-sonnet",
       name: "Claude 3.5 Sonnet (Anthropic)",
-      badge: "ANÁLISIS FINANCIERO",
+      badge: "ANÁLISIS CONTRACTUAL",
       context: "200k tokens",
-      latency: "320ms",
-      costPer1k: "$0.0030",
-      desc: "Optimizado para síntesis ejecutiva profunda y auditoría contable exhaustiva.",
+      latency: "310 ms",
+      costPer1k: "$0.0030 USD",
+      desc: "Diseñado para inspección exhaustiva de cláusulas legales y evaluación de riesgo de proveedores.",
+    },
+    {
+      id: "gpt-4o",
+      name: "GPT-4o (OpenAI)",
+      badge: "MULTIMODAL & OCR",
+      context: "128k tokens",
+      latency: "240 ms",
+      costPer1k: "$0.0025 USD",
+      desc: "Adecuado para ingesta de albaranes escaneados, facturación digital y cotejo visual de remisiones.",
+    },
+  ];
+
+  const kpis: KpiCardItem[] = [
+    {
+      title: "Modelo Primario Activo",
+      value: "Gemini 2.0 Flash",
+      subtitle: "Inferencia continua para MINT",
+      trend: { direction: "up", label: "Recomendado" },
+      icon: Cpu,
+      isHero: true,
+      onActionClick: () => showToast("Modelo activo verificado."),
+    },
+    {
+      title: "Tokens Procesados Hoy",
+      value: "1.24M Tokens",
+      subtitle: "Costo acumulado: $1.42 USD",
+      trend: { direction: "up", label: "+8.4% vs ayer" },
+      icon: Layers,
+    },
+    {
+      title: "Latencia Promedio",
+      value: "142 ms",
+      subtitle: "Respuesta en tiempo real",
+      trend: { direction: "up", label: "Óptimo" },
+      icon: Zap,
+    },
+    {
+      title: "Precisión de Estructura",
+      value: "100% JSON",
+      subtitle: "Cero errores de formato",
+      trend: { direction: "up", label: "Validado" },
+      icon: CheckCircle2,
     },
   ];
 
   return (
-    <div className="flex-1 h-full overflow-y-auto p-8 bg-[#070c09] space-y-8 select-none">
-      {/* Header */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xl font-bold text-white tracking-tight">Models & Inference Engine</h2>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#102418] text-mint-400 border border-[#1b3d27]">
-            LLM CONFIG
-          </span>
-        </div>
-        <p className="text-xs text-gray-400">
-          Ajusta los motores neuronales que impulsan la toma de decisiones del Coordinador Mint.
-        </p>
-      </div>
+    <div className="flex-1 h-full overflow-y-auto bg-canvas text-[#F9FAFB] font-sans select-none flex flex-col p-6 space-y-6">
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -15, scale: 0.95 }}
+            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E]/95 border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)] backdrop-blur-xl"
+          >
+            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+            <span className="text-xs font-mono font-medium">{toastMessage}</span>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Model Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* HEADER SUPERIOR */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Motores de Inferencia & Modelos IA
+          </h1>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Configuración del modelo neuronal que impulsa la toma de decisiones autónomas en MINT
+          </p>
+        </div>
+
+        <button
+          onClick={() => showToast(`Modelo ${selectedModel} guardado como motor predeterminado.`)}
+          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Activar Modelo Seleccionado</span>
+        </button>
+      </header>
+
+      {/* FILA 1: KPI STRIP CON HÉROE */}
+      <KpiStrip items={kpis} />
+
+      {/* FILA 2: GRID DE MODELOS EN TARJETAS DE 2 NIVELES */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {models.map((m) => {
           const isSelected = selectedModel === m.id;
           return (
             <div
               key={m.id}
-              onClick={() => setSelectedModel(m.id)}
-              className={`p-5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
+              onClick={() => {
+                setSelectedModel(m.id);
+                showToast(`Modelo seleccionado: ${m.name}`);
+              }}
+              className={`bg-surface-1 rounded-2xl p-5 border cursor-pointer transition-all flex flex-col justify-between ${
                 isSelected
-                  ? "bg-[#0d1d14] border-mint-500 shadow-[0_0_20px_rgba(34,197,94,0.18)] ring-1 ring-mint-400/40"
-                  : "bg-[#0c1510] border-[#1a3023] hover:border-[#274b36]"
+                  ? "border-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.18)] ring-1 ring-emerald-400/40"
+                  : "border-white/[0.06] hover:border-white/20"
               }`}
             >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Cpu className={`w-4 h-4 ${isSelected ? "text-mint-400" : "text-gray-400"}`} />
-                    <h3 className="text-sm font-bold text-white">{m.name}</h3>
+              <div>
+                <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                        isSelected
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-surface-well text-zinc-400"
+                      }`}
+                    >
+                      <Cpu className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-white">{m.name}</h3>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
+                        {m.badge}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-[#09150e] text-mint-400 border border-[#183624]">
-                    {m.badge}
-                  </span>
+
+                  {/* Radio indicador */}
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                      isSelected
+                        ? "border-emerald-400 bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.4)]"
+                        : "border-zinc-600 bg-surface-well"
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
                 </div>
 
-                <p className="text-xs text-gray-400 leading-relaxed">{m.desc}</p>
+                <p className="text-xs text-zinc-300 mt-3 leading-relaxed">{m.desc}</p>
               </div>
 
-              <div className="pt-4 mt-4 border-t border-[#16271e] flex items-center justify-between text-[11px] font-mono text-gray-400">
-                <div className="flex items-center gap-3">
-                  <span>Contexto: <strong className="text-gray-200">{m.context}</strong></span>
-                  <span>Latencia: <strong className="text-mint-400">{m.latency}</strong></span>
+              {/* Sub-caja Well */}
+              <div className="bg-surface-well rounded-xl p-3.5 mt-4 border border-white/[0.04]">
+                <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
+                  <div>
+                    <span className="text-[10px] text-zinc-500 uppercase block">Contexto</span>
+                    <span className="text-white font-bold">{m.context}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-zinc-500 uppercase block">Latencia</span>
+                    <span className="text-emerald-400 font-bold">{m.latency}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-zinc-500 uppercase block">Costo / 1k</span>
+                    <span className="text-white font-bold">{m.costPer1k}</span>
+                  </div>
                 </div>
-                {isSelected ? (
-                  <span className="flex items-center gap-1 text-mint-400 font-bold">
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Activo</span>
-                  </span>
-                ) : (
-                  <span className="text-gray-500 group-hover:text-gray-300">Seleccionar</span>
-                )}
               </div>
             </div>
           );
         })}
-      </div>
-
-      {/* Hyperparameters Controls */}
-      <div className="p-6 rounded-2xl bg-[#0c1510] border border-[#1a3023] space-y-5">
-        <div className="flex items-center gap-2">
-          <Sliders className="w-4 h-4 text-mint-400" />
-          <h3 className="text-sm font-bold text-gray-100">Hiperparámetros de Razonamiento</h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Temperature */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-gray-400 font-bold uppercase tracking-wider">Temperatura (Precisión)</span>
-              <span className="text-mint-300 font-bold">{temperature.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={temperature}
-              onChange={(e) => setTemperature(parseFloat(e.target.value))}
-              className="w-full accent-mint-500 cursor-pointer"
-            />
-            <p className="text-[11px] text-gray-500">
-              0.10 garantiza respuestas deterministas, sin divagaciones ni datos ficticios.
-            </p>
-          </div>
-
-          {/* Max Tokens */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-gray-400 font-bold uppercase tracking-wider">Tope de Tokens por Ciclo</span>
-              <span className="text-mint-300 font-bold">{maxTokens} tokens</span>
-            </div>
-            <input
-              type="range"
-              min="1000"
-              max="8000"
-              step="500"
-              value={maxTokens}
-              onChange={(e) => setMaxTokens(parseInt(e.target.value))}
-              className="w-full accent-mint-500 cursor-pointer"
-            />
-            <p className="text-[11px] text-gray-500">
-              Presupuesto máximo de respuesta para los reportes de inventario y cotizaciones.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AppShell } from "./components/layout/AppShell";
-import { LandaLandingPage } from "./components/landing/LandaLandingPage";
 import { DashboardOverviewView } from "./components/views/DashboardOverviewView";
 import { StockInventoryView } from "./components/views/StockInventoryView";
 import { LogisticsRoutesView } from "./components/views/LogisticsRoutesView";
@@ -21,6 +20,7 @@ import { WebhooksApiView } from "./components/views/WebhooksApiView";
 import { CompaniesBranchesView } from "./components/views/CompaniesBranchesView";
 import { IntegrationsView } from "./components/views/IntegrationsView";
 import { SettingsView } from "./components/views/SettingsView";
+import { ComponentShowcaseView } from "./components/views/ComponentShowcaseView";
 import { ApprovalDialog } from "./components/ui/ApprovalDialog";
 
 import { HitlDecision } from "./types/workflow";
@@ -32,7 +32,6 @@ export const App: React.FC = () => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash.replace("#", "");
       if (hash) return hash;
-      if (window.location.pathname === "/landa") return "landa";
     }
     return "inicio";
   });
@@ -40,14 +39,12 @@ export const App: React.FC = () => {
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState<boolean>(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("#OC-402");
 
-  // Sync hash with currentTab (e.g. #inventario, #landa, #aprobaciones, etc.)
+  // Sync hash with currentTab (e.g. #inventario, #aprobaciones, etc.)
   useEffect(() => {
     const syncFromHash = () => {
       const hash = window.location.hash.replace("#", "");
       if (hash) {
         setCurrentTab(hash);
-      } else if (window.location.pathname === "/landa") {
-        setCurrentTab("landa");
       }
     };
     syncFromHash();
@@ -126,18 +123,24 @@ export const App: React.FC = () => {
             onSimulateNew={() => {
               const newDecision: HitlDecision = {
                 id: `dec_${Date.now()}`,
-                orderNumber: `#OC-${Math.floor(100 + Math.random() * 900)}`,
-                action: "Orden de compra consolidada",
-                reason: "Punto de reorden alcanzado en ferretería Santander.",
-                supplier: "Bosch Herramientas Colombia",
-                leadTime: "2 días",
-                amountCop: "$7.200.000 COP",
-                amountFormatted: "$7.200.000 COP",
-                impact: "Mantiene stock de seguridad para 14 días.",
+                caseId: `case_${Date.now()}`,
+                title: "Orden de compra consolidada: Bosch Herramientas",
+                productName: "Herramientas de Precisión Bosch",
+                sku: "SKU-BOS-992",
+                quantity: 20,
+                unitPriceCop: 360000,
+                totalCostCop: 7200000,
+                supplierName: "Bosch Herramientas Colombia",
+                supplierCity: "Bucaramanga",
+                leadTimeDays: 2,
+                currentStock: 5,
+                ropThreshold: 25,
+                riskScore: 0.15,
+                redFlags: ["Excede umbral autónomo"],
                 status: "pendiente",
-                timestamp: "Hace unos momentos",
-                warehouseId: "wh_buc",
-                warehouseName: "Bodega Matriz Bucaramanga",
+                policyDecision: "pending_approval",
+                policyReason: "Punto de reorden alcanzado en ferretería Santander.",
+                createdAt: "Hace unos momentos",
               };
               setDecisions((prev) => [newDecision, ...prev]);
             }}
@@ -190,6 +193,9 @@ export const App: React.FC = () => {
       case "configuracion_general":
         return <SettingsView />;
 
+      case "componentes":
+        return <ComponentShowcaseView />;
+
       default:
         return (
           <DashboardOverviewView
@@ -199,17 +205,6 @@ export const App: React.FC = () => {
         );
     }
   };
-
-  if (currentTab === "landa") {
-    return (
-      <LandaLandingPage
-        onBackToApp={() => {
-          window.location.hash = "";
-          setCurrentTab("inicio");
-        }}
-      />
-    );
-  }
 
   return (
     <AppShell

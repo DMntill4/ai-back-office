@@ -11,6 +11,7 @@ import {
   Truck,
   TrendingUp,
   Sliders,
+  Layers,
 } from "lucide-react";
 
 interface NodeLibraryViewProps {
@@ -20,61 +21,61 @@ interface NodeLibraryViewProps {
 export const NodeLibraryView: React.FC<NodeLibraryViewProps> = ({ onAddNode }) => {
   const categories = [
     {
-      title: "Triggers & Fuentes de Datos",
-      badge: "INPUTS",
+      title: "Fuentes de Datos & Sensores",
+      badge: "ENTRADAS",
       items: [
         {
           id: "trig_postgres",
-          title: "PostgreSQL Database Sync",
-          desc: "Monitoreo continuo de tablas de inventario, stock real y ROP dinámico.",
+          title: "Sincronización PostgreSQL",
+          desc: "Monitoreo continuo de existencias físicas, stock de seguridad y punto de reorden (ROP).",
           icon: Database,
           type: "trigger",
         },
         {
           id: "trig_csv",
           title: "Ingesta de Archivo CSV / Excel",
-          desc: "Carga masiva de catálogo o listas de precios de nuevos proveedores.",
+          desc: "Carga masiva de catálogo de productos o listas de precios de nuevos proveedores.",
           icon: FileSpreadsheet,
           type: "trigger",
         },
         {
           id: "trig_webhook",
-          title: "Webhook de Alerta Externa",
-          desc: "Disparador activado por incidencias en transporte o ventas extraordinarias.",
+          title: "Webhook de Telemetría",
+          desc: "Disparador activado por alertas viales, cierres de carretera o arribos a muelle.",
           icon: Zap,
           type: "trigger",
         },
       ],
     },
     {
-      title: "Especialistas Multi-Agente",
-      badge: "AGENTS",
+      title: "Especialistas de Decisión Autónoma",
+      badge: "AGENTES",
       items: [
         {
           id: "agent_mint",
-          title: "Coordinador General Mint [MAIN]",
-          desc: "Director logístico que orquesta la toma de decisiones y el bucle ReAct.",
+          title: "Coordinador General Mint",
+          desc: "Orquestador principal que balancea inventario, fletes y presupuestos.",
           icon: Bot,
           type: "agent",
         },
         {
           id: "agent_risk",
-          title: "Abogado del Diablo (Riesgo)",
-          desc: "Audita duplicados en 72h, solvencia de proveedores y dispersión de precios.",
+          title: "Auditor de Riesgo y Gobernanza",
+          desc: "Verifica duplicados en 72h, solvencia de proveedores y límites de compra.",
           icon: Shield,
           type: "agent",
         },
         {
           id: "agent_transport",
-          title: "Especialista Logístico OSRM",
-          desc: "Calcula distancias viales, tiempos en carretera y costo de fletes.",
+          title: "Optimizador Logístico OSRM",
+          desc: "Calcula distancias viales, tiempos de tránsito y fletes más económicos.",
           icon: Truck,
           type: "agent",
         },
         {
           id: "agent_demand",
           title: "Pronosticador de Demanda",
-          desc: "Cálculo de burn rate y semanas de cobertura sobre historial de ventas.",
+          desc: "Proyección de consumo de SKUs y cálculo de días de cobertura.",
           icon: TrendingUp,
           type: "agent",
         },
@@ -82,26 +83,26 @@ export const NodeLibraryView: React.FC<NodeLibraryViewProps> = ({ onAddNode }) =
     },
     {
       title: "Acciones Operativas & Gatekeepers",
-      badge: "ACTIONS",
+      badge: "ACCIONES",
       items: [
         {
           id: "act_po",
-          title: "Crear Orden de Compra",
-          desc: "Emisión formal con firma criptográfica HMAC y validación de idempotencia.",
+          title: "Generar Orden de Compra",
+          desc: "Emisión de orden formal con firma criptográfica HMAC y conciliación de precio.",
           icon: CheckCircle2,
           type: "action",
         },
         {
           id: "act_hitl",
-          title: "Escalar a Bandeja /inbox (HITL)",
-          desc: "Encola órdenes mayores a $5,000,000 COP para autorización del operador.",
+          title: "Retener en Bandeja HITL",
+          desc: "Pausa compras superiores a $5.000.000 COP para confirmación humana.",
           icon: Bell,
           type: "action",
         },
         {
           id: "act_stock",
-          title: "Ajuste de Stock en Almacén",
-          desc: "Modificación física de existencias en Bucaramanga, Bogotá o Medellín.",
+          title: "Rebalanceo de Inventario",
+          desc: "Transferencia de mercancía entre Bucaramanga, Bogotá y Medellín.",
           icon: Sliders,
           type: "action",
         },
@@ -110,65 +111,59 @@ export const NodeLibraryView: React.FC<NodeLibraryViewProps> = ({ onAddNode }) =
   ];
 
   return (
-    <div className="flex-1 h-full overflow-y-auto p-8 bg-[#070c09] space-y-8 select-none">
-      {/* View Header */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xl font-bold text-white tracking-tight">Node Library</h2>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#102418] text-mint-400 border border-[#1b3d27]">
-            CATÁLOGO OPERATIVO
-          </span>
-        </div>
-        <p className="text-xs text-gray-400">
-          Selecciona o añade módulos al flujo de trabajo para enriquecer el comportamiento del agente autónomo.
+    <div className="flex-1 h-full overflow-y-auto bg-canvas text-[#F9FAFB] font-sans select-none flex flex-col p-6 space-y-6">
+      {/* Header */}
+      <header className="pb-4 border-b border-white/[0.06]">
+        <h1 className="text-2xl font-bold text-white tracking-tight">
+          Biblioteca de Nodos Operacionales
+        </h1>
+        <p className="text-xs text-zinc-400 mt-0.5">
+          Selecciona o añade módulos al lienzo de trabajo para enriquecer el comportamiento autónomo
         </p>
-      </div>
+      </header>
 
-      {/* Categories */}
+      {/* Categorías */}
       <div className="space-y-6">
         {categories.map((cat) => (
           <div key={cat.title} className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold text-mint-400 uppercase tracking-wider">
+              <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
                 {cat.badge}
               </span>
-              <span className="text-gray-600 text-xs">•</span>
-              <h3 className="text-sm font-bold text-gray-200">{cat.title}</h3>
+              <span className="text-zinc-600 text-xs">•</span>
+              <h3 className="text-sm font-bold text-white">{cat.title}</h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {cat.items.map((item) => {
                 const Icon = item.icon;
                 return (
                   <div
                     key={item.id}
-                    className="p-4 rounded-2xl bg-[#0c1510] border border-[#1b3425] hover:border-mint-500/50 hover:bg-[#101e16] transition-all group flex flex-col justify-between cursor-pointer"
                     onClick={() => onAddNode(item.type, item.title)}
+                    className="p-5 rounded-2xl bg-surface-1 border border-white/[0.06] hover:border-emerald-500/40 transition-all group flex flex-col justify-between cursor-pointer shadow-xl hover:shadow-[0_0_25px_rgba(16,185,129,0.15)]"
                   >
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="p-2 rounded-xl bg-[#14291d] border border-[#1e3e2b] text-mint-400 group-hover:scale-110 transition-transform">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="p-2.5 rounded-xl bg-surface-well border border-white/[0.06] text-emerald-400 group-hover:scale-110 transition-transform">
                           <Icon className="w-4 h-4" />
                         </div>
-                        <button
-                          type="button"
-                          className="p-1 rounded-lg text-gray-500 hover:text-white hover:bg-[#1a3324] transition-colors"
-                        >
+                        <span className="p-1 rounded-lg text-zinc-400 group-hover:text-white group-hover:bg-white/[0.06] transition-colors">
                           <Plus className="w-4 h-4" />
-                        </button>
+                        </span>
                       </div>
 
-                      <h4 className="text-sm font-bold text-gray-100 group-hover:text-mint-300 transition-colors">
+                      <h4 className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
                         {item.title}
                       </h4>
-                      <p className="text-xs text-gray-400 leading-relaxed">
+                      <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
                         {item.desc}
                       </p>
                     </div>
 
-                    <div className="pt-3 mt-3 border-t border-[#16291e] flex items-center justify-between text-[11px] font-mono text-gray-500">
-                      <span>Click para añadir al lienzo</span>
-                      <span className="text-mint-400 font-semibold">+ Agregar</span>
+                    <div className="bg-surface-well rounded-xl p-2.5 mt-4 border border-white/[0.04] flex items-center justify-between text-[11px] font-mono text-zinc-500">
+                      <span>Click para añadir</span>
+                      <span className="text-emerald-400 font-semibold">+ Agregar</span>
                     </div>
                   </div>
                 );

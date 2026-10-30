@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "test": "vitest run tests",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p packages/web/tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx packages/core/src/db/migrate.ts",
     "db:push": "drizzle-kit push",

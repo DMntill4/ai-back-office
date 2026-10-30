@@ -371,7 +371,7 @@ export const KnowledgeGraphView: React.FC = () => {
         (n) =>
           n.label.toLowerCase().includes(query) ||
           n.id.toLowerCase().includes(query) ||
-          n.sublabel.toLowerCase().includes(query)
+          (n.sublabel && n.sublabel.toLowerCase().includes(query))
       );
     }
 
@@ -424,24 +424,24 @@ export const KnowledgeGraphView: React.FC = () => {
   return (
     <div className="flex-1 h-full min-h-0 flex flex-col bg-[#050806] text-[#F9FAFB] font-sans select-none overflow-hidden">
       {/* 1. Header Bar Flowcraft */}
-      <div className="flex-none px-6 py-3.5 border-b border-white/[0.06] bg-[#0A0F0C]/80 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex-none px-6 py-4 border-b border-white/[0.06] bg-canvas flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-[#8E9893] font-medium">Inteligencia</span>
+            <span className="text-zinc-400 font-medium">Inteligencia</span>
             <span className="text-white/20">/</span>
-            <span className="text-[#10B981] font-semibold flex items-center gap-1">
+            <span className="text-emerald-400 font-semibold flex items-center gap-1">
               <Network className="w-3.5 h-3.5" />
-              Topología Ontológica & Grafo de Conocimiento
+              Grafo de Conocimiento & Relaciones
             </span>
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white mt-0.5 flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5 flex items-center gap-2.5">
             Mapa de Conocimiento del Negocio
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#10B981]/10 text-[#34D399] border border-[#10B981]/25">
-              18 NODOS · 24 RELACIONES VIVAS
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              18 ENTIDADES · 24 RELACIONES ACTIVAS
             </span>
           </h1>
-          <p className="text-xs text-[#8E9893] mt-0.5">
-            Entidades operacionales vivas descubiertas por <code className="text-[#34D399] font-mono">schemaDiscoveryService</code> (PostgreSQL ↔ Drizzle ORM).
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Topología relacional de inventarios, bodegas, proveedores y órdenes de compra en tiempo real.
           </p>
         </div>
 
@@ -450,21 +450,21 @@ export const KnowledgeGraphView: React.FC = () => {
             variant="secondary"
             size="sm"
             onClick={() => handleCenterNode("agent_coordinator")}
-            className="border-white/10 text-white hover:border-[#10B981]/40 flex items-center gap-1.5"
+            className="border-white/10 text-white hover:border-emerald-500/40 flex items-center gap-1.5"
           >
-            <Target className="w-3.5 h-3.5 text-[#34D399]" />
-            <span className="text-xs font-semibold">Centrar en Agente</span>
+            <Target className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-xs font-semibold">Centrar en Coordinador</span>
           </Button>
 
           <Button
             variant="secondary"
             size="sm"
             onClick={() =>
-              alert("Topología del grafo exportada en JSON (schemaDiscoveryService).")
+              alert("Topología del grafo exportada en JSON.")
             }
             className="border-white/10 text-white hover:border-white/20 flex items-center gap-1.5"
           >
-            <Download className="w-3.5 h-3.5 text-[#8E9893]" />
+            <Download className="w-3.5 h-3.5 text-zinc-400" />
             <span className="text-xs font-semibold">Exportar Grafo</span>
           </Button>
         </div>
@@ -541,10 +541,10 @@ export const KnowledgeGraphView: React.FC = () => {
               data={filteredData}
               physicsSettings={physicsSettings}
               selectedNodeId={selectedNodeId}
-              onSelectNode={(node) => {
-                if (node) {
-                  setSelectedNodeId(node.id);
-                  setFocusNodeId(node.id);
+              onSelectNode={(nodeId) => {
+                if (nodeId) {
+                  setSelectedNodeId(nodeId);
+                  setFocusNodeId(nodeId);
                 }
               }}
               focusNodeId={focusNodeId}
@@ -575,20 +575,20 @@ export const KnowledgeGraphView: React.FC = () => {
         {/* ========================================================
             PANEL DERECHO: 30% INSPECTOR DE NODO Y MAPEO DE ESQUEMA
            ======================================================== */}
-        <div className="flex-1 lg:w-[30%] flex flex-col min-h-0 bg-[#070B08] overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 lg:w-[30%] flex flex-col min-h-0 bg-surface-1 overflow-y-auto p-5 space-y-4 border-l border-white/[0.06]">
           {selectedNode ? (
             <>
               {/* Header del Nodo Seleccionado */}
-              <div className="flex-none p-4 rounded-2xl bg-[#0A0F0C] border border-white/[0.08] relative overflow-hidden">
+              <div className="flex-none p-4 rounded-2xl bg-surface-well border border-white/[0.06] relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 pointer-events-none opacity-20 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.3),transparent_70%)]" />
 
                 <div className="relative z-10 flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#142018] border border-white/10 flex items-center justify-center flex-none">
+                  <div className="w-10 h-10 rounded-xl bg-surface-1 border border-white/10 flex items-center justify-center flex-none">
                     {renderIcon(selectedNode.type)}
                   </div>
                   <div className="overflow-hidden flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded bg-white/[0.06] text-[#34D399] border border-white/10">
+                      <span className="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded bg-white/[0.06] text-emerald-300 border border-white/10">
                         {selectedNode.type}
                       </span>
                       {selectedNode.status === "warning" && (
@@ -636,7 +636,7 @@ export const KnowledgeGraphView: React.FC = () => {
                   <div className="flex justify-between text-[#8E9893]">
                     <span>Tabla de Origen:</span>
                     <span className="text-[#34D399] font-bold">
-                      {selectedNode.metadata.table || `public.${selectedNode.type}s`}
+                      {selectedNode.metadata?.table || `public.${selectedNode.type}s`}
                     </span>
                   </div>
                   <div className="flex justify-between text-[#8E9893]">
@@ -658,7 +658,7 @@ export const KnowledgeGraphView: React.FC = () => {
                 </span>
 
                 <div className="p-3 rounded-xl bg-[#0E1511] border border-white/[0.04] space-y-2 text-xs font-mono divide-y divide-white/[0.04]">
-                  {Object.entries(selectedNode.metadata).map(([key, value]) => {
+                  {Object.entries(selectedNode.metadata || {}).map(([key, value]) => {
                     if (key === "table") return null;
                     return (
                       <div key={key} className="pt-1.5 first:pt-0 flex items-start justify-between gap-2">

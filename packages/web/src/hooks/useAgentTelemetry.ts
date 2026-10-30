@@ -62,7 +62,7 @@ export function useAgentTelemetry(options: UseAgentTelemetryOptions = {}) {
       nodes.set(event.source.id, {
         id: event.source.id,
         label: event.source.label,
-        group: event.source.group,
+        group: event.source.group || "agent",
         lastAction: event.action,
         lastStatus: event.status,
         lastTimestamp: event.timestamp,
@@ -87,7 +87,7 @@ export function useAgentTelemetry(options: UseAgentTelemetryOptions = {}) {
       nodes.set(event.target.id, {
         id: event.target.id,
         label: event.target.label,
-        group: event.target.group,
+        group: event.target.group || "node",
         metadata: event.target.metadata,
         lastAction: event.action,
         lastStatus: event.status,

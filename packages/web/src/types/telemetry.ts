@@ -5,13 +5,13 @@
 export interface AgentTelemetrySource {
   id: string;
   label: string;
-  group: "agent" | "subagent";
+  group?: "agent" | "subagent" | string;
 }
 
 export interface AgentTelemetryTarget {
   id: string;
   label: string;
-  group: "file" | "database" | "tool" | "node";
+  group?: "file" | "database" | "tool" | "node" | "warehouse" | "supplier" | string;
   metadata?: Record<string, any>;
 }
 
@@ -32,7 +32,7 @@ export interface AgentTelemetryEvent {
 export interface TelemetryGraphNode {
   id: string;
   label: string;
-  group: "agent" | "subagent" | "file" | "database" | "tool" | "node";
+  group: "agent" | "subagent" | "file" | "database" | "tool" | "node" | "warehouse" | "supplier" | string;
   metadata?: Record<string, any>;
   lastAction?: AgentTelemetryAction;
   lastStatus?: AgentTelemetryStatus;
@@ -51,8 +51,8 @@ export interface TelemetryGraphLink {
   source: string | TelemetryGraphNode;
   target: string | TelemetryGraphNode;
   action: AgentTelemetryAction;
-  status: AgentTelemetryStatus;
-  lastTimestamp: number;
+  status?: AgentTelemetryStatus;
+  lastTimestamp?: number;
   interactionCount: number;
 }
 

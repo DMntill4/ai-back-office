@@ -22,5 +22,6 @@
       "@mint/notifiers/*": ["packages/notifiers/src/*"]
     }
   },
-  "include": ["packages", "scripts", "tests"]
+  "include": ["packages", "scripts", "tests"],
+  "exclude": ["packages/web", "dist", "node_modules"]
 }

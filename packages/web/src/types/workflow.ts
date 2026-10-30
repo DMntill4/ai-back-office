@@ -43,7 +43,7 @@ export interface StockSkuItem {
   coverageDays: number;
   unitPriceCop: number;
   ropThreshold: number;
-  status: "optimo" | "alerta" | "quiebre";
+  status: "optimo" | "alerta" | "quiebre" | "cuarentena";
 }
 
 export interface GoalLever {
@@ -54,6 +54,8 @@ export interface GoalLever {
   leverType: "renegociacion_volumen" | "cobertura_stock" | "consolidacion_fletes";
   active: boolean;
   impactLabel: string;
+  name?: string;
+  riskLevel?: string;
 }
 
 export interface DoctorCheckItem {
@@ -106,6 +108,10 @@ export interface WorkflowObjective {
   defaultMaxIterations: number;
   activeTools: string[];
   systemGoal: string;
+  name?: string;
+  timeframe?: string;
+  targetMetric?: string;
+  leversCount?: number;
 }
 
 export interface NodeData {

@@ -64,7 +64,7 @@ export const MintAgentGraph: React.FC<MintAgentGraphProps> = ({
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const { x, y, group, label, id } = node;
       const isMint = group === "agent" || id === "agent_mint" || id === "node_main_agent";
-      const isTarget = activeTargetId && id === activeTargetId;
+      const isTarget = Boolean(activeTargetId && id === activeTargetId);
       const time = Date.now() / 280;
 
       if (isMint) {

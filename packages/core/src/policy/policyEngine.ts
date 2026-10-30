@@ -90,6 +90,7 @@ export function evaluatePolicy(
   const freshness = proposal.evidence?.dataFreshness;
   if (
     freshness &&
+    freshness.sourceStatus !== "NO_SOURCES" &&
     (!freshness.isFresh ||
       freshness.sourceStatus === "DRIFTED" ||
       freshness.sourceStatus === "ERROR" ||
@@ -146,7 +147,12 @@ export function evaluatePolicy(
 
   // 2. REGLAS DE AUTO-EJECUCIÓN (AUTONOMÍA COMPLETA)
   // Debe cumplir simultáneamente: bajo el umbral, bajo riesgo, alta confianza y proveedor conocido
-  const effectiveLimit = autonomyLevel === "auto" ? Math.max(approvalLimit, 10000000) : approvalLimit;
+  const effectiveLimit =
+    rules.approvalLimitAmount !== undefined
+      ? rules.approvalLimitAmount
+      : autonomyLevel === "auto"
+      ? Math.max(approvalLimit, 10000000)
+      : approvalLimit;
   const isUnderThreshold = proposal.costMxn <= effectiveLimit;
   const isSafeRisk = proposal.riskAssessment.riskScore <= maxRiskForAuto;
   const isHighConfidence = proposal.confidence >= minConfidence;

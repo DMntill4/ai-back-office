@@ -113,6 +113,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         { id: "empresas_sucursales", label: "Empresas y sucursales", icon: Building2 },
         { id: "integraciones", label: "Integraciones", icon: Layers },
         { id: "configuracion_general", label: "Configuración general", icon: Settings },
+        { id: "componentes", label: "Sistema UI & Componentes", icon: Sparkles },
       ],
     },
   ];
@@ -210,18 +211,6 @@ export const AppShell: React.FC<AppShellProps> = ({
 
         {/* Right: Agent Orb, Notifications, User profile */}
         <div className="flex items-center gap-3">
-          {/* Landa Landing Mode Button */}
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => onSelectTab("landa")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] border border-[#14B8A6]/30 text-xs font-semibold hover:bg-[#14B8A6]/20 transition-all cursor-pointer shadow-[0_0_12px_rgba(20,184,166,0.2)]"
-            title="Ver réplica de Landa Landing"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Landa Landing</span>
-          </motion.button>
-
           {/* Agent Presence Pill */}
           <motion.div
             whileHover={{ scale: 1.02 }}

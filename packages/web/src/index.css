@@ -8,26 +8,26 @@
   }
 
   body {
-    background-color: #070B08;
-    color: #EDF3EE;
+    background-color: #0A0F0D;
+    color: #F9FAFB;
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     letter-spacing: -0.015em;
   }
 
   *:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px #070B08, 0 0 0 4px #2BB656;
+    box-shadow: 0 0 0 2px #0A0F0D, 0 0 0 4px #10B981;
   }
 }
 
-/* Scrollbar en tonos bosque */
+/* Scrollbar táctil en tonos esmeralda-obsidiana */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #070B08;
+  background: #0A0F0D;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -39,18 +39,47 @@
   background: #25372C;
 }
 
-/* Cuadrícula sutil (Flowcraft style) solo para fondos de baja densidad */
-.bg-forest-grid {
-  background-color: #070B08;
-  background-image: 
-    linear-gradient(to right, rgba(25, 38, 30, 0.35) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(25, 38, 30, 0.35) 1px, transparent 1px);
-  background-size: 32px 32px;
+/* Utilidades de Superficie (Lenguaje táctil Donezo / CheckinOs / Inventar) */
+.bg-canvas {
+  background-color: #0A0F0D;
 }
 
-/* Gradiente de marca para cifras clave y wordmark (Banner Mint) */
+.bg-surface-1 {
+  background-color: #121A16;
+}
+
+.bg-surface-well {
+  background-color: #0B110E;
+}
+
+.bg-hero-emerald {
+  background: linear-gradient(135deg, #0D684D 0%, #063829 100%);
+}
+
+/* Patrón Rayado Diagonal (Estilo Donezo / CheckinOs para barras y medidores) */
+.bg-hatched-emerald {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(16, 185, 129, 0.22),
+    rgba(16, 185, 129, 0.22) 3px,
+    transparent 3px,
+    transparent 8px
+  );
+}
+
+.bg-hatched-slate {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(148, 163, 184, 0.15),
+    rgba(148, 163, 184, 0.15) 3px,
+    transparent 3px,
+    transparent 8px
+  );
+}
+
+/* Gradiente de marca para cifras estelares */
 .text-gradient-mint {
-  background: linear-gradient(135deg, #9DE342 0%, #2BB656 100%);
+  background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

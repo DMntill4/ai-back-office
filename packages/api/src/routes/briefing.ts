@@ -26,7 +26,7 @@ export async function briefingRoutes(fastify: FastifyInstance) {
 
       const autoExecuted = allDecs.filter((d) => d.policyDecision === "auto_executed");
       const pendingReview = allDecs.filter((d) => d.policyDecision === "pending_approval");
-      const blockedRisk = allDecs.filter((d) => d.policyDecision === "rejected" || d.policyDecision === "escalated");
+      const blockedRisk = allDecs.filter((d) => d.policyDecision === "blocked");
 
       const totalSpend = allDecs
         .filter((d) => d.policyDecision === "auto_executed" || d.policyDecision === "approved")

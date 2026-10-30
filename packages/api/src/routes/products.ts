@@ -33,7 +33,7 @@ export async function productsRoutes(fastify: FastifyInstance) {
           return {
             warehouseId: w.id,
             warehouseName: w.name,
-            code: w.code,
+            code: (w as any).code || w.id,
             stock: whInv ? whInv.stock : 0,
           };
         });
