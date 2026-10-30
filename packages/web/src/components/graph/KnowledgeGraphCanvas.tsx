@@ -7,7 +7,7 @@ import {
   SimEdge,
   GraphPhysicsSettings,
 } from "../../types/graph";
-import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { ZoomIn, ZoomOut, Scan } from "lucide-react";
 
 interface KnowledgeGraphCanvasProps {
   nodes?: MintGraphNode[];
@@ -93,6 +93,49 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
   const draggedNodeId = useRef<string | null>(null);
   const lastMousePos = useRef({ x: 0, y: 0 });
 
+  const fitCamera = useCallback(() => {
+    const canvas = canvasRef.current;
+    const nodes = Array.from(simNodesRef.current.values());
+    if (!canvas || nodes.length === 0) return;
+
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    if (width <= 0 || height <= 0) return;
+
+    const bounds = nodes.reduce(
+      (acc, node) => {
+        const labelWidth = Math.min(node.label.length, 26) * 7.5 + 24;
+        const radius = node.type === "agent" ? node.radius * 1.6 : node.radius;
+        acc.left = Math.min(acc.left, node.x - Math.max(radius, labelWidth / 2));
+        acc.right = Math.max(acc.right, node.x + Math.max(radius, labelWidth / 2));
+        acc.top = Math.min(acc.top, node.y - radius);
+        acc.bottom = Math.max(acc.bottom, node.y + radius + 28);
+        return acc;
+      },
+      {
+        left: Number.POSITIVE_INFINITY,
+        right: Number.NEGATIVE_INFINITY,
+        top: Number.POSITIVE_INFINITY,
+        bottom: Number.NEGATIVE_INFINITY,
+      },
+    );
+
+    const graphWidth = Math.max(1, bounds.right - bounds.left);
+    const graphHeight = Math.max(1, bounds.bottom - bounds.top);
+    const zoom = Math.max(
+      0.2,
+      Math.min(1.15, (width - 96) / graphWidth, (height - 96) / graphHeight),
+    );
+    const centerX = (bounds.left + bounds.right) / 2;
+    const centerY = (bounds.top + bounds.bottom) / 2;
+
+    setCamera({
+      x: -centerX * zoom,
+      y: -centerY * zoom,
+      zoom,
+    });
+  }, []);
+
   // 1. Inicializar nodos y aristas en la simulación física
   useEffect(() => {
     const currentSimNodes = simNodesRef.current;
@@ -161,6 +204,27 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
 
     simEdgesRef.current = newSimEdges;
   }, [rawNodes, rawEdges]);
+
+  useEffect(() => {
+    if (rawNodes.length === 0) return;
+
+    let frameId = requestAnimationFrame(fitCamera);
+    const canvas = canvasRef.current;
+    if (!canvas || typeof ResizeObserver === "undefined") {
+      return () => cancelAnimationFrame(frameId);
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(fitCamera);
+    });
+    resizeObserver.observe(canvas);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      resizeObserver.disconnect();
+    };
+  }, [rawNodes, fitCamera]);
 
   // Centrar cámara cuando cambia focusNodeId
   useEffect(() => {
@@ -593,9 +657,11 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
 
   // 3. Interacción con el puntero
   const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      if (!e.isPrimary) return;
+      canvas.setPointerCapture(e.pointerId);
       const rect = canvas.getBoundingClientRect();
       const clientX = e.clientX - rect.left;
       const clientY = e.clientY - rect.top;
@@ -634,9 +700,9 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
   );
 
   const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
-      if (!canvas) return;
+      if (!canvas || !e.isPrimary) return;
 
       if (draggedNodeId.current) {
         const rect = canvas.getBoundingClientRect();
@@ -711,15 +777,11 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
       const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
       setCamera((prev) => ({
         ...prev,
-        zoom: Math.max(0.35, Math.min(2.8, prev.zoom * zoomFactor)),
+        zoom: Math.max(0.2, Math.min(2.8, prev.zoom * zoomFactor)),
       }));
     },
     []
   );
-
-  const resetCamera = () => {
-    setCamera({ x: 0, y: 0, zoom: 1 });
-  };
 
   const handleZoom = (direction: "in" | "out") => {
     setCamera((prev) => ({
@@ -727,7 +789,7 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
       zoom:
         direction === "in"
           ? Math.min(2.8, prev.zoom * 1.2)
-          : Math.max(0.35, prev.zoom * 0.85),
+          : Math.max(0.2, prev.zoom * 0.85),
     }));
   };
 
@@ -735,17 +797,17 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
     <div className="relative w-full h-full select-none overflow-hidden bg-canvas">
       <canvas
         ref={canvasRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onPointerDown={handleMouseDown}
+        onPointerMove={handleMouseMove}
+        onPointerUp={handleMouseUp}
+        onPointerCancel={handleMouseUp}
         onWheel={handleWheel}
         className={`w-full h-full block ${draggedNodeId.current
           ? "cursor-grabbing"
           : hoveredNodeId
             ? "cursor-pointer"
             : "cursor-grab"
-          }`}
+          } touch-none`}
       />
 
       {/* Controles de Cámara en la Esquina Inferior Derecha (sin superponerse con la leyenda) */}
@@ -766,11 +828,11 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
         </button>
         <div className="w-px h-4 bg-border my-auto" />
         <button
-          onClick={resetCamera}
+          onClick={fitCamera}
           className="p-1.5 rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors cursor-pointer"
-          title="Restablecer vista"
+          title="Ajustar grafo a la pantalla"
         >
-          <RotateCcw className="w-4 h-4" />
+          <Scan className="w-4 h-4" />
         </button>
         <span className="text-caption font-mono px-2 text-secondary tabular-nums">
           {Math.round(camera.zoom * 100)}%

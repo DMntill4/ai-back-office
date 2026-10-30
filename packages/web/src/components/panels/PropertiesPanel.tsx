@@ -33,7 +33,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     OBJECTIVE_OPTIONS.find((o) => o.id === props.objectiveId) || OBJECTIVE_OPTIONS[0];
 
   return (
-    <aside className="w-80 border-l border-border bg-panel p-base flex flex-col justify-between overflow-y-auto z-10 flex-shrink-0">
+    <aside className="w-full md:w-80 max-h-full border-l border-border bg-panel p-base flex flex-col justify-between overflow-y-auto z-10 flex-shrink-0">
       <div className="space-y-group">
         {/* Header: Title, ID badge, Close button */}
         <div className="flex items-center justify-between pb-compact border-b border-border">

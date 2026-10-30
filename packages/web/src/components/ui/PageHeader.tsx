@@ -17,8 +17,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 }) => {
   return (
     <div className={`space-y-compact pb-element border-b border-border ${className}`}>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-element">
-        <div>
+      <div className="flex min-w-0 flex-col sm:flex-row sm:items-center justify-between gap-element">
+        <div className="min-w-0">
           <h1 className="text-page-title font-bold text-primary tracking-tight">
             {title}
           </h1>
@@ -29,18 +29,17 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           )}
         </div>
         {actions && (
-          <div className="flex items-center gap-compact flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-compact flex-shrink-0">
             {actions}
           </div>
         )}
       </div>
 
       {filterControl && (
-        <div className="pt-hairline">
+        <div className="max-w-full overflow-x-auto custom-scrollbar pt-hairline">
           {filterControl}
         </div>
       )}
     </div>
   );
 };
-

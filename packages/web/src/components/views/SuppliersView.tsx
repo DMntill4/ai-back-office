@@ -285,15 +285,15 @@ export const SuppliersView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-compact">
-          <div className="relative flex items-center">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-compact">
+          <div className="relative flex w-full sm:flex-1 sm:w-auto items-center">
             <Search className="w-3.5 h-3.5 text-muted absolute left-compact pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por nombre, NIT o código..."
-              className="h-9 w-60 sm:w-72 bg-panel border border-border hover:border-border-strong focus:border-brand rounded-control pl-9 pr-9 text-caption text-primary placeholder:text-muted focus:outline-none transition-colors"
+              className="h-9 w-full sm:w-72 bg-panel border border-border hover:border-border-strong focus:border-brand rounded-control pl-9 pr-9 text-caption text-primary placeholder:text-muted focus:outline-none transition-colors"
             />
             <span className="absolute right-hairline text-caption font-mono text-muted bg-raised px-hairline py-hairline rounded-control border border-border pointer-events-none">
               ⌘F

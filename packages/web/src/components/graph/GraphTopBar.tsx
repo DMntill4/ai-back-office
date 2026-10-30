@@ -27,7 +27,7 @@ export const GraphTopBar: React.FC<GraphTopBarProps> = ({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-full bg-forest-surface border border-forest-border shadow-subtle">
       {/* Izquierda: Búsqueda en píldora */}
-      <div className="relative flex-1 min-w-[200px] max-w-sm">
+      <div className="relative flex-1 min-w-0 max-w-sm">
         <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-txt-tertiary pointer-events-none" />
         <input
           type="text"

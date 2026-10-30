@@ -19,6 +19,7 @@ import {
 import { HitlDecision } from "../../types/workflow";
 import { formatUsd, formatTokens } from "../ui/CostBadge";
 import { EmptyState } from "../ui/EmptyState";
+import { LoadingScreen } from "../ui/LoadingScreen";
 import { api } from "../../services/apiClient";
 
 /** Resultado de la auto-evaluación previa al cierre (Reflection & Verification Loop). */
@@ -272,7 +273,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
   };
 
   return (
-    <div className="flex-1 h-full flex flex-col bg-canvas text-primary font-sans overflow-hidden">
+    <div className="flex-1 min-h-0 min-w-0 flex flex-col bg-canvas text-primary font-sans overflow-hidden">
       {/* 1. Header con Subpestañas */}
       <div className="p-group pb-0">
         <PageHeader
@@ -318,20 +319,11 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
       )}
 
       {loading ? (
-        <div className="flex-1 p-group pt-compact">
-          <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-compact h-full">
-            <div className="rounded-container border border-border bg-panel p-compact space-y-compact">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-16 rounded-control bg-raised animate-pulse" />
-              ))}
-            </div>
-            <div className="rounded-container border border-border bg-panel p-group space-y-compact">
-              <div className="h-8 w-1/3 rounded-control bg-raised animate-pulse" />
-              <div className="h-24 rounded-control bg-raised animate-pulse" />
-              <div className="h-40 rounded-control bg-raised animate-pulse" />
-            </div>
-          </div>
-        </div>
+        <LoadingScreen
+          title="Cargando aprobaciones"
+          subtitle="Consultando las decisiones pendientes de firma."
+          fullScreen={false}
+        />
       ) : proposals.length === 0 ? (
         <div className="flex-1 flex items-center justify-center p-group">
           <EmptyState
@@ -343,9 +335,9 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
         </div>
       ) : (
         /* 2. Layout de Dos Paneles: Lista Izquierda (360px) + Detalle Derecho */
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 p-group pt-compact gap-compact">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden p-group pt-compact gap-compact">
           {/* PANEL IZQUIERDO (360px según Mint-DESIGN.md) */}
-          <aside className="w-full lg:w-[360px] h-full bg-panel rounded-container border border-border flex flex-col shrink-0 overflow-hidden">
+          <aside className="w-full h-64 lg:h-full lg:w-[360px] bg-panel rounded-container border border-border flex flex-col shrink-0 overflow-hidden">
             {/* Buscador de Órdenes */}
             <div className="p-compact border-b border-border">
               <div className="relative">
@@ -418,7 +410,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
 
           {/* PANEL DERECHO: Detalle, Razonamiento, Simulación y Firma */}
           {selectedProposal ? (
-            <main className="flex-1 h-full bg-panel rounded-container border border-border overflow-y-auto p-group space-y-group">
+            <main className="flex-1 min-h-[24rem] lg:min-h-0 lg:h-full bg-panel rounded-container border border-border overflow-y-auto p-group space-y-group">
               {/* Cabecera del Detalle: Monto, Proveedor y Acciones Siempre Visibles */}
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-group pb-compact border-b border-border">
                 <div className="space-y-hairline flex-1 min-w-0">

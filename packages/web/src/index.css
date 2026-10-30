@@ -68,6 +68,15 @@
     font-family: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
     line-height: 1.5;
     user-select: text;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100dvh;
+    overflow-x: hidden;
   }
 
   *:focus-visible {

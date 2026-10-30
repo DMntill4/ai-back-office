@@ -298,7 +298,7 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
   );
 
   return (
-    <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans p-page space-y-group">
+    <div className="flex-1 h-full min-w-0 overflow-y-auto bg-canvas text-primary font-sans p-base sm:p-group lg:p-page space-y-group">
       <PageHeader
         title="Centro de Operaciones"
         description="Supervisión autónoma de existencias, compras y gobernanza de obra."

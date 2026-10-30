@@ -340,7 +340,7 @@ export const HistoryView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-base mt-base pt-base border-t border-border">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-base mt-base pt-base border-t border-border">
                 <div>
                   <span className="text-caption text-muted block mb-hairline">
                     Monto Involucrado

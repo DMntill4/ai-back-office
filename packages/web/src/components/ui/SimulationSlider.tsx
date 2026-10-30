@@ -75,7 +75,7 @@ export const SimulationSlider: React.FC<SimulationSliderProps> = ({
       </div>
 
       {/* Resumen de Impacto en Cifras Tabulares */}
-      <div className="grid grid-cols-3 gap-compact pt-compact border-t border-border text-center">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-compact pt-compact border-t border-border text-center">
         <div>
           <span className="block text-caption text-muted">Costo Proyectado</span>
           <span className="block text-body font-bold text-primary tabular-nums mt-hairline">
@@ -98,4 +98,3 @@ export const SimulationSlider: React.FC<SimulationSliderProps> = ({
     </div>
   );
 };
-

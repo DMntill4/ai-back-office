@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { LogStep } from "../../types/workflow";
-import { CheckCircle2, RotateCw, Copy, Check, Terminal, X, Minimize2, Coins } from "lucide-react";
+import { CheckCircle2, RotateCw, Copy, Check, Terminal, X, ChevronDown, ChevronUp, Coins } from "lucide-react";
 import { formatUsd, formatTokens } from "../ui/CostBadge";
 
 interface LiveLogsPanelProps {
@@ -18,6 +18,7 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
     logs[logs.length - 1]?.id || "step_3"
   );
   const [copied, setCopied] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   if (!isOpen) return null;
 
@@ -36,27 +37,36 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-canvas border border-border rounded-container overflow-hidden">
+    <div className={`flex flex-col bg-canvas border border-border rounded-container overflow-hidden ${isCollapsed ? "h-10 flex-none" : "flex-1 min-h-0"}`}>
       {/* Panel Header */}
-      <div className="h-10 px-base bg-panel border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-compact">
-          <span className="text-label font-semibold text-primary tracking-wide font-mono">
+      <div className="min-h-10 px-compact sm:px-base bg-panel border-b border-border flex items-center justify-between gap-compact">
+        <div className="flex min-w-0 items-center gap-compact">
+          <span className="truncate text-label font-semibold text-primary tracking-wide font-mono">
             Telemetría & Execution Logs
           </span>
         </div>
-        <div className="flex items-center gap-element text-caption font-mono">
-          <span className="flex items-center gap-compact px-compact py-hairline rounded-pill bg-state-ok-surface text-state-ok border border-border">
+        <div className="flex shrink-0 items-center gap-compact text-caption font-mono">
+          {!isCollapsed && <span className="hidden sm:flex items-center gap-compact px-compact py-hairline rounded-pill bg-state-ok-surface text-state-ok border border-border">
             <span className="w-1.5 h-1.5 rounded-full bg-state-ok animate-pulse"></span>
             Status: running
-          </span>
+          </span>}
           {/* Costo acumulado de la ejecución (Agent FinOps) */}
-          <span
+          {!isCollapsed && <span
             className="flex items-center gap-compact px-compact py-hairline rounded-pill bg-raised text-secondary border border-border"
             title={`Tokens: ${totalTokens} · Costo: ${formatUsd(totalCostUsd)}`}
           >
             <Coins className="w-3 h-3" />
             {formatUsd(totalCostUsd)} · {formatTokens(totalTokens)} tok
-          </span>
+          </span>}
+          <button
+            type="button"
+            onClick={() => setIsCollapsed((collapsed) => !collapsed)}
+            className="p-hairline rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors"
+            title={isCollapsed ? "Expandir panel de logs" : "Contraer panel de logs"}
+            aria-label={isCollapsed ? "Expandir panel de logs" : "Contraer panel de logs"}
+          >
+            {isCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
           {onClose && (
             <button
               onClick={onClose}
@@ -70,9 +80,9 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
       </div>
 
       {/* Body: Split View (Steps List on Left, JSON Payload on Right) */}
-      <div className="flex-1 flex overflow-hidden">
+      {!isCollapsed && <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden">
         {/* Left: Execution Pipeline Steps */}
-        <div className="w-44 border-r border-border p-element space-y-hairline overflow-y-auto bg-panel">
+        <div className="w-24 sm:w-44 shrink-0 border-r border-border p-element space-y-hairline overflow-y-auto bg-panel">
           {logs.map((step) => {
             const isSelected = selectedStepId === step.id;
             const isRunning = step.status === "running";
@@ -98,7 +108,7 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
         </div>
 
         {/* Right: Formatted JSON Output */}
-        <div className="flex-1 p-element overflow-y-auto flex flex-col justify-between bg-canvas">
+        <div className="flex-1 min-w-0 p-element overflow-y-auto flex flex-col justify-between bg-canvas">
           <div className="flex items-center justify-between pb-compact border-b border-border mb-compact">
             <span className="text-caption font-mono text-secondary">
               Processing node: <span className="text-brand font-semibold">{selectedLog?.label || "Node"}</span>
@@ -127,7 +137,7 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
               : "{\n  \"status\": \"idle\"\n}"}
           </pre>
         </div>
-      </div>
+      </div>}
     </div>
   );
 };

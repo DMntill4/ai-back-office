@@ -1,5 +1,6 @@
 import React from "react";
 import { ArrowUpRight, TrendingUp, TrendingDown, Layers, AlertCircle, ShieldCheck, Sparkles } from "lucide-react";
+import { motion } from "motion/react";
 
 export interface KpiCardItem {
   title?: string;
@@ -40,7 +41,7 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
   ];
 
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 my-2 ${className}`}>
+    <div className={`grid min-w-0 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 my-2 ${className}`}>
       {cardList.map((item, idx) => {
         const isHero = item.isHero !== undefined ? item.isHero : idx === 0;
         const displayLabel = item.title || item.label || "";
@@ -69,9 +70,12 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
         // CARD 1: HERO CARD (Donezo Style with Mint Guanábana Lime gradient)
         if (isHero) {
           return (
-            <div
+            <motion.div
               key={idx}
-              className="bg-brand-surface rounded-container border border-brand/40 hover:border-brand p-base shadow-card flex flex-col justify-between relative overflow-hidden transition-all group"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut", delay: Math.min(idx, 5) * 0.025 }}
+              className="min-w-0 bg-brand-surface rounded-container border border-brand/40 hover:border-brand p-base shadow-card flex flex-col justify-between relative overflow-hidden transition-all group"
             >
               <div className="flex items-start justify-between gap-compact mb-compact relative z-10">
                 <span className="text-label font-medium text-brand font-sans">
@@ -89,12 +93,12 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
               </div>
 
               <div className="relative z-10 my-hairline">
-                <span className="text-metric font-semibold text-primary font-sans tabular-nums block">
+                <span className="text-metric font-semibold text-primary font-sans tabular-nums block break-words">
                   {item.value}
                 </span>
               </div>
 
-              <div className="mt-base pt-compact border-t border-brand/20 relative z-10 flex items-center justify-between text-caption">
+              <div className="mt-base pt-compact border-t border-brand/20 relative z-10 flex flex-wrap items-center justify-between gap-compact text-caption">
                 <span className="text-secondary text-caption leading-tight line-clamp-1">
                   {displayContext || "Capital activo consolidado en 3 sedes"}
                 </span>
@@ -106,7 +110,7 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
                   </span>
                 )}
               </div>
-            </div>
+            </motion.div>
           );
         }
 
@@ -122,9 +126,12 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
             : "bg-state-ok-surface text-state-ok border-state-ok/30";
 
         return (
-          <div
+          <motion.div
             key={idx}
-            className="bg-panel rounded-container border border-border p-base shadow-card hover:border-border-strong transition-all flex flex-col justify-between group"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut", delay: Math.min(idx, 5) * 0.025 }}
+            className="min-w-0 bg-panel rounded-container border border-border p-base shadow-card hover:border-border-strong transition-all flex flex-col justify-between group"
           >
             <div className="flex items-start justify-between gap-compact mb-compact">
               <span className="text-label font-medium text-secondary font-sans">
@@ -137,12 +144,12 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
             </div>
 
             <div className="my-hairline">
-              <span className="text-metric font-semibold text-primary font-sans tabular-nums block">
+              <span className="text-metric font-semibold text-primary font-sans tabular-nums block break-words">
                 {item.value}
               </span>
             </div>
 
-            <div className="mt-base pt-compact border-t border-border flex items-center justify-between text-caption">
+            <div className="mt-base pt-compact border-t border-border flex flex-wrap items-center justify-between gap-compact text-caption">
               <span className="text-secondary text-caption leading-tight line-clamp-1 pr-compact">
                 {displayContext}
               </span>
@@ -162,7 +169,7 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
                 </span>
               )}
             </div>
-          </div>
+          </motion.div>
         );
       })}
     </div>

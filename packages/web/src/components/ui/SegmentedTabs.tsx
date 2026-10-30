@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useId } from "react";
+import { motion } from "motion/react";
 
 export interface TabItem {
   id: string;
@@ -19,6 +20,8 @@ export const SegmentedTabs: React.FC<SegmentedTabsProps> = ({
   onChange,
   className = "",
 }) => {
+  const indicatorId = useId();
+
   return (
     <div
       role="tablist"
@@ -32,15 +35,23 @@ export const SegmentedTabs: React.FC<SegmentedTabsProps> = ({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(tab.id)}
-            className={`px-3.5 py-1.5 rounded-pill text-caption font-medium transition-colors cursor-pointer select-none flex items-center gap-1.5 ${
+            className={`relative px-3.5 py-1.5 rounded-pill text-caption font-medium transition-colors duration-150 active:scale-[0.98] cursor-pointer select-none flex items-center gap-1.5 ${
               isActive
-                ? "bg-raised text-primary shadow-sm"
+                ? "text-primary"
                 : "text-secondary hover:text-primary hover:bg-raised/40"
             }`}
           >
-            <span>{tab.label}</span>
+            {isActive && (
+              <motion.span
+                layoutId={`active-tab-${indicatorId}`}
+                className="absolute inset-0 rounded-pill bg-raised shadow-sm"
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                aria-hidden="true"
+              />
+            )}
+            <span className="relative z-10">{tab.label}</span>
             {tab.badge !== undefined && (
-              <span className="px-1.5 py-0.2 rounded-pill bg-canvas text-caption font-mono text-secondary">
+              <span className="relative z-10 px-1.5 py-0.2 rounded-pill bg-canvas text-caption font-mono text-secondary">
                 {tab.badge}
               </span>
             )}
@@ -50,4 +61,3 @@ export const SegmentedTabs: React.FC<SegmentedTabsProps> = ({
     </div>
   );
 };
-

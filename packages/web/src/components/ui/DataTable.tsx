@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "motion/react";
 
 export interface TableColumn<T> {
   key: string;
@@ -28,8 +29,8 @@ export function DataTable<T>({
   className = "",
 }: DataTableProps<T>) {
   return (
-    <div className={`w-full overflow-x-auto rounded-container border border-border bg-panel ${className}`}>
-      <table className="w-full text-left border-collapse">
+    <div className={`w-full min-w-0 overflow-x-auto custom-scrollbar rounded-container border border-border bg-panel ${className}`}>
+      <table className="w-full min-w-[640px] text-left border-collapse">
         <thead>
           <tr className="border-b border-border bg-canvas/60">
             {columns.map((col) => {
@@ -62,14 +63,17 @@ export function DataTable<T>({
               </td>
             </tr>
           ) : (
-            data.map((item) => {
+            data.map((item, index) => {
               const id = keyExtractor(item);
               const isSelected = selectedId === id;
 
               return (
-                <tr
+                <motion.tr
                   key={id}
                   onClick={onRowClick ? () => onRowClick(item) : undefined}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.16, ease: "easeOut", delay: Math.min(index, 5) * 0.025 }}
                   className={`h-10 transition-colors ${
                     isSelected
                       ? "bg-raised text-primary"
@@ -94,7 +98,7 @@ export function DataTable<T>({
                       </td>
                     );
                   })}
-                </tr>
+                </motion.tr>
               );
             })
           )}

@@ -401,15 +401,15 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-element">
-          <div className="relative flex items-center">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-element">
+          <div className="relative flex w-full sm:flex-1 sm:w-auto items-center">
             <Search className="w-3.5 h-3.5 text-muted absolute left-3.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar producto, PO o proveedor..."
-              className="h-9 w-60 sm:w-72 bg-raised border border-border hover:border-border-strong focus:border-brand/50 rounded-control pl-9 pr-9 text-caption text-primary placeholder:text-muted focus:outline-none transition-colors font-sans"
+              className="h-9 w-full sm:w-72 bg-raised border border-border hover:border-border-strong focus:border-brand/50 rounded-control pl-9 pr-9 text-caption text-primary placeholder:text-muted focus:outline-none transition-colors font-sans"
             />
           </div>
 
@@ -801,8 +801,8 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
               )}
             </div>
           ) : (
-            <div className="rounded-container bg-panel border border-border overflow-hidden">
-              <table className="w-full text-left text-caption border-collapse">
+            <div className="w-full min-w-0 overflow-x-auto custom-scrollbar rounded-container bg-panel border border-border">
+              <table className="w-full min-w-[800px] text-left text-caption border-collapse">
                 <thead>
                   <tr className="bg-raised border-b border-border text-muted font-mono text-caption">
                     <th className="py-compact px-base font-semibold">ID de Orden</th>

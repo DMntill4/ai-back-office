@@ -1015,7 +1015,7 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
 
         {/* 5. Inspector Lateral Sobrio */}
         {selectedNode && (
-          <aside className="absolute top-base right-base w-76 max-h-[calc(100vh-190px)] rounded-container bg-panel border border-border shadow-popover z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-3 duration-120 font-sans">
+          <aside className="absolute top-base left-2 right-2 sm:left-auto sm:right-base w-auto sm:w-[min(19rem,calc(100vw-2rem))] max-h-[calc(100vh-6rem)] rounded-container bg-panel border border-border shadow-popover z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-3 duration-120 font-sans">
             <div className="p-compact border-b border-border flex items-start justify-between gap-compact">
               <div>
                 <span className="text-caption font-mono px-compact py-hairline rounded-control bg-raised text-brand border border-border font-medium">
@@ -1040,7 +1040,7 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
                 <span className="text-caption text-secondary block font-semibold">
                   Acción Operativa:
                 </span>
-                <div className="grid grid-cols-3 gap-hairline">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-hairline">
                   <button
                     onClick={() => {
                       setManualTargetId(selectedNode.id);

@@ -9,6 +9,7 @@ import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
 import { Dialog } from "../ui/Dialog";
 import { EmptyState } from "../ui/EmptyState";
+import { LoadingScreen } from "../ui/LoadingScreen";
 
 export interface LogisticsRoutesViewProps {
   onNavigateTo?: (tabId: string) => void;
@@ -499,6 +500,7 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
   const [timelineFilter, setTimelineFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rerouteError, setRerouteError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
 
   // Hidrata los despachos desde el backend real (`GET /api/shipments`).
@@ -549,47 +551,35 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
     setTimeout(() => setToastMessage(null), 4500);
   };
 
-  const handleApproveReroute = () => {
+  const handleCalculateReroute = async () => {
     if (!selected) return;
-    const targetId = selected.id;
-    const targetPlate = selected.vehiclePlate;
     setIsRerouting(true);
-    setTimeout(() => {
-      setShipments((prev) =>
-        prev.map((s) => {
-          if (s.id !== targetId || !s.riskAlert) return s;
-          const rec = s.aiRecommendation;
-          const newEvent: TimelineEvent = {
-            id: "evt-reroute-approved",
-            title: "Desvío aprobado",
-            time: "10:24 a. m.",
-            location: "Pescadero · conexión con San Gil",
-            description: "Autorizaste el desvío sugerido por el agente. La nueva ruta se envió al conductor.",
-            impact: rec
-              ? `Ahorro neto de ${rec.proposedAlternative.netSavingsMinutes} min · combustible +${formatCop(rec.proposedAlternative.fuelCostCop)}`
-              : undefined,
-            source: "inferencia_agente",
-            isCritical: true,
-            completed: true,
-          };
-          return {
-            ...s,
-            eta: "14:29 p. m. (ahorro de 24 min)",
-            speedKmh: 76,
-            riskAlert: {
-              ...s.riskAlert,
-              isRerouted: true,
-              title: "Ruta alterna confirmada",
-              description: "Desvío activo por la variante de San Gil. Se recuperan 24 min y se evita el tramo lento de Pescadero.",
-            },
-            timelineEvents: [newEvent, ...s.timelineEvents],
-          };
-        })
-      );
-      setIsRerouting(false);
+    setRerouteError(null);
+    try {
+      const result: {
+        success: boolean;
+        message?: string;
+        data?: { distanceKm?: number; durationFormatted?: string };
+      } = await api.shipments.reroute(selected.id, {
+        reason: selected.riskAlert?.description ?? "Desvío solicitado por el operador.",
+      });
+
+      if (!result.success || !result.data) {
+        setRerouteError(result.message ?? "No fue posible calcular la ruta alternativa.");
+        return;
+      }
+
       setIsRerouteOpen(false);
-      showToast(`Desvío aprobado: nueva ruta enviada al conductor del vehículo ${targetPlate}.`);
-    }, 900);
+      showToast(
+        `Ruta alternativa calculada: ${result.data.distanceKm ?? "—"} km · ${result.data.durationFormatted ?? "duración no disponible"}.`,
+      );
+    } catch (err) {
+      setRerouteError(
+        err instanceof Error ? err.message : "No fue posible calcular la ruta alternativa.",
+      );
+    } finally {
+      setIsRerouting(false);
+    }
   };
 
   const events = useMemo(
@@ -648,10 +638,10 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.96 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="fixed bottom-6 right-8 z-50 px-4 py-2.5 rounded-pill flex items-center gap-3 bg-raised border border-strong text-body text-primary shadow-dialog"
+            className="fixed bottom-6 left-2 right-2 sm:left-auto sm:right-8 z-50 max-w-[calc(100vw-1rem)] px-4 py-2.5 rounded-pill flex items-center gap-3 bg-raised border border-strong text-body text-primary shadow-dialog"
           >
             <span className="w-2 h-2 rounded-pill bg-state-ok" />
-            <span>{toastMessage}</span>
+            <span className="min-w-0 flex-1">{toastMessage}</span>
             <button onClick={() => setToastMessage(null)} className="text-secondary hover:text-primary cursor-pointer" title="Cerrar aviso">
               ✕
             </button>
@@ -682,14 +672,12 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
         </div>
       )}
 
-      {loading && shipments.length === 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-group items-start" aria-busy="true" aria-label="Cargando despachos">
-          <div className="h-96 rounded-container bg-raised animate-pulse" />
-          <div className="space-y-group">
-            <div className="h-40 rounded-container bg-raised animate-pulse" />
-            <div className="h-56 rounded-container bg-raised animate-pulse" />
-          </div>
-        </div>
+      {loading ? (
+        <LoadingScreen
+          title="Cargando rutas y despachos"
+          subtitle="Sincronizando el estado de los envíos con el servidor."
+          fullScreen={false}
+        />
       ) : shipments.length === 0 ? (
         <div className="py-group">
           <EmptyState
@@ -769,7 +757,14 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
                     <p className="text-body text-secondary mt-hairline">{alert.description}</p>
                   </div>
                   {!alert.isRerouted && rec && (
-                    <Button onClick={() => setIsRerouteOpen(true)}>Revisar desvío</Button>
+                    <Button
+                      onClick={() => {
+                        setRerouteError(null);
+                        setIsRerouteOpen(true);
+                      }}
+                    >
+                      Revisar desvío
+                    </Button>
                   )}
                 </div>
                 {!alert.isRerouted && rec && (
@@ -839,15 +834,23 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
 
       <Dialog
         isOpen={isRerouteOpen && !!rec}
-        onClose={() => setIsRerouteOpen(false)}
-        title="Aprobar desvío"
+        onClose={() => {
+          setIsRerouteOpen(false);
+          setRerouteError(null);
+        }}
+        title="Calcular desvío alternativo"
         description={rec ? rec.proposedAlternative.routeName : undefined}
-        confirmLabel="Aprobar desvío"
-        onConfirm={handleApproveReroute}
+        confirmLabel="Calcular ruta"
+        onConfirm={handleCalculateReroute}
         isProcessing={isRerouting}
       >
         {rec && (
           <div className="space-y-element">
+            {rerouteError && (
+              <p className="rounded-control border border-state-error/40 bg-state-error-surface px-compact py-compact text-caption text-state-error" role="alert">
+                {rerouteError}
+              </p>
+            )}
             <div>
               <p className="text-label text-secondary">Qué pasó</p>
               <p className="text-body">
@@ -879,5 +882,3 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
     </div>
   );
 };
-
-

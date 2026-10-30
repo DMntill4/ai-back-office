@@ -8,6 +8,7 @@ import {
   BarChart3,
   Settings,
   ChevronDown,
+  ChevronUp,
   Terminal,
   X,
   Building2,
@@ -65,8 +66,10 @@ export const AppShell: React.FC<AppShellProps> = ({
   const { profile, preferences } = useUserSettings();
   const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(preferences.sidebarCollapsed);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(preferences.defaultCompany);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(false);
 
   // Atajo global Ctrl+J / Cmd+J para abrir/cerrar consola de telemetría
   useEffect(() => {
@@ -79,6 +82,15 @@ export const AppShell: React.FC<AppShellProps> = ({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (!isMobileSidebarOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMobileSidebarOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isMobileSidebarOpen]);
 
   const companiesList = COMPANIES;
 
@@ -150,15 +162,26 @@ export const AppShell: React.FC<AppShellProps> = ({
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-canvas text-primary font-sans antialiased">
+    <div className="flex h-screen h-dvh w-full max-w-full overflow-x-hidden bg-canvas text-primary font-sans antialiased">
       {/* 1. Barra Superior de 52px con selector de empresa, rol y presencia del agente */}
-      <header className="fixed top-0 left-0 right-0 h-[52px] bg-panel border-b border-border flex items-center justify-between px-base z-40">
+      <header className="fixed top-0 left-0 right-0 h-[52px] bg-panel border-b border-border flex items-center justify-between gap-2 px-2 sm:px-base z-40">
         {/* Identidad Mint & Selector de Empresa */}
-        <div className="flex items-center gap-compact">
+        <div className="flex min-w-0 items-center gap-compact">
+          <button
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="md:hidden p-compact rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors cursor-pointer"
+            title="Abrir navegación"
+            aria-label="Abrir navegación"
+            aria-expanded={isMobileSidebarOpen}
+          >
+            <Menu className="w-4 h-4" />
+          </button>
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="p-compact rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors cursor-pointer"
+            className="hidden md:flex p-compact rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors cursor-pointer"
             title="Alternar barra lateral"
+            aria-label="Alternar barra lateral"
+            aria-expanded={!isSidebarCollapsed}
           >
             <Menu className="w-4 h-4" />
           </button>
@@ -181,9 +204,10 @@ export const AppShell: React.FC<AppShellProps> = ({
             <button
               onClick={() => setIsCompanyMenuOpen(!isCompanyMenuOpen)}
               className="flex items-center gap-2 px-3 py-1 rounded-pill text-caption font-medium text-secondary hover:text-primary bg-panel border border-border hover:border-strong transition-colors cursor-pointer"
+              aria-label={`Sede seleccionada: ${selectedCompany}`}
             >
               <Building2 className="w-3.5 h-3.5 text-brand" />
-              <span className="truncate max-w-[200px]">{selectedCompany}</span>
+              <span className="hidden sm:inline truncate max-w-[200px]">{selectedCompany}</span>
               <ChevronDown
                 className={`w-3 h-3 text-secondary transition-transform duration-150 ${isCompanyMenuOpen ? "rotate-180" : ""
                   }`}
@@ -197,7 +221,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.98 }}
                   transition={{ duration: 0.12 }}
-                  className="absolute left-0 mt-2 w-72 rounded-container bg-raised border border-strong shadow-popover p-compact z-50"
+                  className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-7rem)] rounded-container bg-raised border border-strong shadow-popover p-compact z-50"
                 >
                   <div className="text-caption font-medium text-muted px-2.5 py-1">
                     Sedes y Empresas
@@ -232,13 +256,16 @@ export const AppShell: React.FC<AppShellProps> = ({
         </div>
 
         {/* Buscador global (Ctrl/Cmd + K) */}
-        <div className="hidden md:flex items-center max-w-sm w-full mx-group">
+        <div className="hidden lg:flex items-center max-w-sm min-w-0 flex-1 mx-group">
           <CommandSearch records={searchRecords} onSelectTab={onSelectTab} />
         </div>
 
         {/* Acciones de la Derecha */}
-        <div className="flex items-center gap-compact">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-compact">
           {/* Indicador de estado del agente */}
+          <div className="flex lg:hidden items-center justify-center w-8 h-8 rounded-pill bg-raised border border-border" title={agentStatusText} aria-label={agentStatusText}>
+            <span className="w-2 h-2 rounded-pill bg-state-ok" />
+          </div>
           <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-pill bg-raised border border-border">
             <span className="w-2 h-2 rounded-pill bg-state-ok" />
             <span className="text-caption text-secondary font-medium whitespace-nowrap">
@@ -277,9 +304,22 @@ export const AppShell: React.FC<AppShellProps> = ({
       </header>
 
       {/* 2. Barra Lateral de 232px (colapsable a 64px) con 7 Destinos */}
+      <AnimatePresence>
+        {isMobileSidebarOpen && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="fixed inset-x-0 top-[52px] bottom-0 z-30 bg-black/60 md:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            aria-label="Cerrar navegación"
+          />
+        )}
+      </AnimatePresence>
       <aside
-        className={`mt-[52px] border-r border-border bg-panel flex flex-col justify-between p-compact z-30 flex-shrink-0 h-[calc(100vh-52px)] overflow-y-auto transition-all duration-150 ${isSidebarCollapsed ? "w-16" : "w-[232px]"
-          }`}
+        className={`fixed left-0 top-[52px] bottom-0 z-30 w-[232px] border-r border-border bg-panel flex flex-col justify-between p-compact flex-shrink-0 overflow-y-auto transition-transform duration-200 ease-out md:static md:mt-[52px] md:h-[calc(100dvh-52px)] md:translate-x-0 ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:w-16 xl:translate-x-0 ${isSidebarCollapsed ? "xl:w-16" : "xl:w-[232px]"}`}
       >
         <div className="space-y-hairline">
           {navItems.map((item) => {
@@ -291,25 +331,40 @@ export const AppShell: React.FC<AppShellProps> = ({
             return (
               <button
                 key={item.id}
-                onClick={() => onSelectTab(item.id)}
-                className={`relative w-full flex items-center justify-between px-3 py-2 rounded-control text-body transition-colors cursor-pointer ${isSelected
-                  ? "bg-raised text-primary font-medium border border-border before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:bg-brand before:rounded-r-full"
+                onClick={() => {
+                  onSelectTab(item.id);
+                  setIsMobileSidebarOpen(false);
+                }}
+                aria-current={isSelected ? "page" : undefined}
+                className={`relative w-full flex items-center justify-between md:max-xl:justify-center px-3 py-2 rounded-control text-body transition-colors duration-150 cursor-pointer ${isSelected
+                  ? "bg-raised text-primary font-medium border border-border"
                   : "text-secondary hover:text-primary hover:bg-raised/40 font-normal"
                   }`}
-                title={isSidebarCollapsed ? item.label : undefined}
+                title={item.label}
               >
-                <div className="flex items-center gap-compact truncate">
+                {isSelected && (
+                  <motion.span
+                    layoutId="sidebar-active-indicator"
+                    className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-brand"
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                    aria-hidden="true"
+                  />
+                )}
+                <div className="flex items-center gap-compact truncate md:max-xl:justify-center">
                   <Icon
                     className={`w-4 h-4 flex-shrink-0 transition-colors ${isSelected ? "text-brand" : "text-secondary"
                       }`}
                   />
+                  <span className="truncate md:max-xl:hidden xl:hidden">
+                    {item.label}
+                  </span>
                   {!isSidebarCollapsed && (
-                    <span className="truncate">{item.label}</span>
+                    <span className="hidden xl:block truncate">{item.label}</span>
                   )}
                 </div>
 
                 {!isSidebarCollapsed && item.badge !== undefined && (
-                  <span className="px-1.5 py-0.2 rounded-pill bg-canvas text-caption font-mono font-medium text-state-pending border border-state-pending/30">
+                  <span className="hidden xl:inline px-1.5 py-0.2 rounded-pill bg-canvas text-caption font-mono font-medium text-state-pending border border-state-pending/30">
                     {item.badge}
                   </span>
                 )}
@@ -329,13 +384,13 @@ export const AppShell: React.FC<AppShellProps> = ({
                 }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-brand" />
-              <span>Sistema UI (Dev)</span>
+              <span className="hidden xl:inline">Sistema UI (Dev)</span>
             </button>
           )}
 
           {!isSidebarCollapsed && (
             <div className="p-compact rounded-control bg-raised/50 border border-border flex items-center justify-between">
-              <span className="text-caption font-medium text-secondary">Mint Back Office</span>
+              <span className="hidden xl:inline text-caption font-medium text-secondary">Mint Back Office</span>
               <span className="text-caption font-mono text-muted">v2.0</span>
             </div>
           )}
@@ -343,8 +398,8 @@ export const AppShell: React.FC<AppShellProps> = ({
       </aside>
 
       {/* 3. Área de Trabajo Principal */}
-      <div className="flex-1 mt-[52px] h-[calc(100vh-52px)] flex flex-col relative overflow-hidden bg-canvas">
-        <main className="flex-1 overflow-y-auto flex flex-col">
+      <div className="flex-1 min-w-0 max-w-full mt-[52px] h-[calc(100dvh-52px)] flex flex-col relative overflow-hidden bg-canvas">
+        <main className="flex-1 min-w-0 max-w-full overflow-y-auto overflow-x-hidden flex flex-col">
           {children}
         </main>
 
@@ -356,28 +411,46 @@ export const AppShell: React.FC<AppShellProps> = ({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="absolute bottom-0 left-0 right-0 h-72 z-30 bg-panel border-t border-strong shadow-dialog flex flex-col"
+              className={`absolute bottom-0 left-0 right-0 ${isTerminalCollapsed ? "h-12" : "h-48 sm:h-72"} z-30 bg-panel border-t border-strong shadow-dialog flex flex-col`}
             >
-              <div className="flex items-center justify-between px-base py-compact bg-raised border-b border-border">
-                <div className="flex items-center gap-compact">
+              <div className="flex min-w-0 items-center justify-between gap-compact px-compact sm:px-base py-compact bg-raised border-b border-border">
+                <div className="flex min-w-0 items-center gap-compact">
                   <Terminal className="w-3.5 h-3.5 text-brand" />
-                  <span className="text-caption font-mono font-medium text-primary">
+                  <span className="truncate text-caption font-mono font-medium text-primary">
                     Consola de Telemetría & Diagnóstico Mint
                   </span>
-                  <span className="text-caption font-mono text-muted">
+                  <span className="hidden sm:inline text-caption font-mono text-muted">
                     (Ctrl+J)
                   </span>
                 </div>
-                <button
-                  onClick={() => setIsTerminalOpen(false)}
-                  className="p-1 rounded-control text-secondary hover:text-primary hover:bg-panel transition-colors cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex shrink-0 items-center gap-hairline">
+                  <button
+                    onClick={() => setIsTerminalCollapsed((collapsed) => !collapsed)}
+                    className="p-1 rounded-control text-secondary hover:text-primary hover:bg-panel transition-colors cursor-pointer"
+                    title={isTerminalCollapsed ? "Expandir consola" : "Contraer consola"}
+                    aria-label={isTerminalCollapsed ? "Expandir consola" : "Contraer consola"}
+                  >
+                    {isTerminalCollapsed ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setIsTerminalOpen(false)}
+                    className="p-1 rounded-control text-secondary hover:text-primary hover:bg-panel transition-colors cursor-pointer"
+                    title="Cerrar consola"
+                    aria-label="Cerrar consola"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 overflow-hidden p-compact">
-                <CliTerminalPanel isExpanded={true} />
-              </div>
+              {!isTerminalCollapsed && (
+                <div className="flex-1 overflow-hidden p-compact">
+                  <CliTerminalPanel isExpanded={true} />
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

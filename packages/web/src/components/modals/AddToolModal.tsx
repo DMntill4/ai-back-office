@@ -18,13 +18,13 @@ export const AddToolModal: React.FC<AddToolModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-base">
-      <div className="w-full max-w-lg rounded-container bg-panel border border-border shadow-dialog overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 sm:p-base">
+      <div className="flex w-full max-w-lg max-h-[90vh] flex-col rounded-container bg-panel border border-border shadow-dialog overflow-hidden animate-in fade-in zoom-in-[0.98] duration-150">
         {/* Modal Header */}
         <div className="h-14 px-base border-b border-border flex items-center justify-between bg-raised">
-          <div className="flex items-center gap-compact">
+          <div className="flex min-w-0 items-center gap-compact">
             <Layers className="w-4 h-4 text-brand" />
-            <h3 className="text-label font-semibold text-primary">Gestionar Herramientas del Agente</h3>
+            <h3 className="min-w-0 text-label font-semibold text-primary">Gestionar Herramientas del Agente</h3>
           </div>
           <button
             onClick={onClose}
@@ -36,18 +36,18 @@ export const AddToolModal: React.FC<AddToolModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-base max-h-[60vh] overflow-y-auto custom-scrollbar space-y-compact">
+        <div className="min-h-0 p-base overflow-y-auto custom-scrollbar space-y-compact">
           {availableTools.map((tool) => (
             <div
               key={tool.id}
               onClick={() => onToggleTool(tool.id)}
-              className={`p-compact rounded-control border cursor-pointer transition-all flex items-center justify-between ${tool.isActive
+              className={`p-compact rounded-control border cursor-pointer transition-all flex items-start justify-between gap-compact ${tool.isActive
                 ? "bg-brand-surface border-brand/40 shadow-card"
                 : "bg-raised border-border hover:border-border-strong"
                 }`}
             >
               <div className="space-y-hairline pr-base min-w-0">
-                <div className="flex items-center gap-compact">
+                <div className="flex flex-wrap items-center gap-compact">
                   <span className="text-label font-semibold text-primary">{tool.name}</span>
                   <span className="text-caption font-mono px-compact py-hairline rounded-control bg-panel text-brand border border-brand/40">
                     {tool.category}
@@ -71,7 +71,7 @@ export const AddToolModal: React.FC<AddToolModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="h-14 px-base border-t border-border flex items-center justify-between bg-raised">
+        <div className="px-base py-compact border-t border-border flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-compact bg-raised">
           <span className="text-label text-secondary font-mono tabular-numbers">
             {availableTools.filter((t) => t.isActive).length} herramientas habilitadas
           </span>

@@ -11,12 +11,12 @@ import { DataTable, TableColumn } from "../ui/DataTable";
 import { InputField } from "../ui/InputField";
 import { Dialog } from "../ui/Dialog";
 import { EmptyState } from "../ui/EmptyState";
+import { LoadingScreen } from "../ui/LoadingScreen";
 import { useInventoryData } from "../../hooks/useInventoryData";
 import type { RopAlert } from "../../services/apiClient";
 
 export interface StockInventoryViewProps {
   onTriggerRebalance?: (sku: StockSkuItem) => void;
-  onNavigateToInbox?: () => void;
   onNavigateTo?: (tabId: string) => void;
 }
 
@@ -115,7 +115,6 @@ function toEnrichedSku(alert: RopAlert, seed?: EnrichedSkuItem): EnrichedSkuItem
 }
 
 export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
-  onNavigateToInbox,
   onNavigateTo,
 }) => {
   const [items, setItems] = useState<EnrichedSkuItem[]>([]);
@@ -149,7 +148,6 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
   const [copiedSku, setCopiedSku] = useState<string | null>(null);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const [adjustModalSku, setAdjustModalSku] = useState<EnrichedSkuItem | null>(null);
   const [adjustQuantity, setAdjustQuantity] = useState<number>(0);
@@ -172,16 +170,9 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleGenerateOrders = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      setIsSimulationOpen(false);
-      showToast(`Propuestas de reposición generadas para ${atRiskCount} referencias.`);
-      if (onNavigateToInbox) {
-        setTimeout(() => onNavigateToInbox(), 900);
-      }
-    }, 600);
+  const handleCalculateReplenishment = () => {
+    setIsSimulationOpen(false);
+    showToast(`Simulación calculada para ${atRiskCount} referencias en riesgo.`);
   };
 
   // Atajos: Ctrl/Cmd+F busca, R genera órdenes, Esc cierra diálogos
@@ -203,12 +194,12 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
       }
       if (!isInput && !adjustModalSku && !isSimulationOpen && e.key.toLowerCase() === "r") {
         e.preventDefault();
-        handleGenerateOrders();
+        handleCalculateReplenishment();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-    // handleGenerateOrders se recrea en cada render (depende de atRiskCount);
+    // handleCalculateReplenishment se recrea en cada render (depende de atRiskCount);
     // se excluye a proposito para no re-suscribir el listener en cada render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adjustModalSku, isSimulationOpen]);
@@ -471,10 +462,10 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.96 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="fixed bottom-6 right-8 z-50 px-4 py-2.5 rounded-pill flex items-center gap-3 bg-raised border border-strong text-body text-primary shadow-dialog"
+            className="fixed bottom-6 left-2 right-2 sm:left-auto sm:right-8 z-50 max-w-[calc(100vw-1rem)] px-4 py-2.5 rounded-pill flex items-center gap-3 bg-raised border border-strong text-body text-primary shadow-dialog"
           >
             <span className="w-2 h-2 rounded-pill bg-state-ok" />
-            <span>{toastMessage}</span>
+            <span className="min-w-0 flex-1">{toastMessage}</span>
             <button onClick={() => setToastMessage(null)} className="text-secondary hover:text-primary cursor-pointer" title="Cerrar aviso">
               ✕
             </button>
@@ -501,8 +492,8 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
             <Button variant="secondary" onClick={() => setIsSimulationOpen(true)}>
               Simular demanda
             </Button>
-            <Button onClick={handleGenerateOrders} disabled={isGenerating}>
-              {isGenerating ? "Generando..." : "Generar órdenes de reposición"}
+            <Button onClick={handleCalculateReplenishment}>
+              Calcular reposición
             </Button>
           </>
         }
@@ -535,7 +526,7 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
 
       <div className="flex flex-wrap items-center justify-between gap-element">
         <div className="flex flex-wrap items-center gap-compact">
-          <div className="w-72" ref={searchInputRef}>
+          <div className="w-full sm:w-72" ref={searchInputRef}>
             <InputField
               placeholder="Buscar SKU, producto o sede"
               value={searchQuery}
@@ -560,12 +551,12 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
         <SegmentedTabs tabs={statusTabs} activeTab={selectedStatus} onChange={setSelectedStatus} />
       </div>
 
-      {inventoryLoading && items.length === 0 ? (
-        <div className="space-y-compact" aria-busy="true" aria-label="Cargando existencias">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 rounded-control bg-raised animate-pulse" />
-          ))}
-        </div>
+      {inventoryLoading ? (
+        <LoadingScreen
+          title="Sincronizando inventario"
+          subtitle="Consultando existencias y alertas de reposición."
+          fullScreen={false}
+        />
       ) : items.length === 0 ? (
         <EmptyState
           title="Sin existencias registradas"
@@ -636,10 +627,9 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
         onClose={() => setIsSimulationOpen(false)}
         title="Simular demanda"
         description="Mira cuántas referencias quedarían en riesgo si el consumo sube."
-        confirmLabel="Generar órdenes de reposición"
+        confirmLabel="Calcular reposición"
         cancelLabel="Cerrar"
-        onConfirm={handleGenerateOrders}
-        isProcessing={isGenerating}
+        onConfirm={handleCalculateReplenishment}
       >
         <div className="space-y-element">
           <div>
@@ -679,8 +669,3 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
     </div>
   );
 };
-
-
-
-
-

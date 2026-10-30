@@ -34,7 +34,7 @@ export const Dialog: React.FC<DialogProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
         >
           {/* Fondo oscuro con desenfoque coherente */}
           <motion.div
@@ -48,11 +48,11 @@ export const Dialog: React.FC<DialogProps> = ({
 
           {/* Contenedor del Diálogo: superficie tarjeta #111915, filete white/10, sombra profunda */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.97, y: 8 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 6 }}
+            exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="relative w-full max-w-lg rounded-2xl bg-panel border border-white/10 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.75)] p-6 z-10 space-y-5"
+            className="relative mx-auto w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-panel border border-white/10 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.75)] p-4 sm:p-6 z-10 space-y-5"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -77,7 +77,7 @@ export const Dialog: React.FC<DialogProps> = ({
             {children && <div className="text-[13px] text-primary">{children}</div>}
 
             {(confirmLabel || onConfirm) && (
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-white/[0.08]">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4 border-t border-white/[0.08]">
                 <Button variant="ghost" onClick={onClose} disabled={isProcessing}>
                   {cancelLabel}
                 </Button>
@@ -98,4 +98,3 @@ export const Dialog: React.FC<DialogProps> = ({
     </AnimatePresence>
   );
 };
-

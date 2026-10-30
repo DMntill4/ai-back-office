@@ -209,7 +209,7 @@ const GeneralSettingsPanel: React.FC = () => {
           </div>
 
           <div className="bg-raised rounded-control p-compact mt-base border border-border">
-            <div className="grid grid-cols-3 gap-compact">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-compact">
               {[
                 { id: "strict", label: "Estricto", desc: "Todo a aprobacion" },
                 { id: "assisted", label: "Supervisado", desc: "Umbral $5M" },

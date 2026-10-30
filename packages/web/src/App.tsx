@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import { AppShell } from "./components/layout/AppShell";
 import { ApprovalDialog } from "./components/ui/ApprovalDialog";
+import { LoadingScreen } from "./components/ui/LoadingScreen";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AgentSubNav, AGENT_TABS_WITHOUT_OWN_NAV } from "./components/layout/AgentSubNav";
 
@@ -10,6 +10,7 @@ import { getUserSettings, useUserSettings } from "./hooks/useUserSettings";
 import type { AppNotification } from "./components/layout/NotificationsPopover";
 import type { SearchableRecord } from "./components/layout/CommandSearch";
 import { INITIAL_HITL_DECISIONS } from "./data/mockData";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 
 const DashboardOverviewView = lazy(() =>
   import("./components/views/DashboardOverviewView").then((module) => ({
@@ -102,33 +103,6 @@ const ObjectivesView = lazy(() =>
   }))
 );
 
-const TabLoadingScreen: React.FC = () => (
-  <div
-    className="flex flex-1 min-h-0 items-center justify-center bg-canvas"
-    role="status"
-    aria-live="polite"
-    aria-busy="true"
-  >
-    <div className="flex flex-col items-center gap-3 text-center">
-      <div
-        className="h-8 w-8 rounded-full border-2 border-border border-t-brand animate-spin"
-        aria-hidden="true"
-      />
-      <div>
-        <p className="text-caption font-medium text-primary">Preparando vista</p>
-        <p className="mt-1 text-caption text-muted">Cargando contenido…</p>
-      </div>
-      <div
-        className="h-1 w-32 overflow-hidden rounded-full bg-raised"
-        role="progressbar"
-        aria-label="Carga de la vista"
-      >
-        <div className="h-full w-1/3 animate-pulse rounded-full bg-brand" />
-      </div>
-    </div>
-  </div>
-);
-
 /**
  * Mapa canónico de rutas → vista.
  *
@@ -192,7 +166,6 @@ const readTabFromLocation = (): string => {
 export const App: React.FC = () => {
   // Pestaña inicial sincrónica con URL hash (e.g. #inventario)
   const [currentTab, setCurrentTab] = useState<string>(readTabFromLocation);
-  const [isTabLoading, setIsTabLoading] = useState(false);
   const [decisions, setDecisions] = useState<HitlDecision[]>(INITIAL_HITL_DECISIONS);
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState<boolean>(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("#OC-402");
@@ -201,11 +174,7 @@ export const App: React.FC = () => {
   // Se usa un único listener y se limpia al desmontar para no filtrar memoria.
   useEffect(() => {
     const syncFromHash = () => {
-      const nextTab = readTabFromLocation();
-      if (nextTab !== currentTab) {
-        setIsTabLoading(true);
-        setCurrentTab(nextTab);
-      }
+      setCurrentTab(readTabFromLocation());
     };
     window.addEventListener("hashchange", syncFromHash);
     window.addEventListener("popstate", syncFromHash);
@@ -213,21 +182,7 @@ export const App: React.FC = () => {
       window.removeEventListener("hashchange", syncFromHash);
       window.removeEventListener("popstate", syncFromHash);
     };
-  }, [currentTab]);
-
-  useEffect(() => {
-    if (!isTabLoading) return;
-
-    let secondFrame = 0;
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => setIsTabLoading(false));
-    });
-
-    return () => {
-      window.cancelAnimationFrame(firstFrame);
-      window.cancelAnimationFrame(secondFrame);
-    };
-  }, [currentTab, isTabLoading]);
+  }, []);
 
   /**
    * Cambio de vista controlado.
@@ -240,10 +195,7 @@ export const App: React.FC = () => {
   const handleTabChange = (tab: string) => {
     const nextTab = normalizeTab(tab);
     setIsApprovalDialogOpen(false);
-    if (nextTab !== currentTab) {
-      setIsTabLoading(true);
-      setCurrentTab(nextTab);
-    }
+    setCurrentTab(nextTab);
 
     if (typeof window !== "undefined") {
       const nextHash = `#${nextTab}`;
@@ -256,7 +208,6 @@ export const App: React.FC = () => {
   /** Escape global: vuelve al Dashboard desde cualquier punto de la app. */
   const handleResetToDashboard = () => {
     setIsApprovalDialogOpen(false);
-    setIsTabLoading(true);
     setCurrentTab(DEFAULT_TAB);
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", `#${DEFAULT_TAB}`);
@@ -393,7 +344,6 @@ export const App: React.FC = () => {
         return (
           <StockInventoryView
             onNavigateTo={handleTabChange}
-            onNavigateToInbox={() => handleTabChange("aprobaciones")}
           />
         );
 
@@ -522,60 +472,68 @@ export const App: React.FC = () => {
   };
 
   return (
-    <AppShell
-      currentTab={currentTab}
-      onSelectTab={handleTabChange}
-      pendingApprovalsCount={pendingApprovalsCount}
-      notifications={notifications}
-      searchRecords={searchRecords}
-      agentStatusText="Operativo · 10:24 a. m."
-      agentState="reposo"
-    >
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentTab}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full flex-1 flex flex-col h-full min-h-0"
-        >
-          <ErrorBoundary viewKey={currentTab} onReset={handleResetToDashboard}>
-            <Suspense fallback={<TabLoadingScreen />}>
-              {isTabLoading ? (
-                <TabLoadingScreen />
-              ) : AGENT_TABS_WITHOUT_OWN_NAV.has(currentTab) ? (
-                <AgentSubNav activeTab={currentTab} onNavigateTo={handleTabChange}>
-                  {renderContent()}
-                </AgentSubNav>
-              ) : (
-                renderContent()
-              )}
-            </Suspense>
-          </ErrorBoundary>
-        </motion.div>
-      </AnimatePresence>
+    <MotionConfig reducedMotion="user">
+      <AppShell
+        currentTab={currentTab}
+        onSelectTab={handleTabChange}
+        pendingApprovalsCount={pendingApprovalsCount}
+        notifications={notifications}
+        searchRecords={searchRecords}
+        agentStatusText="Operativo · 10:24 a. m."
+        agentState="reposo"
+      >
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={currentTab}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="w-full max-w-full min-w-0 flex-1 flex flex-col h-full min-h-0"
+          >
+            <ErrorBoundary viewKey={currentTab} onReset={handleResetToDashboard}>
+              <Suspense
+                fallback={
+                  <LoadingScreen
+                    title="Abriendo sección"
+                    subtitle="Cargando los recursos de esta vista."
+                    fullScreen={false}
+                  />
+                }
+              >
+                {AGENT_TABS_WITHOUT_OWN_NAV.has(currentTab) ? (
+                  <AgentSubNav activeTab={currentTab} onNavigateTo={handleTabChange}>
+                    {renderContent()}
+                  </AgentSubNav>
+                ) : (
+                  renderContent()
+                )}
+              </Suspense>
+            </ErrorBoundary>
+          </motion.div>
+        </AnimatePresence>
 
-      {/* Diálogo de Aprobación Unificado */}
-      <ApprovalDialog
-        isOpen={isApprovalDialogOpen}
-        onClose={() => setIsApprovalDialogOpen(false)}
-        title="Aprobación de orden de compra"
-        orderNumber={selectedOrderId}
-        amountCop="$6.375.000 COP"
-        supplier="DeWalt Colombia (Mayorista Homologado)"
-        leadTime="3 días hábiles"
-        destinationWarehouse="Bodega Matriz Bucaramanga"
-        impactReason="El inventario actual de Rotomartillo SDS cayó a 2 unidades (bajo el punto de reorden de 10 unidades). La demanda histórica proyecta desabasto en 48 horas. Se consolidó despacho para Santander."
-        onApprove={() => {
-          setIsApprovalDialogOpen(false);
-          alert("Orden #OC-402 autorizada con firma HMAC y registrada en PostgreSQL.");
-        }}
-        onReject={() => {
-          setIsApprovalDialogOpen(false);
-          alert("Propuesta de compra rechazada.");
-        }}
-      />
-    </AppShell>
+        {/* Diálogo de Aprobación Unificado */}
+        <ApprovalDialog
+          isOpen={isApprovalDialogOpen}
+          onClose={() => setIsApprovalDialogOpen(false)}
+          title="Aprobación de orden de compra"
+          orderNumber={selectedOrderId}
+          amountCop="$6.375.000 COP"
+          supplier="DeWalt Colombia (Mayorista Homologado)"
+          leadTime="3 días hábiles"
+          destinationWarehouse="Bodega Matriz Bucaramanga"
+          impactReason="El inventario actual de Rotomartillo SDS cayó a 2 unidades (bajo el punto de reorden de 10 unidades). La demanda histórica proyecta desabasto en 48 horas. Se consolidó despacho para Santander."
+          onApprove={() => {
+            setIsApprovalDialogOpen(false);
+            alert("Orden #OC-402 autorizada con firma HMAC y registrada en PostgreSQL.");
+          }}
+          onReject={() => {
+            setIsApprovalDialogOpen(false);
+            alert("Propuesta de compra rechazada.");
+          }}
+        />
+      </AppShell>
+    </MotionConfig>
   );
 };

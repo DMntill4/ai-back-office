@@ -40,6 +40,7 @@ const PHASE_FILES = [
   "packages/web/src/components/ui/Dialog.tsx",
   "packages/web/src/components/ui/EmptyState.tsx",
   "packages/web/src/components/ui/SegmentedTabs.tsx",
+  "packages/web/src/components/ui/LoadingScreen.tsx",
   "packages/web/src/components/ui/AgentParticleCloud.tsx",
   "packages/web/src/components/ui/ReasoningStepList.tsx",
   "packages/web/src/components/ui/SimulationSlider.tsx",
@@ -223,4 +224,3 @@ function main() {
 }
 
 main();
-

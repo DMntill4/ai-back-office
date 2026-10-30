@@ -220,15 +220,15 @@ export const RolesPermissionsView: React.FC = () => {
           <span className="hidden sm:inline">Autenticación multifactor obligatoria</span>
         </div>
 
-        <div className="flex items-center gap-compact">
-          <div className="relative flex items-center">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-compact">
+          <div className="relative flex w-full sm:flex-1 sm:w-auto items-center">
             <Search className="w-3.5 h-3.5 text-muted absolute left-compact pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar operador o cargo..."
-              className="h-9 w-60 sm:w-72 bg-raised border border-border hover:border-border-strong focus:border-brand/50 rounded-control pl-group pr-group text-caption text-primary placeholder:text-muted focus:outline-none transition-colors"
+              className="h-9 w-full sm:w-72 bg-raised border border-border hover:border-border-strong focus:border-brand/50 rounded-control pl-group pr-group text-caption text-primary placeholder:text-muted focus:outline-none transition-colors"
             />
           </div>
 

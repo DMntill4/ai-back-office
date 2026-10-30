@@ -49,7 +49,7 @@ export const GraphFilterDrawer: React.FC<GraphFilterDrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-16 left-4 w-80 max-h-[calc(100vh-140px)] rounded-container bg-panel border border-border shadow-popover z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-150">
+    <div className="absolute top-16 left-2 right-2 sm:left-4 sm:right-auto w-auto sm:w-80 max-w-[calc(100vw-1rem)] max-h-[calc(100vh-6rem)] rounded-container bg-panel border border-border shadow-popover z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-150">
       {/* Header del Panel */}
       <div className="p-base border-b border-border flex items-center justify-between">
         <div>

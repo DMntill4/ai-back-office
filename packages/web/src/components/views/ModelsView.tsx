@@ -331,7 +331,7 @@ export const ModelsView: React.FC = () => {
 
                 {/* Sub-caja Well */}
                 <div className="bg-raised rounded-control p-element mt-base border border-border">
-                  <div className="grid grid-cols-3 gap-compact text-center text-caption font-mono">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-compact text-center text-caption font-mono">
                     <div>
                       <span className="text-caption text-muted uppercase block">Contexto</span>
                       <span className="text-primary font-bold">{m.context}</span>

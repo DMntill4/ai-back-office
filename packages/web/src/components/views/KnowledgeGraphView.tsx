@@ -21,6 +21,7 @@ import { StatusIndicator, OperationalStatus } from "../ui/StatusIndicator";
 import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
 import { EmptyState } from "../ui/EmptyState";
+import { LoadingScreen } from "../ui/LoadingScreen";
 import {
   MintGraphNode,
   MintGraphEdge,
@@ -79,6 +80,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
 
   // Grafo en vivo desde PostgreSQL (/api/graph/data). Sin datos semilla locales.
   const {
@@ -189,6 +191,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   const handleCenterNode = (nodeId: string) => {
     setSelectedNodeId(nodeId);
     setFocusNodeId(nodeId);
+    setIsInspectorOpen(true);
   };
 
   const getNodeStatusMeta = (
@@ -223,7 +226,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   };
 
   return (
-    <div className="flex-1 h-full flex flex-col bg-canvas text-primary font-sans overflow-hidden">
+    <div className="flex-1 min-h-0 min-w-0 flex flex-col bg-canvas text-primary font-sans overflow-hidden">
       {/* 1. Cabecera con Subpestañas del Destino Agente */}
       <div className="p-group pb-0">
         <PageHeader
@@ -253,9 +256,9 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
 
       {/* 2. Un Solo Control de Filtros Unificado (Cero Superposición) */}
       <div className="px-group pt-compact">
-        <div className="p-compact rounded-container bg-panel border border-border flex flex-col md:flex-row md:items-center justify-between gap-compact">
+        <div className="p-compact rounded-container bg-panel border border-border flex flex-col xl:flex-row xl:items-center justify-between gap-compact">
           {/* Buscador a la izquierda */}
-          <div className="relative w-full md:w-72 shrink-0">
+          <div className="relative w-full xl:w-72 shrink-0">
             <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -276,7 +279,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
           </div>
 
           {/* Selector unificado de tipo de entidad a la derecha */}
-          <div className="flex items-center gap-compact overflow-x-auto">
+          <div className="min-w-0 max-w-full flex items-center gap-compact overflow-x-auto custom-scrollbar">
             <SegmentedTabs
               tabs={filterTabs}
               activeTab={activeFilter}
@@ -287,13 +290,27 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
       </div>
 
       {/* 3. Lienzo a Pantalla Completa + Inspector Flotante Derecho */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-compact p-group pt-compact overflow-hidden">
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col xl:flex-row gap-compact p-group pt-compact overflow-hidden">
         {/* Lienzo Interactivo con Leyenda en 1 Sola Línea */}
-        <div className="flex-1 h-full rounded-container border border-border overflow-hidden relative bg-canvas">
-          {graphLoading && graphNodes.length === 0 ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-compact text-secondary">
-              <div className="w-8 h-8 rounded-full border-2 border-border border-t-brand animate-spin" />
-              <span className="text-caption">Cargando grafo de conocimiento...</span>
+        <div className="relative flex-1 min-h-[320px] min-w-0 w-full xl:min-h-0 xl:h-full rounded-container border border-border overflow-hidden bg-canvas">
+          {!graphLoading && filteredData.nodes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsInspectorOpen(true)}
+              className="absolute right-3 top-3 z-20 inline-flex items-center gap-compact rounded-control border border-border bg-panel px-compact py-1.5 text-caption font-medium text-primary shadow-popover hover:bg-raised xl:hidden"
+              aria-label="Abrir detalles de la entidad seleccionada"
+            >
+              <FileCheck2 className="h-3.5 w-3.5 text-brand" />
+              Detalles
+            </button>
+          )}
+          {graphLoading ? (
+            <div className="absolute inset-0 flex">
+              <LoadingScreen
+                title="Cargando grafo de conocimiento"
+                subtitle="Consultando las relaciones entre bodegas, productos y decisiones."
+                fullScreen={false}
+              />
             </div>
           ) : filteredData.nodes.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center p-group">
@@ -324,6 +341,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 if (nodeId) {
                   setSelectedNodeId(nodeId);
                   setFocusNodeId(nodeId);
+                  setIsInspectorOpen(true);
                 }
               }}
               focusNodeId={focusNodeId}
@@ -331,7 +349,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
           )}
 
           {/* Leyenda Inferior en 1 Sola Línea Continua (sin partirse) */}
-          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-base px-3 py-1.5 rounded-control bg-panel border border-border text-caption text-secondary whitespace-nowrap shadow-popover">
+          <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 z-10 flex max-w-[calc(100%-12rem)] items-center gap-base overflow-x-auto px-3 py-1.5 rounded-control bg-panel border border-border text-caption text-secondary whitespace-nowrap shadow-popover custom-scrollbar">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-pill bg-brand" />
               <span>Agente Mint</span>
@@ -352,7 +370,15 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
         </div>
 
         {/* Inspector Derecho en Lenguaje de Negocio (360px) */}
-        <aside className="w-full lg:w-[360px] h-full rounded-container bg-panel border border-border overflow-y-auto p-base space-y-base shrink-0">
+        {isInspectorOpen && (
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/60 xl:hidden"
+            onClick={() => setIsInspectorOpen(false)}
+            aria-label="Cerrar detalles de la entidad"
+          />
+        )}
+        <aside className={`min-w-0 rounded-container bg-panel border border-border overflow-y-auto p-base space-y-base shrink-0 ${isInspectorOpen ? "fixed right-2 top-[15vh] bottom-[15vh] z-50 w-[min(360px,calc(100vw-5rem))] sm:top-[60px] sm:bottom-2 sm:w-[min(360px,calc(100vw-1rem))]" : "hidden"} xl:static xl:z-auto xl:block xl:w-96 xl:h-full`}>
           {!selectedNode && (
             <div className="h-full flex items-center justify-center">
               <EmptyState
@@ -378,6 +404,15 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                     status={getNodeStatusMeta(selectedNode).status}
                     label={getNodeStatusMeta(selectedNode).label}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setIsInspectorOpen(false)}
+                    className="xl:hidden p-1.5 rounded-control text-secondary hover:text-primary hover:bg-raised"
+                    aria-label="Cerrar inspector"
+                    title="Cerrar inspector"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
 
                 <div>
@@ -405,11 +440,13 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                       return (
                         <div
                           key={key}
-                          className="py-2 first:pt-0 last:pb-0 flex items-start justify-between gap-compact text-caption"
+                          className="py-2 first:pt-0 last:pb-0 grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] items-start gap-compact text-caption"
                         >
-                          <span className="text-secondary">{humanLabel}</span>
-                          <span className="text-primary font-medium text-right">
-                            {String(value)}
+                          <span className="min-w-0 text-secondary break-words">
+                            {humanLabel}
+                          </span>
+                          <span className="min-w-0 text-primary font-medium text-right break-words">
+                            {String(value).replace(/,(?!\s)/g, ", ")}
                           </span>
                         </div>
                       );

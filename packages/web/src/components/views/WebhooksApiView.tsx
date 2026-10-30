@@ -217,7 +217,7 @@ export const WebhooksApiView: React.FC = () => {
 
               {/* Sub-caja con métricas 2xx / 5xx */}
               <div className="bg-raised rounded-control p-compact mt-base border border-border space-y-hairline">
-                <div className="grid grid-cols-3 gap-hairline">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-hairline">
                   <div className="bg-panel rounded-control px-hairline py-hairline border border-border">
                     <span className="text-caption font-mono text-muted block">
                       Latencia

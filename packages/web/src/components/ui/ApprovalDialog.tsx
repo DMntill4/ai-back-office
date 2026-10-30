@@ -39,29 +39,29 @@ export const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
         >
           {/* Backdrop with Motion Fade */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
             onClick={onClose}
             className="fixed inset-0 bg-black/80 cursor-pointer"
           />
 
           {/* Dialog Card with Motion Scale & Slide */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 14 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 10 }}
-            transition={{ type: "spring", stiffness: 400, damping: 28 }}
-            className="relative w-full max-w-lg rounded-2xl bg-forest-surface border border-forest-borderBright shadow-dialog overflow-hidden z-10"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl bg-forest-surface border border-forest-borderBright shadow-dialog overflow-hidden z-10"
           >
             {/* Header */}
             <div className="px-5 py-4 border-b border-forest-border flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
+              <div className="flex min-w-0 items-center gap-2.5">
                 <div className="w-8 h-8 rounded-control bg-state-pending-surface border border-state-pending/30 flex items-center justify-center text-state-pending">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
@@ -82,28 +82,28 @@ export const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
             </div>
 
             {/* Content */}
-            <div className="p-5 space-y-4 text-xs">
+            <div className="min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
               {/* Card Resumen de la Orden */}
               <div className="p-4 rounded-xl bg-forest-card border border-forest-border space-y-2.5">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-hairline sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-txt-secondary font-medium">Orden de compra</span>
                   <span className="font-mono text-txt-primary font-bold">{orderNumber}</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-hairline sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-txt-secondary font-medium">Monto propuesto</span>
                   <span className="font-mono text-base font-extrabold text-txt-primary tabular-nums">
                     {amountCop}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-hairline sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-txt-secondary font-medium">Proveedor</span>
                   <span className="text-txt-primary font-medium">{supplier}</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-hairline sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-txt-secondary font-medium">Tiempo de reposición</span>
                   <span className="font-mono text-txt-primary">{leadTime}</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-hairline sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-txt-secondary font-medium">Bodega destino</span>
                   <span className="text-txt-primary">{destinationWarehouse}</span>
                 </div>
@@ -129,7 +129,7 @@ export const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
             </div>
 
             {/* Footer con Botones Flowcraft */}
-            <div className="px-5 py-3.5 bg-forest-card/40 border-t border-forest-border flex items-center justify-end gap-3">
+            <div className="px-4 sm:px-5 py-3.5 bg-forest-card/40 border-t border-forest-border flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3">
               <Button
                 variant="secondary"
                 size="md"
