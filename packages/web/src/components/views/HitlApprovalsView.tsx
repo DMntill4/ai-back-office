@@ -101,9 +101,9 @@ const DEFAULT_PROPOSALS: EnrichedProposal[] = [
         completed: true,
       },
       {
-        title: "Retención en Gobernanza HITL",
+        title: "Retención para Aprobación Ejecutiva",
         time: "Hoy, 08:22 a. m.",
-        description: "Disparador POL-COMP-01: Requiere firma digital humana para montos > $5M COP.",
+        description: "Política POL-COMP-01: Requiere firma ejecutiva para montos > $5.000.000 COP.",
         completed: true,
       },
       {
@@ -251,7 +251,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
             <span className="text-xs font-mono uppercase text-zinc-400">Gobernanza</span>
             <span className="text-white/20">/</span>
             <h1 className="text-xl font-bold text-white tracking-tight">
-              Aprobaciones & Control Humano (HITL)
+              Aprobaciones Ejecutivas
             </h1>
           </div>
           <p className="text-xs text-zinc-400 mt-0.5">
@@ -333,7 +333,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
               </p>
             </div>
 
-            {/* Acciones de Firma HITL */}
+            {/* Acciones de Firma y Aprobación */}
             {selectedProposal.status === "pendiente" && (
               <div className="flex items-center gap-2">
                 <button
@@ -369,7 +369,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
                 {[
                   { label: "Detección IA", icon: Sparkles, status: "completed" },
                   { label: "Validación Reglas", icon: ShieldCheck, status: "completed" },
-                  { label: "Firma HITL", icon: UserCheck, status: "current" },
+                  { label: "Firma Ejecutiva", icon: UserCheck, status: "current" },
                   { label: "Ejecución ERP", icon: CheckCircle2, status: "pending" },
                 ].map((step, idx) => (
                   <div key={idx} className="relative z-10 flex flex-col items-center">

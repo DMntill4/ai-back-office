@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Home,
   Boxes,
@@ -22,9 +22,11 @@ import {
   ChevronDown,
   Search,
   Sparkles,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { AgentParticleOrb, AgentState } from "../ui/AgentParticleOrb";
+import { CliTerminalPanel } from "../panels/CliTerminalPanel";
 
 export interface AppShellProps {
   currentTab: string;
@@ -58,6 +60,19 @@ export const AppShell: React.FC<AppShellProps> = ({
     "Ferretería Industrial Santandereana S.A.S."
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+
+  // Atajo global Ctrl+J / Cmd+J para abrir/cerrar la consola de telemetría
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        setIsTerminalOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const companiesList = [
     "Ferretería Industrial Santandereana S.A.S.",
@@ -65,7 +80,6 @@ export const AppShell: React.FC<AppShellProps> = ({
     "Suministros del Oriente S.A.",
   ];
 
-  // Canonical 18 options matching user specification
   const navSections: NavSection[] = [
     {
       heading: "Operaciones",
@@ -119,9 +133,9 @@ export const AppShell: React.FC<AppShellProps> = ({
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-forest-canvas text-txt-primary font-sans antialiased select-none">
-      {/* 1. Header Bar Flotante (Flowcraft Bar Style) */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-forest-surface/90 backdrop-blur-md border-b border-forest-border flex items-center justify-between px-5 z-40">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0A0F0D] text-zinc-100 font-sans antialiased select-none">
+      {/* 1. Header Bar Unificado (#090D0B con border-white/[0.06]) */}
+      <header className="fixed top-0 left-0 right-0 h-14 bg-[#090D0B] border-b border-white/[0.06] flex items-center justify-between px-5 z-40">
         {/* Brand & Wordmark with vertical divider */}
         <div className="flex items-center gap-3">
           <motion.div
@@ -132,31 +146,30 @@ export const AppShell: React.FC<AppShellProps> = ({
           >
             <img
               src="/assets/icon.png"
-              alt="Mint Guanábana Logo"
+              alt="Mint Logo"
               className="w-5 h-5 object-contain transition-transform group-hover:scale-105"
             />
-            <span className="text-sm font-extrabold tracking-tight text-txt-primary group-hover:text-brand transition-colors">
+            <span className="text-sm font-extrabold tracking-tight text-white group-hover:text-emerald-400 transition-colors">
               MINT
             </span>
           </motion.div>
 
-          <div className="h-4 w-px bg-forest-border" />
+          <div className="h-4 w-px bg-white/[0.06]" />
 
           {/* Company Selector Dropdown */}
           <div className="relative">
-            <motion.button
-              whileTap={{ scale: 0.97 }}
+            <button
               onClick={() => setIsCompanyMenuOpen(!isCompanyMenuOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium text-txt-secondary hover:text-txt-primary hover:bg-forest-card border border-transparent hover:border-forest-border transition-all cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-300 hover:text-white bg-[#111915] border border-white/[0.06] transition-all cursor-pointer"
             >
-              <Building2 className="w-3.5 h-3.5 text-txt-tertiary" />
+              <Building2 className="w-3.5 h-3.5 text-emerald-400" />
               <span className="truncate max-w-[240px]">{selectedCompany}</span>
               <ChevronDown
-                className={`w-3 h-3 text-txt-tertiary transition-transform duration-200 ${
+                className={`w-3 h-3 text-zinc-400 transition-transform duration-200 ${
                   isCompanyMenuOpen ? "rotate-180" : ""
                 }`}
               />
-            </motion.button>
+            </button>
 
             <AnimatePresence>
               {isCompanyMenuOpen && (
@@ -164,11 +177,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                   initial={{ opacity: 0, y: -6, scale: 0.97 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                  transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute left-0 mt-2 w-72 rounded-2xl bg-forest-card border border-forest-borderBright shadow-dialog p-1.5 z-50 backdrop-blur-md"
+                  transition={{ duration: 0.16 }}
+                  className="absolute left-0 mt-2 w-72 rounded-2xl bg-[#111915] border border-white/[0.08] shadow-2xl p-1.5 z-50 backdrop-blur-md"
                 >
-                  <div className="text-[10px] font-semibold text-txt-tertiary px-2 py-1 uppercase tracking-wider">
-                    Empresas disponibles
+                  <div className="text-[10px] font-semibold text-zinc-500 px-2 py-1 uppercase tracking-wider">
+                    Sedes y Empresas
                   </div>
                   {companiesList.map((comp) => (
                     <button
@@ -179,13 +192,13 @@ export const AppShell: React.FC<AppShellProps> = ({
                       }}
                       className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs transition-colors flex items-center justify-between cursor-pointer ${
                         selectedCompany === comp
-                          ? "bg-forest-border text-brand font-medium"
-                          : "text-txt-secondary hover:bg-forest-surface hover:text-txt-primary"
+                          ? "bg-emerald-500/10 text-emerald-300 font-medium border border-emerald-500/20"
+                          : "text-zinc-300 hover:bg-white/[0.04] hover:text-white"
                       }`}
                     >
                       <span className="truncate">{comp}</span>
                       {selectedCompany === comp && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-brand" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       )}
                     </button>
                   ))}
@@ -195,103 +208,103 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
         </div>
 
-        {/* Center: Search input with subtle focus transition */}
+        {/* Center: Buscador con superficie #111915 rounded-xl */}
         <div className="hidden md:flex items-center max-w-md w-full mx-6">
           <div className="relative w-full">
-            <Search className="w-3.5 h-3.5 text-txt-tertiary absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar productos, proveedores, órdenes..."
-              className="w-full bg-forest-card/80 border border-forest-border hover:border-forest-borderBright focus:border-brand/60 focus:bg-forest-card rounded-full pl-9 pr-4 py-1.5 text-xs text-txt-primary placeholder:text-txt-tertiary focus:outline-none transition-all"
+              placeholder="Buscar productos, órdenes de compra, proveedores..."
+              className="w-full bg-[#111915] border border-white/[0.06] hover:border-white/[0.12] focus:border-emerald-500/50 rounded-xl pl-9 pr-12 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none transition-all shadow-inner"
             />
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.08] text-zinc-400">
+              ⌘F
+            </kbd>
           </div>
         </div>
 
-        {/* Right: Agent Orb, Notifications, User profile */}
-        <div className="flex items-center gap-3">
+        {/* Right: Iconos circulares (w-9 h-9 rounded-full bg-[#111915] border border-white/[0.06]) */}
+        <div className="flex items-center gap-2.5">
           {/* Agent Presence Pill */}
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-forest-card border border-forest-border shadow-subtle cursor-default"
-          >
-            <AgentParticleOrb size={18} state={agentState} className="flex-shrink-0" />
-            <span className="text-[11px] text-txt-secondary">{agentStatusText}</span>
-          </motion.div>
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-[#111915] border border-white/[0.06] shadow-sm">
+            <AgentParticleOrb size={16} state={agentState} className="flex-shrink-0" />
+            <span className="text-[11px] text-zinc-300 font-medium">{agentStatusText}</span>
+          </div>
 
-          {/* Notification Bell with Motion Tap */}
-          <motion.button
-            whileTap={{ scale: 0.92 }}
+          {/* Botón Discreto Terminal / Telemetría (Ctrl+J) */}
+          <button
+            onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+            className={`w-9 h-9 rounded-full bg-[#111915] border border-white/[0.06] flex items-center justify-center transition-colors cursor-pointer ${
+              isTerminalOpen ? "text-emerald-400 border-emerald-500/40" : "text-zinc-400 hover:text-white"
+            }`}
+            title="Consola de telemetría (Ctrl+J)"
+          >
+            <Terminal className="w-4 h-4" />
+          </button>
+
+          {/* Botón Circular Notificaciones */}
+          <button
             onClick={() => onSelectTab("aprobaciones")}
-            className="relative p-2 rounded-full hover:bg-forest-card text-txt-secondary hover:text-txt-primary transition-colors border border-transparent hover:border-forest-border cursor-pointer"
-            title="Notificaciones y aprobaciones"
+            className="relative w-9 h-9 rounded-full bg-[#111915] border border-white/[0.06] flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            title="Aprobaciones y notificaciones"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-brand text-[9px] font-bold text-forest-canvas flex items-center justify-center font-mono">
-              3
-            </span>
-          </motion.button>
+            {pendingApprovalsCount > 0 && (
+              <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 text-[9px] font-bold text-black flex items-center justify-center font-mono">
+                {pendingApprovalsCount}
+              </span>
+            )}
+          </button>
 
-          <div className="h-4 w-px bg-forest-border" />
+          <div className="h-4 w-px bg-white/[0.06]" />
 
-          {/* User Profile */}
-          <div className="flex items-center gap-2.5 pl-1">
-            <div className="w-7 h-7 rounded-full bg-brand/15 border border-brand/30 text-brand text-xs font-bold flex items-center justify-center font-mono">
+          {/* Avatar Circular con Nombre y Rol */}
+          <div className="flex items-center gap-2.5 pl-1 cursor-pointer group">
+            <div className="w-9 h-9 rounded-full bg-[#111915] border border-white/[0.06] flex items-center justify-center text-xs font-bold text-emerald-400 font-mono ring-1 ring-emerald-500/20">
               FS
             </div>
             <div className="text-left hidden sm:block">
-              <p className="text-xs font-semibold text-txt-primary leading-tight">
+              <p className="text-xs font-semibold text-zinc-200 group-hover:text-white transition-colors leading-tight">
                 Fernando S.
               </p>
-              <p className="text-[10px] text-txt-tertiary leading-none">
-                Administrador
+              <p className="text-[10px] text-zinc-500 leading-none mt-0.5">
+                Director de Operaciones
               </p>
             </div>
           </div>
         </div>
       </header>
 
-      {/* 2. Left Sidebar Navigation (W=240px fija, con Motion layoutId fluid glider) */}
-      <aside className="w-60 mt-14 border-r border-forest-border bg-forest-surface flex flex-col justify-between p-3 z-30 flex-shrink-0 h-[calc(100vh-3.5rem)] overflow-y-auto">
+      {/* 2. Left Sidebar Navigation (#090D0B con indicador Donezo) */}
+      <aside className="w-60 mt-14 border-r border-white/[0.06] bg-[#090D0B] flex flex-col justify-between p-3 z-30 flex-shrink-0 h-[calc(100vh-3.5rem)] overflow-y-auto">
         <div className="space-y-4">
-          {/* Top item: Inicio con layoutId */}
+          {/* Top item: Inicio */}
           <div>
             <button
               onClick={() => onSelectTab("inicio")}
-              className={`relative w-full flex items-center justify-between px-3.5 py-2 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+              className={`relative w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs transition-colors cursor-pointer ${
                 currentTab === "inicio"
-                  ? "text-brand font-semibold"
-                  : "text-txt-secondary hover:text-txt-primary"
+                  ? "bg-[#111915] text-white font-semibold border border-white/[0.06] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:bg-emerald-400 before:rounded-r-full"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-[#111915]/50 font-medium"
               }`}
             >
-              {currentTab === "inicio" && (
-                <motion.div
-                  layoutId="sidebar-active-indicator"
-                  className="absolute inset-0 rounded-full bg-brand/15 border border-brand/30 shadow-subtle"
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                />
-              )}
-
               <div className="relative z-10 flex items-center gap-2.5">
                 <Home
                   className={`w-4 h-4 ${
-                    currentTab === "inicio" ? "text-brand" : "text-txt-tertiary"
+                    currentTab === "inicio" ? "text-emerald-400" : "text-zinc-500"
                   }`}
                 />
                 <span>Inicio</span>
               </div>
-
-              {currentTab === "inicio" && (
-                <span className="relative z-10 w-1.5 h-1.5 rounded-full bg-brand" />
-              )}
             </button>
           </div>
 
-          {/* Sections from the canonical user specification */}
+          {/* Secciones de Navegación */}
           {navSections.map((section) => (
             <div key={section.heading} className="space-y-0.5">
-              <p className="text-[10px] font-semibold text-txt-tertiary px-3 py-1 uppercase tracking-wider">
+              <p className="text-[10px] font-semibold text-zinc-500 px-3 py-1 uppercase tracking-wider">
                 {section.heading}
               </p>
               {section.items.map((item) => {
@@ -302,25 +315,16 @@ export const AppShell: React.FC<AppShellProps> = ({
                   <button
                     key={item.id}
                     onClick={() => onSelectTab(item.id)}
-                    className={`relative w-full flex items-center justify-between px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                    className={`relative w-full flex items-center justify-between px-3.5 py-1.5 rounded-xl text-xs transition-colors cursor-pointer ${
                       isSelected
-                        ? "text-txt-primary font-semibold"
-                        : "text-txt-secondary hover:text-txt-primary"
+                        ? "bg-[#111915] text-white font-semibold border border-white/[0.06] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:bg-emerald-400 before:rounded-r-full"
+                        : "text-zinc-400 hover:text-zinc-200 hover:bg-[#111915]/50 font-medium"
                     }`}
                   >
-                    {/* Motion layoutId gliding indicator */}
-                    {isSelected && (
-                      <motion.div
-                        layoutId="sidebar-active-indicator"
-                        className="absolute inset-0 rounded-full bg-forest-card border border-forest-borderBright shadow-subtle"
-                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      />
-                    )}
-
                     <div className="relative z-10 flex items-center gap-2.5 truncate">
                       <Icon
                         className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${
-                          isSelected ? "text-brand" : "text-txt-tertiary"
+                          isSelected ? "text-emerald-400" : "text-zinc-500"
                         }`}
                       />
                       <span className="truncate">{item.label}</span>
@@ -328,12 +332,9 @@ export const AppShell: React.FC<AppShellProps> = ({
 
                     <div className="relative z-10 flex items-center gap-1.5 flex-shrink-0">
                       {item.badge !== undefined && (
-                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-brand/20 text-brand border border-brand/30 font-bold">
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
                           {item.badge}
                         </span>
-                      )}
-                      {isSelected && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-brand" />
                       )}
                     </div>
                   </button>
@@ -344,29 +345,62 @@ export const AppShell: React.FC<AppShellProps> = ({
         </div>
 
         {/* Footer Brand Card */}
-        <div className="pt-3 mt-4 border-t border-forest-border/80">
-          <motion.div
-            whileHover={{ scale: 1.01 }}
-            className="p-2.5 rounded-xl bg-forest-card/70 border border-forest-border flex items-center gap-2.5"
-          >
-            <span className="w-2 h-2 rounded-full bg-brand animate-pulse flex-shrink-0" />
+        <div className="pt-3 mt-4 border-t border-white/[0.06]">
+          <div className="p-2.5 rounded-xl bg-[#111915] border border-white/[0.06] flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-txt-primary">Mint</span>
-                <span className="text-[10px] font-mono text-txt-tertiary">v1.0.0</span>
+                <span className="text-xs font-bold text-white">Mint</span>
+                <span className="text-[10px] font-mono text-zinc-500">v1.0.0</span>
               </div>
-              <p className="text-[10px] text-txt-secondary leading-tight truncate">
+              <p className="text-[10px] text-zinc-400 leading-tight truncate">
                 Automatiza. Detecta. Decide.
               </p>
             </div>
-          </motion.div>
+          </div>
         </div>
       </aside>
 
-      {/* 3. Main Content Workspace */}
-      <main className="flex-1 mt-14 h-[calc(100vh-3.5rem)] overflow-y-auto flex flex-col bg-forest-canvas">
-        {children}
-      </main>
+      {/* 3. Main Content Workspace (100% altura limpia) */}
+      <div className="flex-1 mt-14 h-[calc(100vh-3.5rem)] flex flex-col relative overflow-hidden bg-[#0A0F0D]">
+        <main className="flex-1 overflow-y-auto flex flex-col">
+          {children}
+        </main>
+
+        {/* Panel Inferior de Telemetría (Oculto por defecto, activable con Ctrl+J) */}
+        <AnimatePresence>
+          {isTerminalOpen && (
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", stiffness: 350, damping: 32 }}
+              className="absolute bottom-0 left-0 right-0 h-72 z-30 bg-[#090D0B] border-t border-white/[0.08] shadow-[0_-15px_30px_rgba(0,0,0,0.6)] flex flex-col"
+            >
+              <div className="flex items-center justify-between px-4 py-2 bg-[#111915] border-b border-white/[0.06]">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-xs font-mono font-bold text-white">
+                    Consola de Telemetría & Diagnóstico Mint
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-500">
+                    (Atajo: Ctrl+J)
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsTerminalOpen(false)}
+                  className="p-1 rounded-lg hover:bg-white/[0.06] text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden p-2">
+                <CliTerminalPanel isExpanded={true} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };

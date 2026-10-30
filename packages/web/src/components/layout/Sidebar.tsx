@@ -3,9 +3,7 @@ import { TabId } from "../../types/workflow";
 import {
   GitFork,
   Network,
-  LayoutGrid,
   History,
-  Cpu,
   Settings,
   Plus,
   ChevronDown,
@@ -19,7 +17,7 @@ import {
 interface SidebarProps {
   currentTab: TabId;
   onSelectTab: (tab: TabId) => void;
-  onNewWorkflow: () => void;
+  onNewWorkflow?: () => void;
   pendingApprovalsCount?: number;
 }
 
@@ -31,37 +29,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems = [
     { id: "workflows" as TabId, label: "Lienzo Operativo", icon: GitFork },
-    { id: "graph" as TabId, label: "Knowledge Graph", icon: Network },
-    { id: "memory" as TabId, label: "Bóveda de Memoria", icon: FolderGit2 },
+    { id: "graph" as TabId, label: "Mapa de Conocimiento", icon: Network },
+    { id: "memory" as TabId, label: "Repositorio de Memoria", icon: FolderGit2 },
     { id: "stock" as TabId, label: "Inventario & Bodegas", icon: Boxes },
     {
       id: "inbox" as TabId,
-      label: "Bandeja HITL",
+      label: "Aprobaciones Ejecutivas",
       icon: Bell,
       badge: pendingApprovalsCount > 0 ? `${pendingApprovalsCount}` : undefined,
     },
     { id: "objectives" as TabId, label: "Metas & Objetivos", icon: Target },
     { id: "history" as TabId, label: "Auditoría & Trazabilidad", icon: History },
-    { id: "settings" as TabId, label: "Configuración & Doctor", icon: Settings },
+    { id: "settings" as TabId, label: "Configuración & Diagnóstico", icon: Settings },
   ];
 
   return (
-    <aside className="w-64 border-r border-[#1a2d22] bg-[#070c09] flex flex-col justify-between p-4 z-20 flex-shrink-0">
+    <aside className="w-64 border-r border-white/[0.06] bg-[#090D0B] flex flex-col justify-between p-4 z-20 flex-shrink-0 h-screen select-none">
       {/* Top Branding & Navigation */}
       <div className="space-y-6">
         {/* Brand Header */}
         <div className="flex items-center gap-3 px-2 py-1">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mint-500 to-mint-700 flex items-center justify-center shadow-[0_0_15px_rgba(34,197,94,0.35)]">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.35)]">
             <Sparkles className="w-4 h-4 text-black font-black" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-lg font-bold tracking-tight text-white">Mint</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#13281c] text-mint-400 border border-[#1f422d]">
-                STUDIO
+              <span className="text-base font-bold tracking-tight text-white">Mint</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                PRO
               </span>
             </div>
-            <p className="text-[11px] text-gray-400">Autonomous Back Office</p>
+            <p className="text-[11px] text-zinc-400">Coordinador Autónomo</p>
           </div>
         </div>
 
@@ -74,28 +72,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onSelectTab(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`relative w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm transition-all cursor-pointer ${
                   isSelected
-                    ? "bg-[#112419] text-mint-300 border border-[#214931] shadow-[0_0_15px_rgba(34,197,94,0.12)] font-semibold"
-                    : "text-gray-400 hover:text-gray-200 hover:bg-[#0c1611]"
+                    ? "bg-[#111915] text-white font-semibold border border-white/[0.06] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:bg-emerald-400 before:rounded-r-full"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-[#111915]/50 font-medium"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <Icon
                     className={`w-4 h-4 ${
-                      isSelected ? "text-mint-400" : "text-gray-500"
+                      isSelected ? "text-emerald-400" : "text-zinc-500"
                     }`}
                   />
                   <span>{item.label}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {item.badge && (
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-amber-950 text-amber-300 border border-amber-700">
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                       {item.badge}
                     </span>
-                  )}
-                  {isSelected && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-mint-400"></span>
                   )}
                 </div>
               </button>
@@ -104,32 +99,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Bottom Profile & New Workflow CTA */}
-      <div className="space-y-4 pt-4 border-t border-[#16271e]">
+      {/* Bottom Profile & Action CTA */}
+      <div className="space-y-4 pt-4 border-t border-white/[0.06]">
         {/* User Card */}
-        <div className="flex items-center justify-between p-2 rounded-xl hover:bg-[#0e1913] transition-colors cursor-pointer group">
+        <div className="flex items-center justify-between p-2 rounded-xl hover:bg-[#111915] border border-transparent hover:border-white/[0.06] transition-colors cursor-pointer group">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-mint-700 to-emerald-500 flex items-center justify-center text-xs font-bold text-black ring-2 ring-[#1e3828]">
-              AR
+            <div className="w-9 h-9 rounded-full bg-[#111915] border border-white/[0.06] flex items-center justify-center text-xs font-bold text-emerald-400 font-mono">
+              FS
             </div>
             <div className="text-left">
-              <p className="text-xs font-semibold text-gray-200 group-hover:text-white transition-colors">
-                Alex Rivera
+              <p className="text-xs font-semibold text-zinc-200 group-hover:text-white transition-colors">
+                Fernando S.
               </p>
-              <p className="text-[11px] text-gray-400">alex@mint.ai</p>
+              <p className="text-[11px] text-zinc-400">Director de Operaciones</p>
             </div>
           </div>
-          <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-gray-300 transition-colors" />
+          <ChevronDown className="w-4 h-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
         </div>
 
-        {/* New Workflow Button */}
-        <button
-          onClick={onNewWorkflow}
-          className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-mint-500 to-emerald-400 hover:from-mint-400 hover:to-emerald-300 text-black font-bold text-sm flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(34,197,94,0.25)] hover:shadow-[0_0_25px_rgba(34,197,94,0.4)] transition-all active:scale-[0.98]"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>New workflow</span>
-        </button>
+        {/* New Action Button */}
+        {onNewWorkflow && (
+          <button
+            onClick={onNewWorkflow}
+            className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.25)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Nueva Operación</span>
+          </button>
+        )}
       </div>
     </aside>
   );

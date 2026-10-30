@@ -147,7 +147,9 @@ export const MemoryVaultView: React.FC = () => {
       <header className="px-6 py-4 bg-canvas border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-20 shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono uppercase text-zinc-400">Inteligencia</span>
+            <span className="text-xs font-mono uppercase text-zinc-400">
+              Repositorio de Memoria Corporativa
+            </span>
             <span className="text-white/20">/</span>
             <h1 className="text-xl font-bold text-white tracking-tight">
               Bóveda de Memoria & Contexto Autónomo
@@ -217,7 +219,7 @@ export const MemoryVaultView: React.FC = () => {
                       : "text-zinc-400 hover:bg-white/[0.04] border-transparent"
                   }`}
                 >
-                  <span className="truncate">{f.filename}</span>
+                  <span className="truncate">{f.filename.replace(/\.md$/i, "")}</span>
                   {selectedFileId === f.id && (
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                   )}
@@ -234,24 +236,31 @@ export const MemoryVaultView: React.FC = () => {
               <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-mono text-[11px] font-bold border border-emerald-500/30">
                 {selectedFile.folder}
               </span>
-              <span className="text-zinc-500 font-mono text-xs">{selectedFile.filename}</span>
+              <span className="text-zinc-500 font-mono text-xs">
+                {selectedFile.filename.replace(/\.md$/i, "")}
+              </span>
             </div>
             <h2 className="text-lg font-bold text-white tracking-tight">{selectedFile.title}</h2>
           </div>
 
-          {/* Sub-caja Well de Metadatos */}
-          <div className="bg-surface-well rounded-xl p-4 border border-white/[0.04] grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div>
-              <span className="text-[10px] uppercase font-mono text-zinc-500 block">Actualizado</span>
-              <span className="text-zinc-300 font-medium">{selectedFile.updatedAt}</span>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-mono text-zinc-500 block">Confianza de Memoria</span>
-              <span className="text-emerald-400 font-bold font-mono">{(selectedFile.confidence * 100).toFixed(0)}% Coherencia</span>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-mono text-zinc-500 block">Firma de Integridad</span>
-              <span className="text-zinc-400 font-mono text-[10px] truncate block">{selectedFile.hmacSha256}</span>
+          {/* Ficha Técnica del Registro */}
+          <div className="bg-surface-well rounded-xl p-4 border border-white/[0.04]">
+            <span className="text-[10px] uppercase font-mono tracking-wider text-emerald-400/90 font-bold block mb-3">
+              Ficha Técnica del Registro
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-mono text-zinc-500 block">Actualizado</span>
+                <span className="text-zinc-300 font-medium">{selectedFile.updatedAt}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-mono text-zinc-500 block">Confianza de Memoria</span>
+                <span className="text-emerald-400 font-bold font-mono">{(selectedFile.confidence * 100).toFixed(0)}% Coherencia</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-mono text-zinc-500 block">Firma de Integridad</span>
+                <span className="text-zinc-400 font-mono text-[10px] truncate block">{selectedFile.hmacSha256}</span>
+              </div>
             </div>
           </div>
 

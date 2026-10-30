@@ -714,7 +714,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                 >
                   <option value="all">Todos los niveles</option>
                   <option value="autonoma">Autonomía &lt; $5M COP (GOV-01)</option>
-                  <option value="hitl">Escalada HITL &gt; $5M COP (GOV-03)</option>
+                  <option value="hitl">Requiere Firma Ejecutiva &gt; $5M COP (GOV-03)</option>
                 </select>
               </div>
             </div>
@@ -798,7 +798,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                     { label: "Recepción Bodega", timestamp: "Pendiente", status: "pending", icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
                   ];
                 } else if (o.status === "pendiente_gobernanza") {
-                  stepperTitle = `Retenida en gobernanza HITL (> $5M COP) • ${o.date}`;
+                  stepperTitle = `Pendiente de aprobación ejecutiva (> $5M COP) • ${o.date}`;
                   stepperMeta = o.policyApplied;
                   stepperAction = (
                     <button
@@ -879,7 +879,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                     : o.status === "emitida"
                     ? "Aprobada / En Tránsito"
                     : o.status === "pendiente_gobernanza"
-                    ? "Pendiente HITL"
+                    ? "Pendiente de Aprobación"
                     : "Borrador IA";
 
                 return (
@@ -1231,7 +1231,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <div>
                 <span className="font-mono text-[10px] text-emerald-400 block font-bold">
-                  CREAR ORDEN DE COMPRA · GOBERNANZA HITL
+                  CREAR ORDEN DE COMPRA · CONTROL EJECUTIVO
                 </span>
                 <h3 className="text-sm font-bold text-white tracking-tight mt-0.5">
                   Nueva Solicitud de Abastecimiento

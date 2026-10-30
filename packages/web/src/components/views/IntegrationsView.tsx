@@ -32,50 +32,50 @@ interface IntegrationItem {
 const INITIAL_INTEGRATIONS: IntegrationItem[] = [
   {
     id: "int_pg",
-    name: "PostgreSQL 16 (Drizzle ORM)",
-    categoryLabel: "Base de Datos Transaccional",
+    name: "Conector Central ERP & Catálogo Maestro",
+    categoryLabel: "Repositorio Transaccional Corporativo",
     status: "ok",
     latencyMs: 1.8,
-    description: "Almacenamiento ACID de inventario, proveedores, registros inmutables de auditoría y firmas criptográficas HMAC-SHA256.",
+    description: "Sincronización transaccional de existencias, catálogo de proveedores homologados, trazabilidad de auditoría y firmas HMAC-SHA256.",
     lastSync: "Hace 4 segundos",
-    endpoint: "postgresql://localhost:5432/mint_santander",
-    authMethod: "SCRAM-SHA-256 · Pool de 20 conexiones",
+    endpoint: "srv-erp-central.mint.interno:5432",
+    authMethod: "Cifrado Empresarial · Pool de 20 Conexiones Seguras",
     enabled: true,
   },
   {
     id: "int_osrm",
-    name: "Motor de Rutas OSRM",
+    name: "Motor de Rutas & Despachos (OSRM)",
     categoryLabel: "Cálculo Geoespacial & Fletes",
     status: "ok",
     latencyMs: 14.2,
-    description: "Servidor local para optimizar rutas, tiempos de tránsito y fletes entre Bucaramanga, Bogotá y Medellín.",
+    description: "Optimización continua de rutas terrestres, tiempos estimados de tránsito y costos de flete entre Bucaramanga, Bogotá y Medellín.",
     lastSync: "Hace 30 segundos",
-    endpoint: "http://127.0.0.1:5000/route/v1",
-    authMethod: "Servicio Local HTTP",
+    endpoint: "logistica.mint.interno/rutas/v1",
+    authMethod: "Servicio Local Seguro",
     enabled: true,
   },
   {
     id: "int_dian",
-    name: "DIAN Facturación Electrónica",
-    categoryLabel: "Cumplimiento Tributario",
+    name: "DIAN Facturación & Remisiones",
+    categoryLabel: "Cumplimiento Tributario y Legal",
     status: "ok",
     latencyMs: 48.0,
-    description: "Emisión y validación previa de facturas electrónicas y notas de remisión XML v1.9 con firma digital.",
+    description: "Emisión, validación y timbrado de facturación electrónica y remisiones XML con certificado digital oficial.",
     lastSync: "Hace 2 minutos",
-    endpoint: "https://vpfe.dian.gov.co/wsdl",
-    authMethod: "Certificado Digital X.509",
+    endpoint: "vpfe.dian.gov.co/servicios",
+    authMethod: "Certificado Digital X.509 Vigente",
     enabled: true,
   },
   {
     id: "int_erp",
-    name: "Conector ERP Siigo / SAP",
-    categoryLabel: "Sincronización Contable",
+    name: "Conector Contable ERP (Siigo / SAP)",
+    categoryLabel: "Sincronización Financiera",
     status: "ok",
     latencyMs: 35.0,
-    description: "Sincronización bidireccional de catálogo de productos, cuentas por pagar y movimientos de almacén.",
+    description: "Intercambio automatizado de cuentas por pagar, conciliación de facturas de proveedores y libro mayor.",
     lastSync: "Hace 1 minuto",
-    endpoint: "https://api.siigo.com/v1",
-    authMethod: "OAuth 2.0 Bearer Token",
+    endpoint: "api.siigo.com/v1",
+    authMethod: "Credencial Corporativa OAuth 2.0",
     enabled: true,
   },
 ];
@@ -102,19 +102,19 @@ export const IntegrationsView: React.FC = () => {
 
   const kpis: KpiCardItem[] = [
     {
-      title: "Conectores Activos",
+      title: "Conectores Corporativos",
       value: "4 / 4 Operativos",
-      subtitle: "PostgreSQL, OSRM, DIAN, ERP",
+      subtitle: "ERP Central, Rutas, DIAN, Contabilidad",
       trend: { direction: "up", label: "100% sincronizados" },
       icon: Layers,
       isHero: true,
       onActionClick: () => showToast("Todos los conectores verificados."),
     },
     {
-      title: "Latencia Base de Datos",
+      title: "Latencia de Conexión",
       value: "1.8 ms",
-      subtitle: "PostgreSQL transaccional",
-      trend: { direction: "up", label: "Óptimo" },
+      subtitle: "Tiempo de respuesta en enlace local",
+      trend: { direction: "up", label: "Excelente" },
       icon: Database,
     },
     {
@@ -125,10 +125,10 @@ export const IntegrationsView: React.FC = () => {
       icon: CheckCircle2,
     },
     {
-      title: "Integridad de Esquema",
-      value: "15 Tablas Mapeadas",
-      subtitle: "Drizzle ORM con TypeScript",
-      trend: { direction: "up", label: "Cero discrepancias" },
+      title: "Integridad de Datos",
+      value: "15 Modelos Sincronizados",
+      subtitle: "Catálogos y reglas sin discrepancias",
+      trend: { direction: "up", label: "Cero inconsistencias" },
       icon: Lock,
     },
   ];
@@ -163,7 +163,7 @@ export const IntegrationsView: React.FC = () => {
             Integraciones y Conectores de Datos
           </h1>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Conexión con base de datos, motor de enrutamiento OSRM, DIAN y sistemas contables
+            Integración con ERP central, motor logístico de despachos, DIAN y sistemas contables
           </p>
         </div>
 
