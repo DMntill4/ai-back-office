@@ -684,12 +684,33 @@ export const api = {
     },
 
     reports: {
+        /**
+         * Listado de reportes disponibles.
+         *
+         * El backend NO expone `GET /api/reports` (colección): solo
+         * `/api/reports/daily` y `/api/reports/:kind`. Pedir la colección
+         * devolvía 404 y activaba el banner de "datos de respaldo".
+         *
+         * Se consulta `/reports/daily` y se normaliza a un array para que la
+         * vista pueda seguir usando `Array.isArray(...)` sin cambios.
+         */
         list: (params?: { type?: string; limit?: number }) => {
             const qs = new URLSearchParams();
             if (params?.type) qs.set("type", params.type);
             if (params?.limit) qs.set("limit", String(params.limit));
             const suffix = qs.toString() ? `?${qs.toString()}` : "";
-            return requestWithFallback<any[]>(`/reports${suffix}`, []);
+            return requestWithFallback<any[]>(`/reports/daily${suffix}`, []).then((res) => {
+                if (!res.success || res.isFallback) return res;
+                const payload = res.data as any;
+                // `/reports/daily` devuelve un objeto; lo envolvemos en un array
+                // de una entrada para mantener el contrato de `list()`.
+                const rows = Array.isArray(payload)
+                    ? payload
+                    : payload && typeof payload === "object"
+                        ? [{ kind: "daily", data: payload }]
+                        : [];
+                return { ...res, data: rows };
+            });
         },
         detail: (id: string) =>
             requestWithFallback<any>(`/reports/${encodeURIComponent(id)}`, null),

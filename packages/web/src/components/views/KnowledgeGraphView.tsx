@@ -127,6 +127,9 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     { id: "memoria_agente", label: "Memoria del agente" },
     { id: "auditoria_eventos", label: "Historial de decisiones" },
     { id: "reglas_politicas", label: "Reglas y políticas" },
+    { id: "modelos", label: "Modelos de IA" },
+    { id: "nodos", label: "Biblioteca de nodos" },
+    { id: "objetivos", label: "Objetivos" },
   ];
 
   // Un solo control de filtros por categoría

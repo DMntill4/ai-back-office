@@ -68,6 +68,9 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
     { id: "memoria_agente", label: "Memoria del agente" },
     { id: "auditoria_eventos", label: "Historial de decisiones" },
     { id: "reglas_politicas", label: "Reglas y políticas" },
+    { id: "modelos", label: "Modelos de IA" },
+    { id: "nodos", label: "Biblioteca de nodos" },
+    { id: "objetivos", label: "Objetivos" },
   ];
 
   const handleSubTabChange = (tabId: string) => {
@@ -141,8 +144,8 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
       statusLabel: isSimulating
         ? "Evaluando"
         : isAgentRunning
-        ? "Activo"
-        : "En pausa",
+          ? "Activo"
+          : "En pausa",
       metricSummary: "Ahorro 8.2%",
       durationLabel: "142 ms",
     },
@@ -449,8 +452,8 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               isSimulating
                 ? "Simulación en curso"
                 : isAgentRunning
-                ? "Ciclo continuo activo"
-                : "Ciclo pausado por el operador"
+                  ? "Ciclo continuo activo"
+                  : "Ciclo pausado por el operador"
             }
           />
         </div>
@@ -466,13 +469,12 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               <div
                 key={stage.id}
                 onClick={() => setSelectedStage(stage.id)}
-                className={`p-base rounded-container border transition-colors cursor-pointer flex flex-col justify-between relative ${
-                  isSelected
+                className={`p-base rounded-container border transition-colors cursor-pointer flex flex-col justify-between relative ${isSelected
                     ? "bg-raised border-brand"
                     : isCurrentSim
-                    ? "bg-raised border-strong"
-                    : "bg-canvas/60 border-border hover:bg-raised/50 hover:border-strong"
-                }`}
+                      ? "bg-raised border-strong"
+                      : "bg-canvas/60 border-border hover:bg-raised/50 hover:border-strong"
+                  }`}
               >
                 {/* Barra superior de foco si está seleccionado */}
                 {isSelected && (
@@ -512,8 +514,8 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
                         isSimulating
                           ? "mutando"
                           : isAgentRunning
-                          ? "pensando"
-                          : "reposo"
+                            ? "pensando"
+                            : "reposo"
                       }
                     />
                     <span className="text-caption text-muted mt-hairline">

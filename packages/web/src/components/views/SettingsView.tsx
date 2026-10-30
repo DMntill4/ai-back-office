@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Shield,
@@ -9,11 +9,20 @@ import {
   Cpu,
 } from "lucide-react";
 import { KpiStrip, KpiCardItem } from "../ui/KpiStrip";
+import { SettingsShell, SettingsTabId, SETTINGS_TABS } from "../ui/SettingsShell";
+import { CompaniesBranchesView } from "./CompaniesBranchesView";
+import { IntegrationsView } from "./IntegrationsView";
+import { NotificationChannelsView } from "./NotificationChannelsView";
+import { WebhooksApiView } from "./WebhooksApiView";
+import { RolesPermissionsView } from "./RolesPermissionsView";
 
 export interface SettingsViewProps {
-  /** Sub-pestana solicitada por el router (configuracion_general, empresas_sucursales, ...). */
   initialTab?: string;
+  onNavigateTo?: (tabId: string) => void;
 }
+
+const isSettingsTabId = (value: string | undefined): value is SettingsTabId =>
+  !!value && SETTINGS_TABS.some((t) => t.id === value);
 
 const cardClass =
   "bg-panel rounded-container p-base border border-border flex flex-col justify-between";
@@ -27,11 +36,7 @@ const labelClass = "text-caption font-mono text-muted block mb-hairline";
 const selectClass =
   "w-full h-9 bg-panel border border-border rounded-control px-compact text-caption text-primary focus:outline-none focus:border-brand";
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
-  const [activeSection, setActiveSection] = useState<string>(
-    initialTab ?? "configuracion_general",
-  );
-  const [approvalLimit, setApprovalLimit] = useState("5000000");
+const GeneralSettingsPanel: React.FC = () => {
   const [autonomyLevel, setAutonomyLevel] = useState<"assisted" | "strict" | "auto">("assisted");
   const [primaryModel, setPrimaryModel] = useState("gemini-flash");
   const [temperature, setTemperature] = useState("0.1");
@@ -43,18 +48,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
   };
 
   const handleSave = () => {
-    showToast("Configuración general y parámetros del sistema guardados con éxito.");
+    showToast("Configuracion general y parametros del sistema guardados con exito.");
   };
 
   const handleRunDoctor = () => {
-    showToast("Diagnóstico del sistema completado: 6/6 servicios verificados en 42ms.");
+    showToast("Diagnostico del sistema completado: 6/6 servicios verificados en 42ms.");
   };
 
   const kpis: KpiCardItem[] = [
     {
       title: "Salud Global del Sistema",
-      value: "100% Óptimo",
-      subtitle: "6 de 6 módulos en línea",
+      value: "100% Optimo",
+      subtitle: "6 de 6 modulos en linea",
       trend: { direction: "up", label: "0 advertencias" },
       icon: CheckCircle2,
       isHero: true,
@@ -69,9 +74,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
     },
     {
       title: "Modo Operativo",
-      value: "Autónomo Supervisado",
+      value: "Autonomo Supervisado",
       subtitle: "Firma delegada hasta $5M",
-      trend: { direction: "up", label: "Aprobación humana activa" },
+      trend: { direction: "up", label: "Aprobacion humana activa" },
       icon: Shield,
     },
     {
@@ -84,8 +89,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
   ];
 
   return (
-    <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans flex flex-col p-group space-y-group">
-      {/* Toast Notification */}
+    <div className="flex flex-col gap-group">
       <AnimatePresence>
         {toastMessage && (
           <motion.div
@@ -100,47 +104,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
               onClick={() => setToastMessage(null)}
               className="text-muted hover:text-primary text-label ml-hairline"
             >
-              ✕
+              x
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* HEADER SUPERIOR */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-base">
-        <div>
-          <h1 className="text-page-title font-semibold text-primary">
-            Configuración General y Diagnóstico
-          </h1>
-          <p className="text-caption text-secondary mt-hairline">
-            Ajuste de parámetros del sistema, diagnóstico de servicios y credenciales operativas
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-compact">
+        <button
+          onClick={handleRunDoctor}
+          className="px-compact py-hairline rounded-control bg-panel hover:border-border-strong text-caption font-medium text-secondary hover:text-primary border border-border flex items-center gap-hairline transition-colors"
+        >
+          <Zap className="w-3.5 h-3.5 text-brand" />
+          <span>Ejecutar Diagnostico</span>
+        </button>
+        <button
+          onClick={handleSave}
+          className="px-base py-hairline rounded-control bg-brand hover:bg-brand text-canvas font-semibold text-caption flex items-center gap-compact transition-colors cursor-pointer"
+        >
+          <Save className="w-3.5 h-3.5" />
+          <span>Guardar Configuracion</span>
+        </button>
+      </div>
 
-        <div className="flex items-center gap-compact">
-          <button
-            onClick={handleRunDoctor}
-            className="px-compact py-hairline rounded-control bg-panel hover:border-border-strong text-caption font-medium text-secondary hover:text-primary border border-border flex items-center gap-hairline transition-colors"
-          >
-            <Zap className="w-3.5 h-3.5 text-brand" />
-            <span>Ejecutar Diagnóstico</span>
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-base py-hairline rounded-control bg-brand hover:bg-brand text-canvas font-semibold text-caption flex items-center gap-compact transition-colors cursor-pointer"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span>Guardar Configuración</span>
-          </button>
-        </div>
-      </header>
-
-      {/* FILA 1: KPI STRIP CON HÉROE */}
       <KpiStrip items={kpis} />
 
-      {/* FILA 2: GRID DE TARJETAS DE 2 NIVELES */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-base">
-        {/* Tarjeta 1: Parámetros del Motor de Inteligencia */}
         <div className={cardClass}>
           <div>
             <div className={cardHeaderClass}>
@@ -159,7 +148,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
             </div>
 
             <p className="text-caption text-secondary mt-compact leading-relaxed">
-              Selecciona el modelo de inferencia para orquestación de compras, cálculo de rotación ROP y enrutamiento logístico.
+              Selecciona el modelo de inferencia para orquestacion de compras, calculo de rotacion ROP y enrutamiento logistico.
             </p>
           </div>
 
@@ -171,7 +160,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
                 onChange={(e) => setPrimaryModel(e.target.value)}
                 className={selectClass}
               >
-                <option value="gemini-flash">Google Gemini 2.0 Flash (Alta Velocidad · Recomendado)</option>
+                <option value="gemini-flash">Google Gemini 2.0 Flash (Alta Velocidad - Recomendado)</option>
                 <option value="gemini-pro">Google Gemini 1.5 Pro (Razonamiento Complejo)</option>
                 <option value="claude-sonnet">Anthropic Claude 3.5 Sonnet</option>
               </select>
@@ -179,7 +168,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
 
             <div>
               <div className="flex justify-between text-caption font-mono text-secondary mb-hairline">
-                <span>Temperatura de Decisión</span>
+                <span>Temperatura de Decision</span>
                 <span className="text-primary font-bold">{temperature} (Determinista)</span>
               </div>
               <input
@@ -195,7 +184,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
           </div>
         </div>
 
-        {/* Tarjeta 2: Nivel de Autonomía y Gobernanza */}
         <div className={cardClass}>
           <div>
             <div className={cardHeaderClass}>
@@ -204,30 +192,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
                   <Shield className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-label font-semibold text-primary">Modo de Autonomía Operacional</h3>
-                  <span className="text-caption text-muted font-mono">Control de Intervención</span>
+                  <h3 className="text-label font-semibold text-primary">Modo de Autonomia Operacional</h3>
+                  <span className="text-caption text-muted font-mono">Control de Intervencion</span>
                 </div>
               </div>
               <span className="text-caption font-bold font-mono text-primary">
-                {autonomyLevel === "assisted" ? "Supervisado" : autonomyLevel === "strict" ? "Estricto" : "Completamente Autónomo"}
+                {autonomyLevel === "assisted" ? "Supervisado" : autonomyLevel === "strict" ? "Estricto" : "Completamente Autonomo"}
               </span>
             </div>
 
             <p className="text-caption text-secondary mt-compact leading-relaxed">
-              Define si las compras recurrentes bajo el umbral de seguridad se emiten directamente o si requieren pre-aprobación en bandeja.
+              Define si las compras recurrentes bajo el umbral de seguridad se emiten directamente o si requieren pre-aprobacion en bandeja.
             </p>
           </div>
 
           <div className="bg-raised rounded-control p-compact mt-base border border-border">
             <div className="grid grid-cols-3 gap-compact">
               {[
-                { id: "strict", label: "Estricto", desc: "Todo a aprobación" },
+                { id: "strict", label: "Estricto", desc: "Todo a aprobacion" },
                 { id: "assisted", label: "Supervisado", desc: "Umbral $5M" },
-                { id: "auto", label: "Autónomo", desc: "Reglas al 100%" },
+                { id: "auto", label: "Autonomo", desc: "Reglas al 100%" },
               ].map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => setAutonomyLevel(m.id as any)}
+                  onClick={() => setAutonomyLevel(m.id as "assisted" | "strict" | "auto")}
                   className={`py-hairline px-compact rounded-control text-left border transition-colors ${
                     autonomyLevel === m.id
                       ? "bg-brand-surface border-brand/40 text-brand"
@@ -243,5 +231,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
         </div>
       </div>
     </div>
+  );
+};
+
+export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab, onNavigateTo }) => {
+  const [activeSection, setActiveSection] = useState<SettingsTabId>(
+    isSettingsTabId(initialTab) ? initialTab : "configuracion_general",
+  );
+
+  useEffect(() => {
+    if (isSettingsTabId(initialTab)) setActiveSection(initialTab);
+  }, [initialTab]);
+
+  const handleTabChange = (tab: SettingsTabId) => {
+    setActiveSection(tab);
+    onNavigateTo?.(tab);
+  };
+
+  const renderSection = () => {
+    switch (activeSection) {
+      case "empresas_sucursales":
+        return <CompaniesBranchesView />;
+      case "integraciones":
+        return <IntegrationsView />;
+      case "canales_notificaciones":
+        return <NotificationChannelsView />;
+      case "webhooks_api":
+        return <WebhooksApiView />;
+      case "roles_permisos":
+        return <RolesPermissionsView />;
+      case "configuracion_general":
+      default:
+        return <GeneralSettingsPanel />;
+    }
+  };
+
+  return (
+    <SettingsShell activeTab={activeSection} onTabChange={handleTabChange}>
+      {renderSection()}
+    </SettingsShell>
   );
 };

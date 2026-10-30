@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { StockSkuItem } from "../../types/workflow";
 import { Search, Copy, Check, Minus, Plus, Download, RefreshCw } from "lucide-react";
 import { PageHeader } from "../ui/PageHeader";
@@ -207,7 +208,10 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  });
+    // handleGenerateOrders se recrea en cada render (depende de atRiskCount);
+    // se excluye a proposito para no re-suscribir el listener en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adjustModalSku, isSimulationOpen]);
 
   const handleCopySku = (sku: string) => {
     navigator.clipboard?.writeText(sku);
@@ -459,18 +463,24 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans p-group space-y-group">
-      {toastMessage && (
-        <div
-          role="status"
-          className="fixed bottom-6 right-8 z-50 px-4 py-2.5 rounded-pill flex items-center gap-3 bg-raised border border-strong text-body text-primary shadow-dialog"
-        >
-          <span className="w-2 h-2 rounded-pill bg-state-ok" />
-          <span>{toastMessage}</span>
-          <button onClick={() => setToastMessage(null)} className="text-secondary hover:text-primary cursor-pointer" title="Cerrar aviso">
-            ✕
-          </button>
-        </div>
-      )}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            role="status"
+            initial={{ opacity: 0, y: 16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="fixed bottom-6 right-8 z-50 px-4 py-2.5 rounded-pill flex items-center gap-3 bg-raised border border-strong text-body text-primary shadow-dialog"
+          >
+            <span className="w-2 h-2 rounded-pill bg-state-ok" />
+            <span>{toastMessage}</span>
+            <button onClick={() => setToastMessage(null)} className="text-secondary hover:text-primary cursor-pointer" title="Cerrar aviso">
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <PageHeader
         title="Existencias"

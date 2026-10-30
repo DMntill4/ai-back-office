@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { WorkflowObjective, GoalLever } from "../../types/workflow";
 import {
   Target,
@@ -307,19 +308,27 @@ export const ObjectivesView: React.FC<ObjectivesViewProps> = ({
   return (
     <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans flex flex-col p-group space-y-group">
       {/* Toast */}
-      {toastMessage && (
-        <div className="fixed top-6 right-8 z-50 px-element py-compact rounded-pill flex items-center gap-compact bg-panel border border-state-ok/40 text-state-ok shadow-popover">
-          <div className="w-2 h-2 rounded-full bg-state-ok animate-ping" />
-          <span className="text-caption font-mono font-medium">{toastMessage}</span>
-          <button
-            onClick={() => setToastMessage(null)}
-            className="text-muted hover:text-primary text-caption ml-1"
-            aria-label="Cerrar notificación"
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -15, scale: 0.95 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="fixed top-6 right-8 z-50 px-element py-compact rounded-pill flex items-center gap-compact bg-panel border border-state-ok/40 text-state-ok shadow-popover"
           >
-            ✕
-          </button>
-        </div>
-      )}
+            <div className="w-2 h-2 rounded-full bg-state-ok animate-ping" />
+            <span className="text-caption font-mono font-medium">{toastMessage}</span>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="text-muted hover:text-primary text-caption ml-1"
+              aria-label="Cerrar notificación"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-base">
@@ -513,15 +522,15 @@ export const ObjectivesView: React.FC<ObjectivesViewProps> = ({
                       key={lever.id}
                       onClick={() => handleToggleLever(lever.id)}
                       className={`p-element rounded-control border transition-all cursor-pointer flex items-center justify-between gap-base ${lever.active
-                          ? "bg-raised border-brand/30"
-                          : "bg-raised/50 border-border opacity-60 hover:opacity-100"
+                        ? "bg-raised border-brand/30"
+                        : "bg-raised/50 border-border opacity-60 hover:opacity-100"
                         }`}
                     >
                       <div className="flex items-start gap-compact">
                         <div
                           className={`w-8 h-8 rounded-control flex items-center justify-center shrink-0 mt-0.5 ${lever.active
-                              ? "bg-brand/20 text-brand"
-                              : "bg-raised text-muted"
+                            ? "bg-brand/20 text-brand"
+                            : "bg-raised text-muted"
                             }`}
                         >
                           <Sliders className="w-4 h-4" />
@@ -592,8 +601,8 @@ export const ObjectivesView: React.FC<ObjectivesViewProps> = ({
                       key={obj.id}
                       onClick={() => onSelectObjective && onSelectObjective(obj)}
                       className={`bg-raised rounded-control p-base border transition-all cursor-pointer flex flex-col justify-between ${isActive
-                          ? "border-brand ring-1 ring-brand/40"
-                          : "border-border hover:border-brand/30"
+                        ? "border-brand ring-1 ring-brand/40"
+                        : "border-border hover:border-brand/30"
                         }`}
                     >
                       <div>

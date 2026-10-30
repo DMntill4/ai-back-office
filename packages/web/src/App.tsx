@@ -204,7 +204,7 @@ export const App: React.FC = () => {
         );
 
       case "rutas_logistica":
-        return <LogisticsRoutesView />;
+        return <LogisticsRoutesView onNavigateTo={handleTabChange} />;
 
       case "productos":
         return <ProductsCatalogView onNavigateTo={handleTabChange} />;
@@ -250,7 +250,11 @@ export const App: React.FC = () => {
 
       // Biblioteca de nodos / especialistas / herramientas del agente
       case "nodos":
-        return <NodeLibraryView onAddNode={() => handleTabChange("flujo_agente")} />;
+        return (
+          <NodeLibraryView
+            onAddNode={(_type, _title) => handleTabChange("flujo_agente")}
+          />
+        );
 
       // Objetivos del orquestador (stock, margen, tiempo de entrega)
       case "objetivos":
@@ -262,22 +266,43 @@ export const App: React.FC = () => {
 
       // 7. AJUSTES (contenedor maestro con 6 sub-pestañas)
       case "configuracion_general":
-        return <SettingsView initialTab="configuracion_general" />;
+        return (
+          <SettingsView
+            initialTab="configuracion_general"
+            onNavigateTo={handleTabChange}
+          />
+        );
 
       case "empresas_sucursales":
-        return <SettingsView initialTab="empresas_sucursales" />;
+        return (
+          <SettingsView
+            initialTab="empresas_sucursales"
+            onNavigateTo={handleTabChange}
+          />
+        );
 
       case "integraciones":
-        return <SettingsView initialTab="integraciones" />;
+        return (
+          <SettingsView initialTab="integraciones" onNavigateTo={handleTabChange} />
+        );
 
       case "canales_notificaciones":
-        return <SettingsView initialTab="canales_notificaciones" />;
+        return (
+          <SettingsView
+            initialTab="canales_notificaciones"
+            onNavigateTo={handleTabChange}
+          />
+        );
 
       case "webhooks_api":
-        return <SettingsView initialTab="webhooks_api" />;
+        return (
+          <SettingsView initialTab="webhooks_api" onNavigateTo={handleTabChange} />
+        );
 
       case "roles_permisos":
-        return <SettingsView initialTab="roles_permisos" />;
+        return (
+          <SettingsView initialTab="roles_permisos" onNavigateTo={handleTabChange} />
+        );
 
       // SHOWCASE SOLO EN DESARROLLO
       case "componentes":
