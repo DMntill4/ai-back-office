@@ -175,116 +175,174 @@ export const MemoryVaultView: React.FC = () => {
       {/* CUERPO EN 3 COLUMNAS LIMPIAS */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-6 gap-6 min-h-0">
         {/* COLUMNA 1 (240px): ÁRBOL DE COLECCIONES */}
-        <aside className="w-full lg:w-[240px] bg-surface-1 rounded-2xl p-4 border border-white/[0.06] shadow-xl shrink-0 flex flex-col justify-between overflow-y-auto">
+        <aside className="w-full lg:w-[240px] bg-surface-1 rounded-2xl p-4 border border-white/[0.06] shadow-card shrink-0 flex flex-col justify-between overflow-y-auto custom-scrollbar">
           <div>
-            <span className="text-xs font-semibold text-zinc-400 block mb-3">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block mb-3">
               Colecciones de Memoria
             </span>
 
             <div className="space-y-1.5">
               {[
-                { id: "Todas", label: "Todas las Memorias", count: 18 },
-                { id: "Decisiones", label: "Decisiones Previas", count: 8 },
-                { id: "Políticas", label: "Políticas Aprendidas", count: 4 },
-                { id: "Cuarentena", label: "Excepciones / Cuarentena", count: 2 },
-                { id: "Consenso", label: "Acuerdos de Consenso", count: 4 },
-              ].map((col) => (
-                <button
-                  key={col.id}
-                  onClick={() => setSelectedFolder(col.id)}
-                  className={`w-full py-2 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-between border ${
-                    selectedFolder === col.id
+                { id: "Todas", label: "Todas las Memorias", count: 18, icon: Layers },
+                { id: "Decisiones", label: "Decisiones Previas", count: 8, icon: CheckCircle2 },
+                { id: "Políticas", label: "Políticas Aprendidas", count: 4, icon: ShieldCheck },
+                { id: "Cuarentena", label: "Excepciones / Cuarentena", count: 2, icon: ShieldAlert },
+                { id: "Consenso", label: "Acuerdos de Consenso", count: 4, icon: Sparkles },
+              ].map((col) => {
+                const Icon = col.icon;
+                const isActive = selectedFolder === col.id;
+                return (
+                  <button
+                    key={col.id}
+                    onClick={() => setSelectedFolder(col.id)}
+                    className={`w-full py-2 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-between border ${isActive
                       ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-semibold"
-                      : "bg-surface-well border-white/[0.04] text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <BookOpen className="w-3.5 h-3.5" />
-                    <span>{col.label}</span>
-                  </span>
-                  <span className="text-[10px] font-sans text-zinc-500">{col.count}</span>
-                </button>
-              ))}
+                      : "bg-surface-well border-white/[0.04] text-zinc-400 hover:text-white hover:border-white/[0.08]"
+                      }`}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-emerald-400" : "text-zinc-500"}`} />
+                      <span className="truncate">{col.label}</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono tabular-numbers px-1.5 py-0.5 rounded-md shrink-0 ${isActive ? "bg-emerald-500/20 text-emerald-300" : "bg-white/[0.04] text-zinc-500"
+                        }`}
+                    >
+                      {col.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
-            <span className="text-xs font-semibold text-zinc-400 block mt-6 mb-3">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block mt-6 mb-3">
               Documentos Activos
             </span>
 
             <div className="space-y-1">
-              {filteredFiles.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setSelectedFileId(f.id)}
-                  className={`w-full text-left p-2.5 rounded-xl text-xs transition-all flex items-center justify-between border ${
-                    selectedFileId === f.id
+              {filteredFiles.map((f) => {
+                const isActive = selectedFileId === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setSelectedFileId(f.id)}
+                    className={`w-full text-left p-2.5 rounded-xl text-xs transition-all flex items-center gap-2 border ${isActive
                       ? "bg-emerald-500/10 border-emerald-500/30 text-white font-medium"
                       : "text-zinc-400 hover:bg-white/[0.04] border-transparent"
-                  }`}
-                >
-                  <span className="truncate">{f.filename.replace(/\.md$/i, "")}</span>
-                  {selectedFileId === f.id && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                  )}
-                </button>
-              ))}
+                      }`}
+                  >
+                    <FileText className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-emerald-400" : "text-zinc-500"}`} />
+                    <span className="truncate flex-1">{f.title}</span>
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-white/[0.06]">
+            <div className="flex items-center justify-between text-[10px] text-zinc-500">
+              <span className="flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                Firma HMAC activa
+              </span>
+              <span className="font-mono">v2.4</span>
             </div>
           </div>
         </aside>
 
         {/* COLUMNA 2 (CENTRAL): VISOR DE DOCUMENTO ESTILIZADO */}
-        <main className="flex-1 bg-surface-1 rounded-2xl p-6 border border-white/[0.06] shadow-xl overflow-y-auto flex flex-col gap-5">
+        <main className="flex-1 bg-surface-1 rounded-2xl p-6 border border-white/[0.06] shadow-card overflow-y-auto custom-scrollbar flex flex-col gap-5 min-w-0">
           <div className="pb-4 border-b border-white/[0.06]">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-medium border border-emerald-500/30">
                 {selectedFile.folder}
               </span>
-              <span className="text-zinc-500 text-xs">
-                {selectedFile.filename.replace(/\.md$/i, "")}
+              <span className="text-[10px] font-mono text-zinc-500 px-1.5 py-0.5 rounded bg-surface-well border border-white/[0.04]">
+                {selectedFile.id}
+              </span>
+              <span className="text-zinc-500 text-[11px] flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {selectedFile.updatedAt}
               </span>
             </div>
-            <h2 className="text-lg font-bold text-white tracking-tight">{selectedFile.title}</h2>
+            <h2 className="text-lg font-bold text-white tracking-tight leading-snug">
+              {selectedFile.title}
+            </h2>
           </div>
 
           {/* Ficha Técnica del Registro */}
           <div className="bg-surface-well rounded-xl p-4 border border-white/[0.04]">
-            <span className="text-xs font-semibold text-emerald-400/90 block mb-3">
-              Ficha Técnica del Registro
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400/90">
+                Ficha Técnica del Registro
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-emerald-400">
+                <ShieldCheck className="w-3 h-3" />
+                Verificada
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
               <div>
-                <span className="text-[11px] text-zinc-400 block">Actualizado</span>
-                <span className="text-zinc-300 font-medium">{selectedFile.updatedAt}</span>
+                <span className="text-[10px] uppercase tracking-wide text-zinc-500 block mb-0.5">
+                  Última actualización
+                </span>
+                <span className="text-zinc-200 font-medium">{selectedFile.updatedAt}</span>
               </div>
               <div>
-                <span className="text-[11px] text-zinc-400 block">Confianza de Memoria</span>
-                <span className="text-emerald-400 font-bold font-sans">{(selectedFile.confidence * 100).toFixed(0)}% Coherencia</span>
+                <span className="text-[10px] uppercase tracking-wide text-zinc-500 block mb-0.5">
+                  Confianza de memoria
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-400 font-bold font-mono tabular-numbers">
+                    {(selectedFile.confidence * 100).toFixed(0)}%
+                  </span>
+                  <div className="flex-1 h-1 rounded-full bg-white/[0.08] overflow-hidden max-w-[80px]">
+                    <div
+                      className="h-full bg-emerald-500 rounded-full"
+                      style={{ width: `${selectedFile.confidence * 100}%` }}
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="text-[11px] text-zinc-400 block">Firma de Integridad</span>
-                <span className="text-zinc-400 font-mono text-[10px] truncate block">{selectedFile.hmacSha256}</span>
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase tracking-wide text-zinc-500 block mb-0.5">
+                  Firma de integridad
+                </span>
+                <span className="text-zinc-400 font-mono text-[10px] truncate block">
+                  {selectedFile.hmacSha256}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Resumen */}
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-            <h4 className="text-xs font-bold text-white mb-1">Resumen del Contexto</h4>
-            <p className="text-xs text-zinc-300 leading-relaxed">{selectedFile.summary}</p>
+          <div className="p-4 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/15">
+            <h4 className="text-[10px] font-mono uppercase tracking-wider text-emerald-400/90 mb-1.5">
+              Resumen del Contexto
+            </h4>
+            <p className="text-xs text-zinc-200 leading-relaxed">{selectedFile.summary}</p>
           </div>
 
           {/* Contenido en lenguaje claro */}
-          <div className="text-xs text-zinc-300 leading-relaxed space-y-3">
-            <h4 className="text-xs font-bold text-white">Detalle de la Memoria</h4>
-            <p>{selectedFile.content}</p>
+          <div className="text-xs text-zinc-300 leading-relaxed space-y-2">
+            <h4 className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+              Detalle de la Memoria
+            </h4>
+            <p className="text-[13px] leading-6">{selectedFile.content}</p>
           </div>
 
           {/* Etiquetas Semánticas */}
-          <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-white/[0.06]">
+          <div className="flex flex-wrap items-center gap-2 pt-4 mt-auto border-t border-white/[0.06]">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mr-1">
+              Etiquetas
+            </span>
             {selectedFile.tags.map((t, idx) => (
               <span
                 key={idx}
-                className="px-2.5 py-1 rounded-lg bg-surface-well border border-white/[0.06] text-[11px] font-medium text-zinc-400"
+                className="px-2.5 py-1 rounded-lg bg-surface-well border border-white/[0.06] text-[11px] font-medium text-zinc-300"
               >
                 {t}
               </span>
@@ -293,16 +351,18 @@ export const MemoryVaultView: React.FC = () => {
         </main>
 
         {/* COLUMNA 3 (300px): MEDIDOR SEMICIRCULAR & PREGUNTAS DEL AGENTE */}
-        <aside className="w-full lg:w-[300px] flex flex-col gap-5 shrink-0 overflow-y-auto">
+        <aside className="w-full lg:w-[300px] flex flex-col gap-5 shrink-0 overflow-y-auto custom-scrollbar">
           {/* Tarjeta de Medidor Semicircular de 180° */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl">
+          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card">
             <div className="pb-3 border-b border-white/[0.06]">
               <h3 className="text-sm font-bold text-white">Salud de la Memoria</h3>
-              <p className="text-[11px] text-zinc-400">Coherencia semántica y ausencia de contradicciones</p>
+              <p className="text-[11px] text-zinc-400">
+                Coherencia semántica y ausencia de contradicciones
+              </p>
             </div>
 
-            <div className="relative flex flex-col items-center justify-center my-4">
-              <svg className="w-48 h-28 select-none" viewBox="0 0 200 115">
+            <div className="relative flex flex-col items-center justify-center mt-4">
+              <svg className="w-52 h-32 select-none" viewBox="0 0 200 118">
                 <defs>
                   <pattern
                     id="gauge-hatch-pattern-memory"
@@ -311,56 +371,121 @@ export const MemoryVaultView: React.FC = () => {
                     patternTransform="rotate(-45)"
                     patternUnits="userSpaceOnUse"
                   >
-                    <line x1="0" y1="0" x2="0" y2="6" stroke="#10B981" strokeWidth="2.5" strokeOpacity="0.45" />
+                    <line x1="0" y1="0" x2="0" y2="6" stroke="#10B981" strokeWidth="2.5" strokeOpacity="0.5" />
                   </pattern>
+                  <linearGradient id="gauge-solid-memory" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#0E684D" />
+                    <stop offset="100%" stopColor="#10B981" />
+                  </linearGradient>
                 </defs>
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1B2620" strokeWidth="20" strokeLinecap="round" />
-                <path d="M 20 100 A 80 80 0 0 1 140 26" fill="none" stroke="#0E684D" strokeWidth="20" strokeLinecap="round" />
-                <path d="M 140 26 A 80 80 0 0 1 168 55" fill="none" stroke="url(#gauge-hatch-pattern-memory)" strokeWidth="20" />
+
+                {/* Pista de fondo */}
+                <path
+                  d="M 20 100 A 80 80 0 0 1 180 100"
+                  fill="none"
+                  stroke="#1B2620"
+                  strokeWidth="18"
+                  strokeLinecap="round"
+                />
+                {/* Arco sólido: 94.8% de 180° */}
+                <path
+                  d="M 20 100 A 80 80 0 0 1 179.2 91.2"
+                  fill="none"
+                  stroke="url(#gauge-solid-memory)"
+                  strokeWidth="18"
+                  strokeLinecap="round"
+                />
+                {/* Proyección rayada del tramo restante */}
+                <path
+                  d="M 179.2 91.2 A 80 80 0 0 1 180 100"
+                  fill="none"
+                  stroke="url(#gauge-hatch-pattern-memory)"
+                  strokeWidth="18"
+                />
+
+                {/* Marcas de graduación */}
+                {[0, 25, 50, 75, 100].map((pct) => {
+                  const angle = Math.PI * (1 - pct / 100);
+                  const x1 = 100 + Math.cos(angle) * 62;
+                  const y1 = 100 - Math.sin(angle) * 62;
+                  const x2 = 100 + Math.cos(angle) * 70;
+                  const y2 = 100 - Math.sin(angle) * 70;
+                  return (
+                    <line
+                      key={pct}
+                      x1={x1}
+                      y1={y1}
+                      x2={x2}
+                      y2={y2}
+                      stroke="rgba(255,255,255,0.18)"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  );
+                })}
               </svg>
 
-              <div className="absolute bottom-2 text-center">
-                <span className="text-3xl font-extrabold text-white font-sans">94.8%</span>
-                <span className="block text-[10px] text-zinc-400">Consistencia</span>
+              <div className="absolute bottom-0 text-center">
+                <span className="text-3xl font-extrabold text-white font-sans tabular-numbers leading-none">
+                  94.8%
+                </span>
+                <span className="block text-[10px] text-zinc-400 mt-1">
+                  Consistencia semántica
+                </span>
               </div>
+            </div>
+
+            {/* Desglose de salud de datos */}
+            <div className="mt-4 pt-3 border-t border-white/[0.06] space-y-2">
+              {[
+                { label: "Registros verificados", value: 18, total: 18 },
+                { label: "Sin contradicciones", value: 17, total: 18 },
+                { label: "Firma HMAC válida", value: 18, total: 18 },
+              ].map((row) => (
+                <div key={row.label} className="flex items-center justify-between text-[11px]">
+                  <span className="text-zinc-400">{row.label}</span>
+                  <span className="font-mono tabular-numbers text-zinc-200">
+                    {row.value}
+                    <span className="text-zinc-500">/{row.total}</span>
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
           {/* Preguntas Pendientes del Agente */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl flex-1 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
-                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                  <HelpCircle className="w-4 h-4 text-emerald-400" />
-                  <span>Consultas del Agente</span>
-                </h3>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  {questions.filter((q) => q.status === "pending").length} activa
-                </span>
-              </div>
-
-              {questions.map((q) => (
-                <div key={q.id} className="space-y-3">
-                  <h4 className="text-xs font-bold text-white">{q.title}</h4>
-                  <p className="text-[11px] text-zinc-300 leading-relaxed bg-surface-well p-3 rounded-xl border border-white/[0.04]">
-                    {q.question}
-                  </p>
-
-                  <div className="space-y-2 pt-2">
-                    {q.options.map((opt, oIdx) => (
-                      <button
-                        key={oIdx}
-                        onClick={() => handleResolveQuestion(q.id, opt)}
-                        className="w-full py-2 px-3 rounded-xl bg-surface-well hover:bg-emerald-500/15 hover:border-emerald-500/30 border border-white/[0.06] text-xs font-medium text-zinc-300 hover:text-emerald-300 transition-all text-left flex items-center justify-between"
-                      >
-                        <span>{opt}</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card flex-1 flex flex-col">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4 text-emerald-400" />
+                <span>Consultas del Agente</span>
+              </h3>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                {questions.filter((q) => q.status === "pending").length} activa
+              </span>
             </div>
+
+            {questions.map((q) => (
+              <div key={q.id} className="space-y-3">
+                <h4 className="text-xs font-bold text-white">{q.title}</h4>
+                <p className="text-[11px] text-zinc-300 leading-relaxed bg-surface-well p-3 rounded-xl border border-white/[0.04]">
+                  {q.question}
+                </p>
+
+                <div className="space-y-2 pt-1">
+                  {q.options.map((opt, oIdx) => (
+                    <button
+                      key={oIdx}
+                      onClick={() => handleResolveQuestion(q.id, opt)}
+                      className="w-full py-2 px-3 rounded-xl bg-surface-well hover:bg-emerald-500/15 hover:border-emerald-500/30 border border-white/[0.06] text-xs font-medium text-zinc-300 hover:text-emerald-300 transition-all text-left flex items-center justify-between gap-2"
+                    >
+                      <span>{opt}</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </aside>
       </div>

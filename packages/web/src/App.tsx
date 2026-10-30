@@ -10,15 +10,10 @@ import { ProductsCatalogView } from "./components/views/ProductsCatalogView";
 import { HitlApprovalsView } from "./components/views/HitlApprovalsView";
 import { HistoryView } from "./components/views/HistoryView";
 import { PoliciesRulesView } from "./components/views/PoliciesRulesView";
-import { RolesPermissionsView } from "./components/views/RolesPermissionsView";
 import { WorkflowCanvas } from "./components/canvas/WorkflowCanvas";
 import { KnowledgeGraphView } from "./components/views/KnowledgeGraphView";
 import { MemoryVaultView } from "./components/views/MemoryVaultView";
 import { AnalyticsReportsView } from "./components/views/AnalyticsReportsView";
-import { NotificationChannelsView } from "./components/views/NotificationChannelsView";
-import { WebhooksApiView } from "./components/views/WebhooksApiView";
-import { CompaniesBranchesView } from "./components/views/CompaniesBranchesView";
-import { IntegrationsView } from "./components/views/IntegrationsView";
 import { SettingsView } from "./components/views/SettingsView";
 import { ComponentShowcaseView } from "./components/views/ComponentShowcaseView";
 import { ApprovalDialog } from "./components/ui/ApprovalDialog";
@@ -179,25 +174,25 @@ export const App: React.FC = () => {
       case "analisis_reportes":
         return <AnalyticsReportsView />;
 
-      // 7. AJUSTES (Empresas, Integraciones, Canales, Webhooks, Roles, General)
+      // 7. AJUSTES (contenedor maestro con 6 sub-pestañas)
       case "ajustes":
       case "configuracion_general":
-        return <SettingsView />;
+        return <SettingsView initialTab="configuracion_general" />;
 
       case "empresas_sucursales":
-        return <CompaniesBranchesView />;
+        return <SettingsView initialTab="empresas_sucursales" />;
 
       case "integraciones":
-        return <IntegrationsView />;
+        return <SettingsView initialTab="integraciones" />;
 
       case "canales_notificaciones":
-        return <NotificationChannelsView />;
+        return <SettingsView initialTab="canales_notificaciones" />;
 
       case "webhooks_api":
-        return <WebhooksApiView />;
+        return <SettingsView initialTab="webhooks_api" />;
 
       case "roles_permisos":
-        return <RolesPermissionsView />;
+        return <SettingsView initialTab="roles_permisos" />;
 
       // SHOWCASE SOLO EN DESARROLLO
       case "componentes":

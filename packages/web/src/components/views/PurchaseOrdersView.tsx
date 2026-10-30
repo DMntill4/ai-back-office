@@ -103,7 +103,7 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
     totalCop: 1549800,
     date: "Hoy, 10:18 a. m.",
     status: "emitida",
-    policyApplied: "Autonomía < $5M COP (Regla GOV-01)",
+    policyApplied: "Autonomía < $5M COP",
     isHitlEscalated: false,
     hmacSignature: "hmac_sha256_9f81a7b640192e",
     mathJustification: {
@@ -141,7 +141,7 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
     totalCop: 7318500,
     date: "Hoy, 09:30 a. m.",
     status: "pendiente_gobernanza",
-    policyApplied: "HITL Escalada > $5M COP (Regla GOV-03)",
+    policyApplied: "Escalada a firma ejecutiva > $5M COP",
     isHitlEscalated: true,
     hmacSignature: "hmac_sha256_31a89c02ff1e92",
     mathJustification: {
@@ -179,7 +179,7 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
     totalCop: 4408320,
     date: "Ayer, 16:45 p. m.",
     status: "recibida_bodega",
-    policyApplied: "Autonomía < $5M COP (Regla GOV-01)",
+    policyApplied: "Autonomía < $5M COP",
     isHitlEscalated: false,
     hmacSignature: "hmac_sha256_77c12faa9011",
     mathJustification: {
@@ -255,7 +255,7 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
     totalCop: 21546000,
     date: "26 Oct 2026",
     status: "pendiente_gobernanza",
-    policyApplied: "HITL Escalada > $5M COP (Regla GOV-03)",
+    policyApplied: "Escalada a firma ejecutiva > $5M COP",
     isHitlEscalated: true,
     hmacSignature: "hmac_sha256_dd410a88de44",
     mathJustification: {
@@ -387,9 +387,9 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
       // 3. Sede / Bodega
       const matchesWarehouse =
         warehouseFilter === "all" ||
-        (warehouseFilter === "wh_bga" && o.destination.includes("Bucaramanga")) ||
-        (warehouseFilter === "wh_bog" && o.destination.includes("Bogotá")) ||
-        (warehouseFilter === "wh_med" && o.destination.includes("Medellín"));
+        (warehouseFilter === "bga" && o.destination.includes("Bucaramanga")) ||
+        (warehouseFilter === "bog" && o.destination.includes("Bogotá")) ||
+        (warehouseFilter === "med" && o.destination.includes("Medellín"));
 
       // 4. Proveedor
       const matchesSupplier =
@@ -464,8 +464,8 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
       date: "Hoy, Justo ahora",
       status: isOverThreshold ? "pendiente_gobernanza" : "emitida",
       policyApplied: isOverThreshold
-        ? "HITL Escalada > $5M COP (Regla GOV-03)"
-        : "Autonomía < $5M COP (Regla GOV-01)",
+        ? "Escalada a firma ejecutiva > $5M COP"
+        : "Autonomía < $5M COP",
       isHitlEscalated: isOverThreshold,
       hmacSignature: `hmac_sha256_${Math.random().toString(16).substring(2, 10)}`,
       mathJustification: {
@@ -474,11 +474,10 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
         dailyBurnRate: 1.5,
         coverageDays: 3.3,
         projectedStockoutHours: 80,
-        recommendationText: `Orden manual ingresada por operador. ${
-          isOverThreshold
-            ? "Monto sobre $5.000.000 COP: Enviada a bandeja de aprobaciones."
-            : "Monto bajo umbral de gobernanza: Autorización inmediata."
-        }`,
+        recommendationText: `Orden manual ingresada por operador. ${isOverThreshold
+          ? "Monto sobre $5.000.000 COP: Enviada a bandeja de aprobaciones."
+          : "Monto bajo umbral de gobernanza: Autorización inmediata."
+          }`,
       },
     };
 
@@ -486,8 +485,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
     setSelectedOrderId(newPO.id);
     setIsNewOrderModalOpen(false);
     showToast(
-      `Orden ${newPO.orderNumber} creada con éxito (${
-        isOverThreshold ? "Escalada a /inbox" : "Emitida al proveedor"
+      `Orden ${newPO.orderNumber} creada con éxito (${isOverThreshold ? "Escalada a /inbox" : "Emitida al proveedor"
       }).`
     );
   };
@@ -515,11 +513,11 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
     label: string;
     count: number;
   }[] = [
-    { id: "all", label: "Todas", count: 32 },
-    { id: "borrador_ia", label: "Borrador IA", count: 8 },
-    { id: "emitida", label: "En Tránsito", count: 14 },
-    { id: "recibida_bodega", label: "Recibidas", count: 10 },
-  ];
+      { id: "all", label: "Todas", count: 32 },
+      { id: "borrador_ia", label: "Borrador IA", count: 8 },
+      { id: "emitida", label: "En Tránsito", count: 14 },
+      { id: "recibida_bodega", label: "Recibidas", count: 10 },
+    ];
 
   return (
     <div className="flex-1 h-full overflow-hidden flex flex-col bg-canvas text-[#F9FAFB] font-sans select-none relative">
@@ -577,22 +575,20 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
           <div className="flex items-center p-1 rounded-xl bg-surface-1 border border-white/[0.08]">
             <button
               onClick={() => setViewMode("cards")}
-              className={`p-1.5 rounded-lg transition-colors ${
-                viewMode === "cards"
-                  ? "bg-emerald-500/20 text-emerald-300"
-                  : "text-zinc-500 hover:text-white"
-              }`}
+              className={`p-1.5 rounded-lg transition-colors ${viewMode === "cards"
+                ? "bg-emerald-500/20 text-emerald-300"
+                : "text-zinc-500 hover:text-white"
+                }`}
               title="Vista de Tarjetas con Stepper (Inventar)"
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`p-1.5 rounded-lg transition-colors ${
-                viewMode === "table"
-                  ? "bg-emerald-500/20 text-emerald-300"
-                  : "text-zinc-500 hover:text-white"
-              }`}
+              className={`p-1.5 rounded-lg transition-colors ${viewMode === "table"
+                ? "bg-emerald-500/20 text-emerald-300"
+                : "text-zinc-500 hover:text-white"
+                }`}
               title="Vista de Tabla"
             >
               <List className="w-4 h-4" />
@@ -629,19 +625,17 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                   <button
                     key={st.id}
                     onClick={() => setStatusFilter(st.id)}
-                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
-                      statusFilter === st.id
-                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)] font-bold"
-                        : "bg-surface-well border-white/[0.04] text-zinc-400 hover:text-white hover:border-white/10"
-                    }`}
+                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all ${statusFilter === st.id
+                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)] font-bold"
+                      : "bg-surface-well border-white/[0.04] text-zinc-400 hover:text-white hover:border-white/10"
+                      }`}
                   >
                     <span className="text-[11px] leading-tight block">{st.label}</span>
                     <span
-                      className={`text-[10px] font-mono mt-1 px-1.5 py-0.2 rounded w-fit ${
-                        statusFilter === st.id
-                          ? "bg-emerald-500/20 text-emerald-300 font-bold"
-                          : "bg-white/[0.04] text-zinc-500"
-                      }`}
+                      className={`text-[10px] font-mono mt-1 px-1.5 py-0.2 rounded w-fit ${statusFilter === st.id
+                        ? "bg-emerald-500/20 text-emerald-300 font-bold"
+                        : "bg-white/[0.04] text-zinc-500"
+                        }`}
                     >
                       {st.count}
                     </span>
@@ -665,9 +659,9 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                   className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl px-2.5 text-xs text-zinc-300 font-sans focus:outline-none focus:border-emerald-500/50 cursor-pointer"
                 >
                   <option value="all">Todas las sedes</option>
-                  <option value="wh_bga">Bodega Matriz Bucaramanga</option>
-                  <option value="wh_bog">CD Bogotá D.C.</option>
-                  <option value="wh_med">CD Medellín</option>
+                  <option value="bga">Bodega Matriz Bucaramanga</option>
+                  <option value="bog">CD Bogotá D.C.</option>
+                  <option value="med">CD Medellín</option>
                 </select>
               </div>
 
@@ -713,8 +707,8 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                   className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl px-2.5 text-xs text-zinc-300 font-sans focus:outline-none focus:border-emerald-500/50 cursor-pointer"
                 >
                   <option value="all">Todos los niveles</option>
-                  <option value="autonoma">Autonomía &lt; $5M COP (GOV-01)</option>
-                  <option value="hitl">Requiere Firma Ejecutiva &gt; $5M COP (GOV-03)</option>
+                  <option value="autonoma">Autonomía &lt; $5M COP</option>
+                  <option value="hitl">Requiere Firma Ejecutiva &gt; $5M COP</option>
                 </select>
               </div>
             </div>
@@ -793,7 +787,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                   );
                   steps = [
                     { label: "Creación IA", timestamp: "Autónoma", status: "completed", icon: <Sparkles className="w-3.5 h-3.5" /> },
-                    { label: "Aprobación Gobernanza", timestamp: "GOV-01 Aprobada", status: "completed", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+                    { label: "Aprobación Gobernanza", timestamp: "Aprobada", status: "completed", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
                     { label: "Despacho Proveedor", timestamp: "En ruta (48 km)", status: "active", icon: <Truck className="w-3.5 h-3.5" /> },
                     { label: "Recepción Bodega", timestamp: "Pendiente", status: "pending", icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
                   ];
@@ -842,7 +836,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                   ];
                 } else {
                   stepperTitle = `Borrador de cotización en formulación por agente • ${o.date}`;
-                  stepperMeta = "Landed Cost calculado por financial_maestro";
+                  stepperMeta = "Costo total de importación calculado por el agente financiero";
                   stepperAction = (
                     <button
                       onClick={(e) => {
@@ -868,19 +862,19 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                   o.status === "recibida_bodega"
                     ? "paid"
                     : o.status === "emitida"
-                    ? "shipped"
-                    : o.status === "pendiente_gobernanza"
-                    ? "pendiente"
-                    : "en_curso";
+                      ? "shipped"
+                      : o.status === "pendiente_gobernanza"
+                        ? "pendiente"
+                        : "en_curso";
 
                 const badgeLabel =
                   o.status === "recibida_bodega"
                     ? "Recibida / Conciliada"
                     : o.status === "emitida"
-                    ? "Aprobada / En Tránsito"
-                    : o.status === "pendiente_gobernanza"
-                    ? "Pendiente de Aprobación"
-                    : "Borrador IA";
+                      ? "Aprobada / En Tránsito"
+                      : o.status === "pendiente_gobernanza"
+                        ? "Pendiente de Aprobación"
+                        : "Borrador IA";
 
                 return (
                   <div
@@ -888,11 +882,10 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                     onClick={() => {
                       setSelectedOrderId(o.id);
                     }}
-                    className={`bg-surface-1 rounded-2xl p-5 mb-3.5 border transition-all cursor-pointer shadow-card hover:border-white/10 ${
-                      isSelected
-                        ? "border-emerald-500/40 ring-1 ring-emerald-500/20 bg-[#14201A]"
-                        : "border-white/[0.06]"
-                    }`}
+                    className={`bg-surface-1 rounded-2xl p-5 mb-3.5 border transition-all cursor-pointer shadow-card hover:border-white/10 ${isSelected
+                      ? "border-emerald-500/40 ring-1 ring-emerald-500/20 bg-[#14201A]"
+                      : "border-white/[0.06]"
+                      }`}
                   >
                     {/* NIVEL SUPERIOR: Código PO + Nombre insumo y cantidad + Monto + Badge + Botón ••• */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -943,10 +936,10 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
 
                       <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
                         <span className="bg-white/[0.04] px-1.5 py-0.5 rounded text-zinc-300">
-                          Billed · Facturado
+                          Facturado
                         </span>
                         <span className="text-zinc-600">·</span>
-                        <span>{o.specialist}</span>
+                        <span>{o.specialist === "comprasSpecialist" ? "Especialista de Compras" : "Agente Financiero"}</span>
                       </div>
                     </div>
 
@@ -1020,10 +1013,10 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                             o.status === "recibida_bodega"
                               ? "paid"
                               : o.status === "emitida"
-                              ? "shipped"
-                              : o.status === "pendiente_gobernanza"
-                              ? "pendiente"
-                              : "en_curso"
+                                ? "shipped"
+                                : o.status === "pendiente_gobernanza"
+                                  ? "pendiente"
+                                  : "en_curso"
                           }
                           size="sm"
                         />
@@ -1078,21 +1071,19 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                     <div className="flex items-center p-0.5 rounded-lg bg-surface-well border border-white/[0.04]">
                       <button
                         onClick={() => setReceiptMode("formatted")}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
-                          receiptMode === "formatted"
-                            ? "bg-emerald-500/20 text-emerald-300 font-bold"
-                            : "text-zinc-400 hover:text-white"
-                        }`}
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${receiptMode === "formatted"
+                          ? "bg-emerald-500/20 text-emerald-300 font-bold"
+                          : "text-zinc-400 hover:text-white"
+                          }`}
                       >
                         Recibo
                       </button>
                       <button
                         onClick={() => setReceiptMode("json")}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
-                          receiptMode === "json"
-                            ? "bg-emerald-500/20 text-emerald-300 font-bold"
-                            : "text-zinc-400 hover:text-white"
-                        }`}
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${receiptMode === "json"
+                          ? "bg-emerald-500/20 text-emerald-300 font-bold"
+                          : "text-zinc-400 hover:text-white"
+                          }`}
                       >
                         JSON
                       </button>

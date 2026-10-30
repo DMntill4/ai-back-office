@@ -204,31 +204,28 @@ export const AnalyticsReportsView: React.FC = () => {
           <div className="flex items-center p-1 rounded-xl bg-surface-1 border border-white/[0.08]">
             <button
               onClick={() => setTimeRange("mes")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                timeRange === "mes"
-                  ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30"
-                  : "text-zinc-400 hover:text-white"
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${timeRange === "mes"
+                ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30"
+                : "text-zinc-400 hover:text-white"
+                }`}
             >
               Este Mes
             </button>
             <button
               onClick={() => setTimeRange("trimestre")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                timeRange === "trimestre"
-                  ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30"
-                  : "text-zinc-400 hover:text-white"
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${timeRange === "trimestre"
+                ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30"
+                : "text-zinc-400 hover:text-white"
+                }`}
             >
               Trimestre Q3
             </button>
             <button
               onClick={() => setTimeRange("ano")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                timeRange === "ano"
-                  ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30"
-                  : "text-zinc-400 hover:text-white"
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${timeRange === "ano"
+                ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30"
+                : "text-zinc-400 hover:text-white"
+                }`}
             >
               Año 2026
             </button>
@@ -253,89 +250,87 @@ export const AnalyticsReportsView: React.FC = () => {
       {/* 2. FILA 2: BENTO VISUAL DE 3 BLOQUES                      */}
       {/* ========================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Bloque Izquierdo (7 Cols): Curva Suave con Tooltip Flotante estilo CheckinOs */}
-        <div className="lg:col-span-7 bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
+        {/* Bloque Izquierdo (7 Cols): Barras Redondeadas con Proyección Rayada */}
+        <div className="lg:col-span-7 bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-white/[0.06]">
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">
-                Curva de Ingresos y Margen Operativo
+                Ingresos y Proyección Operativa
               </h3>
               <p className="text-xs text-zinc-400">
-                Evolución mensual con desglose de sobrecostos absorbidos
+                Ejecutado mensual frente a la proyección del agente
               </p>
             </div>
-            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-              Margen Máximo: 31.4%
-            </span>
-          </div>
-
-          {/* Gráfico SVG de Curva Suave con Área Sombreada y Tooltip */}
-          <div className="relative my-4 h-56 w-full flex items-center justify-center">
-            {/* Tooltip Flotante Destacado (CheckinOs Style: Total Revenue $145,450) */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl bg-[#0B100E]/95 border border-emerald-500/40 backdrop-blur-xl shadow-2xl flex items-center gap-3">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <div>
-                <span className="text-[10px] uppercase font-mono text-zinc-400 block">
-                  Octubre 2026 · Cifra Récord
-                </span>
-                <span className="text-sm font-bold text-white font-mono">
-                  $46.800.000 COP · Margen 31.4%
-                </span>
-              </div>
+            <div className="flex items-center gap-3 text-[10px] text-zinc-500">
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+                Ejecutado
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm bg-hatched-emerald border border-emerald-500/30" />
+                Proyección
+              </span>
             </div>
-
-            <svg
-              className="w-full h-full select-none"
-              viewBox="0 0 640 200"
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id="revenue-area" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10B981" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-
-              {/* Guías horizontales tenues */}
-              <line x1="0" y1="40" x2="640" y2="40" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-              <line x1="0" y1="100" x2="640" y2="100" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-              <line x1="0" y1="160" x2="640" y2="160" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-
-              {/* Área bajo la curva */}
-              <path
-                d="M 20 160 C 90 140, 150 130, 220 110 C 290 95, 360 85, 430 70 C 500 55, 570 45, 620 30 L 620 190 L 20 190 Z"
-                fill="url(#revenue-area)"
-              />
-
-              {/* Curva Principal */}
-              <path
-                d="M 20 160 C 90 140, 150 130, 220 110 C 290 95, 360 85, 430 70 C 500 55, 570 45, 620 30"
-                fill="none"
-                stroke="#10B981"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-              />
-
-              {/* Puntos destacados */}
-              <circle cx="220" cy="110" r="4.5" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
-              <circle cx="430" cy="70" r="4.5" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
-              <circle cx="620" cy="30" r="6" fill="#34D399" stroke="#FFFFFF" strokeWidth="2.5" />
-            </svg>
           </div>
 
-          {/* Días / Meses en el eje X */}
-          <div className="flex justify-between text-[11px] font-mono text-zinc-500 pt-2 border-t border-white/[0.04]">
-            {MONTHLY_METRICS.slice(0, 8).map((m) => (
-              <span key={m.month}>{m.month}</span>
+          {/* Gráfico de Barras Redondeadas */}
+          <div className="relative my-5 h-52 w-full flex items-end justify-between gap-1.5 sm:gap-2.5">
+            {MONTHLY_METRICS.map((m, idx) => {
+              const maxRevenue = Math.max(...MONTHLY_METRICS.map((x) => x.revenueCop));
+              const actualPct = (m.revenueCop / maxRevenue) * 100;
+              // Proyección: últimos 3 meses muestran el tramo rayado
+              const isProjected = idx >= MONTHLY_METRICS.length - 3;
+              const projectionPct = isProjected ? Math.min(actualPct * 0.18, 100 - actualPct) : 0;
+              const isPeak = idx === MONTHLY_METRICS.length - 1;
+              return (
+                <div
+                  key={m.month}
+                  className="flex-1 flex flex-col items-center justify-end h-full group relative"
+                >
+                  {/* Tooltip al hover */}
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap px-2 py-1 rounded-lg bg-[#070B09] border border-emerald-500/40 shadow-xl">
+                    <span className="text-[10px] font-mono text-white">
+                      ${(m.revenueCop / 1000000).toFixed(1)}M
+                    </span>
+                  </div>
+
+                  <div className="w-full flex flex-col justify-end items-stretch gap-[2px] h-full">
+                    {/* Tramo proyectado rayado */}
+                    {projectionPct > 0 && (
+                      <div
+                        className="w-full rounded-t-md bg-hatched-emerald border border-emerald-500/25 border-b-0"
+                        style={{ height: `${projectionPct}%` }}
+                      />
+                    )}
+                    {/* Tramo ejecutado sólido */}
+                    <div
+                      className={`w-full rounded-md transition-all ${isPeak
+                        ? "bg-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.45)]"
+                        : "bg-emerald-600/85 group-hover:bg-emerald-500"
+                        }`}
+                      style={{ height: `${actualPct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Meses en el eje X */}
+          <div className="flex justify-between text-[10px] font-mono text-zinc-500 pt-2 border-t border-white/[0.04]">
+            {MONTHLY_METRICS.map((m) => (
+              <span key={m.month} className="flex-1 text-center">
+                {m.month}
+              </span>
             ))}
           </div>
         </div>
 
-        {/* Bloque Central (5 Cols): Medidor Semicircular de 180° (Donezo Project Progress) */}
-        <div className="lg:col-span-5 bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] flex flex-col justify-between">
+        {/* Bloque Central (5 Cols): Medidor Semicircular de 180° de Eficiencia */}
+        <div className="lg:col-span-5 bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card flex flex-col justify-between">
           <div className="pb-3 border-b border-white/[0.06]">
             <h3 className="text-base font-bold text-white tracking-tight">
-              Cumplimiento de Objetivos
+              Eficiencia Operativa
             </h3>
             <p className="text-xs text-zinc-400">
               Rendimiento acumulado de ahorros y metas operativas
@@ -343,8 +338,8 @@ export const AnalyticsReportsView: React.FC = () => {
           </div>
 
           {/* Medidor Semicircular de 180° */}
-          <div className="relative flex flex-col items-center justify-center my-4">
-            <svg className="w-56 h-32 select-none" viewBox="0 0 200 115">
+          <div className="relative flex flex-col items-center justify-center mt-4">
+            <svg className="w-56 h-32 select-none" viewBox="0 0 200 118">
               <defs>
                 <pattern
                   id="gauge-hatch-pattern-analytics"
@@ -360,62 +355,87 @@ export const AnalyticsReportsView: React.FC = () => {
                     y2="6"
                     stroke="#10B981"
                     strokeWidth="2.5"
-                    strokeOpacity="0.45"
+                    strokeOpacity="0.5"
                   />
                 </pattern>
+                <linearGradient id="gauge-solid-analytics" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#0E684D" />
+                  <stop offset="100%" stopColor="#10B981" />
+                </linearGradient>
               </defs>
 
-              {/* Arco base gris */}
+              {/* Arco base */}
               <path
                 d="M 20 100 A 80 80 0 0 1 180 100"
                 fill="none"
                 stroke="#1B2620"
-                strokeWidth="22"
+                strokeWidth="20"
                 strokeLinecap="round"
               />
 
-              {/* Tramo Completado Sólido (48%) */}
+              {/* Tramo ejecutado sólido (48% de 180° ≈ 86.4°) */}
               <path
                 d="M 20 100 A 80 80 0 0 1 100 20"
                 fill="none"
-                stroke="#0E684D"
-                strokeWidth="22"
+                stroke="url(#gauge-solid-analytics)"
+                strokeWidth="20"
                 strokeLinecap="round"
               />
 
-              {/* Tramo Activo Rayado (30%) */}
+              {/* Tramo en ruta rayado (30% adicional) */}
               <path
                 d="M 100 20 A 80 80 0 0 1 155 42"
                 fill="none"
                 stroke="url(#gauge-hatch-pattern-analytics)"
-                strokeWidth="22"
+                strokeWidth="20"
               />
+
+              {/* Marcas de graduación */}
+              {[0, 25, 50, 75, 100].map((pct) => {
+                const angle = Math.PI * (1 - pct / 100);
+                const x1 = 100 + Math.cos(angle) * 62;
+                const y1 = 100 - Math.sin(angle) * 62;
+                const x2 = 100 + Math.cos(angle) * 70;
+                const y2 = 100 - Math.sin(angle) * 70;
+                return (
+                  <line
+                    key={pct}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke="rgba(255,255,255,0.18)"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                );
+              })}
             </svg>
 
-            {/* Texto Central Gigante */}
-            <div className="absolute bottom-2 text-center">
-              <span className="text-3xl font-extrabold text-white tracking-tight font-sans">
+            {/* Texto Central */}
+            <div className="absolute bottom-0 text-center">
+              <span className="text-3xl font-extrabold text-white tracking-tight font-sans tabular-numbers leading-none">
                 78%
               </span>
-              <span className="block text-[11px] font-medium text-zinc-400">
+              <span className="block text-[11px] font-medium text-zinc-400 mt-1">
                 Meta Trimestral
               </span>
             </div>
           </div>
 
-          {/* Leyenda de 3 Estados (Estilo Donezo) */}
-          <div className="flex items-center justify-center gap-4 pt-3 border-t border-white/[0.04] text-[11px] font-medium text-zinc-400">
+          {/* Leyenda de 3 Estados */}
+          <div className="flex items-center justify-center gap-4 pt-3 mt-3 border-t border-white/[0.04] text-[11px] font-medium text-zinc-400">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#0E684D]" />
-              <span>Ejecutado (48%)</span>
+              <span>Ejecutado 48%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              <span>En Ruta (30%)</span>
+              <span>En Ruta 30%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#1B2620]" />
-              <span>Pendiente (22%)</span>
+              <span>Pendiente 22%</span>
             </div>
           </div>
         </div>
@@ -442,11 +462,10 @@ export const AnalyticsReportsView: React.FC = () => {
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                    selectedCategory === cat
-                      ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 shadow-sm"
-                      : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
-                  }`}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${selectedCategory === cat
+                    ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 shadow-sm"
+                    : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+                    }`}
                 >
                   {cat}
                 </button>

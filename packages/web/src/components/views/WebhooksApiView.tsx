@@ -124,8 +124,24 @@ export const WebhooksApiView: React.FC = () => {
     },
   ];
 
+  const maskPath = (path: string) => {
+    const parts = path.split("/");
+    const last = parts[parts.length - 1];
+    if (last.length <= 4) return path;
+    return `${parts.slice(0, -1).join("/")}/${last.slice(0, 3)}${"•".repeat(
+      Math.min(last.length - 3, 8)
+    )}`;
+  };
+
+  const methodTone = (method: EndpointItem["method"]) =>
+    method === "POST"
+      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+      : method === "GET"
+        ? "bg-sky-500/15 text-sky-400 border-sky-500/30"
+        : "bg-violet-500/15 text-violet-400 border-violet-500/30";
+
   return (
-    <div className="flex-1 h-full overflow-y-auto bg-canvas text-[#F9FAFB] font-sans select-none flex flex-col p-6 space-y-6">
+    <div className="flex flex-col gap-5">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -147,77 +163,155 @@ export const WebhooksApiView: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* HEADER SUPERIOR */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Webhooks y API Gateway
-          </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Puntos de integración telemática, ingesta de órdenes y streaming de telemetría
-          </p>
+      {/* BARRA DE ACCIONES DE LA SUB-PESTAÑA */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-500">
+          <span className="px-2 py-1 rounded-lg bg-surface-1 border border-white/[0.06] text-zinc-300">
+            {endpoints.length} endpoints publicados
+          </span>
+          <span className="hidden sm:inline">48.250 peticiones en 24 h · 0 errores 5xx</span>
         </div>
 
         <button
           onClick={() => showToast("Abriendo asistente para registrar nuevo webhook...")}
-          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
+          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer self-start sm:self-auto"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>+ Nuevo Endpoint</span>
         </button>
-      </header>
+      </div>
 
       {/* FILA 1: KPI STRIP CON HÉROE */}
       <KpiStrip items={kpis} />
 
       {/* FILA 2: GRID DE TARJETAS DE 2 NIVELES */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {endpoints.map((ep) => (
-          <div
-            key={ep.id}
-            className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl flex flex-col justify-between transition-all hover:border-emerald-500/30"
-          >
-            <div>
-              <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                      ep.method === "POST"
-                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                        : ep.method === "GET"
-                        ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
-                        : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
-                    }`}
-                  >
-                    {ep.method}
-                  </span>
-                  <h3 className="text-xs font-bold text-white font-mono">{ep.path}</h3>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        {endpoints.map((ep) => {
+          const total = Math.round((ep.rpm * 60 * 24) / 1000) * 1000;
+          const errors = Math.round(total * (1 - ep.successRatePct / 100));
+          return (
+            <div
+              key={ep.id}
+              className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card flex flex-col justify-between transition-all hover:border-emerald-500/30"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border shrink-0 ${methodTone(
+                        ep.method
+                      )}`}
+                    >
+                      {ep.method}
+                    </span>
+                    <h3 className="text-xs font-bold text-white font-mono truncate">
+                      {maskPath(ep.path)}
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500 shrink-0">{ep.category}</span>
                 </div>
-                <span className="text-[10px] font-mono text-zinc-500">{ep.category}</span>
+
+                <h4 className="text-xs font-bold text-white mt-3">{ep.name}</h4>
+                <p className="text-xs text-zinc-300 mt-1 leading-relaxed">{ep.description}</p>
               </div>
 
-              <h4 className="text-xs font-bold text-white mt-3">{ep.name}</h4>
-              <p className="text-xs text-zinc-300 mt-1 leading-relaxed">{ep.description}</p>
+              {/* Sub-caja Well con métricas 2xx / 5xx */}
+              <div className="bg-surface-well rounded-xl p-3.5 mt-4 border border-white/[0.04] space-y-2.5">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-surface-1/60 rounded-lg px-2.5 py-2 border border-white/[0.04]">
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">
+                      Latencia
+                    </span>
+                    <span className="text-xs font-mono font-bold text-white tabular-numbers">
+                      {ep.latencyMs} ms
+                    </span>
+                  </div>
+                  <div className="bg-surface-1/60 rounded-lg px-2.5 py-2 border border-emerald-500/15">
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">
+                      2xx Éxito
+                    </span>
+                    <span className="text-xs font-mono font-bold text-emerald-400 tabular-numbers">
+                      {ep.successRatePct}%
+                    </span>
+                  </div>
+                  <div className="bg-surface-1/60 rounded-lg px-2.5 py-2 border border-white/[0.04]">
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">
+                      5xx Errores
+                    </span>
+                    <span
+                      className={`text-xs font-mono font-bold tabular-numbers ${errors === 0 ? "text-zinc-400" : "text-rose-400"
+                        }`}
+                    >
+                      {errors}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
+                  <span className="text-[10px] font-mono text-zinc-500">
+                    {ep.rpm} req/min · {total.toLocaleString("es-CO")} req/día
+                  </span>
+                  <button
+                    onClick={() => handleTestEndpoint(ep.name)}
+                    className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 cursor-pointer"
+                  >
+                    <Play className="w-3 h-3" />
+                    <span>Probar</span>
+                  </button>
+                </div>
+              </div>
             </div>
+          );
+        })}
+      </div>
 
-            {/* Sub-caja Well */}
-            <div className="bg-surface-well rounded-xl p-3.5 mt-4 border border-white/[0.04]">
-              <div className="flex items-center justify-between text-[11px] font-mono">
-                <span className="text-zinc-400">
-                  Latencia: <strong className="text-white">{ep.latencyMs} ms</strong> · Éxito:{" "}
-                  <strong className="text-emerald-400">{ep.successRatePct}%</strong>
-                </span>
-                <button
-                  onClick={() => handleTestEndpoint(ep.name)}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 cursor-pointer font-sans"
-                >
-                  <Play className="w-3 h-3" />
-                  <span>Probar Conexión</span>
-                </button>
-              </div>
+      {/* FILA 3: VISOR DE REGISTROS ESTRUCTURADOS */}
+      <div className="bg-surface-1 rounded-2xl border border-white/[0.06] shadow-card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+              <Terminal className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-white">Registro de Tráfico en Vivo</h3>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                Últimas peticiones procesadas por el gateway
+              </span>
             </div>
           </div>
-        ))}
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-mono text-emerald-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Streaming
+          </span>
+        </div>
+
+        <div className="bg-[#070B09] p-4 font-mono text-[11px] leading-relaxed overflow-x-auto custom-scrollbar">
+          {[
+            { t: "06:14:02", code: 200, method: "POST", path: "/api/v1/ingest/webhook", ms: 18 },
+            { t: "06:14:01", code: 200, method: "GET", path: "/api/v1/stock/health", ms: 14 },
+            { t: "06:13:58", code: 200, method: "POST", path: "/api/v1/hitl/decision", ms: 32 },
+            { t: "06:13:55", code: 200, method: "WS", path: "/api/v1/telemetry/stream", ms: 8 },
+            { t: "06:13:51", code: 429, method: "POST", path: "/api/v1/ingest/webhook", ms: 4 },
+            { t: "06:13:47", code: 200, method: "GET", path: "/api/v1/stock/health", ms: 12 },
+          ].map((log, idx) => (
+            <div key={idx} className="flex items-center gap-3 whitespace-nowrap">
+              <span className="text-zinc-500">{log.t}</span>
+              <span
+                className={`px-1.5 rounded ${log.code < 300
+                  ? "bg-emerald-500/15 text-emerald-400"
+                  : log.code < 500
+                    ? "bg-amber-500/15 text-amber-400"
+                    : "bg-rose-500/15 text-rose-400"
+                  }`}
+              >
+                {log.code}
+              </span>
+              <span className="text-sky-400 w-10">{log.method}</span>
+              <span className="text-zinc-300 flex-1">{log.path}</span>
+              <span className="text-zinc-500 tabular-numbers">{log.ms} ms</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

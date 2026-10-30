@@ -134,8 +134,19 @@ export const RolesPermissionsView: React.FC = () => {
     });
   }, [operators, searchQuery]);
 
+  const PERMISSION_MATRIX = [
+    { capability: "Firma HITL de Órdenes", roles: ["Administrador General", "Supervisor de Operaciones", "Coordinadora de Distribución"] },
+    { capability: "Mutación de Políticas", roles: ["Administrador General"] },
+    { capability: "Ajuste de Inventario Físico", roles: ["Administrador General", "Supervisor de Operaciones"] },
+    { capability: "Despacho y Rutas", roles: ["Administrador General", "Supervisor de Operaciones", "Coordinadora de Distribución"] },
+    { capability: "Parada de Emergencia", roles: ["Administrador General"] },
+    { capability: "Conciliación de Entregas", roles: ["Coordinadora de Distribución"] },
+  ];
+
+  const ROLES = ["Administrador General", "Supervisor de Operaciones", "Coordinadora de Distribución"];
+
   return (
-    <div className="flex-1 h-full overflow-y-auto bg-canvas text-[#F9FAFB] font-sans select-none flex flex-col p-6 space-y-6">
+    <div className="flex flex-col gap-5">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -157,15 +168,13 @@ export const RolesPermissionsView: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* HEADER SUPERIOR */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Roles y Permisos de Operación
-          </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Gestión de privilegios, delegación de firma HITL y control de accesos multisede
-          </p>
+      {/* BARRA DE ACCIONES DE LA SUB-PESTAÑA */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-500">
+          <span className="px-2 py-1 rounded-lg bg-surface-1 border border-white/[0.06] text-zinc-300">
+            {filteredOperators.length} de {operators.length} operadores
+          </span>
+          <span className="hidden sm:inline">Autenticación multifactor obligatoria</span>
         </div>
 
         <div className="flex items-center gap-3">
@@ -185,20 +194,75 @@ export const RolesPermissionsView: React.FC = () => {
             className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>+ Invitar Operador</span>
+            <span>+ Invitar</span>
           </button>
         </div>
-      </header>
+      </div>
 
       {/* FILA 1: KPI STRIP CON TARJETA HÉROE */}
       <KpiStrip items={kpis} />
 
-      {/* FILA 2: LISTA DE TARJETAS DE 2 NIVELES (INVENTAR STYLE) */}
+      {/* FILA 2: MATRIZ VISUAL DE PERMISOS POR ROL */}
+      <div className="bg-surface-1 rounded-2xl border border-white/[0.06] shadow-card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+              <Shield className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-white">Matriz de Privilegios por Rol</h3>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                Capacidades operativas habilitadas por cargo
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left text-xs border-collapse min-w-[640px]">
+            <thead>
+              <tr className="bg-[#0B110E] border-b border-white/[0.06] text-zinc-400 font-mono text-[10px] uppercase tracking-wider">
+                <th className="py-2.5 px-4 font-medium">Capacidad Operativa</th>
+                {ROLES.map((r) => (
+                  <th key={r} className="py-2.5 px-3 font-medium text-center">
+                    {r.split(" ")[0]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04]">
+              {PERMISSION_MATRIX.map((row) => (
+                <tr key={row.capability} className="hover:bg-white/[0.02] transition-colors">
+                  <td className="py-2.5 px-4 text-zinc-200 font-medium">{row.capability}</td>
+                  {ROLES.map((r) => {
+                    const granted = row.roles.includes(r);
+                    return (
+                      <td key={r} className="py-2.5 px-3 text-center">
+                        {granted ? (
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-emerald-500/15 border border-emerald-500/30">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-white/[0.03] border border-white/[0.06]">
+                            <Lock className="w-2.5 h-2.5 text-zinc-600" />
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* FILA 3: LISTA DE TARJETAS DE 2 NIVELES (INVENTAR STYLE) */}
       <div className="space-y-3.5">
         {filteredOperators.map((op) => (
           <div
             key={op.id}
-            className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl transition-all hover:border-emerald-500/30"
+            className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card transition-all hover:border-emerald-500/30"
           >
             {/* Nivel 1: Cabecera con Nombre, Cargo y Estado */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
@@ -221,7 +285,7 @@ export const RolesPermissionsView: React.FC = () => {
 
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <span className="text-xs font-mono font-bold text-white block">
+                  <span className="text-xs font-mono font-bold text-white block tabular-numbers">
                     {op.maxApprovalLimitCop > 100000000
                       ? "Sin Límite"
                       : `$${(op.maxApprovalLimitCop / 1000000).toFixed(0)}M COP máx.`}

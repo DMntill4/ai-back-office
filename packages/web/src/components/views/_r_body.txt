@@ -1,0 +1,323 @@
+
+const formatCop = (value: number) =>
+  value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+
+const SOURCE_LABEL: Record<TimelineEvent["source"], string> = {
+  telemetria: "GPS del vehículo",
+  operativo: "Operación",
+  inferencia_agente: "Agente",
+};
+
+const shipmentView = (s: ShipmentRoute): { status: OperationalStatus; label: string } => {
+  if (s.status === "completado") return { status: "ok", label: "Entregado" };
+  if (s.status === "programado") return { status: "pending", label: "Programado" };
+  if (s.riskAlert && !s.riskAlert.isRerouted) return { status: "attention", label: "Con alerta" };
+  if (s.riskAlert?.isRerouted) return { status: "ok", label: "Desvío aplicado" };
+  return { status: "progress", label: "En camino" };
+};
+
+export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavigateTo }) => {
+  const [shipments, setShipments] = useState<ShipmentRoute[]>(INITIAL_SHIPMENTS);
+  const [selectedShipmentId, setSelectedShipmentId] = useState<string>("ship_01");
+  const [isRerouteOpen, setIsRerouteOpen] = useState(false);
+  const [isRerouting, setIsRerouting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [timelineFilter, setTimelineFilter] = useState<string>("all");
+
+  const inventoryTabs: TabItem[] = [
+    { id: "inventario", label: "Existencias" },
+    { id: "productos", label: "Productos" },
+    { id: "rutas_logistica", label: "Rutas y despachos" },
+  ];
+
+  const selected = shipments.find((s) => s.id === selectedShipmentId) || shipments[0];
+  const view = shipmentView(selected);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4500);
+  };
+
+  const handleApproveReroute = () => {
+    setIsRerouting(true);
+    setTimeout(() => {
+      setShipments((prev) =>
+        prev.map((s) => {
+          if (s.id !== selected.id || !s.riskAlert) return s;
+          const rec = s.aiRecommendation;
+          const newEvent: TimelineEvent = {
+            id: "evt-reroute-approved",
+            title: "Desvío aprobado",
+            time: "10:24 a. m.",
+            location: "Pescadero · conexión con San Gil",
+            description: "Autorizaste el desvío sugerido por el agente. La nueva ruta se envió al conductor.",
+            impact: rec
+              ? `Ahorro neto de ${rec.proposedAlternative.netSavingsMinutes} min · combustible +${formatCop(rec.proposedAlternative.fuelCostCop)}`
+              : undefined,
+            source: "inferencia_agente",
+            isCritical: true,
+            completed: true,
+          };
+          return {
+            ...s,
+            eta: "14:29 p. m. (ahorro de 24 min)",
+            speedKmh: 76,
+            riskAlert: {
+              ...s.riskAlert,
+              isRerouted: true,
+              title: "Ruta alterna confirmada",
+              description: "Desvío activo por la variante de San Gil. Se recuperan 24 min y se evita el tramo lento de Pescadero.",
+            },
+            timelineEvents: [newEvent, ...s.timelineEvents],
+          };
+        })
+      );
+      setIsRerouting(false);
+      setIsRerouteOpen(false);
+      showToast(`Desvío aprobado: nueva ruta enviada al conductor del vehículo ${selected.vehiclePlate}.`);
+    }, 900);
+  };
+
+  const events = useMemo(
+    () => (timelineFilter === "critical" ? selected.timelineEvents.filter((e) => e.isCritical) : selected.timelineEvents),
+    [selected, timelineFilter]
+  );
+
+  const inTransit = shipments.filter((s) => s.status === "en_transito").length;
+  const withAlert = shipments.filter((s) => s.riskAlert && !s.riskAlert.isRerouted && s.status !== "completado").length;
+  const delivered = shipments.filter((s) => s.status === "completado").length;
+  const totalFreight = shipments.reduce((sum, s) => sum + s.totalFreightCop, 0);
+
+  const metrics: MetricItem[] = [
+    { id: "camino", value: String(inTransit), context: "Despachos en camino" },
+    {
+      id: "alerta",
+      value: String(withAlert),
+      context: "Con una alerta por resolver",
+      auxiliary: withAlert > 0 ? <StatusIndicator status="attention" label="Requiere decisión" /> : undefined,
+    },
+    { id: "entregados", value: String(delivered), context: "Entregados hoy" },
+    { id: "flete", value: formatCop(totalFreight), context: "Flete de los despachos de hoy", highlightBrand: true },
+  ];
+
+  const facts: { label: string; value: string }[] = [
+    { label: "Llegada estimada", value: selected.eta },
+    { label: "Distancia", value: `${selected.distanceKm} km` },
+    {
+      label: "Carga",
+      value: `${selected.payloadKg.toLocaleString("es-CO")} de ${selected.capacityKg.toLocaleString("es-CO")} kg (${selected.volumePct}% del volumen)`,
+    },
+    { label: "Flete", value: `${formatCop(selected.totalFreightCop)} · ${selected.ordersCount} órdenes` },
+    { label: "Ahorro frente a envíos separados", value: formatCop(selected.savingsVsIndividualCop) },
+    { label: "Conductor", value: `${selected.driver} · ${selected.phone}` },
+    { label: "Vehículo", value: `${selected.vehicleType} · ${selected.vehiclePlate}` },
+    { label: "Salida", value: selected.departureTime },
+  ];
+
+  const rec = selected.aiRecommendation;
+  const alert = selected.riskAlert;
+
+  return (
+    <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans p-group space-y-group">
+      {toastMessage && (
+        <div
+          role="status"
+          className="fixed bottom-6 right-8 z-50 px-4 py-2.5 rounded-pill flex items-center gap-3 bg-raised border border-strong text-body text-primary shadow-dialog"
+        >
+          <span className="w-2 h-2 rounded-pill bg-state-ok" />
+          <span>{toastMessage}</span>
+          <button onClick={() => setToastMessage(null)} className="text-secondary hover:text-primary cursor-pointer" title="Cerrar aviso">
+            ✕
+          </button>
+        </div>
+      )}
+
+      <PageHeader
+        title="Rutas y despachos"
+        description="Qué va en camino, cuándo llega y qué necesita tu decisión."
+        filterControl={<SegmentedTabs tabs={inventoryTabs} activeTab="rutas_logistica" onChange={(id) => onNavigateTo?.(id)} />}
+      />
+
+      <MetricStrip items={metrics} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-group items-start">
+        <Panel className="p-0 overflow-hidden">
+          <h2 className="px-group py-element text-section-title font-bold border-b border-border">Despachos de hoy</h2>
+          <ul className="divide-y divide-border">
+            {shipments.map((s) => {
+              const v = shipmentView(s);
+              const isActive = s.id === selected.id;
+              return (
+                <li key={s.id}>
+                  <button
+                    onClick={() => setSelectedShipmentId(s.id)}
+                    aria-current={isActive}
+                    className={`w-full text-left px-group py-element space-y-compact cursor-pointer transition-colors ${
+                      isActive ? "bg-raised border-l-2 border-brand" : "hover:bg-raised/50 border-l-2 border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-compact">
+                      <span className="font-mono text-caption text-primary">{s.shipmentCode}</span>
+                      <StatusIndicator status={v.status} label={v.label} />
+                    </div>
+                    <p className="text-body font-medium text-primary">
+                      {s.originCode} → {s.destinationCode}
+                    </p>
+                    <p className="text-caption text-secondary">{s.eta}</p>
+                    <div className="h-1.5 rounded-pill bg-canvas overflow-hidden" role="progressbar" aria-valuenow={s.progressPct} aria-valuemin={0} aria-valuemax={100} aria-label="Avance del recorrido">
+                      <div className="h-full rounded-pill bg-brand" style={{ width: `${s.progressPct}%` }} />
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
+
+        <div className="space-y-group min-w-0">
+          <Panel className="space-y-element">
+            <div className="flex flex-wrap items-start justify-between gap-element">
+              <div>
+                <h2 className="text-section-title font-bold">
+                  {selected.origin} → {selected.destination}
+                </h2>
+                <p className="text-caption text-secondary mt-hairline">
+                  <span className="font-mono">{selected.shipmentCode}</span> · {selected.carrier}
+                </p>
+              </div>
+              <StatusIndicator status={view.status} label={view.label} />
+            </div>
+
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-group gap-y-element">
+              {facts.map((f) => (
+                <div key={f.label}>
+                  <dt className="text-label text-secondary">{f.label}</dt>
+                  <dd className="text-body text-primary tabular-nums">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </Panel>
+
+          {alert && (
+            <Panel className="space-y-element">
+              <div className="flex flex-wrap items-start justify-between gap-element">
+                <div className="max-w-[72ch]">
+                  <StatusIndicator
+                    status={alert.isRerouted ? "ok" : "attention"}
+                    label={alert.isRerouted ? "Resuelto" : alert.severity === "alta" ? "Alerta alta" : "Alerta media"}
+                  />
+                  <h3 className="text-body font-bold mt-compact">{alert.title}</h3>
+                  <p className="text-body text-secondary mt-hairline">{alert.description}</p>
+                </div>
+                {!alert.isRerouted && rec && (
+                  <Button onClick={() => setIsRerouteOpen(true)}>Revisar desvío</Button>
+                )}
+              </div>
+              {!alert.isRerouted && rec && (
+                <p className="text-caption text-secondary">
+                  El agente propone «{rec.proposedAlternative.routeName}»: ahorra {rec.proposedAlternative.netSavingsMinutes} min y cuesta {formatCop(rec.proposedAlternative.fuelCostCop)} más en combustible.
+                </p>
+              )}
+            </Panel>
+          )}
+
+          <Panel className="space-y-element">
+            <h3 className="text-section-title font-bold">Recorrido</h3>
+            <ol className="space-y-element">
+              {selected.milestones.map((m) => (
+                <li key={m.label + m.time} className="flex items-start gap-element">
+                  <span
+                    className={`mt-1 w-2.5 h-2.5 rounded-pill flex-shrink-0 ${
+                      m.status === "completed" ? "bg-state-ok" : m.status === "current" ? "bg-brand" : "border border-strong"
+                    }`}
+                  />
+                  <div className="flex-1 flex flex-wrap justify-between gap-compact">
+                    <div>
+                      <p className={`text-body ${m.status === "pending" ? "text-secondary" : "text-primary font-medium"}`}>{m.label}</p>
+                      <p className="text-caption text-secondary">{m.location}</p>
+                    </div>
+                    <span className="text-caption text-secondary tabular-nums">{m.time}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </Panel>
+
+          <Panel className="space-y-element">
+            <div className="flex flex-wrap items-center justify-between gap-element">
+              <h3 className="text-section-title font-bold">Historial del despacho</h3>
+              <SegmentedTabs
+                tabs={[
+                  { id: "all", label: "Todo" },
+                  { id: "critical", label: "Solo críticos" },
+                ]}
+                activeTab={timelineFilter}
+                onChange={setTimelineFilter}
+              />
+            </div>
+            {events.length === 0 ? (
+              <p className="text-body text-secondary">Este despacho no tiene eventos críticos.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {events.map((e) => (
+                  <li key={e.id} className="py-element flex gap-group">
+                    <span className="w-28 flex-shrink-0 text-caption text-secondary tabular-nums">{e.time}</span>
+                    <div className="min-w-0">
+                      <p className="text-body font-medium text-primary">{e.title}</p>
+                      <p className="text-body text-secondary max-w-[72ch]">{e.description}</p>
+                      {e.impact && <p className="text-caption text-secondary mt-hairline">{e.impact}</p>}
+                      <p className="text-caption text-muted mt-hairline">
+                        {SOURCE_LABEL[e.source]} · {e.location}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        </div>
+      </div>
+
+      <Dialog
+        isOpen={isRerouteOpen && !!rec}
+        onClose={() => setIsRerouteOpen(false)}
+        title="Aprobar desvío"
+        description={rec ? rec.proposedAlternative.routeName : undefined}
+        confirmLabel="Aprobar desvío"
+        onConfirm={handleApproveReroute}
+        isProcessing={isRerouting}
+      >
+        {rec && (
+          <div className="space-y-element">
+            <div>
+              <p className="text-label text-secondary">Qué pasó</p>
+              <p className="text-body">
+                {rec.detectedIssue.title}. {rec.detectedIssue.description}
+              </p>
+            </div>
+            <div className="rounded-control bg-panel border border-border p-element space-y-compact text-body">
+              <div className="flex justify-between">
+                <span className="text-secondary">Tiempo recuperado</span>
+                <span className="tabular-nums font-medium">{rec.proposedAlternative.netSavingsMinutes} min</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-secondary">Kilómetros adicionales</span>
+                <span className="tabular-nums font-medium">{rec.proposedAlternative.extraKm} km</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-secondary">Combustible adicional</span>
+                <span className="tabular-nums font-medium">{formatCop(rec.proposedAlternative.fuelCostCop)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-secondary">Confianza del agente</span>
+                <span className="tabular-nums font-medium">{Math.round(rec.proposedAlternative.confidenceScore * 100)}%</span>
+              </div>
+            </div>
+            <p className="text-caption text-secondary">{rec.proposedAlternative.policyNote}</p>
+          </div>
+        )}
+      </Dialog>
+    </div>
+  );
+};
+

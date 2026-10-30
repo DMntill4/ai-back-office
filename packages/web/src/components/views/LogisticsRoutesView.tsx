@@ -31,6 +31,7 @@ import {
   Activity,
   ArrowRight,
 } from "lucide-react";
+import { MilestoneStepper, type MilestoneStep } from "../ui/MilestoneStepper";
 
 export interface Milestone {
   label: string;
@@ -122,7 +123,7 @@ export interface ShipmentRoute {
 const INITIAL_SHIPMENTS: ShipmentRoute[] = [
   {
     id: "ship_01",
-    shipmentCode: "SHP-2026-904",
+    shipmentCode: "ENV-2026-904",
     orderId: "ORD-904BGA",
     orderDate: "29 Oct 2026",
     origin: "Bodega Matriz Bucaramanga",
@@ -165,7 +166,7 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
         location: "Cañón del Chicamocha Km 42 (Pescadero - Aratoca)",
         speedReductionKmh: 44,
         delayMinutes: 38,
-        sensorSource: "Telemetría CAN-bus GPS + Estación meteorológica IDEAM",
+        sensorSource: "Telemetría GPS del vehículo + Estación meteorológica regional",
       },
       proposedAlternative: {
         routeName: "Variante San Gil → Tunja → Chiquinquirá → Bogotá",
@@ -176,7 +177,7 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
         fuelCostCop: 69300,
         confidenceScore: 0.94,
         policyNote:
-          "Permitido por política POL-LOG-02 (Costo adicional < $100.000 COP sin requerir escalamiento a junta).",
+          "Permitido por la política de desvíos menores (costo adicional inferior a $100.000 COP sin requerir aprobación de la junta).",
       },
     },
     curvePathCompleted: "M 520 110 Q 485 180, 455 250",
@@ -258,7 +259,7 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
   },
   {
     id: "ship_02",
-    shipmentCode: "SHP-2026-882",
+    shipmentCode: "ENV-2026-882",
     orderId: "ORD-882MED",
     orderDate: "29 Oct 2026",
     origin: "Centro de Distribución Bogotá D.C.",
@@ -352,7 +353,7 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
   },
   {
     id: "ship_03",
-    shipmentCode: "SHP-2026-915",
+    shipmentCode: "ENV-2026-915",
     orderId: "ORD-915GIR",
     orderDate: "29 Oct 2026",
     origin: "Bodega Matriz Bucaramanga",
@@ -482,13 +483,13 @@ export const LogisticsRoutesView: React.FC = () => {
           if (s.id === selectedShipment.id) {
             const updatedAlert = s.riskAlert
               ? {
-                  ...s.riskAlert,
-                  isRerouted: true,
-                  title: "Ruta alterna con IA confirmada",
-                  description:
-                    "Desvío activo por Variante San Gil. Se recuperan 24 min y se elude el tramo lento de Pescadero km 42.",
-                  alternateRouteName: "Variante San Gil → Tunja → Bogotá",
-                }
+                ...s.riskAlert,
+                isRerouted: true,
+                title: "Ruta alterna con IA confirmada",
+                description:
+                  "Desvío activo por Variante San Gil. Se recuperan 24 min y se elude el tramo lento de Pescadero km 42.",
+                alternateRouteName: "Variante San Gil → Tunja → Bogotá",
+              }
               : undefined;
 
             const updatedMilestones: Milestone[] = [
@@ -726,43 +727,23 @@ export const LogisticsRoutesView: React.FC = () => {
               </div>
             </div>
 
-            {/* Stepper Horizontal Limpio */}
+            {/* Stepper Horizontal de 4 Etapas (componente compartido) */}
             <div className="py-4 border-b border-white/[0.06]">
-              <div className="relative flex items-center justify-between">
-                {/* Línea Base */}
-                <div className="absolute top-1/2 left-3 right-3 h-1 bg-white/[0.08] -translate-y-1/2 z-0" />
-                <div
-                  className="absolute top-1/2 left-3 h-1 bg-emerald-500 -translate-y-1/2 z-0 transition-all duration-500"
-                  style={{ width: `${selectedShipment.progressPct * 0.9}%` }}
-                />
-
-                {selectedShipment.milestones.map((m, idx) => {
-                  const isDone = m.status === "completed";
-                  const isCur = m.status === "current";
-
-                  return (
-                    <div key={idx} className="relative z-10 flex flex-col items-center">
-                      <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all ${
-                          isDone
-                            ? "bg-emerald-500 text-black font-bold"
-                            : isCur
-                            ? "bg-[#111915] text-emerald-400 border-2 border-emerald-400 font-bold"
-                            : "bg-surface-well text-zinc-500 border border-white/10"
-                        }`}
-                      >
-                        {isDone ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : idx + 1}
-                      </div>
-                      <span className="text-[10px] font-semibold text-zinc-300 mt-1.5 text-center">
-                        {m.label}
-                      </span>
-                      <span className="text-[9px] font-mono text-zinc-500">
-                        {m.time}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              <MilestoneStepper
+                title="Etapas del Despacho"
+                dateOrMeta={`${selectedShipment.progressPct}% completado`}
+                steps={selectedShipment.milestones.map<MilestoneStep>((m) => ({
+                  label: m.label,
+                  timestamp: m.time,
+                  status:
+                    m.status === "completed"
+                      ? "completed"
+                      : m.status === "current"
+                        ? "active"
+                        : "pending",
+                  details: m.location,
+                }))}
+              />
             </div>
 
             {/* Métricas Clave en 3 Columnas (Sin Relleno Innecesario) */}
@@ -788,11 +769,10 @@ export const LogisticsRoutesView: React.FC = () => {
           {selectedShipment.riskAlert && (
             <div
               onClick={() => setIsAiModalOpen(true)}
-              className={`rounded-2xl p-4 border transition-all cursor-pointer flex items-start gap-3 ${
-                selectedShipment.riskAlert.isRerouted
-                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/15"
-                  : "bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/15"
-              }`}
+              className={`rounded-2xl p-4 border transition-all cursor-pointer flex items-start gap-3 ${selectedShipment.riskAlert.isRerouted
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/15"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/15"
+                }`}
             >
               {selectedShipment.riskAlert.isRerouted ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
@@ -824,21 +804,19 @@ export const LogisticsRoutesView: React.FC = () => {
               <div className="flex items-center bg-surface-well p-0.5 rounded-lg border border-white/[0.04] text-[10px]">
                 <button
                   onClick={() => setTimelineFilter("all")}
-                  className={`px-2 py-0.5 rounded transition-colors ${
-                    timelineFilter === "all"
-                      ? "bg-emerald-500/20 text-emerald-300 font-semibold"
-                      : "text-zinc-400 hover:text-white"
-                  }`}
+                  className={`px-2 py-0.5 rounded transition-colors ${timelineFilter === "all"
+                    ? "bg-emerald-500/20 text-emerald-300 font-semibold"
+                    : "text-zinc-400 hover:text-white"
+                    }`}
                 >
                   Todos
                 </button>
                 <button
                   onClick={() => setTimelineFilter("critical")}
-                  className={`px-2 py-0.5 rounded transition-colors ${
-                    timelineFilter === "critical"
-                      ? "bg-amber-500/20 text-amber-300 font-semibold"
-                      : "text-zinc-400 hover:text-white"
-                  }`}
+                  className={`px-2 py-0.5 rounded transition-colors ${timelineFilter === "critical"
+                    ? "bg-amber-500/20 text-amber-300 font-semibold"
+                    : "text-zinc-400 hover:text-white"
+                    }`}
                 >
                   Alertas
                 </button>
@@ -858,13 +836,12 @@ export const LogisticsRoutesView: React.FC = () => {
                   <div key={evt.id} className="relative">
                     {/* Punto del evento */}
                     <div
-                      className={`absolute -left-5 top-1 w-2.5 h-2.5 rounded-full border ${
-                        evt.completed
-                          ? isAgentInference
-                            ? "bg-amber-400 border-amber-300"
-                            : "bg-emerald-400 border-emerald-300"
-                          : "bg-surface-well border-zinc-600"
-                      }`}
+                      className={`absolute -left-5 top-1 w-2.5 h-2.5 rounded-full border ${evt.completed
+                        ? isAgentInference
+                          ? "bg-amber-400 border-amber-300"
+                          : "bg-emerald-400 border-emerald-300"
+                        : "bg-surface-well border-zinc-600"
+                        }`}
                     />
 
                     <div>
@@ -873,19 +850,18 @@ export const LogisticsRoutesView: React.FC = () => {
                           <h4 className="text-xs font-bold text-white">{evt.title}</h4>
                           {/* Badge de Origen */}
                           <span
-                            className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${
-                              isAgentInference
-                                ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
-                                : isTelemetry
+                            className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${isAgentInference
+                              ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                              : isTelemetry
                                 ? "bg-blue-500/10 text-blue-300 border-blue-500/30"
                                 : "bg-white/[0.04] text-zinc-400 border-white/[0.06]"
-                            }`}
+                              }`}
                           >
                             {isAgentInference
                               ? "Inferencia IA"
                               : isTelemetry
-                              ? "Telemetría GPS"
-                              : "Registro Operativo"}
+                                ? "Telemetría GPS"
+                                : "Registro Operativo"}
                           </span>
                         </div>
                         <span className="text-[10px] font-mono text-zinc-500">
@@ -1066,7 +1042,7 @@ export const LogisticsRoutesView: React.FC = () => {
               top: `${Math.min(selectedShipment.vehicleCoord.y * 0.72, 300)}px`,
             }}
           >
-            <div className="p-3.5 rounded-xl bg-[#090D0B]/95 border border-white/[0.1] backdrop-blur-xl shadow-xl w-64 text-white">
+            <div className="p-3.5 rounded-xl bg-[#070B09]/95 border border-white/[0.1] backdrop-blur-xl shadow-xl w-64 text-white">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[0.08]">
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-emerald-400" />
@@ -1102,33 +1078,30 @@ export const LogisticsRoutesView: React.FC = () => {
 
               <button
                 onClick={() => setLayerFleet(!layerFleet)}
-                className={`px-2 py-1 rounded-lg text-xs font-mono transition-all ${
-                  layerFleet
-                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold"
-                    : "text-zinc-400 hover:text-white"
-                }`}
+                className={`px-2 py-1 rounded-lg text-xs font-mono transition-all ${layerFleet
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold"
+                  : "text-zinc-400 hover:text-white"
+                  }`}
               >
                 Flota Activa
               </button>
 
               <button
                 onClick={() => setLayerRisk(!layerRisk)}
-                className={`px-2 py-1 rounded-lg text-xs font-mono transition-all ${
-                  layerRisk
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold"
-                    : "text-zinc-400 hover:text-white"
-                }`}
+                className={`px-2 py-1 rounded-lg text-xs font-mono transition-all ${layerRisk
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold"
+                  : "text-zinc-400 hover:text-white"
+                  }`}
               >
                 Riesgo Vial
               </button>
 
               <button
                 onClick={() => setLayerCoverage(!layerCoverage)}
-                className={`px-2 py-1 rounded-lg text-xs font-mono transition-all ${
-                  layerCoverage
-                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold"
-                    : "text-zinc-400 hover:text-white"
-                }`}
+                className={`px-2 py-1 rounded-lg text-xs font-mono transition-all ${layerCoverage
+                  ? "bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold"
+                  : "text-zinc-400 hover:text-white"
+                  }`}
               >
                 Bodegas
               </button>
@@ -1138,11 +1111,10 @@ export const LogisticsRoutesView: React.FC = () => {
             {selectedShipment.riskAlert && !selectedShipment.riskAlert.isRerouted && (
               <button
                 onClick={() => setPreviewAlternativeRoute(!previewAlternativeRoute)}
-                className={`px-3 py-1 rounded-xl text-xs font-mono transition-all border flex items-center gap-1.5 ${
-                  previewAlternativeRoute
-                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold"
-                    : "bg-surface-1/90 text-zinc-400 border-white/[0.08] hover:text-white"
-                }`}
+                className={`px-3 py-1 rounded-xl text-xs font-mono transition-all border flex items-center gap-1.5 ${previewAlternativeRoute
+                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold"
+                  : "bg-surface-1/90 text-zinc-400 border-white/[0.08] hover:text-white"
+                  }`}
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>{previewAlternativeRoute ? "Ocultar Alternativa" : "Comparar Alternativa"}</span>
@@ -1162,7 +1134,7 @@ export const LogisticsRoutesView: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-2xl bg-[#0B110E] border border-white/[0.1] rounded-2xl p-6 shadow-2xl flex flex-col gap-5 text-white"
+              className="w-full max-w-2xl bg-[#111915] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-5 text-white"
             >
               {/* Header del Modal */}
               <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
@@ -1245,7 +1217,7 @@ export const LogisticsRoutesView: React.FC = () => {
 
                 <div className="flex items-center justify-between text-xs pt-2 border-t border-white/[0.04]">
                   <span className="text-zinc-400">
-                    Nivel de Confianza: <strong className="text-emerald-400">{(selectedShipment.aiRecommendation.proposedAlternative.confidenceScore * 100).toFixed(0)}%</strong> (basado en historial OSRM)
+                    Nivel de Confianza: <strong className="text-emerald-400">{(selectedShipment.aiRecommendation.proposedAlternative.confidenceScore * 100).toFixed(0)}%</strong> (basado en el historial de rutas)
                   </span>
                   <span className="text-[11px] font-mono text-zinc-500">
                     {selectedShipment.aiRecommendation.proposedAlternative.policyNote}

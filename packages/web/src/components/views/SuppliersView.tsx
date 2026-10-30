@@ -299,19 +299,17 @@ export const SuppliersView: React.FC = () => {
                   <button
                     key={btn.id}
                     onClick={() => setSelectedStatus(btn.id)}
-                    className={`py-2 px-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-between border ${
-                      selectedStatus === btn.id
+                    className={`py-2 px-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-between border ${selectedStatus === btn.id
                         ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)] font-semibold"
                         : "bg-surface-well border-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.04]"
-                    }`}
+                      }`}
                   >
                     <span>{btn.label}</span>
                     <span
-                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
-                        selectedStatus === btn.id
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${selectedStatus === btn.id
                           ? "bg-emerald-500/25 text-emerald-300 font-bold"
                           : "bg-white/[0.04] text-zinc-500"
-                      }`}
+                        }`}
                     >
                       {btn.count}
                     </span>
@@ -469,88 +467,115 @@ export const SuppliersView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Nivel 2: Sub-contenedor "Well" con Stepper de 4 Fases SLA */}
+              {/* Nivel 2: Sub-contenedor "Well" con KPIs de Cumplimiento */}
               <div className="bg-surface-well rounded-xl p-4 mt-3 border border-white/[0.04]">
-                <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.04]">
-                  <span className="text-xs text-zinc-300">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-3 border-b border-white/[0.04]">
+                  <span className="text-xs text-zinc-300 leading-relaxed">
                     {supplier.summary}
                   </span>
-                  <button
-                    onClick={() => showToast(`Consultando expediente legal de ${supplier.name}...`)}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 shrink-0 ml-2"
-                  >
-                    <span>Ver Contrato & Órdenes</span>
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => showToast(`Llamando a ${supplier.contactPerson} · ${supplier.phone}`)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-white/[0.06] transition-colors"
+                      title={`Llamar a ${supplier.contactPerson}`}
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => showToast(`Redactando correo a ${supplier.email}...`)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-white/[0.06] transition-colors"
+                      title={`Escribir a ${supplier.email}`}
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => showToast(`Consultando expediente legal de ${supplier.name}...`)}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                    >
+                      <span>Ver Contrato</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Stepper de 4 Fases de Evaluación SLA */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-surface-1/60 p-2.5 rounded-lg border border-white/[0.04]">
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-emerald-400" />
-                        Puntualidad
-                      </span>
-                      <span className="font-mono font-bold text-white">
-                        {supplier.sla.puntualidadPct}%
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
+                {/* KPIs de Cumplimiento con Barras Segmentadas */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {[
+                    {
+                      label: "Puntualidad",
+                      value: supplier.sla.puntualidadPct,
+                      icon: Clock,
+                      hint: "Entregas a tiempo",
+                    },
+                    {
+                      label: "Calidad",
+                      value: supplier.sla.calidadPct,
+                      icon: ShieldCheck,
+                      hint: "Lotes sin defecto",
+                    },
+                    {
+                      label: "Cumplimiento",
+                      value: supplier.sla.cumplimientoPct,
+                      icon: CheckCircle2,
+                      hint: "Órdenes completas",
+                    },
+                  ].map((kpi) => {
+                    const Icon = kpi.icon;
+                    const filled = Math.round(kpi.value / 10);
+                    const tone =
+                      kpi.value >= 90
+                        ? "bg-emerald-500"
+                        : kpi.value >= 75
+                          ? "bg-amber-400"
+                          : "bg-rose-500";
+                    return (
                       <div
-                        className="h-full bg-emerald-500 rounded-full"
-                        style={{ width: `${supplier.sla.puntualidadPct}%` }}
-                      />
-                    </div>
-                  </div>
+                        key={kpi.label}
+                        className="bg-surface-1/60 p-2.5 rounded-lg border border-white/[0.04]"
+                      >
+                        <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5">
+                          <span className="flex items-center gap-1">
+                            <Icon className="w-3 h-3 text-emerald-400" />
+                            {kpi.label}
+                          </span>
+                          <span className="font-mono font-bold text-white tabular-numbers">
+                            {kpi.value}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-[3px]">
+                          {Array.from({ length: 10 }).map((_, i) => (
+                            <span
+                              key={i}
+                              className={`h-1.5 flex-1 rounded-full ${i < filled ? tone : "bg-white/[0.08]"
+                                }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] text-zinc-500 mt-1.5 block">
+                          {kpi.hint}
+                        </span>
+                      </div>
+                    );
+                  })}
 
-                  <div className="bg-surface-1/60 p-2.5 rounded-lg border border-white/[0.04]">
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1">
-                      <span className="flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                        Calidad
-                      </span>
-                      <span className="font-mono font-bold text-white">
-                        {supplier.sla.calidadPct}%
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full"
-                        style={{ width: `${supplier.sla.calidadPct}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-surface-1/60 p-2.5 rounded-lg border border-white/[0.04]">
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1">
-                      <span className="flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                        Cumplimiento
-                      </span>
-                      <span className="font-mono font-bold text-white">
-                        {supplier.sla.cumplimientoPct}%
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full"
-                        style={{ width: `${supplier.sla.cumplimientoPct}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-surface-1/60 p-2.5 rounded-lg border border-white/[0.04] flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-mono text-zinc-500 block">
+                  <div className="bg-surface-1/60 p-2.5 rounded-lg border border-white/[0.04] flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-mono text-zinc-500">
                         Score Global
                       </span>
-                      <span className="text-xs font-bold text-emerald-400 font-mono">
-                        {supplier.scoreGlobal} / 100
+                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-mono font-bold text-[10px] border border-emerald-500/30">
+                        {supplier.sla.scoreGrade}
                       </span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
-                      {supplier.sla.scoreGrade}
+                    <div className="flex items-baseline gap-1 mt-1">
+                      <span className="text-lg font-bold text-emerald-400 font-mono tabular-numbers leading-none">
+                        {supplier.scoreGlobal}
+                      </span>
+                      <span className="text-[10px] text-zinc-500">/ 100</span>
+                    </div>
+                    <span className="text-[10px] text-zinc-500 mt-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Entrega en {supplier.leadTimeDays} días
                     </span>
                   </div>
                 </div>

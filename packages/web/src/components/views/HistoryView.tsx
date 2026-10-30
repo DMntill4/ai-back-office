@@ -21,6 +21,15 @@ import {
 } from "lucide-react";
 import { StatusBadge } from "../ui/StatusBadge";
 
+interface ImpactMetric {
+  label: string;
+  before: number;
+  after: number;
+  unit: string;
+  /** true = menor es mejor (ej. tiempo, costo) */
+  lowerIsBetter?: boolean;
+}
+
 interface HistoryRecord {
   id: string;
   code: string;
@@ -33,6 +42,10 @@ interface HistoryRecord {
   latencyMs: number;
   reason: string;
   hmacDigest: string;
+  /** Quién ejecutó la acción final */
+  executor: "agente" | "humano";
+  executorName: string;
+  impact: ImpactMetric[];
   thoughtTree: {
     step: string;
     action: string;
@@ -54,6 +67,13 @@ const INITIAL_HISTORY_RECORDS: HistoryRecord[] = [
     latencyMs: 227,
     reason: "Propuesta formulada tras detección de caída en stock de seguridad en Bucaramanga. Requiere confirmación humana de contrato marco.",
     hmacDigest: "hmac_sha256_e4b89f81a7b640192e591bc0392817cc90fa8b417c8091de99238461",
+    executor: "humano",
+    executorName: "Camila Restrepo · Jefa de Compras",
+    impact: [
+      { label: "Días de cobertura", before: 1.2, after: 18.4, unit: "d" },
+      { label: "Costo unitario", before: 420000, after: 378000, unit: "COP", lowerIsBetter: true },
+      { label: "Riesgo de quiebre", before: 92, after: 8, unit: "%", lowerIsBetter: true },
+    ],
     thoughtTree: [
       {
         step: "1. Auditoría de Inventario",
@@ -93,6 +113,13 @@ const INITIAL_HISTORY_RECORDS: HistoryRecord[] = [
     latencyMs: 142,
     reason: "Detección de reducción de velocidad a 24 km/h en Pescadero por lluvia torrencial. Desvío calculado por variante San Gil.",
     hmacDigest: "hmac_sha256_88b209c12e8749a12b9c03847f9e0d1c2b3a4f5e6d7c8b9a0f1e2d3c",
+    executor: "agente",
+    executorName: "Agente Logístico Autónomo",
+    impact: [
+      { label: "Tiempo de viaje", before: 148, after: 124, unit: "min", lowerIsBetter: true },
+      { label: "Consumo combustible", before: 38, after: 33, unit: "L", lowerIsBetter: true },
+      { label: "Cumplimiento de ventana", before: 61, after: 96, unit: "%" },
+    ],
     thoughtTree: [
       {
         step: "1. Sensor de Telemetría",
@@ -219,10 +246,30 @@ export const HistoryView: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-xs text-zinc-400">
-                Registrado: <span className="text-zinc-300 font-medium">{selectedRecord.date}</span> · Entidad:{" "}
-                <span className="text-emerald-400 font-medium">{selectedRecord.supplier}</span>
-              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <p className="text-xs text-zinc-400">
+                  Registrado: <span className="text-zinc-300 font-medium">{selectedRecord.date}</span> · Entidad:{" "}
+                  <span className="text-emerald-400 font-medium">{selectedRecord.supplier}</span>
+                </p>
+              </div>
+
+              {/* Badge de Ejecutor: Agente Autónomo vs Firma Humana */}
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${selectedRecord.executor === "agente"
+                    ? "bg-emerald-500/12 text-emerald-300 border-emerald-500/30"
+                    : "bg-sky-500/12 text-sky-300 border-sky-500/30"
+                    }`}
+                >
+                  {selectedRecord.executor === "agente" ? (
+                    <Cpu className="w-3.5 h-3.5" />
+                  ) : (
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  )}
+                  {selectedRecord.executor === "agente" ? "Agente Autónomo" : "Firma Humana"}
+                </span>
+                <span className="text-[11px] text-zinc-400">{selectedRecord.executorName}</span>
+              </div>
             </div>
           </div>
 
@@ -274,6 +321,88 @@ export const HistoryView: React.FC = () => {
                   {selectedRecord.model}
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Fila 2b: Comparativa de Impacto Antes / Después */}
+          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/[0.06]">
+              <h3 className="text-sm font-bold text-white tracking-tight">
+                Impacto Operativo del Evento
+              </h3>
+              <div className="flex items-center gap-3 text-[10px] text-zinc-500">
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-white/25" />
+                  Antes
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+                  Después
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {selectedRecord.impact.map((m) => {
+                const max = Math.max(m.before, m.after) || 1;
+                const beforePct = (m.before / max) * 100;
+                const afterPct = (m.after / max) * 100;
+                const improved = m.lowerIsBetter ? m.after < m.before : m.after > m.before;
+                const deltaPct = m.before === 0 ? 0 : ((m.after - m.before) / m.before) * 100;
+                const fmt = (v: number) =>
+                  v >= 10000 ? `${(v / 1000).toFixed(0)}k` : v.toLocaleString("es-CO");
+                return (
+                  <div key={m.label}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-medium text-zinc-300">{m.label}</span>
+                      <span
+                        className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${improved
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : "bg-rose-500/15 text-rose-400"
+                          }`}
+                      >
+                        {deltaPct > 0 ? "+" : ""}
+                        {deltaPct.toFixed(0)}%
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      {/* Barra "Antes": sólida atenuada */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-mono text-zinc-400 w-10 shrink-0">
+                          Antes
+                        </span>
+                        <div className="flex-1 h-2 rounded-full bg-white/[0.04] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-white/25"
+                            style={{ width: `${beforePct}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-mono tabular-numbers text-zinc-400 w-16 text-right shrink-0">
+                          {fmt(m.before)} {m.unit}
+                        </span>
+                      </div>
+
+                      {/* Barra "Después": sólida esmeralda */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-mono text-emerald-500/70 w-10 shrink-0">
+                          Después
+                        </span>
+                        <div className="flex-1 h-2 rounded-full bg-white/[0.04] overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${improved ? "bg-emerald-500" : "bg-rose-500"
+                              }`}
+                            style={{ width: `${afterPct}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-mono tabular-numbers text-white w-16 text-right shrink-0">
+                          {fmt(m.after)} {m.unit}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -332,6 +461,56 @@ export const HistoryView: React.FC = () => {
                   <span className="text-emerald-400 font-bold">Verificado y Sellado ✓</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Línea de Tiempo Cronológica de Auditoría */}
+          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card flex-1">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/[0.06]">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Clock className="w-4 h-4 text-emerald-400" />
+                <span>Línea de Tiempo de Auditoría</span>
+              </h3>
+              <span className="text-[10px] font-mono text-zinc-500">
+                {selectedRecord.thoughtTree.length} hitos
+              </span>
+            </div>
+
+            <div className="relative pl-5">
+              <div className="absolute left-[7px] top-1.5 bottom-1.5 w-px bg-gradient-to-b from-emerald-500/60 via-emerald-500/25 to-transparent" />
+              {selectedRecord.thoughtTree.map((step, idx) => {
+                const isLast = idx === selectedRecord.thoughtTree.length - 1;
+                return (
+                  <div key={idx} className={isLast ? "" : "pb-4"}>
+                    <div className="relative">
+                      <span
+                        className={`absolute -left-5 top-1 w-[9px] h-[9px] rounded-full border-2 ${isLast
+                          ? "bg-emerald-400 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.7)]"
+                          : "bg-[#0B100E] border-emerald-500/60"
+                          }`}
+                      />
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-[11px] font-semibold text-zinc-200 leading-snug">
+                          {step.step}
+                        </span>
+                        <span className="text-[9px] font-mono text-zinc-500 shrink-0 mt-0.5">
+                          +{step.latencyMs} ms
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-emerald-400/80 mt-0.5 leading-snug">
+                        {step.action}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[10px]">
+              <span className="text-zinc-500">Latencia acumulada</span>
+              <span className="font-mono tabular-numbers text-emerald-400 font-bold">
+                {selectedRecord.thoughtTree.reduce((acc, s) => acc + s.latencyMs, 0)} ms
+              </span>
             </div>
           </div>
         </div>

@@ -6,10 +6,13 @@
   :root {
     color-scheme: dark;
 
-    /* Superficies Principales */
-    --color-canvas: #0F1612;
-    --color-panel: #151E19;
-    --color-raised: #1C2822;
+    /* Superficies Principales — Dark Emerald (3 capas táctiles) */
+    --color-canvas: #090D0B;
+    /* lienzo */
+    --color-panel: #111915;
+    /* tarjeta */
+    --color-raised: #0B100E;
+    /* pozo / well */
 
     /* Bordes y Filetes */
     --color-border: #26342C;
@@ -105,6 +108,69 @@
 
 .tabular-numbers {
   font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   Design System táctil Dark Emerald — utilidades de superficie
+   ============================================================ */
+
+/* Capa 2: tarjeta */
+.bg-surface-1 {
+  background-color: var(--color-panel);
+}
+
+/* Capa 3: pozo / well (contenedor hundido) */
+.bg-surface-well {
+  background-color: var(--color-raised);
+}
+
+/* Texto secundario (contraste AA sobre #111915 y #0B100E) */
+.text-txt-secondary {
+  color: var(--color-text-secondary);
+}
+
+/* Gradiente héroe esmeralda */
+.bg-hero-emerald {
+  background-image: linear-gradient(135deg, #0B5C43 0%, #084230 55%, #05281D 100%);
+}
+
+/* Patrón rayado esmeralda (proyecciones / barras activas) */
+.bg-hatched-emerald {
+  background-color: rgba(43, 182, 86, 0.08);
+  background-image: repeating-linear-gradient(45deg,
+      rgba(43, 182, 86, 0.28) 0px,
+      rgba(43, 182, 86, 0.28) 2px,
+      transparent 2px,
+      transparent 7px);
+}
+
+/* Sombra de tarjeta */
+.shadow-card {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.55);
+}
+
+/* Scrollbar delgado para paneles internos */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
 }
 
 /* Respeto a accesibilidad y movimiento reducido */

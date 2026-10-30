@@ -34,50 +34,50 @@ export const Dialog: React.FC<DialogProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-base"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
-          {/* Fondo oscuro sin desenfoque */}
+          {/* Fondo oscuro con desenfoque coherente */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 bg-canvas/80"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
           />
 
-          {/* Contenedor del Diálogo: max-w-lg (32rem), fondo raised, radio container, shadow dialog */}
+          {/* Contenedor del Diálogo: superficie tarjeta #111915, filete white/10, sombra profunda */}
           <motion.div
             initial={{ opacity: 0, scale: 0.97, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 6 }}
             transition={{ duration: 0.15 }}
-            className="relative w-full max-w-lg rounded-container bg-raised border border-border shadow-dialog p-group z-10 space-y-group"
+            className="relative w-full max-w-lg rounded-2xl bg-[#111915] border border-white/10 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.75)] p-6 z-10 space-y-5"
           >
-            <div className="flex items-start justify-between gap-compact">
-              <div>
-                <h2 className="text-section-title font-bold text-primary tracking-tight">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-[17px] font-bold text-[#F9FAFB] tracking-tight">
                   {title}
                 </h2>
                 {description && (
-                  <p className="text-body text-secondary mt-hairline">
+                  <p className="text-[13px] text-zinc-400 mt-1 leading-relaxed">
                     {description}
                   </p>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="p-compact rounded-control text-secondary hover:text-primary hover:bg-panel transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer shrink-0"
                 title="Cerrar diálogo"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {children && <div className="text-body text-primary">{children}</div>}
+            {children && <div className="text-[13px] text-[#F9FAFB]">{children}</div>}
 
             {(confirmLabel || onConfirm) && (
-              <div className="flex items-center justify-end gap-compact pt-compact border-t border-border">
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-white/[0.08]">
                 <Button variant="ghost" onClick={onClose} disabled={isProcessing}>
                   {cancelLabel}
                 </Button>

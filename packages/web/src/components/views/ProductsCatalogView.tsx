@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Search } from "lucide-react";
 import { PageHeader } from "../ui/PageHeader";
 import { SegmentedTabs, TabItem } from "../ui/SegmentedTabs";

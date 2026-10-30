@@ -154,14 +154,18 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
     let time = 0;
 
     const {
-      repulsion = 3200,
-      springLength = 215,
+      repulsion = 5200,
+      springLength = 235,
       gravity = 0.005,
       damping = 0.82,
       showGrid = true,
-      showAllLabels = true,
+      showAllLabels = false,
     } = physicsSettings;
     const linkStrength = 0.032;
+    // Distancia mínima de colisión entre centros de nodos (px de simulación).
+    const MIN_NODE_DISTANCE = 96;
+    // Padding mínimo entre centros de etiquetas adyacentes (px).
+    const LABEL_COLLISION_PADDING = 24;
 
     const render = () => {
       if (!isRunning) return;
@@ -192,6 +196,22 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
             if (!n2.isDragging) {
               n2.vx += fx;
               n2.vy += fy;
+            }
+          }
+
+          // Colisión dura: garantiza separación mínima entre centros de nodos
+          // para que las etiquetas no se solapen.
+          if (dist < MIN_NODE_DISTANCE && dist > 0.001) {
+            const overlap = (MIN_NODE_DISTANCE - dist) * 0.5;
+            const nx = dx / dist;
+            const ny = dy / dist;
+            if (!n1.isDragging) {
+              n1.x -= nx * overlap;
+              n1.y -= ny * overlap;
+            }
+            if (!n2.isDragging) {
+              n2.x += nx * overlap;
+              n2.y += ny * overlap;
             }
           }
         }
@@ -347,6 +367,8 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
       });
 
       // 2. Dibujar Nodos con Colores Semánticos y Nube de Guanábana en el Agente
+      // Registro de etiquetas ya dibujadas para resolver colisiones.
+      const placedLabels: { x: number; y: number; w: number }[] = [];
       nodes.forEach((node) => {
         const isSelected = node.id === selectedNodeId;
         const isHovered = node.id === hoveredNodeId;
@@ -442,12 +464,17 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
         }
 
         // 3. Etiquetas legibles (12px Figtree, nunca menor a 12px)
+        // Renderizado condicional: texto completo en zoom > 0.8x, hover o
+        // selección. En vista macro se trunca con elipsis para evitar
+        // solapamiento entre etiquetas adyacentes.
+        const zoom = cameraRef.current.zoom;
+        const isMacro = zoom <= 0.8;
         const shouldShowLabel =
           isSelected ||
           isHovered ||
-          showAllLabels ||
           node.type === "agent" ||
-          cameraRef.current.zoom > 1.15;
+          showAllLabels ||
+          zoom > 0.8;
 
         if (shouldShowLabel) {
           ctx.save();
@@ -456,11 +483,33 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
 
-          const labelText = node.label;
+          // Truncado con elipsis en vista macro o etiquetas muy largas.
+          const maxChars = isMacro ? 14 : 26;
+          let labelText = node.label;
+          if (labelText.length > maxChars) {
+            labelText = `${labelText.slice(0, maxChars - 1).trimEnd()}…`;
+          }
+
           const textWidth = ctx.measureText(labelText).width;
           const labelY = node.y + node.radius + 14;
           const totalWidth = textWidth + 16;
           const pillHeight = 22;
+
+          // Colisión de etiquetas: se omite la etiqueta si su centro queda a
+          // menos de LABEL_COLLISION_PADDING px de otra ya dibujada, salvo
+          // que el nodo esté seleccionado o en hover (prioridad visual).
+          const hasCollision = placedLabels.some(
+            (p) =>
+              Math.abs(p.x - node.x) < (p.w + totalWidth) / 2 + LABEL_COLLISION_PADDING &&
+              Math.abs(p.y - labelY) < pillHeight + LABEL_COLLISION_PADDING
+          );
+
+          if (hasCollision && !isSelected && !isHovered) {
+            ctx.restore();
+            return;
+          }
+
+          placedLabels.push({ x: node.x, y: labelY, w: totalWidth });
 
           ctx.fillStyle = isSelected ? "#1C2822" : "rgba(21, 30, 25, 0.94)";
           ctx.strokeStyle = isSelected ? "#2BB656" : "#26342C";
@@ -645,13 +694,12 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        className={`w-full h-full block ${
-          draggedNodeId.current
-            ? "cursor-grabbing"
-            : hoveredNodeId
+        className={`w-full h-full block ${draggedNodeId.current
+          ? "cursor-grabbing"
+          : hoveredNodeId
             ? "cursor-pointer"
             : "cursor-grab"
-        }`}
+          }`}
       />
 
       {/* Controles de Cámara en la Esquina Inferior Derecha (sin superponerse con la leyenda) */}
