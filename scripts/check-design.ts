@@ -18,6 +18,12 @@ export const V2_ACTIVE_TARGETS = [
   "packages/web/src/main.tsx",
   "packages/web/tailwind.config.js",
   "DESIGN.md",
+
+  // Rebanada Vertical (Paso 3)
+  "packages/web/src/components/views/DashboardOverviewView.tsx",
+  "packages/web/src/components/views/HitlApprovalsView.tsx",
+  "packages/web/src/components/layout/AppShell.tsx",
+  "packages/web/src/components/agent/GuanabanaParticleCore.tsx",
 ];
 
 // Reglas obligatorias de DESIGN.md v2

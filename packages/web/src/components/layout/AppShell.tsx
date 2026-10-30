@@ -1,68 +1,54 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Home,
-  Boxes,
-  Truck,
-  Users,
-  FileText,
-  Package,
   CheckCircle2,
-  Clock,
-  Shield,
-  UserCheck,
-  GitFork,
-  Network,
-  BookOpen,
-  BarChart3,
-  Bell,
-  Terminal,
-  Building2,
-  Layers,
-  Settings,
-  ChevronDown,
-  Search,
+  Boxes,
+  FileText,
   Sparkles,
+  BarChart3,
+  Settings,
+  Bell,
+  Search,
+  ChevronDown,
+  Building2,
+  Terminal,
   X,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
 import { AgentParticleOrb, AgentState } from "../ui/AgentParticleOrb";
 import { CliTerminalPanel } from "../panels/CliTerminalPanel";
 
-export interface AppShellProps {
+interface NavItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: number;
+}
+
+interface AppShellProps {
+  children: React.ReactNode;
   currentTab: string;
   onSelectTab: (tabId: string) => void;
   pendingApprovalsCount?: number;
-  agentStatusText?: string;
   agentState?: AgentState;
-  children: React.ReactNode;
-}
-
-interface NavSection {
-  heading: string;
-  items: {
-    id: string;
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-    badge?: string | number;
-  }[];
+  agentStatusText?: string;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
+  children,
   currentTab,
   onSelectTab,
   pendingApprovalsCount = 2,
-  agentStatusText = "Operativo · 10:24 a. m.",
-  agentState = "reposo",
-  children,
+  agentState = "pensando",
+  agentStatusText = "Vigilando inventario y órdenes",
 }) => {
-  const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState(
+  const [selectedCompany, setSelectedCompany] = useState<string>(
     "Ferretería Industrial Santandereana S.A.S."
   );
+  const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
 
-  // Atajo global Ctrl+J / Cmd+J para abrir/cerrar la consola de telemetría
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
@@ -80,92 +66,56 @@ export const AppShell: React.FC<AppShellProps> = ({
     "Suministros del Oriente S.A.",
   ];
 
-  const navSections: NavSection[] = [
+  // 7 Destinos Principales por Tarea de Negocio (DESIGN.md v2)
+  const navItems: NavItem[] = [
+    { id: "inicio", label: "Inicio", icon: Home },
     {
-      heading: "Operaciones",
-      items: [
-        { id: "inventario", label: "Inventario", icon: Boxes },
-        { id: "rutas_logistica", label: "Rutas y logística", icon: Truck },
-        { id: "proveedores", label: "Proveedores", icon: Users },
-        { id: "compras_ordenes", label: "Compras y órdenes", icon: FileText },
-        { id: "productos", label: "Productos", icon: Package },
-      ],
+      id: "aprobaciones",
+      label: "Aprobaciones",
+      icon: CheckCircle2,
+      badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
     },
-    {
-      heading: "Gobernanza",
-      items: [
-        {
-          id: "aprobaciones",
-          label: "Aprobaciones",
-          icon: CheckCircle2,
-          badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
-        },
-        { id: "auditoria_eventos", label: "Auditoría de eventos", icon: Clock },
-        { id: "reglas_politicas", label: "Reglas y políticas", icon: Shield },
-        { id: "roles_permisos", label: "Roles y permisos", icon: UserCheck },
-      ],
-    },
-    {
-      heading: "Inteligencia",
-      items: [
-        { id: "flujo_agente", label: "Flujo del agente", icon: GitFork },
-        { id: "mapa_conocimiento", label: "Mapa de conocimiento", icon: Network },
-        { id: "memoria_agente", label: "Memoria del agente", icon: BookOpen },
-        { id: "analisis_reportes", label: "Análisis y reportes", icon: BarChart3 },
-      ],
-    },
-    {
-      heading: "Comunicaciones",
-      items: [
-        { id: "canales_notificaciones", label: "Canales y notificaciones", icon: Bell },
-        { id: "webhooks_api", label: "Webhooks y API", icon: Terminal },
-      ],
-    },
-    {
-      heading: "Configuración",
-      items: [
-        { id: "empresas_sucursales", label: "Empresas y sucursales", icon: Building2 },
-        { id: "integraciones", label: "Integraciones", icon: Layers },
-        { id: "configuracion_general", label: "Configuración general", icon: Settings },
-        { id: "componentes", label: "Sistema UI & Componentes", icon: Sparkles },
-      ],
-    },
+    { id: "inventario", label: "Inventario", icon: Boxes },
+    { id: "compras", label: "Compras", icon: FileText },
+    { id: "agente", label: "Agente", icon: Sparkles },
+    { id: "reportes", label: "Reportes", icon: BarChart3 },
+    { id: "ajustes", label: "Ajustes", icon: Settings },
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#0A0F0D] text-zinc-100 font-sans antialiased select-none">
-      {/* 1. Header Bar Unificado (#090D0B con border-white/[0.06]) */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-[#090D0B] border-b border-white/[0.06] flex items-center justify-between px-5 z-40">
-        {/* Brand & Wordmark with vertical divider */}
+    <div className="flex h-screen w-screen overflow-hidden bg-canvas text-primary font-sans antialiased">
+      {/* 1. Header Bar Unificado con Tokens de Diseño v2 */}
+      <header className="fixed top-0 left-0 right-0 h-14 bg-panel border-b border-subtle flex items-center justify-between px-6 z-40">
+        {/* Brand & Wordmark */}
         <div className="flex items-center gap-3">
           <motion.div
             onClick={() => onSelectTab("inicio")}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="flex items-center gap-2.5 cursor-pointer group select-none"
+            className="flex items-center gap-2.5 cursor-pointer group"
           >
             <img
               src="/assets/icon.png"
               alt="Mint Logo"
               className="w-5 h-5 object-contain transition-transform group-hover:scale-105"
             />
-            <span className="text-sm font-extrabold tracking-tight text-white group-hover:text-lime-400 transition-colors">
+            <span className="text-body font-extrabold tracking-tight text-primary group-hover:text-brand-lime transition-colors">
               MINT
             </span>
           </motion.div>
 
-          <div className="h-4 w-px bg-white/[0.06]" />
+          <div className="h-4 w-px bg-subtle" />
 
-          {/* Company Selector Dropdown */}
+          {/* Selector de Empresa */}
           <div className="relative">
             <button
               onClick={() => setIsCompanyMenuOpen(!isCompanyMenuOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-300 hover:text-white bg-[#111915] border border-white/[0.06] transition-all cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-control text-caption font-medium text-secondary hover:text-primary bg-elevated border border-subtle transition-all cursor-pointer"
             >
-              <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+              <Building2 className="w-3.5 h-3.5 text-brand-lime" />
               <span className="truncate max-w-[240px]">{selectedCompany}</span>
               <ChevronDown
-                className={`w-3 h-3 text-zinc-400 transition-transform duration-200 ${
+                className={`w-3 h-3 text-secondary transition-transform duration-200 ${
                   isCompanyMenuOpen ? "rotate-180" : ""
                 }`}
               />
@@ -178,9 +128,9 @@ export const AppShell: React.FC<AppShellProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.97 }}
                   transition={{ duration: 0.16 }}
-                  className="absolute left-0 mt-2 w-72 rounded-2xl bg-[#111915] border border-white/[0.08] shadow-2xl p-1.5 z-50 backdrop-blur-md"
+                  className="absolute left-0 mt-2 w-72 rounded-panel bg-panel border border-bright shadow-dialog p-2 z-50"
                 >
-                  <div className="text-[10px] font-semibold text-zinc-500 px-2 py-1 uppercase tracking-wider">
+                  <div className="text-caption font-semibold text-secondary px-2.5 py-1">
                     Sedes y Empresas
                   </div>
                   {companiesList.map((comp) => (
@@ -190,15 +140,15 @@ export const AppShell: React.FC<AppShellProps> = ({
                         setSelectedCompany(comp);
                         setIsCompanyMenuOpen(false);
                       }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs transition-colors flex items-center justify-between cursor-pointer ${
+                      className={`w-full text-left px-2.5 py-2 rounded-control text-caption transition-colors flex items-center justify-between cursor-pointer ${
                         selectedCompany === comp
-                          ? "bg-emerald-500/10 text-emerald-300 font-medium border border-emerald-500/20"
-                          : "text-zinc-300 hover:bg-white/[0.04] hover:text-white"
+                          ? "bg-elevated text-brand-lime font-medium border border-subtle"
+                          : "text-secondary hover:bg-elevated/50 hover:text-primary"
                       }`}
                     >
                       <span className="truncate">{comp}</span>
                       {selectedCompany === comp && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span className="w-1.5 h-1.5 rounded-pill bg-brand-lime" />
                       )}
                     </button>
                   ))}
@@ -208,68 +158,68 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
         </div>
 
-        {/* Center: Buscador con superficie #111915 rounded-xl */}
+        {/* Buscador Central */}
         <div className="hidden md:flex items-center max-w-md w-full mx-6">
           <div className="relative w-full">
-            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-secondary absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar productos, órdenes de compra, proveedores..."
-              className="w-full bg-[#111915] border border-white/[0.06] hover:border-white/[0.12] focus:border-emerald-500/50 rounded-xl pl-9 pr-12 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none transition-all shadow-inner"
+              placeholder="Buscar órdenes, SKUs, proveedores o decisiones..."
+              className="w-full bg-canvas border border-subtle hover:border-bright focus:border-brand-lime rounded-control pl-9 pr-12 py-1.5 text-caption text-primary placeholder:text-tertiary focus:outline-none transition-all"
             />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.08] text-zinc-400">
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-caption font-mono px-1.5 py-0.5 rounded-control bg-elevated border border-subtle text-secondary">
               ⌘F
             </kbd>
           </div>
         </div>
 
-        {/* Right: Iconos circulares (w-9 h-9 rounded-full bg-[#111915] border border-white/[0.06]) */}
-        <div className="flex items-center gap-2.5">
-          {/* Agent Presence Pill */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-[#111915] border border-white/[0.06] shadow-sm">
+        {/* Controles de la Derecha */}
+        <div className="flex items-center gap-3">
+          {/* Indicador del Agente */}
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-pill bg-elevated border border-subtle shadow-subtle flex-shrink-0">
             <AgentParticleOrb size={16} state={agentState} className="flex-shrink-0" />
-            <span className="text-[11px] text-zinc-300 font-medium">{agentStatusText}</span>
+            <span className="text-caption text-secondary font-medium whitespace-nowrap">{agentStatusText}</span>
           </div>
 
-          {/* Botón Discreto Terminal / Telemetría (Ctrl+J) */}
+          {/* Botón Discreto Telemetría (Ctrl+J) */}
           <button
             onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-            className={`w-9 h-9 rounded-full bg-[#111915] border border-white/[0.06] flex items-center justify-center transition-colors cursor-pointer ${
-              isTerminalOpen ? "text-emerald-400 border-emerald-500/40" : "text-zinc-400 hover:text-white"
+            className={`w-8 h-8 rounded-pill bg-elevated border border-subtle flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 ${
+              isTerminalOpen ? "text-brand-lime border-brand-lime" : "text-secondary hover:text-primary"
             }`}
             title="Consola de telemetría (Ctrl+J)"
           >
             <Terminal className="w-4 h-4" />
           </button>
 
-          {/* Botón Circular Notificaciones */}
+          {/* Botón Notificaciones / Aprobaciones */}
           <button
             onClick={() => onSelectTab("aprobaciones")}
-            className="relative w-9 h-9 rounded-full bg-[#111915] border border-white/[0.06] flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            className="relative w-8 h-8 rounded-pill bg-elevated border border-subtle flex items-center justify-center text-secondary hover:text-primary transition-colors cursor-pointer flex-shrink-0"
             title="Aprobaciones y notificaciones"
           >
             <Bell className="w-4 h-4" />
             {pendingApprovalsCount > 0 && (
-              <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 text-[9px] font-bold text-black flex items-center justify-center font-mono">
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-pill bg-state-pending text-caption font-bold text-white flex items-center justify-center px-1 font-mono">
                 {pendingApprovalsCount}
               </span>
             )}
           </button>
 
-          <div className="h-4 w-px bg-white/[0.06]" />
+          <div className="h-4 w-px bg-subtle flex-shrink-0" />
 
-          {/* Avatar Circular con Nombre y Rol */}
-          <div className="flex items-center gap-2.5 pl-1 cursor-pointer group">
-            <div className="w-9 h-9 rounded-full bg-[#111915] border border-white/[0.06] flex items-center justify-center text-xs font-bold text-emerald-400 font-mono ring-1 ring-emerald-500/20">
+          {/* Avatar de Usuario */}
+          <div className="flex items-center gap-2.5 pl-1 cursor-pointer group flex-shrink-0">
+            <div className="w-8 h-8 rounded-pill bg-elevated border border-subtle flex items-center justify-center text-caption font-bold text-brand-lime font-mono">
               FS
             </div>
             <div className="text-left hidden sm:block">
-              <p className="text-xs font-semibold text-zinc-200 group-hover:text-white transition-colors leading-tight">
+              <p className="text-caption font-semibold text-primary group-hover:text-brand-lime transition-colors leading-tight whitespace-nowrap">
                 Fernando S.
               </p>
-              <p className="text-[10px] text-zinc-500 leading-none mt-0.5">
+              <p className="text-caption text-tertiary leading-none mt-0.5 whitespace-nowrap">
                 Director de Operaciones
               </p>
             </div>
@@ -277,97 +227,77 @@ export const AppShell: React.FC<AppShellProps> = ({
         </div>
       </header>
 
-      {/* 2. Left Sidebar Navigation (#090D0B con indicador Donezo) */}
-      <aside className="w-60 mt-14 border-r border-white/[0.06] bg-[#090D0B] flex flex-col justify-between p-3 z-30 flex-shrink-0 h-[calc(100vh-3.5rem)] overflow-y-auto">
-        <div className="space-y-4">
-          {/* Top item: Inicio */}
-          <div>
-            <button
-              onClick={() => onSelectTab("inicio")}
-              className={`relative w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs transition-colors cursor-pointer ${
-                currentTab === "inicio"
-                  ? "bg-[#111915] text-white font-semibold border border-white/[0.06] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:bg-emerald-400 before:rounded-r-full"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-[#111915]/50 font-medium"
-              }`}
-            >
-              <div className="relative z-10 flex items-center gap-2.5">
-                <Home
-                  className={`w-4 h-4 ${
-                    currentTab === "inicio" ? "text-emerald-400" : "text-zinc-500"
-                  }`}
-                />
-                <span>Inicio</span>
-              </div>
-            </button>
+      {/* 2. Barra Lateral de Navegación (7 Destinos Principales) */}
+      <aside className="w-60 mt-14 border-r border-subtle bg-panel flex flex-col justify-between p-4 z-30 flex-shrink-0 h-[calc(100vh-3.5rem)] overflow-y-auto">
+        <div className="space-y-1">
+          <div className="px-3 py-1 mb-2 text-caption text-secondary font-medium">
+            Módulos de Trabajo
           </div>
 
-          {/* Secciones de Navegación */}
-          {navSections.map((section) => (
-            <div key={section.heading} className="space-y-0.5">
-              <p className="text-[10px] font-semibold text-zinc-500 px-3 py-1 uppercase tracking-wider">
-                {section.heading}
-              </p>
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const isSelected = currentTab === item.id;
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isSelected =
+              currentTab === item.id ||
+              (item.id === "compras" && currentTab === "compras_ordenes") ||
+              (item.id === "agente" && currentTab === "flujo_agente") ||
+              (item.id === "reportes" && currentTab === "analisis_reportes") ||
+              (item.id === "ajustes" && (currentTab === "reglas_politicas" || currentTab === "configuracion_general"));
 
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onSelectTab(item.id)}
-                    className={`relative w-full flex items-center justify-between px-3.5 py-1.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                      isSelected
-                        ? "bg-[#111915] text-white font-semibold border border-white/[0.06] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:bg-emerald-400 before:rounded-r-full"
-                        : "text-zinc-400 hover:text-zinc-200 hover:bg-[#111915]/50 font-medium"
+            return (
+              <button
+                key={item.id}
+                onClick={() => onSelectTab(item.id)}
+                className={`relative w-full flex items-center justify-between px-3.5 py-2.5 rounded-control text-body transition-colors cursor-pointer ${
+                  isSelected
+                    ? "bg-elevated text-primary font-semibold border border-subtle before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-brand-lime before:rounded-r-full"
+                    : "text-secondary hover:text-primary hover:bg-elevated/50 font-normal"
+                }`}
+              >
+                <div className="relative z-10 flex items-center gap-3">
+                  <Icon
+                    className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                      isSelected ? "text-brand-lime" : "text-secondary"
                     }`}
-                  >
-                    <div className="relative z-10 flex items-center gap-2.5 truncate">
-                      <Icon
-                        className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${
-                          isSelected ? "text-emerald-400" : "text-zinc-500"
-                        }`}
-                      />
-                      <span className="truncate">{item.label}</span>
-                    </div>
+                  />
+                  <span>{item.label}</span>
+                </div>
 
-                    <div className="relative z-10 flex items-center gap-1.5 flex-shrink-0">
-                      {item.badge !== undefined && (
-                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
-                          {item.badge}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+                {item.badge !== undefined && (
+                  <span className="relative z-10 text-caption font-mono px-2 py-0.5 rounded-pill bg-state-pendingBg text-state-pending border border-state-pendingBorder font-semibold">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Footer Brand Card */}
-        <div className="pt-3 mt-4 border-t border-white/[0.06]">
-          <div className="p-2.5 rounded-xl bg-[#111915] border border-white/[0.06] flex items-center gap-2.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-white">Mint</span>
-                <span className="text-[10px] font-mono text-zinc-500">v1.0.0</span>
+        {/* Tarjeta de Pie con Estado de Versión */}
+        <div className="pt-3 mt-4 border-t border-subtle">
+          <div className="p-3 rounded-control bg-elevated border border-subtle flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-pill bg-state-ok flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-caption font-semibold text-primary whitespace-nowrap">
+                  Mint Back Office
+                </span>
+                <span className="text-caption font-mono text-tertiary">v2.0</span>
               </div>
-              <p className="text-[10px] text-zinc-400 leading-tight truncate">
-                Automatiza. Detecta. Decide.
+              <p className="text-caption text-secondary leading-tight truncate">
+                Supervisión autónoma activa
               </p>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* 3. Main Content Workspace (100% altura limpia) */}
-      <div className="flex-1 mt-14 h-[calc(100vh-3.5rem)] flex flex-col relative overflow-hidden bg-[#0A0F0D]">
+      {/* 3. Área de Trabajo Principal */}
+      <div className="flex-1 mt-14 h-[calc(100vh-3.5rem)] flex flex-col relative overflow-hidden bg-canvas">
         <main className="flex-1 overflow-y-auto flex flex-col">
           {children}
         </main>
 
-        {/* Panel Inferior de Telemetría (Oculto por defecto, activable con Ctrl+J) */}
+        {/* Panel Inferior de Telemetría (Ctrl+J) */}
         <AnimatePresence>
           {isTerminalOpen && (
             <motion.div
@@ -375,21 +305,21 @@ export const AppShell: React.FC<AppShellProps> = ({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "spring", stiffness: 350, damping: 32 }}
-              className="absolute bottom-0 left-0 right-0 h-72 z-30 bg-[#090D0B] border-t border-white/[0.08] shadow-[0_-15px_30px_rgba(0,0,0,0.6)] flex flex-col"
+              className="absolute bottom-0 left-0 right-0 h-72 z-30 bg-panel border-t border-subtle shadow-dialog flex flex-col"
             >
-              <div className="flex items-center justify-between px-4 py-2 bg-[#111915] border-b border-white/[0.06]">
+              <div className="flex items-center justify-between px-4 py-2 bg-elevated border-b border-subtle">
                 <div className="flex items-center gap-2">
-                  <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-xs font-mono font-bold text-white">
-                    Consola de Telemetría & Diagnóstico Mint
+                  <Terminal className="w-3.5 h-3.5 text-brand-lime" />
+                  <span className="text-caption font-mono font-bold text-primary">
+                    Consola de Telemetría Mint
                   </span>
-                  <span className="text-[10px] font-mono text-zinc-500">
-                    (Atajo: Ctrl+J)
+                  <span className="text-caption font-mono text-tertiary">
+                    (Ctrl+J para alternar)
                   </span>
                 </div>
                 <button
                   onClick={() => setIsTerminalOpen(false)}
-                  className="p-1 rounded-lg hover:bg-white/[0.06] text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  className="p-1 rounded-control hover:bg-panel text-secondary hover:text-primary transition-colors cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

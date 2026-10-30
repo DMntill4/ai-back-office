@@ -1,31 +1,21 @@
 import React from "react";
-import { Button } from "../ui/Button";
-import { StatusBadge } from "../ui/StatusBadge";
-import { KpiStrip } from "../ui/KpiStrip";
 import { motion } from "motion/react";
 import {
-  Boxes,
   AlertTriangle,
-  ClipboardList,
+  Boxes,
   CheckCircle2,
-  ChevronRight,
-  TrendingUp,
   Clock,
   ArrowRight,
-  ShoppingCart,
-  UserCheck,
-  Calendar,
-  Slack,
-  Mail,
-  Radio,
-  Cpu,
-  BarChart3,
-  Activity,
-  Layers,
-  ChevronDown,
-  Sparkles,
   ArrowUpRight,
+  Calendar,
+  Sparkles,
+  ShieldAlert,
+  ChevronRight,
+  TrendingUp,
+  Truck,
+  FileCheck2,
 } from "lucide-react";
+import { GuanabanaParticleCore } from "../agent/GuanabanaParticleCore";
 
 interface DashboardOverviewViewProps {
   onNavigateTo: (tabId: string) => void;
@@ -36,464 +26,303 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
   onNavigateTo,
   onOpenApproval,
 }) => {
-  const weeklyAnalytics = [
-    { day: "Lun", val: 65, type: "solid", label: "45 ops" },
-    { day: "Mar", val: 85, type: "deep", label: "72 ops" },
-    { day: "Mié", val: 50, type: "hatched", label: "38 ops" },
-    { day: "Jue", val: 100, type: "deep", label: "90 ops Pico", peak: true },
-    { day: "Vie", val: 75, type: "hatched", label: "62 ops" },
-    { day: "Sáb", val: 40, type: "solid", label: "28 ops" },
-    { day: "Dom", val: 25, type: "hatched", label: "18 ops" },
-  ];
-
   return (
-    <div className="flex-1 h-full overflow-y-auto bg-canvas text-[#F9FAFB] font-sans select-none p-6 space-y-6">
-      {/* 1. Saludo y Estado Superior */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2">
-        <div>
-          <span className="text-xs text-zinc-400 font-medium">Panel de Control Ejecutivo</span>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white mt-0.5">
-            Buenos días, Fernando.
-          </h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Mint está supervisando 3 bodegas, 338 SKUs y $482.5M COP en inventario físico en tiempo real.
-          </p>
-        </div>
+    <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans p-8 space-y-8">
+      {/* 1. Header con Saludo y Resumen en Lenguaje Natural */}
+      <header className="space-y-4 max-w-5xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-caption text-secondary font-medium block">
+              Centro de Operaciones & Abastecimiento
+            </span>
+            <h1 className="text-display font-bold text-primary tracking-tight mt-1">
+              Buenos días, Fernando.
+            </h1>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-surface-1 border border-white/[0.08] text-xs cursor-default shadow-card"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <div className="text-left">
-              <span className="text-white font-semibold">Agente autónomo activo</span>
-              <span className="block text-[10px] text-zinc-400">
-                Última verificación: 10:24 a. m.
-              </span>
-            </div>
-          </motion.div>
-
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-1 border border-white/[0.08] text-xs text-zinc-300 shadow-card">
-            <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Hoy, 29 oct 2026</span>
-            <ChevronDown className="w-3 h-3 text-zinc-500" />
+          <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-pill bg-panel border border-subtle text-caption text-secondary">
+            <Calendar className="w-3.5 h-3.5 text-brand-lime" />
+            <span>Hoy, 29 de octubre de 2026</span>
           </div>
         </div>
-      </div>
 
-      {/* 2. Fila 1: KPI Strip de 4 Tarjetas con Hero Card Mint (Donezo & CheckinOs) */}
-      <KpiStrip
-        items={[
-          {
-            title: "Valorización de Inventario",
-            value: "$482.5M COP",
-            context: "Capital activo en 3 sedes físicas",
-            trend: { direction: "up", label: "+6.4% mes" },
-            isHero: true,
-            onActionClick: () => onNavigateTo("inventario"),
-          },
-          {
-            title: "Catálogo de SKUs",
-            value: "338",
-            context: "Referencias activas sincronizadas",
-            trend: { direction: "neutral", label: "Nominal" },
-            icon: Boxes,
-          },
-          {
-            title: "Bajo Punto de Reorden",
-            value: "8 SKUs",
-            context: "Riesgo de rotura < 4 días",
-            trend: { direction: "down", label: "Atención" },
-            trendType: "warning",
-            icon: AlertTriangle,
-          },
-          {
-            title: "Aprobaciones Pendientes",
-            value: "2 Órdenes",
-            context: "Superan umbral de $5.000.000 COP",
-            trend: { direction: "neutral", label: "Requiere firma" },
-            icon: UserCheck,
-            onActionClick: onOpenApproval,
-          },
-        ]}
-      />
+        {/* Resumen del Día en Lenguaje Natural */}
+        <p className="text-subtitle text-secondary leading-relaxed">
+          Hoy el agente revisó <strong className="text-primary font-semibold">338 productos</strong> en 3 sedes físicas:{" "}
+          <strong className="text-state-attention font-semibold">8 están bajo el punto de reorden</strong> y{" "}
+          <strong className="text-state-pending font-semibold">2 compras necesitan tu firma</strong> para asegurar el abastecimiento de obra.
+        </p>
 
-      {/* 3. Fila 2: Bento Grid Visual (3 Columnas Asimétricas inspiradas en Donezo & CheckinOs) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Columna 1 (5 cols): Velocidad y Flujo de Operaciones (Donezo Project Analytics) */}
-        <div className="lg:col-span-5 rounded-2xl bg-surface-1 border border-white/[0.06] p-5 shadow-card flex flex-col justify-between space-y-4">
-          <div className="flex items-center justify-between">
+        {/* Franja de Síntesis sin Tarjetas (Agrupamiento por Espacio y Tipografía) */}
+        <div className="pt-2 flex flex-wrap items-center gap-x-8 gap-y-3 text-caption text-secondary">
+          <div className="flex items-baseline gap-2">
+            <span className="text-title font-bold text-primary font-sans tabular-nums">
+              $482.5M COP
+            </span>
+            <span>capital activo en almacén</span>
+            <span className="text-state-ok font-medium">(+6.4% mes)</span>
+          </div>
+          <span className="text-tertiary">·</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-title font-bold text-primary font-sans tabular-nums">
+              98.4%
+            </span>
+            <span>salud del catálogo</span>
+          </div>
+          <span className="text-tertiary">·</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-title font-bold text-primary font-sans tabular-nums">
+              3 sedes
+            </span>
+            <span>Bucaramanga, Bogotá y Medellín</span>
+          </div>
+        </div>
+      </header>
+
+      {/* 2. Layout Principal Asimétrico: Cola de Acción (70%) vs Presencia del Agente (30%) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* COLUMNA IZQUIERDA (8 de 12 cols): Lo que requiere tu atención hoy */}
+        <div className="lg:col-span-8 space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-subtle">
             <div>
-              <h2 className="text-sm font-bold text-white tracking-tight">
-                Flujo de Operaciones y Movimiento
+              <h2 className="text-title font-semibold text-primary">
+                Lo que requiere tu atención hoy
               </h2>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Despachos y reabastecimientos ejecutados por semana
+              <p className="text-caption text-secondary mt-0.5">
+                Acciones críticas ordenadas por urgencia operacional
               </p>
             </div>
-            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              7 Días · Consolidado
+            <span className="px-2.5 py-0.5 rounded-pill bg-elevated text-caption text-secondary border border-subtle">
+              3 acciones prioritarias
             </span>
           </div>
 
-          {/* Gráfico de barras gruesas redondeadas */}
-          <div className="pt-6 pb-2 px-3">
-            <div className="h-36 flex items-end justify-between gap-2.5 sm:gap-3.5 relative">
-              {weeklyAnalytics.map((bar, idx) => {
-                const barColor =
-                  bar.type === "solid"
-                    ? "bg-[#10B981]"
-                    : bar.type === "deep"
-                    ? "bg-[#047857]"
-                    : "bg-hatched-emerald";
-
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end relative group">
-                    {/* Tooltip flotante sobre barra pico */}
-                    {bar.peak && (
-                      <div className="absolute -top-7 px-2 py-0.5 rounded-full bg-[#14201A] border border-emerald-400/40 text-[10px] font-mono font-bold text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)] whitespace-nowrap z-20">
-                        <span>90 Despachos</span>
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#14201A] border-r border-b border-emerald-400/40 transform rotate-45 -mt-0.5" />
-                      </div>
-                    )}
-
-                    {/* Barra gruesa redondeada */}
-                    <div
-                      style={{ height: `${bar.val}%` }}
-                      className={`w-full max-w-[38px] rounded-2xl transition-all duration-300 group-hover:scale-y-105 origin-bottom shadow-sm ${barColor}`}
-                      title={`${bar.day}: ${bar.label}`}
-                    />
-
-                    {/* Letra del día */}
-                    <span className="text-xs font-mono font-medium text-zinc-400 mt-2.5">
-                      {bar.day}
-                    </span>
+          <div className="space-y-3 pt-1">
+            {/* ITEM 1: Aprobación Ejecutiva Crítica (Máxima Prioridad) */}
+            <div className="p-5 rounded-panel bg-panel border border-subtle hover:border-bright transition-all space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-control bg-elevated flex items-center justify-center flex-shrink-0 mt-0.5 text-state-pending">
+                    <span className="text-base font-bold">◆</span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Leyenda de colores */}
-          <div className="flex flex-wrap items-center justify-between pt-3 border-t border-white/[0.04] text-[11px] text-zinc-400 font-mono">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
-              <span>Despachos Físicos</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#047857]" />
-              <span>Compras Confirmadas</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-hatched-emerald border border-emerald-400/30" />
-              <span>Proyección IA</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Columna 2 (4 cols): Acciones Pendientes (CheckinOs Tasks Style) */}
-        <div className="lg:col-span-4 rounded-2xl bg-surface-1 border border-white/[0.06] p-5 shadow-card flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ClipboardList className="w-4 h-4 text-emerald-400" />
-              <h2 className="text-sm font-bold text-white tracking-tight">Acciones pendientes</h2>
-            </div>
-            <button
-              onClick={() => onNavigateTo("aprobaciones")}
-              className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 font-medium"
-            >
-              <span>Ver todas</span>
-              <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-
-          <div className="space-y-2.5">
-            {/* Acción 1 */}
-            <div
-              onClick={onOpenApproval}
-              className="p-3 rounded-xl bg-surface-well border border-white/[0.04] hover:border-white/10 transition-all cursor-pointer flex items-center justify-between gap-3 group"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
-                  <ShoppingCart className="w-4 h-4" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-caption font-mono font-medium text-primary whitespace-nowrap">
+                        PO-24A190
+                      </span>
+                      <span className="text-caption text-tertiary">·</span>
+                      <span className="text-caption text-secondary font-medium whitespace-nowrap">
+                        Distribuciones Santander
+                      </span>
+                      <span className="px-2 py-0.5 rounded-pill bg-state-pendingBg text-state-pending border border-state-pendingBorder text-caption font-medium whitespace-nowrap">
+                        Requiere tu firma
+                      </span>
+                    </div>
+                    <h3 className="text-body font-semibold text-primary mt-1">
+                      50x Rotomartillo Bosch SDS Plus (Reposición Crítica)
+                    </h3>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors truncate">
-                    Orden #OC-402 · DeWalt Colombia
-                  </p>
-                  <p className="text-[11px] text-zinc-400 font-mono">
-                    Rotomartillos SDS · $6.375.000 COP
-                  </p>
+
+                <div className="text-right sm:flex-shrink-0">
+                  <span className="text-title font-bold text-primary font-sans tabular-nums block">
+                    $7.250.000 COP
+                  </span>
+                  <span className="text-caption text-state-ok font-medium block">
+                    Ahorro negociado: $1.450.000 COP
+                  </span>
                 </div>
               </div>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold font-mono">
-                HITL
-              </span>
-            </div>
 
-            {/* Acción 2 */}
-            <div
-              onClick={() => onNavigateTo("inventario")}
-              className="p-3 rounded-xl bg-surface-well border border-white/[0.04] hover:border-white/10 transition-all cursor-pointer flex items-center justify-between gap-3 group"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
-                  <AlertTriangle className="w-4 h-4" />
+              {/* Justificación del Agente en Bloque Hundido */}
+              <div className="p-3.5 rounded-control bg-elevated border border-subtle text-caption text-secondary space-y-1">
+                <div className="flex items-center gap-1.5 text-primary font-medium">
+                  <Sparkles className="w-3.5 h-3.5 text-brand-lime" />
+                  <span>Justificación del Agente Autónomo</span>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-white group-hover:text-amber-300 transition-colors truncate">
-                    Quiebre ROP en Disco Diamantado
-                  </p>
-                  <p className="text-[11px] text-zinc-400 font-mono">
-                    8u restantes · Bucaramanga Matriz
-                  </p>
-                </div>
+                <p className="leading-relaxed">
+                  El stock en Bodega Matriz Bucaramanga cayó a 4 unidades y la cobertura se agotará en menos de 38 horas. El proveedor homologado garantiza entrega en 24h con un descuento del 8% por volumen.
+                </p>
               </div>
-              <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-bold font-mono">
-                Quiebre
-              </span>
-            </div>
 
-            {/* Acción 3 */}
-            <div
-              onClick={() => onNavigateTo("proveedores")}
-              className="p-3 rounded-xl bg-surface-well border border-white/[0.04] hover:border-white/10 transition-all cursor-pointer flex items-center justify-between gap-3 group"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0">
-                  <UserCheck className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-white group-hover:text-blue-300 transition-colors truncate">
-                    Homologación Siderúrgica Santander
-                  </p>
-                  <p className="text-[11px] text-zinc-400 font-mono">
-                    RUT & Certificado Bancario verificado
-                  </p>
-                </div>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold font-mono">
-                Validar
-              </span>
-            </div>
-          </div>
+              {/* Barra de Acciones: Píldora Blanca Insignia */}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-caption text-tertiary">
+                  Directiva GOV-03: Excede el umbral autónomo de $5.000.000 COP
+                </span>
 
-          <div className="pt-2 border-t border-white/[0.04] flex items-center justify-between text-[11px] text-zinc-500 font-mono">
-            <span>2 órdenes superan los $5.000.000 COP</span>
-            <span className="text-emerald-400 font-semibold">Regla GOV-03</span>
-          </div>
-        </div>
-
-        {/* Columna 3 (3 cols): Estado y Rendimiento del Agente (Donezo Project Progress Style) */}
-        <div className="lg:col-span-3 rounded-2xl bg-surface-1 border border-white/[0.06] p-5 shadow-card flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-emerald-400" />
-              <h2 className="text-sm font-bold text-white tracking-tight">Rendimiento Núcleo IA</h2>
-            </div>
-            <button
-              onClick={() => onNavigateTo("flujo_agente")}
-              className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 font-medium"
-            >
-              <span>Detalles</span>
-              <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-
-          {/* Medidor en Arco Semicircular de 180° */}
-          <div className="flex flex-col items-center justify-center py-1 relative">
-            <svg viewBox="0 0 200 115" className="w-48 max-w-full overflow-visible">
-              <defs>
-                <pattern
-                  id="dashHatch"
-                  width="8"
-                  height="8"
-                  patternTransform="rotate(45)"
-                  patternUnits="userSpaceOnUse"
+                <button
+                  onClick={onOpenApproval}
+                  className="pl-4 pr-1.5 py-1.5 rounded-pill bg-white hover:bg-zinc-100 text-canvas font-semibold text-caption flex items-center gap-2 transition-transform active:scale-[0.98] cursor-pointer group shadow-subtle flex-shrink-0"
                 >
-                  <line x1="0" y1="0" x2="0" y2="8" stroke="#34D399" strokeWidth="2.5" />
-                </pattern>
-              </defs>
-
-              <path
-                d="M 25,100 A 75,75 0 0,1 175,100"
-                fill="none"
-                stroke="#16221B"
-                strokeWidth="16"
-                strokeLinecap="round"
-              />
-
-              <path
-                d="M 25,100 A 75,75 0 0,1 175,100"
-                fill="none"
-                stroke="#10B981"
-                strokeWidth="16"
-                strokeDasharray="210 236"
-                strokeDashoffset="0"
-                strokeLinecap="round"
-              />
-
-              <path
-                d="M 25,100 A 75,75 0 0,1 175,100"
-                fill="none"
-                stroke="url(#dashHatch)"
-                strokeWidth="16"
-                strokeDasharray="26 236"
-                strokeDashoffset="-210"
-                strokeLinecap="round"
-              />
-            </svg>
-
-            <div className="absolute top-[48px] text-center">
-              <span className="text-3xl font-extrabold font-sans text-white tracking-tight">
-                98%
-              </span>
-              <span className="block text-[11px] font-medium text-zinc-400 -mt-0.5 font-sans">
-                Operativo
-              </span>
+                  <span>Revisar y firmar</span>
+                  <span className="w-6 h-6 rounded-pill bg-canvas text-white flex items-center justify-center transition-transform group-hover:translate-x-0.5">
+                    <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                  </span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Desglose en Contenedor Well */}
-          <div className="bg-surface-well rounded-xl p-3 border border-white/[0.04] space-y-1.5 text-xs font-sans text-zinc-400">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span>Tareas completadas:</span>
-              </span>
-              <strong className="text-white font-bold tabular-nums">44</strong>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                <span>En revisión ejecutiva:</span>
-              </span>
-              <strong className="text-white font-bold tabular-nums">4</strong>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-zinc-600" />
-                <span>Tareas fallidas:</span>
-              </span>
-              <strong className="text-zinc-500 tabular-nums">0</strong>
-            </div>
-          </div>
+            {/* ITEM 2: Advertencia de Rotura de Stock (Inventario) */}
+            <div className="p-5 rounded-panel bg-panel border border-subtle hover:border-bright transition-all space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-control bg-elevated flex items-center justify-center flex-shrink-0 mt-0.5 text-state-attention">
+                    <span className="text-base font-bold">▲</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-caption font-mono font-medium text-primary whitespace-nowrap">
+                        SKU-ROT-001
+                      </span>
+                      <span className="text-caption text-tertiary">·</span>
+                      <span className="text-caption text-secondary font-medium whitespace-nowrap">
+                        Bodega Matriz Bucaramanga
+                      </span>
+                      <span className="px-2 py-0.5 rounded-pill bg-state-attentionBg text-state-attention border border-state-attentionBorder text-caption font-medium whitespace-nowrap">
+                        Bajo punto de reorden
+                      </span>
+                    </div>
+                    <h3 className="text-body font-semibold text-primary mt-1">
+                      Existencia actual: 4 unidades (Mínimo de seguridad: 15)
+                    </h3>
+                  </div>
+                </div>
 
-          <div className="pt-1 flex items-center justify-between text-[11px] font-sans text-zinc-400">
-            <span>Respuesta: 1.2s</span>
-            <span className="text-emerald-400 font-medium">Sincronizado en tiempo real</span>
+                <button
+                  onClick={() => onNavigateTo("inventario")}
+                  className="px-3.5 py-1.5 rounded-control bg-elevated hover:bg-panel text-caption font-medium text-primary border border-subtle flex items-center gap-1.5 transition-colors cursor-pointer flex-shrink-0"
+                >
+                  <span>Simular rebalanceo</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-secondary" />
+                </button>
+              </div>
+
+              <p className="text-caption text-secondary leading-relaxed pl-11">
+                La tasa de demanda de esta semana es de 1.8 unidades diarias. Se proyecta quiebre en 2 días si no se autoriza la compra o se traslada excedente desde CD Fontibón (Bogotá).
+              </p>
+            </div>
+
+            {/* ITEM 3: Registro en Cuarentena de Calidad */}
+            <div className="p-5 rounded-panel bg-panel border border-subtle hover:border-bright transition-all space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-control bg-elevated flex items-center justify-center flex-shrink-0 mt-0.5 text-state-error">
+                    <span className="text-base font-bold">■</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-caption font-mono font-medium text-primary whitespace-nowrap">
+                        LOTE-GALV-04
+                      </span>
+                      <span className="text-caption text-tertiary">·</span>
+                      <span className="text-caption text-secondary font-medium whitespace-nowrap">
+                        Aceros del Oriente S.A.
+                      </span>
+                      <span className="px-2 py-0.5 rounded-pill bg-state-errorBg text-state-error border border-state-errorBorder text-caption font-medium whitespace-nowrap">
+                        Retenido en cuarentena
+                      </span>
+                    </div>
+                    <h3 className="text-body font-semibold text-primary mt-1">
+                      Discrepancia técnica de espesor: Calibre 18 vs. Calibre 16 ordenado
+                    </h3>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => onNavigateTo("inventario")}
+                  className="px-3.5 py-1.5 rounded-control bg-elevated hover:bg-panel text-caption font-medium text-primary border border-subtle flex items-center gap-1.5 transition-colors cursor-pointer flex-shrink-0"
+                >
+                  <span>Ver ficha técnica</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-secondary" />
+                </button>
+              </div>
+
+              <p className="text-caption text-secondary leading-relaxed pl-11">
+                El lote recibido en Bucaramanga no cumple las especificaciones de carga para la obra Anillo Vial. Las órdenes automáticas con este proveedor quedan pausadas hasta resolución.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* 4. Fila 3: Canales de Notificación y Auditoría Reciente */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Auditoría Reciente */}
-        <div className="p-5 rounded-2xl bg-surface-1 border border-white/[0.06] shadow-card space-y-3">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-emerald-400" />
-              <h3 className="text-xs font-bold text-white">Actividad de auditoría reciente</h3>
+        {/* COLUMNA DERECHA (4 de 12 cols): Presencia del Agente Autónomo */}
+        <div className="lg:col-span-4 space-y-5">
+          <div className="p-6 rounded-panel bg-panel border border-subtle space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-subtle">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-pill bg-state-ok" />
+                <h3 className="text-title font-semibold text-primary">
+                  Agente Autónomo
+                </h3>
+              </div>
+              <span className="text-caption font-medium text-state-ok bg-state-okBg px-2.5 py-0.5 rounded-pill border border-state-okBorder">
+                En línea
+              </span>
             </div>
+
+            {/* Presencia Viva de la Guanábana (Nube de Puntos Canvas 2D) */}
+            <div className="flex flex-col items-center justify-center py-2">
+              <GuanabanaParticleCore size={190} isWorking={true} pulseIntensity="calm" />
+              <span className="text-caption text-secondary mt-1 font-medium">
+                Vigilancia activa de existencias y logística
+              </span>
+            </div>
+
+            {/* Parámetros Operativos en Lenguaje de Negocio */}
+            <div className="space-y-2.5 pt-2 border-t border-subtle text-caption">
+              <div className="flex items-center justify-between">
+                <span className="text-secondary">Frecuencia de monitoreo</span>
+                <span className="text-primary font-medium">Cada 30 minutos</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-secondary">Tiempo de respuesta</span>
+                <span className="text-primary font-medium">142 ms (alta precisión)</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-secondary">Autonomía de compra</span>
+                <span className="text-primary font-medium">Hasta $5.000.000 COP</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-secondary">Última conciliación</span>
+                <span className="text-primary font-medium">Hace 4 minutos</span>
+              </div>
+            </div>
+
+            {/* Enlace al Flujo Completo */}
             <button
-              onClick={() => onNavigateTo("auditoria_eventos")}
-              className="text-[11px] text-emerald-400 hover:text-emerald-300 hover:underline font-medium cursor-pointer"
+              onClick={() => onNavigateTo("agente")}
+              className="w-full py-2.5 px-4 rounded-control bg-elevated hover:bg-elevated/80 text-primary font-medium text-caption flex items-center justify-between border border-subtle transition-colors cursor-pointer"
             >
-              Ver todas →
+              <span>Ver bitácora y flujo operativo</span>
+              <ChevronRight className="w-4 h-4 text-secondary" />
             </button>
           </div>
 
-          <div className="space-y-2 text-xs">
-            <div className="p-3 rounded-xl bg-surface-well border border-white/[0.04] flex items-start gap-2.5">
-              <span className="text-[10px] font-mono text-emerald-400 mt-0.5 font-bold">10:24</span>
-              <div>
-                <p className="text-xs font-medium text-white">
-                  Auditoría ROP finalizada: 74 SKUs escaneados
-                </p>
-                <p className="text-[10px] text-zinc-400">
-                  8 SKUs marcados para reposición en Bucaramanga
-                </p>
+          {/* Tarjeta de Respaldo: Sedes Físicas Conectadas */}
+          <div className="p-5 rounded-panel bg-panel border border-subtle space-y-3">
+            <h4 className="text-subtitle font-semibold text-primary">
+              Sedes Físicas Conectadas
+            </h4>
+            <div className="space-y-2 text-caption">
+              <div className="flex items-center justify-between p-2 rounded-control bg-elevated">
+                <span className="text-primary font-medium">Bodega Matriz Bucaramanga</span>
+                <span className="text-state-attention font-medium flex items-center gap-1">
+                  <span>▲</span> 8 bajo ROP
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-control bg-elevated">
+                <span className="text-primary font-medium">CD Fontibón (Bogotá D.C.)</span>
+                <span className="text-state-ok font-medium flex items-center gap-1">
+                  <span>●</span> Normal (64%)
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-control bg-elevated">
+                <span className="text-primary font-medium">Hub Logístico Itagüí (Medellín)</span>
+                <span className="text-state-ok font-medium flex items-center gap-1">
+                  <span>●</span> Normal (82%)
+                </span>
               </div>
             </div>
-
-            <div className="p-3 rounded-xl bg-surface-well border border-white/[0.04] flex items-start gap-2.5">
-              <span className="text-[10px] font-mono text-amber-400 mt-0.5 font-bold">08:32</span>
-              <div>
-                <p className="text-xs font-medium text-white">
-                  Aprobación requerida por superar umbral
-                </p>
-                <p className="text-[10px] text-zinc-400">
-                  Compra de material eléctrico · $6.375.000 COP
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Canales de Notificación */}
-        <div className="p-5 rounded-2xl bg-surface-1 border border-white/[0.06] shadow-card space-y-3">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-emerald-400" />
-              <h3 className="text-xs font-bold text-white">Canales de notificación</h3>
-            </div>
-            <StatusBadge status="ok" label="3 activos" size="sm" />
-          </div>
-
-          <div className="space-y-2 text-xs">
-            <div className="p-2.5 rounded-xl bg-surface-well border border-white/[0.04] flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-surface-1 border border-white/[0.06]">
-                  <Slack className="w-3.5 h-3.5 text-zinc-300" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-white">Slack Bot</p>
-                  <p className="text-[10px] text-zinc-400">Alertas y aprobaciones HITL</p>
-                </div>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
-                Activo
-              </span>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-surface-well border border-white/[0.04] flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-surface-1 border border-white/[0.06]">
-                  <Mail className="w-3.5 h-3.5 text-zinc-300" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-white">Email SMTP</p>
-                  <p className="text-[10px] text-zinc-400">Reportes diarios de gestión</p>
-                </div>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
-                Activo
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* CTA: El agente está trabajando */}
-        <div className="p-5 rounded-2xl bg-surface-1 border border-white/[0.06] shadow-card flex flex-col justify-between relative overflow-hidden">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              <h3 className="text-sm font-bold text-white">El agente está trabajando</h3>
-            </div>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Analizando existencias físicas, órdenes y reglas de gobernanza para mantener tus operaciones siempre en marcha.
-            </p>
-          </div>
-
-          <div className="pt-4">
-            <button
-              onClick={() => onNavigateTo("flujo_agente")}
-              className="w-full h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center justify-between px-4 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.45)]"
-            >
-              <span>Ver flujo del agente</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
       </div>

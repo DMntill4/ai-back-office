@@ -1,9 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { HitlDecision } from "../../types/workflow";
 import {
   ShieldCheck,
-  ShieldAlert,
   Clock,
   CheckCircle2,
   XCircle,
@@ -16,10 +14,7 @@ import {
   Package,
   Layers,
   ArrowUpRight,
-  TrendingDown,
-  TrendingUp,
   FileText,
-  DollarSign,
   Copy,
   Check,
 } from "lucide-react";
@@ -80,8 +75,8 @@ const DEFAULT_PROPOSALS: EnrichedProposal[] = [
     diffImpact: {
       budgetBefore: "$42.8M disponible",
       budgetAfter: "$35.5M restante",
-      stockBefore: "4 unidades (Riesgo Quiebre 2d)",
-      stockAfter: "54 unidades (Cobertura 28d)",
+      stockBefore: "4 unidades (Riesgo de quiebre en 2 días)",
+      stockAfter: "54 unidades (Cobertura garantizada de 28 días)",
       slaBefore: "92% cumplimiento",
       slaAfter: "98% cobertura proyectada",
     },
@@ -101,15 +96,15 @@ const DEFAULT_PROPOSALS: EnrichedProposal[] = [
         completed: true,
       },
       {
-        title: "Retención para Aprobación Ejecutiva",
+        title: "Retención para Firma Ejecutiva",
         time: "Hoy, 08:22 a. m.",
         description: "Política POL-COMP-01: Requiere firma ejecutiva para montos > $5.000.000 COP.",
         completed: true,
       },
       {
         title: "Transmisión y Despacho ERP",
-        time: "Pendiente de Aprobación",
-        description: "Emisión de remisión y actualización de libro contable una vez firmada.",
+        time: "Pendiente de Autorización",
+        description: "Emisión de remisión y actualización contable una vez firmada.",
         completed: false,
       },
     ],
@@ -135,438 +130,444 @@ const DEFAULT_PROPOSALS: EnrichedProposal[] = [
       budgetBefore: "$35.5M disponible",
       budgetAfter: "$32.1M restante",
       stockBefore: "12 unidades (Quiebre inminente)",
-      stockAfter: "1.212 unidades (Cobertura 45d)",
+      stockAfter: "1.212 unidades (Cobertura de 45 días)",
       slaBefore: "88% cumplimiento",
       slaAfter: "99% cobertura",
     },
-    hmacSignature: "4f5e6d7c8b9a0f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6b7a8f9e0d1c2b3a",
+    hmacSignature: "8f7e6d5c4b3a291807162534435261708f7e6d5c4b3a29180716253443526170",
     status: "pendiente",
     timeline: [
       {
-        title: "Alerta de Consumo Acelerado",
-        time: "Hoy, 09:30 a. m.",
-        description: "Salida imprevista de 400 unidades para proyecto vial.",
+        title: "Consumo Proyectado",
+        time: "Hoy, 07:45 a. m.",
+        description: "Despacho masivo a obra redujo existencias bajo umbral crítico.",
         completed: true,
       },
       {
-        title: "Formulación de Orden de Compra",
-        time: "Hoy, 09:35 a. m.",
-        description: "Condiciones de pago a 45 días aplicadas exitosamente.",
+        title: "Propuesta de Orden de Compra",
+        time: "Hoy, 07:50 a. m.",
+        description: "Lote de 1.200 unidades cotizado con proveedor habitual.",
         completed: true,
       },
       {
-        title: "Revisión en Bandeja de Gobernanza",
-        time: "Hoy, 09:40 a. m.",
-        description: "Esperando confirmación de despacho.",
+        title: "Retención para Firma",
+        time: "Hoy, 07:55 a. m.",
+        description: "Requiere autorización ejecutiva para consolidación de lote.",
         completed: true,
       },
       {
-        title: "Emisión de Orden a Proveedor",
+        title: "Transmisión y Despacho ERP",
         time: "Pendiente",
-        description: "Envío telemático automático tras aprobación.",
+        description: "Generación automática de orden de compra en ERP.",
         completed: false,
+      },
+    ],
+  },
+  {
+    id: "DEC-2026-0043",
+    orderNumber: "#OC-398",
+    title: "Compra programada: 80u Disco de Corte Diamantado 4-1/2'",
+    sku: "SKU-DIS-DIA04",
+    quantity: 80,
+    unitPriceCop: 22000,
+    totalCostCop: 1760000,
+    amountFormatted: "$1.760.000 COP",
+    supplier: "Bosch Herramientas Colombia",
+    leadTime: "1 día hábil",
+    policyTrigger: "Reposición periódica bajo umbral autónomo",
+    policyCode: "POL-AUTO-01",
+    explain: {
+      context: "Consumo ordinario de taller y pedidos recurrentes de clientes industriales.",
+      opportunityCost: "Aprobada automáticamente por estar bajo el umbral de $5.000.000 COP.",
+    },
+    diffImpact: {
+      budgetBefore: "$44.5M disponible",
+      budgetAfter: "$42.8M restante",
+      stockBefore: "18 unidades",
+      stockAfter: "98 unidades (Cobertura de 30 días)",
+      slaBefore: "95% cumplimiento",
+      slaAfter: "99% cobertura",
+    },
+    hmacSignature: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    status: "aprobado",
+    timeline: [
+      {
+        title: "Evaluación ROP",
+        time: "Ayer, 04:30 p. m.",
+        description: "Existencias por debajo del mínimo de seguridad.",
+        completed: true,
+      },
+      {
+        title: "Firma Autónoma y Ejecución",
+        time: "Ayer, 04:32 p. m.",
+        description: "Orden transmitida a Bosch Colombia sin intervención manual.",
+        completed: true,
       },
     ],
   },
 ];
 
 interface HitlApprovalsViewProps {
-  decisions?: HitlDecision[];
-  onApprove?: (id: string) => void;
-  onReject?: (id: string) => void;
-  onSimulateNew?: () => void;
+  onNavigateTo?: (tabId: string) => void;
 }
 
-export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
-  onApprove,
-  onReject,
-}) => {
+export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = () => {
   const [proposals, setProposals] = useState<EnrichedProposal[]>(DEFAULT_PROPOSALS);
   const [selectedId, setSelectedId] = useState<string>("DEC-2026-0041");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [copiedHmac, setCopiedHmac] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const currentIdx = proposals.findIndex((p) => p.id === selectedId);
-  const selectedProposal = proposals[currentIdx] || proposals[0];
+  const filteredProposals = useMemo(() => {
+    return proposals.filter((p) => {
+      const q = searchQuery.toLowerCase();
+      return (
+        p.id.toLowerCase().includes(q) ||
+        p.orderNumber.toLowerCase().includes(q) ||
+        p.supplier.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q)
+      );
+    });
+  }, [proposals, searchQuery]);
 
-  const handlePrev = () => {
-    const nextIdx = (currentIdx - 1 + proposals.length) % proposals.length;
-    setSelectedId(proposals[nextIdx].id);
-  };
-
-  const handleNext = () => {
-    const nextIdx = (currentIdx + 1) % proposals.length;
-    setSelectedId(proposals[nextIdx].id);
-  };
+  const selectedProposal = useMemo(() => {
+    return proposals.find((p) => p.id === selectedId) || proposals[0];
+  }, [proposals, selectedId]);
 
   const handleApprove = (id: string) => {
     setProposals((prev) =>
       prev.map((p) => (p.id === id ? { ...p, status: "aprobado" } : p))
     );
-    if (onApprove) onApprove(id);
-    showToast(`Decisión ${id} aprobada con éxito. Orden de compra emitida al ERP.`);
+    showToast(`Orden autorizada con éxito: ${id} emitida a ERP.`);
   };
 
   const handleReject = (id: string) => {
     setProposals((prev) =>
       prev.map((p) => (p.id === id ? { ...p, status: "rechazado" } : p))
     );
-    if (onReject) onReject(id);
-    showToast(`Decisión ${id} rechazada. Se notificó al especialista para reformular.`);
+    showToast(`Propuesta rechazada: ${id} devuelta al agente para recotización.`);
   };
 
+  const handleCopyHmac = () => {
+    if (!selectedProposal) return;
+    navigator.clipboard.writeText(selectedProposal.hmacSignature);
+    setCopiedHmac(true);
+    setTimeout(() => setCopiedHmac(false), 2000);
+  };
+
+  const pendingCount = proposals.filter((p) => p.status === "pendiente").length;
+
   return (
-    <div className="flex-1 h-full flex flex-col bg-canvas text-[#F9FAFB] font-sans select-none overflow-hidden relative">
-      {/* Toast Notification */}
+    <div className="flex-1 h-full flex flex-col bg-canvas text-primary font-sans overflow-hidden relative">
+      {/* Notificación Toast Silenciosa */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E]/95 border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)] backdrop-blur-xl"
+            initial={{ opacity: 0, y: -15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed top-6 right-8 z-50 px-4 py-2.5 rounded-pill flex items-center gap-2.5 bg-panel border border-brand-lime text-primary shadow-dialog text-caption"
           >
-            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span className="text-xs font-mono font-medium tracking-tight">{toastMessage}</span>
-            <button
-              onClick={() => setToastMessage(null)}
-              className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
-            >
-              ✕
-            </button>
+            <span className="w-2 h-2 rounded-pill bg-brand-lime" />
+            <span className="font-medium">{toastMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ========================================================= */}
-      {/* HEADER SUPERIOR EJECUTIVO                                 */}
-      {/* ========================================================= */}
-      <header className="px-6 py-4 bg-canvas border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-20 shrink-0">
+      {/* Header Superior Limpio */}
+      <header className="px-8 py-4 bg-canvas border-b border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-20 shrink-0">
         <div>
-          <div className="flex items-center gap-2 text-xs text-zinc-400">
+          <div className="flex items-center gap-2 text-caption text-secondary">
             <span>Gobernanza</span>
-            <span className="text-white/20">/</span>
-            <span className="text-zinc-200">Supervisión Ejecutiva</span>
+            <span className="text-tertiary">/</span>
+            <span className="text-primary font-medium">Bandeja de Aprobaciones</span>
           </div>
-          <h1 className="text-xl font-bold text-white tracking-tight mt-0.5 font-sans">
+          <h1 className="text-display font-bold text-primary tracking-tight mt-0.5">
             Aprobaciones
           </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Supervisión y firma ejecutiva de decisiones y órdenes de compra del agente autónomo
+          <p className="text-caption text-secondary mt-0.5">
+            Supervisión ejecutiva y firma de decisiones de compra que exceden el umbral de autonomía
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-1 border border-white/[0.06] text-xs">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-zinc-300 font-sans">
-              {proposals.filter((p) => p.status === "pendiente").length} decisiones pendientes de firma
-            </span>
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-pill bg-panel border border-subtle text-caption text-secondary">
+            <span className="w-2 h-2 rounded-pill bg-state-pending" />
+            <span className="text-primary font-medium">{pendingCount} pendientes de firma</span>
           </div>
         </div>
       </header>
 
-      {/* ========================================================= */}
-      {/* SPLIT-SCREEN 50 / 50 (ESTILO FIKRI SHP-5567)              */}
-      {/* ========================================================= */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative min-h-0">
-        {/* ------------------------------------------------------- */}
-        {/* PANEL IZQUIERDO (50%): DOSSIER OPERATIVO & HITOS        */}
-        {/* ------------------------------------------------------- */}
-        <div className="w-full lg:w-1/2 h-full bg-canvas overflow-y-auto p-6 flex flex-col gap-5 border-b lg:border-b-0 lg:border-r border-white/[0.06]">
-          {/* Fila 1: Selector, Badges y Acciones */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
-                <span className="text-xl sm:text-2xl font-bold tracking-tight text-white font-mono">
+      {/* Layout de 2 Paneles: Bandeja Izquierda (38%) + Dossier Derecho (62%) */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+        {/* PANEL IZQUIERDO (38%): Lista de Órdenes / Decisiones */}
+        <aside className="w-full lg:w-[38%] h-full bg-panel border-b lg:border-b-0 lg:border-r border-subtle flex flex-col shrink-0">
+          {/* Buscador de Órdenes */}
+          <div className="p-4 border-b border-subtle">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filtrar por orden, proveedor o SKU..."
+                className="w-full pl-9 pr-3 py-2 rounded-control bg-canvas border border-subtle focus:border-brand-lime text-caption text-primary placeholder:text-tertiary outline-none transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Lista Scrollable de Decisiones */}
+          <div className="flex-1 overflow-y-auto divide-y divide-subtle">
+            {filteredProposals.map((item) => {
+              const isSelected = item.id === selectedProposal.id;
+              const isPending = item.status === "pendiente";
+              const isApproved = item.status === "aprobado";
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedId(item.id)}
+                  className={`p-4 transition-colors cursor-pointer border-l-2 ${
+                    isSelected
+                      ? "bg-elevated border-l-brand-lime"
+                      : "hover:bg-elevated/50 border-l-transparent"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="font-mono text-caption text-primary font-semibold whitespace-nowrap">
+                        {item.orderNumber}
+                      </span>
+                      <span className="text-tertiary">·</span>
+                      <span className="font-mono text-caption text-secondary whitespace-nowrap">
+                        {item.id}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {isPending ? (
+                        <span className="px-2 py-0.5 rounded-pill bg-state-pendingBg text-state-pending border border-state-pendingBorder text-caption font-medium flex items-center gap-1 whitespace-nowrap">
+                          <span>◆</span> Pendiente
+                        </span>
+                      ) : isApproved ? (
+                        <span className="px-2 py-0.5 rounded-pill bg-state-okBg text-state-ok border border-state-okBorder text-caption font-medium flex items-center gap-1 whitespace-nowrap">
+                          <span>●</span> Aprobada
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-pill bg-state-errorBg text-state-error border border-state-errorBorder text-caption font-medium flex items-center gap-1 whitespace-nowrap">
+                          <span>■</span> Rechazada
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <h3 className="text-body font-semibold text-primary truncate">
+                    {item.title}
+                  </h3>
+
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-subtle text-caption text-secondary">
+                    <span className="truncate pr-2">{item.supplier}</span>
+                    <span className="font-sans font-bold text-primary tabular-nums shrink-0">
+                      {item.amountFormatted}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </aside>
+
+        {/* PANEL DERECHO (62%): Dossier Ejecutivo & Firma */}
+        <main className="flex-1 h-full bg-canvas overflow-y-auto p-8 space-y-6">
+          {/* Fila 1: Cabecera del Dossier y Acciones Principales */}
+          <div className="p-6 rounded-panel bg-panel border border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-subtitle font-bold text-primary whitespace-nowrap">
+                  {selectedProposal.orderNumber}
+                </span>
+                <span className="text-tertiary">·</span>
+                <span className="text-caption text-secondary font-medium whitespace-nowrap">
                   {selectedProposal.id}
                 </span>
-
-                {selectedProposal.status === "pendiente" ? (
-                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
-                    Pendiente Firma
-                  </span>
-                ) : selectedProposal.status === "aprobado" ? (
-                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Aprobado
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center gap-1.5">
-                    <XCircle className="w-3.5 h-3.5" />
-                    Rechazado
-                  </span>
-                )}
-
-                <div className="flex items-center bg-surface-1 rounded-lg border border-white/[0.08] p-0.5">
-                  <button
-                    onClick={handlePrev}
-                    className="p-1 hover:bg-white/[0.06] rounded text-zinc-400 hover:text-white transition-colors"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-[11px] font-mono px-1.5 text-zinc-400">
-                    {currentIdx + 1}/{proposals.length}
-                  </span>
-                  <button
-                    onClick={handleNext}
-                    className="p-1 hover:bg-white/[0.06] rounded text-zinc-400 hover:text-white transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-xs text-zinc-400">
-                Orden Vinculada:{" "}
-                <span className="text-emerald-400 font-mono font-medium">
-                  {selectedProposal.orderNumber}
-                </span>{" "}
-                · Proveedor:{" "}
-                <span className="text-zinc-300 font-medium">
-                  {selectedProposal.supplier}
+                <span className="text-tertiary">·</span>
+                <span className="text-caption text-secondary whitespace-nowrap">
+                  Tiempo de entrega: {selectedProposal.leadTime}
                 </span>
-              </p>
+              </div>
+              <h2 className="text-title font-bold text-primary mt-1">
+                {selectedProposal.title}
+              </h2>
             </div>
 
-            {/* Acciones de Firma y Aprobación */}
-            {selectedProposal.status === "pendiente" && (
-              <div className="flex items-center gap-2.5">
+            {/* Botones de Firma / Rechazo */}
+            {selectedProposal.status === "pendiente" ? (
+              <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => handleReject(selectedProposal.id)}
-                  className="px-3.5 py-1.5 rounded-full bg-surface-well hover:bg-rose-500/15 text-xs font-medium text-zinc-300 hover:text-rose-400 border border-white/[0.08] hover:border-rose-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-control bg-elevated hover:bg-elevated/70 text-caption font-medium text-secondary hover:text-state-error border border-subtle transition-colors cursor-pointer"
                 >
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>Rechazar</span>
+                  Rechazar
                 </button>
 
-                {/* Botón Principal: Píldora Blanca con Círculo y Flecha (Estilo Donezo) */}
+                {/* Botón Principal: Píldora Blanca Insignia */}
                 <button
                   onClick={() => handleApprove(selectedProposal.id)}
-                  className="pl-4 pr-1.5 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-black font-semibold text-xs flex items-center gap-2 shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all cursor-pointer group"
+                  className="pl-5 pr-2 py-2 rounded-pill bg-white hover:bg-zinc-100 text-canvas font-semibold text-caption flex items-center gap-2.5 transition-transform active:scale-[0.98] cursor-pointer group shadow-subtle"
                 >
-                  <span>Aprobar Ejecución</span>
-                  <span className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+                  <span>Aprobar y Ejecutar</span>
+                  <span className="w-6 h-6 rounded-pill bg-canvas text-white flex items-center justify-center transition-transform group-hover:translate-x-0.5">
                     <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
                   </span>
                 </button>
               </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-pill bg-elevated text-caption font-medium text-primary border border-subtle">
+                <CheckCircle2 className="w-4 h-4 text-state-ok" />
+                <span>Decisión procesada en ERP</span>
+              </div>
             )}
           </div>
 
-          {/* Fila 2: Tarjeta con Stepper de 4 Fases y 3 Métricas */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">
-            <h3 className="text-sm font-bold text-white mb-2 font-sans">
-              {selectedProposal.title}
-            </h3>
-
-            {/* Stepper de 4 Fases de Gobernanza */}
-            <div className="bg-surface-well rounded-xl p-4 mt-3 border border-white/[0.04]">
-              <div className="relative flex items-center justify-between">
-                <div className="absolute top-1/2 left-4 right-4 h-1 bg-white/[0.08] -translate-y-1/2 z-0" />
-                <div className="absolute top-1/2 left-4 h-1 bg-emerald-500 -translate-y-1/2 z-0 w-2/3" />
-
-                {[
-                  { label: "Detección IA", icon: Sparkles, status: "completed" },
-                  { label: "Validación Reglas", icon: ShieldCheck, status: "completed" },
-                  { label: "Firma Ejecutiva", icon: UserCheck, status: "current" },
-                  { label: "Ejecución ERP", icon: CheckCircle2, status: "pending" },
-                ].map((step, idx) => (
-                  <div key={idx} className="relative z-10 flex flex-col items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        step.status === "completed"
-                          ? "bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]"
-                          : step.status === "current"
-                          ? "bg-surface-1 text-amber-400 border-2 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                          : "bg-surface-1 text-zinc-500 border border-white/10"
-                      }`}
-                    >
-                      <step.icon className="w-3.5 h-3.5" />
-                    </div>
-                    <span className="text-xs font-medium text-zinc-300 mt-1.5 whitespace-nowrap font-sans">
-                      {step.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Fila de 3 Métricas Clave (Sin tracking exagerado ni font-mono innecesario) */}
-            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-white/[0.06]">
-              <div>
-                <span className="text-xs text-zinc-400 block mb-1 font-sans">
-                  Monto a Autorizar
-                </span>
-                <span className="text-sm font-bold text-white font-sans tabular-nums">
-                  {selectedProposal.amountFormatted}
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-zinc-400 block mb-1 font-sans">
-                  Ahorro Negociado
-                </span>
-                <span className="text-sm font-bold text-emerald-400 font-sans tabular-nums">
-                  +$1.450.000 COP
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-zinc-400 block mb-1 font-sans">
-                  Confianza Algorítmica
-                </span>
-                <span className="text-sm font-bold text-white font-sans tabular-nums">
-                  99.2%
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Fila 3: Callout Banner Contextual */}
-          <div className="rounded-2xl p-4 bg-amber-500/10 border border-amber-500/30 text-amber-200">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-              <div className="text-xs leading-relaxed">
-                <span className="font-bold block mb-0.5">
-                  Disparador de Gobernanza: {selectedProposal.policyCode}
-                </span>
-                <p className="text-zinc-300">
-                  {selectedProposal.policyTrigger}
-                </p>
-                <p className="text-zinc-400 mt-2">
-                  <strong className="text-emerald-400">Justificación del Agente:</strong>{" "}
-                  {selectedProposal.explain.context}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Fila 4: Bitácora de Eventos de la Propuesta */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">
-            <h3 className="text-sm font-bold text-white tracking-tight mb-4">
-              Trazabilidad de la Propuesta
-            </h3>
-            <div className="relative pl-6 space-y-5">
-              <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-white/[0.08]" />
-              {selectedProposal.timeline.map((evt, idx) => (
-                <div key={idx} className="relative">
-                  <div
-                    className={`absolute -left-6 top-1 w-3.5 h-3.5 rounded-full border-2 ${
-                      evt.completed
-                        ? "bg-emerald-500 border-canvas shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                        : "bg-surface-well border-zinc-600"
-                    }`}
-                  />
-                  <div className="flex items-center justify-between">
-                    <h4 className={`text-xs font-bold ${evt.completed ? "text-white" : "text-zinc-500"}`}>
-                      {evt.title}
-                    </h4>
-                    <span className="text-[11px] font-mono text-zinc-500">{evt.time}</span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-0.5">{evt.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ------------------------------------------------------- */}
-        {/* PANEL DERECHO (50%): INSPECTOR VISUAL DE IMPACTO        */}
-        {/* ------------------------------------------------------- */}
-        <div className="w-full lg:w-1/2 h-full bg-[#070C09] overflow-y-auto p-6 flex flex-col gap-5">
-          {/* Tarjeta de Comparativa Antes vs Después */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/[0.06]">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Layers className="w-4 h-4 text-emerald-400" />
-                <span>Simulación de Impacto Operativo</span>
-              </h3>
-              <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                Sin Riesgo de Quiebre
+          {/* Fila 2: Síntesis de Cifras Clave (Espaciado sin Cajas Ruidosas) */}
+          <div className="p-6 rounded-panel bg-panel border border-subtle grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div>
+              <span className="text-caption text-secondary block mb-1">Monto a Autorizar</span>
+              <span className="text-title font-bold text-primary font-sans tabular-nums block">
+                {selectedProposal.amountFormatted}
+              </span>
+              <span className="text-caption text-tertiary mt-0.5 block">
+                {selectedProposal.quantity} unidades x ${(selectedProposal.unitPriceCop).toLocaleString("es-CO")} COP
               </span>
             </div>
 
-            <div className="space-y-4 text-xs">
+            <div>
+              <span className="text-caption text-secondary block mb-1">Ahorro Negociado</span>
+              <span className="text-title font-bold text-state-ok font-sans tabular-nums block">
+                +$1.450.000 COP
+              </span>
+              <span className="text-caption text-tertiary mt-0.5 block">
+                8% de descuento por consolidación de lote
+              </span>
+            </div>
+
+            <div>
+              <span className="text-caption text-secondary block mb-1">Proveedor Homologado</span>
+              <span className="text-body font-semibold text-primary block truncate">
+                {selectedProposal.supplier}
+              </span>
+              <span className="text-caption text-state-ok font-medium mt-0.5 block">
+                ● Calificación A+ (98% puntualidad)
+              </span>
+            </div>
+          </div>
+
+          {/* Fila 3: Justificación del Agente Autónomo */}
+          <div className="p-6 rounded-panel bg-panel border border-subtle space-y-3">
+            <div className="flex items-center gap-2 text-primary">
+              <Sparkles className="w-4 h-4 text-brand-lime" />
+              <h3 className="text-subtitle font-semibold">
+                Justificación del Agente Autónomo
+              </h3>
+            </div>
+
+            <p className="text-body text-secondary leading-relaxed">
+              {selectedProposal.explain.context}
+            </p>
+
+            <div className="p-3.5 rounded-control bg-elevated border border-subtle text-caption text-secondary flex items-start gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-brand-lime shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-primary font-medium block">
+                  Regla de Gobernanza Aplicada: {selectedProposal.policyCode}
+                </strong>
+                <span>{selectedProposal.policyTrigger}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Fila 4: Simulación de Impacto Operativo (Barras Planas y Sobrias) */}
+          <div className="p-6 rounded-panel bg-panel border border-subtle space-y-4">
+            <h3 className="text-subtitle font-semibold text-primary">
+              Simulación de Impacto Operativo
+            </h3>
+
+            <div className="space-y-4 text-caption">
               {/* Presupuesto */}
               <div>
-                <div className="flex justify-between text-zinc-400 mb-1">
-                  <span>Presupuesto Mensual</span>
-                  <span className="font-sans font-semibold text-white">
+                <div className="flex justify-between text-secondary mb-1.5">
+                  <span>Presupuesto Mensual de Compras</span>
+                  <span className="text-primary font-medium font-sans">
                     {selectedProposal.diffImpact.budgetBefore} ➔ {selectedProposal.diffImpact.budgetAfter}
                   </span>
                 </div>
-                <div className="w-full h-2 bg-white/[0.08] rounded-full overflow-hidden flex">
-                  <div className="h-full bg-emerald-500" style={{ width: "65%" }} />
-                  <div className="h-full bg-hatched-emerald" style={{ width: "15%" }} />
+                <div className="w-full h-2 rounded-pill bg-elevated overflow-hidden flex">
+                  <div className="h-full bg-state-ok" style={{ width: "65%" }} />
+                  <div className="h-full bg-brand-lime" style={{ width: "12%" }} />
                 </div>
               </div>
 
               {/* Stock de Seguridad */}
               <div>
-                <div className="flex justify-between text-zinc-400 mb-1">
-                  <span>Stock y Cobertura de Días</span>
-                  <span className="font-sans font-semibold text-white">
+                <div className="flex justify-between text-secondary mb-1.5">
+                  <span>Cobertura de Días de Inventario</span>
+                  <span className="text-primary font-medium font-sans">
                     {selectedProposal.diffImpact.stockBefore} ➔ {selectedProposal.diffImpact.stockAfter}
                   </span>
                 </div>
-                <div className="w-full h-2 bg-white/[0.08] rounded-full overflow-hidden flex">
-                  <div className="h-full bg-amber-500" style={{ width: "12%" }} />
-                  <div className="h-full bg-emerald-500" style={{ width: "76%" }} />
+                <div className="w-full h-2 rounded-pill bg-elevated overflow-hidden flex">
+                  <div className="h-full bg-state-attention" style={{ width: "10%" }} />
+                  <div className="h-full bg-state-ok" style={{ width: "75%" }} />
                 </div>
               </div>
 
               {/* SLA de Servicio */}
               <div>
-                <div className="flex justify-between text-zinc-400 mb-1">
-                  <span>Cumplimiento de SLA a Clientes</span>
-                  <span className="font-sans font-semibold text-white">
+                <div className="flex justify-between text-secondary mb-1.5">
+                  <span>Cumplimiento de SLA a Obras</span>
+                  <span className="text-primary font-medium font-sans">
                     {selectedProposal.diffImpact.slaBefore} ➔ {selectedProposal.diffImpact.slaAfter}
                   </span>
                 </div>
-                <div className="w-full h-2 bg-white/[0.08] rounded-full overflow-hidden flex">
-                  <div className="h-full bg-emerald-500" style={{ width: "98%" }} />
+                <div className="w-full h-2 rounded-pill bg-elevated overflow-hidden flex">
+                  <div className="h-full bg-state-ok" style={{ width: "98%" }} />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Tarjeta de Recibo Criptográfico con Firma HMAC-SHA256 */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
-              <span className="text-xs font-bold text-white flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Recibo de Auditoría Criptográfica</span>
-              </span>
-              <span className="text-[10px] font-mono text-zinc-500">
-                HMAC-SHA256
+          {/* Fila 5: Firma y Auditoría Criptográfica */}
+          <div className="p-5 rounded-panel bg-panel border border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-caption">
+            <div>
+              <span className="text-secondary block">Firma Criptográfica HMAC-SHA256:</span>
+              <span className="font-mono text-tertiary truncate max-w-md block mt-0.5">
+                {selectedProposal.hmacSignature}
               </span>
             </div>
 
-            <div className="bg-surface-well rounded-xl p-4 border border-white/[0.04] space-y-3 font-mono text-xs">
-              <div>
-                <span className="text-[10px] uppercase text-zinc-500 block">Firma Digital del Agente</span>
-                <span className="text-emerald-400 text-[11px] break-all">
-                  {selectedProposal.hmacSignature}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t border-white/[0.04]">
-                <div>
-                  <span className="text-zinc-500 block">Emisor</span>
-                  <span className="text-white">MINT Autonomous Core</span>
-                </div>
-                <div>
-                  <span className="text-zinc-500 block">Estado Criptográfico</span>
-                  <span className="text-emerald-400 font-bold">Verificado ✓</span>
-                </div>
-              </div>
-            </div>
+            <button
+              onClick={handleCopyHmac}
+              className="px-3.5 py-1.5 rounded-control bg-elevated hover:bg-elevated/70 text-primary border border-subtle flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+            >
+              {copiedHmac ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-state-ok" />
+                  <span>Copiada</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-secondary" />
+                  <span>Copiar Firma</span>
+                </>
+              )}
+            </button>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );
