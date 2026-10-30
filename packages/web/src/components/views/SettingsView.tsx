@@ -15,6 +15,8 @@ import { IntegrationsView } from "./IntegrationsView";
 import { NotificationChannelsView } from "./NotificationChannelsView";
 import { WebhooksApiView } from "./WebhooksApiView";
 import { RolesPermissionsView } from "./RolesPermissionsView";
+import { ProfileSettingsView } from "./ProfileSettingsView";
+import { PreferencesSettingsView } from "./PreferencesSettingsView";
 
 export interface SettingsViewProps {
   initialTab?: string;
@@ -250,6 +252,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab, onNaviga
 
   const renderSection = () => {
     switch (activeSection) {
+      case "mi_perfil":
+        return <ProfileSettingsView />;
+      case "preferencias":
+        return <PreferencesSettingsView />;
       case "empresas_sucursales":
         return <CompaniesBranchesView />;
       case "integraciones":

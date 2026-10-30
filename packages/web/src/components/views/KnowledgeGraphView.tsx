@@ -1,3 +1,4 @@
+import { AGENT_SUB_TABS } from "../layout/AgentSubNav";
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Search,
@@ -120,17 +121,6 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     showAllLabels: true,
   };
 
-  // Subpestañas del destino Agente según Mint-DESIGN.md
-  const agentSubTabs: TabItem[] = [
-    { id: "flujo_agente", label: "Flujo del agente" },
-    { id: "mapa_conocimiento", label: "Mapa de conocimiento" },
-    { id: "memoria_agente", label: "Memoria del agente" },
-    { id: "auditoria_eventos", label: "Historial de decisiones" },
-    { id: "reglas_politicas", label: "Reglas y políticas" },
-    { id: "modelos", label: "Modelos de IA" },
-    { id: "nodos", label: "Biblioteca de nodos" },
-    { id: "objetivos", label: "Objetivos" },
-  ];
 
   // Un solo control de filtros por categoría
   const filterTabs: TabItem[] = [
@@ -241,7 +231,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
           description="Relaciones operativas en vivo entre tus bodegas, productos, proveedores y decisiones del agente."
           filterControl={
             <SegmentedTabs
-              tabs={agentSubTabs}
+              tabs={AGENT_SUB_TABS}
               activeTab="mapa_conocimiento"
               onChange={(tabId) => onNavigateTo && onNavigateTo(tabId)}
             />

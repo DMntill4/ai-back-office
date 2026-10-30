@@ -21,8 +21,12 @@ import { NodeLibraryView } from "./components/views/NodeLibraryView";
 import { ObjectivesView } from "./components/views/ObjectivesView";
 import { ApprovalDialog } from "./components/ui/ApprovalDialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { AgentSubNav, AGENT_TABS_WITHOUT_OWN_NAV } from "./components/layout/AgentSubNav";
 
 import { HitlDecision } from "./types/workflow";
+import { getUserSettings, useUserSettings } from "./hooks/useUserSettings";
+import type { AppNotification } from "./components/layout/NotificationsPopover";
+import type { SearchableRecord } from "./components/layout/CommandSearch";
 import { INITIAL_HITL_DECISIONS } from "./data/mockData";
 
 /**
@@ -57,6 +61,8 @@ const KNOWN_TABS = new Set<string>([
   "objetivos",
   "analisis_reportes",
   "configuracion_general",
+  "mi_perfil",
+  "preferencias",
   "empresas_sucursales",
   "integraciones",
   "canales_notificaciones",
@@ -70,7 +76,10 @@ const DEFAULT_TAB = "inicio";
 /** Normaliza cualquier entrada (hash, id de pestaña) a una ruta válida. */
 const normalizeTab = (raw: string | null | undefined): string => {
   const clean = (raw ?? "").trim().replace(/^#/, "").toLowerCase();
-  if (!clean) return DEFAULT_TAB;
+  if (!clean) {
+    const landing = getUserSettings().preferences.landingTab;
+    return KNOWN_TABS.has(landing) ? landing : DEFAULT_TAB;
+  }
   const resolved = TAB_ALIASES[clean] ?? clean;
   return KNOWN_TABS.has(resolved) ? resolved : DEFAULT_TAB;
 };
@@ -132,6 +141,67 @@ export const App: React.FC = () => {
   };
 
   const pendingApprovalsCount = decisions.filter((d) => d.status === "pendiente").length;
+
+  // Avisos de la campana según las preferencias del usuario.
+  // Aprobaciones: reales (estado de `decisions`). Stock y agente: muestra local
+  // alineada con el Inicio hasta que el backend entregue el feed.
+  const { preferences } = useUserSettings();
+  const notifications: AppNotification[] = [
+    ...(preferences.notifyApprovals
+      ? decisions
+          .filter((d) => d.status === "pendiente")
+          .map<AppNotification>((d) => ({
+            id: `approval:${d.id}`,
+            kind: "approval",
+            title: `Requiere tu firma: ${d.title}`,
+            detail: `${d.supplierName} · ${d.totalCostCop.toLocaleString("es-CO")} COP`,
+            time: d.createdAt,
+            targetTab: "aprobaciones",
+          }))
+      : []),
+    ...(preferences.notifyStock
+      ? [
+          {
+            id: "stock:rotomartillo-rop",
+            kind: "stock" as const,
+            title: "Rotomartillo SDS bajo el punto de reorden",
+            detail: "Quedan 2 unidades; el punto de reorden es 10.",
+            time: "Hoy, 09:40",
+            targetTab: "inventario",
+          },
+          {
+            id: "stock:cuarentena",
+            kind: "stock" as const,
+            title: "Lote retenido en cuarentena",
+            detail: "Revisa el lote antes de liberarlo al inventario.",
+            time: "Hoy, 08:05",
+            targetTab: "inventario",
+          },
+        ]
+      : []),
+    ...(preferences.notifyAgent
+      ? [
+          {
+            id: "agent:ciclo-8849",
+            kind: "agent" as const,
+            title: "Ciclo #8849 del agente en curso",
+            detail: "Vigilancia de existencias y cotización activa.",
+            time: "Hace 3 min",
+            targetTab: "flujo_agente",
+          },
+        ]
+      : []),
+  ];
+
+  const searchRecords: SearchableRecord[] = decisions
+    .filter((d) => d.status === "pendiente")
+    .map((d) => ({
+      id: `rec:${d.id}`,
+      label: d.title,
+      hint: `${d.sku} · ${d.supplierName}`,
+      group: "Aprobaciones",
+      targetTab: "aprobaciones",
+    }));
 
   const handleApproveDecision = (decisionId: string) => {
     setDecisions((prev) =>
@@ -299,6 +369,12 @@ export const App: React.FC = () => {
           <SettingsView initialTab="webhooks_api" onNavigateTo={handleTabChange} />
         );
 
+      case "mi_perfil":
+        return <SettingsView initialTab="mi_perfil" onNavigateTo={handleTabChange} />;
+
+      case "preferencias":
+        return <SettingsView initialTab="preferencias" onNavigateTo={handleTabChange} />;
+
       case "roles_permisos":
         return (
           <SettingsView initialTab="roles_permisos" onNavigateTo={handleTabChange} />
@@ -325,6 +401,8 @@ export const App: React.FC = () => {
       currentTab={currentTab}
       onSelectTab={handleTabChange}
       pendingApprovalsCount={pendingApprovalsCount}
+      notifications={notifications}
+      searchRecords={searchRecords}
       agentStatusText="Operativo · 10:24 a. m."
       agentState="reposo"
     >
@@ -338,7 +416,13 @@ export const App: React.FC = () => {
           className="w-full flex-1 flex flex-col h-full min-h-0"
         >
           <ErrorBoundary viewKey={currentTab} onReset={handleResetToDashboard}>
-            {renderContent()}
+            {AGENT_TABS_WITHOUT_OWN_NAV.has(currentTab) ? (
+              <AgentSubNav activeTab={currentTab} onNavigateTo={handleTabChange}>
+                {renderContent()}
+              </AgentSubNav>
+            ) : (
+              renderContent()
+            )}
           </ErrorBoundary>
         </motion.div>
       </AnimatePresence>

@@ -8,9 +8,13 @@ import {
     Webhook,
     ShieldCheck,
     ChevronRight,
+    User,
+    SlidersHorizontal,
 } from "lucide-react";
 
 export type SettingsTabId =
+    | "mi_perfil"
+    | "preferencias"
     | "configuracion_general"
     | "empresas_sucursales"
     | "integraciones"
@@ -27,6 +31,20 @@ export interface SettingsTabDef {
 }
 
 export const SETTINGS_TABS: SettingsTabDef[] = [
+    {
+        id: "mi_perfil",
+        label: "Mi perfil",
+        shortLabel: "Perfil",
+        description: "Tus datos personales y cómo apareces en Mint",
+        icon: User,
+    },
+    {
+        id: "preferencias",
+        label: "Preferencias",
+        shortLabel: "Preferencias",
+        description: "Vista inicial, interfaz y avisos de tu ecosistema",
+        icon: SlidersHorizontal,
+    },
     {
         id: "configuracion_general",
         label: "Configuración General",

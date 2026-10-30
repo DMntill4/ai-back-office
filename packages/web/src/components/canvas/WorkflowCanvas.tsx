@@ -1,3 +1,4 @@
+import { AGENT_SUB_TABS } from "../layout/AgentSubNav";
 import React, { useState } from "react";
 import {
   Pause,
@@ -61,17 +62,6 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
   const [copiedPayload, setCopiedPayload] = useState<boolean>(false);
 
-  // Subpestañas del destino Agente según Mint-DESIGN.md
-  const agentSubTabs: TabItem[] = [
-    { id: "flujo_agente", label: "Flujo del agente" },
-    { id: "mapa_conocimiento", label: "Mapa de conocimiento" },
-    { id: "memoria_agente", label: "Memoria del agente" },
-    { id: "auditoria_eventos", label: "Historial de decisiones" },
-    { id: "reglas_politicas", label: "Reglas y políticas" },
-    { id: "modelos", label: "Modelos de IA" },
-    { id: "nodos", label: "Biblioteca de nodos" },
-    { id: "objetivos", label: "Objetivos" },
-  ];
 
   const handleSubTabChange = (tabId: string) => {
     if (onNavigateTo) {
@@ -368,7 +358,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         description="Supervisión en vivo de la cadena de abastecimiento autónomo: vigilancia de existencias, cotización y gobernanza."
         filterControl={
           <SegmentedTabs
-            tabs={agentSubTabs}
+            tabs={AGENT_SUB_TABS}
             activeTab="flujo_agente"
             onChange={handleSubTabChange}
           />

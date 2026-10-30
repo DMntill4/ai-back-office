@@ -8,9 +8,7 @@ import {
   BarChart3,
   Settings,
   ChevronDown,
-  Search,
   Terminal,
-  Bell,
   X,
   Building2,
   Menu,
@@ -19,6 +17,10 @@ import { motion, AnimatePresence } from "motion/react";
 import { AgentParticleCloud, AgentVisualState } from "../ui/AgentParticleCloud";
 import { CliTerminalPanel } from "../panels/CliTerminalPanel";
 import { CostBadge } from "../ui/CostBadge";
+import { NotificationsPopover, AppNotification } from "./NotificationsPopover";
+import { ProfileMenu } from "./ProfileMenu";
+import { CommandSearch, SearchableRecord } from "./CommandSearch";
+import { useUserSettings, COMPANIES } from "../../hooks/useUserSettings";
 
 export interface AppShellProps {
   currentTab: string;
@@ -32,6 +34,10 @@ export interface AppShellProps {
   currentTaskTokens?: number;
   /** Identificador de la tarea en curso, para el tooltip del badge de costo. */
   currentTaskId?: string;
+  /** Avisos de la campana (ya filtrados por las preferencias del usuario). */
+  notifications?: AppNotification[];
+  /** Registros dinámicos que encuentra el buscador global. */
+  searchRecords?: SearchableRecord[];
   children: React.ReactNode;
 }
 
@@ -52,14 +58,14 @@ export const AppShell: React.FC<AppShellProps> = ({
   currentTaskCostUsd,
   currentTaskTokens,
   currentTaskId,
+  notifications = [],
+  searchRecords = [],
   children,
 }) => {
+  const { profile, preferences } = useUserSettings();
   const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState(
-    "Ferretería Industrial Santander"
-  );
-  const [searchQuery, setSearchQuery] = useState("");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(preferences.sidebarCollapsed);
+  const [selectedCompany, setSelectedCompany] = useState(preferences.defaultCompany);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
 
   // Atajo global Ctrl+J / Cmd+J para abrir/cerrar consola de telemetría
@@ -74,11 +80,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const companiesList = [
-    "Ferretería Industrial Santander",
-    "Distribuidora Andina de Herramientas",
-    "Suministros del Oriente S.A.",
-  ];
+  const companiesList = COMPANIES;
 
   // 7 Destinos Principales según Mint-DESIGN.md
   const navItems: NavItem[] = [
@@ -135,6 +137,8 @@ export const AppShell: React.FC<AppShellProps> = ({
       icon: Settings,
       subTabs: [
         "ajustes",
+        "mi_perfil",
+        "preferencias",
         "configuracion_general",
         "empresas_sucursales",
         "integraciones",
@@ -223,25 +227,13 @@ export const AppShell: React.FC<AppShellProps> = ({
 
           {/* Rol del usuario siempre visible */}
           <span className="hidden 2xl:inline text-caption text-secondary font-medium whitespace-nowrap">
-            · Operador de Suministro
+            · {profile.role}
           </span>
         </div>
 
-        {/* Buscador Central */}
+        {/* Buscador global (Ctrl/Cmd + K) */}
         <div className="hidden md:flex items-center max-w-sm w-full mx-group">
-          <div className="relative w-full">
-            <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar órdenes, SKUs o proveedores..."
-              className="w-full bg-panel border border-strong focus:border-brand rounded-control pl-8 pr-10 py-1.5 text-caption text-primary placeholder:text-muted focus:outline-none transition-colors"
-            />
-            <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-caption font-mono px-1 py-0.2 rounded-control bg-raised border border-border text-muted">
-              ⌘K
-            </kbd>
-          </div>
+          <CommandSearch records={searchRecords} onSelectTab={onSelectTab} />
         </div>
 
         {/* Acciones de la Derecha */}
@@ -255,12 +247,14 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Insignia de costo de la tarea y total de sesión (Agent FinOps) */}
+          {preferences.showCostBadge && (
           <CostBadge
             taskCostUsd={currentTaskCostUsd}
             taskTokens={currentTaskTokens}
             taskId={currentTaskId}
             className="hidden sm:flex"
           />
+          )}
 
           {/* Botón Discreto Telemetría (Ctrl+J) */}
           <button
@@ -272,36 +266,13 @@ export const AppShell: React.FC<AppShellProps> = ({
             <Terminal className="w-4 h-4" />
           </button>
 
-          {/* Botón Notificaciones */}
-          <button
-            onClick={() => onSelectTab("aprobaciones")}
-            className="relative w-8 h-8 rounded-pill bg-panel border border-border flex items-center justify-center text-secondary hover:text-primary transition-colors cursor-pointer"
-            title="Aprobaciones y notificaciones"
-          >
-            <Bell className="w-4 h-4" />
-            {pendingApprovalsCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-pill bg-state-pending text-caption font-bold text-canvas flex items-center justify-center px-1 font-mono">
-                {pendingApprovalsCount}
-              </span>
-            )}
-          </button>
+          {/* Notificaciones: lista con destino propio por aviso */}
+          <NotificationsPopover notifications={notifications} onSelectTab={onSelectTab} />
 
           <div className="h-4 w-px bg-border" />
 
-          {/* Perfil de Usuario */}
-          <div className="flex items-center gap-2 pl-1 cursor-pointer group">
-            <div className="w-8 h-8 rounded-pill bg-raised border border-border flex items-center justify-center text-caption font-bold text-brand font-mono">
-              FS
-            </div>
-            <div className="text-left hidden sm:block">
-              <p className="text-caption font-medium text-primary group-hover:text-brand transition-colors leading-tight whitespace-nowrap">
-                Fernando S.
-              </p>
-              <p className="text-caption text-muted leading-none mt-hairline whitespace-nowrap">
-                Director de Operaciones
-              </p>
-            </div>
-          </div>
+          {/* Perfil de usuario con menú */}
+          <ProfileMenu companyName={selectedCompany} onSelectTab={onSelectTab} />
         </div>
       </header>
 
