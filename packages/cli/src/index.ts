@@ -1,38 +1,16 @@
 import { Command } from "commander";
-import { loginCommand } from "./commands/login";
-import { logoutCommand, whoamiCommand } from "./commands/whoami";
-import { stockCommand, ordersCommand } from "./commands/stock";
-import { inboxCommand } from "./commands/inbox";
-import { chatCommand, todayCommand, consoleCommand } from "./commands/console";
-import { explainCommand } from "./commands/explain";
-import { simulateCommand } from "./commands/simulate";
-import { dashboardCommand } from "./commands/dashboard";
-import { teamCommand } from "./commands/team";
-import { doctorCommand } from "./commands/doctor";
-import { startCommand } from "./commands/start";
-import { setupCommand } from "./commands/setup";
-import { databaseCommand } from "./commands/database";
-import { channelsCommand, settingsCommand } from "./commands/channels";
-import { goalCommand } from "./commands/goal";
-import { triggerScanApi } from "./client";
-import { getSession } from "./keychain";
-import { theme } from "./ui/theme";
 import { printBanner } from "./ui/banner";
-import { graphCommand } from "./commands/graph";
-import { memoryCommand } from "./commands/memory";
+import { theme } from "./ui/theme";
 
 export const program = new Command();
-program.addCommand(graphCommand);
-program.addCommand(memoryCommand);
 
 program
   .name("mint")
   .description("Mint CLI - Coordinador Logistico Autonomo y Operaciones Back Office")
   .version("2.5.0");
 
-// Banner hook on empty invocation
+// Banner hook en invocación interactiva vacía
 program.hook("preAction", (thisCommand, actionCommand) => {
-  // If json flag is set, avoid printing banners
   if (actionCommand.opts().json || thisCommand.opts().json) {
     return;
   }
@@ -46,118 +24,208 @@ program
   .option("--headless", "Corre en segundo plano sin consola interactiva (ideal para servidores)")
   .option("--port <port>", "Puerto para el servidor de webhooks y API (por defecto: 3000)")
   .option("--json", "Salida en formato JSON")
-  .action((options) => startCommand(options));
+  .action((options) => {
+    const { startCommand } = require("./commands/start");
+    return startCommand(options);
+  });
 
 // 0.1 mint setup [file]
 program
   .command("setup [file]")
-  .description("Configuración ultrarrápida de 1 paso en 2 segundos (empresa, almacén, catálogo, proveedores)")
+  .description("Inicialización y configuración interactiva del Back Office (requisitos, BD, onboarding y catálogo)")
   .option("--company <name>", "Nombre personalizado de la empresa")
+  .option("--quick", "Inicialización no interactiva ultrarrápida con fixtures de muestra")
+  .option("--interactive", "Forzar asistente guiado conversacional paso a paso")
   .option("--json", "Salida en formato JSON")
-  .action((file, options) => setupCommand({ file, companyName: options.company, ...options }));
+  .action((file, options) => {
+    const { setupCommand } = require("./commands/setup");
+    return setupCommand({ file, companyName: options.company, ...options });
+  });
 
 // 0.2 mint doctor / mint env
 program
   .command("doctor")
   .alias("env")
-  .description("Verifica la compatibilidad del entorno (Node >= 22.5.0, SQLite nativo) y conectividad a PostgreSQL")
+  .description("Diagnóstico integral: entorno, PostgreSQL, API keys, canales, roles y mapeo de esquema")
   .option("--json", "Salida en formato JSON")
-  .action((options) => doctorCommand(options));
+  .action((options) => {
+    const { doctorCommand } = require("./commands/doctor");
+    return doctorCommand(options);
+  });
 
-// 1. mint dashboard / mint status
+// 1. mint track <query>
+program
+  .command("track <query> [subaction]")
+  .alias("rastreo")
+  .description("Seguimiento en tiempo real de envíos, camiones, ETA y detección de incidencias")
+  .option("--open", "Abre la ruta directamente en el navegador web")
+  .option("--json", "Salida en formato JSON")
+  .action((query, subaction, options) => {
+    const { trackCommand } = require("./commands/track");
+    return trackCommand(query, subaction, options);
+  });
+
+// 2. mint map [action] [table]
+program
+  .command("map [action] [table]")
+  .alias("mapping")
+  .description("Descubrimiento y mapeo seguro de tablas preexistentes del cliente (Tarea 0)")
+  .option("--json", "Salida en formato JSON")
+  .action((action, table, options) => {
+    const { mappingCommand } = require("./commands/mapping");
+    return mappingCommand(action || "show", table, options);
+  });
+
+// 3. mint questions [action] [targetId] [answer]
+program
+  .command("questions [action] [targetId] [answer...]")
+  .alias("preguntas")
+  .description("Banco de preguntas pendientes de datos faltantes en la BD (Verdad de datos)")
+  .option("--json", "Salida en formato JSON")
+  .action((action, targetId, answerWords, options) => {
+    const { questionsCommand } = require("./commands/questions");
+    const answer = Array.isArray(answerWords) ? answerWords.join(" ") : undefined;
+    return questionsCommand(action || "list", targetId, answer, options);
+  });
+
+// 4. mint cancel <id>
+program
+  .command("cancel <id>")
+  .description("Cancela una propuesta o acción pendiente en la bandeja antes de ejecutarse")
+  .option("--json", "Salida en formato JSON")
+  .action((id, options) => {
+    const { inboxCommand } = require("./commands/inbox");
+    return inboxCommand("cancel", id, options);
+  });
+
+// 5. mint reports [type] [format]
+program
+  .command("reports [type] [format]")
+  .alias("reportes")
+  .description("Reportes ejecutivos de tienda y finanzas: mint reports [briefing|stock|sales|orders|profit] [csv|pdf]")
+  .action((type, format) => {
+    const { reportsCommand } = require("./commands/reports");
+    return reportsCommand(type, format);
+  });
+
+// 6. mint dashboard / mint status
 program
   .command("dashboard")
   .alias("status")
   .description("Panel de control unificado: inventario, casos activos, daemon y notificaciones")
   .option("--json", "Salida en formato JSON")
-  .action((options) => dashboardCommand(options));
+  .action((options) => {
+    const { dashboardCommand } = require("./commands/dashboard");
+    return dashboardCommand(options);
+  });
 
-// 2. mint explain [id]
+// 7. mint explain <id>
 program
-  .command("explain [id]")
+  .command("explain <id>")
   .description("Explica la deliberación multi-agente, evidencia y regla de política tras una decisión")
   .option("--json", "Salida en formato JSON")
-  .action((id, options) => explainCommand(id, options));
+  .action((id, options) => {
+    const { explainCommand } = require("./commands/explain");
+    return explainCommand(id, options);
+  });
 
-// 3. mint simulate [scenario]
+// 8. mint simulate [scenario]
 program
   .command("simulate [scenario]")
   .description("Simula un escenario logístico what-if en sandbox (stockout, delay, price-spike)")
   .option("--sku <sku>", "SKU específico para la simulación")
   .option("--json", "Salida en formato JSON")
-// 3.1 mint goal <objective>
-program
-  .command("goal <objective...>")
-  .description("Motor estratégico de objetivos: analiza línea base, formula 4 palancas operativas y prepara plan en 3 fases")
-  .option("--json", "Salida en formato JSON")
-  .action((objectiveWords, options) => goalCommand(objectiveWords.join(" "), options));
+  .action((scenario, options) => {
+    const { simulateCommand } = require("./commands/simulate");
+    return simulateCommand(scenario || "stockout", options);
+  });
 
-// 4. mint console / mint repl
+// 9. mint console / mint repl
 program
   .command("console")
   .alias("repl")
-  .description("Consola interactiva con prompt permanente para operaciones continuas (estilo Kali / Claude Code)")
-  .action(() => consoleCommand());
+  .description("Consola interactiva con prompt permanente para operaciones continuas")
+  .action(() => {
+    const { consoleCommand } = require("./commands/console");
+    return consoleCommand();
+  });
 
-// 4.1 mint team [list|invite|remove]
+// 10. mint team [list|invite|remove]
 program
   .command("team [action] [arg]")
   .description("Gestión de equipo y control de acceso (RBAC): mint team list | mint team invite <email> | mint team remove <id>")
   .option("--name <name>", "Nombre completo del usuario")
-  .option("--role <role>", "Rol en la organización: owner, operator, auditor, viewer")
+  .option("--role <role>", "Rol en la organización: owner, admin, operator, driver, viewer")
   .option("--json", "Salida en formato JSON")
-  .action((action, arg, options) => teamCommand(action || "list", arg, options));
+  .action((action, arg, options) => {
+    const { teamCommand } = require("./commands/team");
+    return teamCommand(action || "list", arg, options);
+  });
 
-// 5. mint login
+// 11. mint login
 program
   .command("login [email] [password]")
   .description("Inicia sesión contra el servidor y guarda el token cifrado en el keychain")
   .option("--json", "Salida en formato JSON")
-  .action((email, password, options) => loginCommand(email, password, options));
+  .action((email, password, options) => {
+    const { loginCommand } = require("./commands/login");
+    return loginCommand(email, password, options);
+  });
 
-// 6. mint logout
+// 12. mint logout
 program
   .command("logout")
   .description("Cierra sesión y elimina el token del keychain seguro")
   .option("--json", "Salida en formato JSON")
-  .action((options) => logoutCommand(options));
+  .action((options) => {
+    const { logoutCommand } = require("./commands/whoami");
+    return logoutCommand(options);
+  });
 
-// 7. mint whoami
+// 13. mint whoami
 program
   .command("whoami")
   .description("Muestra el usuario y empresa activa almacenada en el keychain")
   .option("--json", "Salida en formato JSON")
-  .action((options) => whoamiCommand(options));
+  .action((options) => {
+    const { whoamiCommand } = require("./commands/whoami");
+    return whoamiCommand(options);
+  });
 
-// 8. mint stock
+// 14. mint stock
 program
   .command("stock")
   .description("Consulta existencias reales de inventario y estado de quiebre de stock")
   .option("--json", "Salida en formato JSON")
-  .action((options) => stockCommand(options));
+  .action((options) => {
+    const { stockCommand } = require("./commands/stock");
+    return stockCommand(options);
+  });
 
-// 8.1 mint db / mint database
+// 15. mint db / mint database
 program
   .command("db [subcommand] [args...]")
   .alias("database")
   .description("Gestión, re-sincronización y cambio de base de datos o catálogo (mint db [status|sync|switch])")
   .action((subcommand, args) => {
+    const { databaseCommand } = require("./commands/database");
     const combined = subcommand ? [subcommand, ...(args || [])] : [];
     return databaseCommand(combined);
   });
 
-// 8.2 mint app / mint desktop
+// 16. mint app / mint desktop
 program
   .command("app")
   .alias("desktop")
   .alias("web")
-  .description("Torre de control en consola (100% Terminal-First)")
-  .action(() => {
-    console.log(`\n  ${theme.mint("[TERMINAL-FIRST]")} Mint opera exclusivamente en modo terminal/consola en esta rama.`);
-    console.log(`  Ejecuta ${theme.bold("mint dashboard")} o ${theme.bold("mint console")} para ver la torre de control en tiempo real.\n`);
+  .description("Abre la Mint Desktop App (Torre de Control Logística Visual)")
+  .option("--no-open", "No abrir la ventana de la aplicación automáticamente")
+  .action((options) => {
+    const { appCommand } = require("./commands/app");
+    return appCommand(options);
   });
 
-// 8.2b mint logistics / dispatch / receive / consolidate
+// 17. mint logistics
 program
   .command("logistics [subcommand] [args...]")
   .alias("gps")
@@ -167,276 +235,350 @@ program
     return logisticsCommand(subcommand, args || []);
   });
 
-program
-  .command("dispatch [args...]")
-  .description("Despacha mercancía de salida a un cliente desde la bodega más cercana con ruta OSRM")
-  .action((args) => {
-    const { logisticsCommand } = require("./commands/logistics");
-    return logisticsCommand("dispatch", args || []);
-  });
-
-program
-  .command("receive [trackingOrOrderId]")
-  .description("Recibe un embarque en tránsito en almacén e incrementa el stock físico")
-  .action((trackingOrOrderId) => {
-    const { logisticsCommand } = require("./commands/logistics");
-    return logisticsCommand("receive", trackingOrOrderId ? [trackingOrOrderId] : []);
-  });
-
-
-// 8.3 mint channels
+// 18. mint channels
 program
   .command("channels [action] [arg1] [arg2]")
   .alias("channel")
   .alias("webhooks")
   .description("Administra y prueba canales y webhooks (Discord / Slack / Telegram): mint channels [list|add|test|remove]")
-  .action((action, arg1, arg2) => channelsCommand(action, arg1, arg2));
+  .action((action, arg1, arg2) => {
+    const { channelsCommand } = require("./commands/channels");
+    return channelsCommand(action, arg1, arg2);
+  });
 
-// 8.4 mint settings / mint config
+// 19. mint settings / mint config
 program
-  .command("settings")
+  .command("settings [subcommand] [arg1] [rest...]")
   .alias("config")
   .description("Muestra y audita la configuración operativa, canales de alerta y gobernanza HITL")
-  .action(() => settingsCommand());
+  .action((subcommand, arg1, rest) => {
+    const { configCommand } = require("./commands/config");
+    return configCommand(subcommand, arg1, ...(rest || []));
+  });
 
-// 9. mint orders
+// 20. mint orders [statusOrId]
 program
-  .command("orders")
-  .description("Consulta las órdenes de compra emitidas a proveedores homologados")
+  .command("orders [statusOrId]")
+  .description("Consulta órdenes de compra en purchase_orders (abiertas, recibidas, canceladas)")
   .option("--json", "Salida en formato JSON")
-  .action((options) => ordersCommand(options));
+  .action((statusOrId, options) => {
+    const { ordersCommand } = require("./commands/stock");
+    return ordersCommand(statusOrId, options);
+  });
 
-// 10. mint inbox
+// 21. mint inbox
 program
   .command("inbox [action] [id]")
-  .description("Bandeja de decisiones (HITL): mint inbox | mint inbox <id> | mint inbox approve <id> | mint inbox reject <id>")
+  .description("Bandeja de decisiones (HITL): mint inbox | mint inbox approve <id> | mint inbox reject <id>")
   .option("--json", "Salida en formato JSON")
-  .action((action, id, options) => inboxCommand(action, id, options));
+  .action((action, id, options) => {
+    const { inboxCommand } = require("./commands/inbox");
+    return inboxCommand(action, id, options);
+  });
 
-// 11. mint chat
+// 22. mint chat
 program
   .command("chat <message...>")
   .description("Envía una consulta operativa al Agente Autónomo Mint")
   .option("--json", "Salida en formato JSON")
   .action((words, options) => {
+    const { chatCommand } = require("./commands/chat");
     const msg = Array.isArray(words) ? words.join(" ") : words;
     return chatCommand(msg, options);
   });
 
-// 12. mint plan today / mint today
+// 23. mint today
 program
   .command("today")
   .description("Resumen diario de decisiones autónomas y presupuesto gestionado")
   .option("--json", "Salida en formato JSON")
-  .action((options) => todayCommand(options));
+  .action((options) => {
+    const { todayCommand } = require("./commands/chat");
+    return todayCommand(options);
+  });
 
+// 24. mint data-health
 program
-  .command("plan [target]")
-  .description("Plan de operaciones ('mint plan today')")
+  .command("data-health")
+  .alias("datahealth")
+  .description("Auditoría de calidad y salud de datos por módulo con compuerta de decisión")
   .option("--json", "Salida en formato JSON")
-  .action((target, options) => {
-    const { planTodayCommand } = require("./commands/daemon");
-    if (target === "today" || !target) {
-      return planTodayCommand(options);
-    }
-    console.log(`Plan para '${target}' no reconocido. Usa 'mint plan today'.`);
+  .action((options) => {
+    const { dataHealthCommand } = require("./commands/dataHealth");
+    return dataHealthCommand(options);
   });
 
-// 13. mint scan
+// 25. mint quarantine [action] [id]
 program
-  .command("scan")
-  .description("Dispara un escaneo de desabastos y retrasos de transporte reales")
-  .option("--json", "Salida en formato JSON")
-  .action(async (options) => {
-    const session = await getSession();
-    const companyId = session?.companyId || "comp_default";
-    try {
-      const res = await triggerScanApi(companyId);
-      if (options.json) {
-        console.log(JSON.stringify(res, null, 2));
-      } else {
-        console.log(`\n${theme.mintBold("ESCANEO PROACTIVO COMPLETADO")} [${companyId}]`);
-        console.log(`   ${theme.dim("Desabastos encontrados:")} ${theme.bold(res.stockDeficitsFound)}`);
-        console.log(`   ${theme.dim("Envios retrasados:")}      ${theme.bold(res.delayedShipmentsFound)}`);
-        console.log(`   ${theme.dim("Eventos disparados:")}     ${theme.bold(res.eventsTriggered)}`);
-        console.log(`   ${theme.dim("Decisiones evaluadas:")}   ${theme.bold(res.processedDecisions.length)}\n`);
-      }
-    } catch (err: any) {
-      console.error(theme.redBold(`[ERROR] Error en escaneo: ${err.message}`));
-    }
+  .command("quarantine [action] [id]")
+  .alias("cuarentena")
+  .description("Gestión de registros corruptos o hostiles aislados en mesa de cuarentena")
+  .action((action, id) => {
+    const { quarantineCommand } = require("./commands/dataHealth");
+    return quarantineCommand([action, id].filter(Boolean));
   });
 
-// 14. mint source discover / inspect / add / status / list
-const sourceCmd = program.command("source").description("Gestión de fuentes de datos (CSV, Excel, SQLite y Postgres solo lectura)");
-
-sourceCmd
-  .command("discover [path]")
-  .description("Descubre fuentes de datos (.csv, .xlsx, .sqlite, .db) en el directorio indicado o de trabajo")
-  .option("--depth <depth>", "Profundidad máxima de recursión (default: 3)")
-  .option("--json", "Salida en formato JSON")
-  .action((targetPath, options) => {
-    const { sourceDiscoverCommand } = require("./commands/source");
-    return sourceDiscoverCommand(targetPath, options);
-  });
-
-sourceCmd
-  .command("inspect <path>")
-  .description("Inspecciona estructura, columnas y propone mapeo sin tocar la base de datos")
-  .option("--sheet <sheet>", "Nombre de la hoja (para archivos Excel)")
-  .option("--table <table>", "Nombre de la tabla (para SQLite o PostgreSQL)")
-  .option("--json", "Salida en formato JSON")
-  .action((targetPath, options) => {
-    const { sourceInspectCommand } = require("./commands/source");
-    return sourceInspectCommand(targetPath, options);
-  });
-
-sourceCmd
-  .command("add <path>")
-  .description("Conecta, valida y sincroniza una fuente de datos con mapeo asistido y detección de drift")
-  .option("--name <name>", "Nombre personalizado para la fuente de datos")
-  .option("--sheet <sheet>", "Hoja específica (Excel)")
-  .option("--table <table>", "Tabla específica (SQLite / PostgreSQL)")
-  .option("--force", "Fuerza la aceptación de cambio de esquema (drift) si fue deliberado")
-  .option("--json", "Salida en formato JSON")
-  .action((path, options) => {
-    const { sourceAddCommand } = require("./commands/source");
-    return sourceAddCommand(path, options);
-  });
-
-sourceCmd
-  .command("status")
-  .description("Audita la frescura de datos, fuentes desfasadas (>24h) y estado de drift")
-  .option("--json", "Salida en formato JSON")
-  .action((options) => {
-    const { sourceStatusCommand } = require("./commands/source");
-    return sourceStatusCommand(options);
-  });
-
-sourceCmd
-  .command("list")
-  .description("Lista las fuentes de datos conectadas y su estado de salud")
-  .option("--json", "Salida en formato JSON")
-  .action((options) => {
-    const { sourceListCommand } = require("./commands/source");
-    return sourceListCommand(options);
-  });
-
-// 15. mint autonomy get / set dry-run|assisted|auto
-const autonomyCmd = program.command("autonomy").description("Control del nivel de autonomía del sistema (dry-run, assisted, auto)");
-
-autonomyCmd
-  .command("get")
-  .description("Muestra el nivel de autonomía activo")
-  .option("--json", "Salida en formato JSON")
-  .action((options) => {
-    const { autonomyGetCommand } = require("./commands/autonomy");
-    return autonomyGetCommand(options);
-  });
-
-autonomyCmd
-  .command("set <level>")
-  .description("Establece el nivel de autonomía: dry-run, assisted, o auto")
-  .option("--json", "Salida en formato JSON")
-  .action((level, options) => {
-    const { autonomySetCommand } = require("./commands/autonomy");
-    return autonomySetCommand(level, options);
-  });
-
-// 16. mint daemon start|stop|status
-const daemonCmd = program.command("daemon").description("Gestión del proceso autónomo en segundo plano");
-
-daemonCmd
-  .command("start")
-  .description("Inicia el proceso en segundo plano que vigila fuentes y stock")
-  .option("--json", "Salida en formato JSON")
-  .action((options) => {
-    const { daemonStartCommand } = require("./commands/daemon");
-    return daemonStartCommand(options);
-  });
-
-daemonCmd
-  .command("stop")
-  .description("Detiene el proceso autónomo en segundo plano")
-  .option("--json", "Salida en formato JSON")
-  .action((options) => {
-    const { daemonStopCommand } = require("./commands/daemon");
-    return daemonStopCommand(options);
-  });
-
-daemonCmd
-  .command("status")
-  .description("Consulta el estado del proceso daemon")
-  .option("--json", "Salida en formato JSON")
-  .action((options) => {
-    const { daemonStatusCommand } = require("./commands/daemon");
-    return daemonStatusCommand(options);
-  });
-
-// 17. mint pause / resume
+// mint feed / live
 program
-  .command("pause")
-  .description("Interruptor de emergencia: pausa de inmediato la autonomía operativa")
-  .option("--json", "Salida en formato JSON")
-  .action((options) => {
-    const { pauseCommand } = require("./commands/daemon");
-    return pauseCommand(options);
-  });
-
-program
-  .command("resume")
-  .description("Reanuda la autonomía operativa pausada")
-  .option("--json", "Salida en formato JSON")
-  .action((options) => {
-    const { resumeCommand } = require("./commands/daemon");
-    return resumeCommand(options);
-  });
-
-// 18. mint watch
-program
-  .command("watch")
-  .description("Feed en vivo de eventos, decisiones y acciones tomadas")
+  .command("feed")
+  .alias("live")
+  .description("Canal de escucha reactivo: Live feed de eventos y decisiones autónomas en tiempo real")
   .option("--json", "Salida en formato JSON")
   .action((options) => {
     const { watchCommand } = require("./commands/daemon");
     return watchCommand(options);
   });
 
-// 19. mint notify add|test|list
-const notifyCmd = program.command("notify").description("Gestión de notificaciones remotas y botones interactivos (Telegram, Slack, Gmail)");
-
-notifyCmd
-  .command("add <type>")
-  .description("Agrega un canal de notificación: telegram, slack, o gmail")
-  .option("--name <name>", "Nombre personalizado del canal")
-  .option("--token <token>", "Token de bot (Telegram)")
-  .option("--chat-id <chatId>", "Chat ID de destino (Telegram)")
-  .option("--webhook <webhook>", "Webhook URL (Slack)")
-  .option("--email <email>", "Correo electrónico (Gmail)")
-  .option("--quiet-start <time>", "Inicio de horario silencioso (ej: 22:00)")
-  .option("--quiet-end <time>", "Fin de horario silencioso (ej: 07:00)")
-  .option("--json", "Salida en formato JSON")
-  .action((type, options) => {
-    const { notifyAddCommand } = require("./commands/notify");
-    return notifyAddCommand(type, options);
+// mint agents [action]
+program
+  .command("agents [action]")
+  .alias("agentes")
+  .description("Panel de control y ejecución de orquestación de los 4 subagentes especialistas")
+  .action((action) => {
+    const { agentsCommand } = require("./commands/agents");
+    return agentsCommand(action);
   });
 
-notifyCmd
-  .command("test [type]")
-  .description("Envía una notificación de prueba interactiva con botones firmados")
-  .option("--json", "Salida en formato JSON")
-  .action((type, options) => {
-    const { notifyTestCommand } = require("./commands/notify");
-    return notifyTestCommand(type || "telegram", options);
+// 26. mint shadow [action] [days]
+program
+  .command("shadow [action] [days]")
+  .description("Control y reporte del Modo Sombra (simulación sin riesgo y comparación)")
+  .action((action, days) => {
+    const { shadowCommand } = require("./commands/shadow");
+    return shadowCommand([action, days].filter(Boolean));
   });
 
-notifyCmd
-  .command("list")
-  .description("Lista los canales de notificación configurados")
+// 27. mint briefing
+program
+  .command("briefing")
+  .description("Resumen ejecutivo diario: ventas, ganancias, quiebres inminentes y retrasos")
+  .action(() => {
+    const { briefingCommand } = require("./commands/briefing");
+    return briefingCommand();
+  });
+
+// 28. mint reconcile
+program
+  .command("reconcile")
+  .alias("conciliar")
+  .description("Conciliación de 3 vías: ventas vs cobros vs despachos")
+  .action(() => {
+    const { reconcileCommand } = require("./commands/reconcile");
+    return reconcileCommand();
+  });
+
+// 29. mint backup
+program
+  .command("backup")
+  .description("Exportación de copia de seguridad de configuración y memoria MINT")
+  .action(() => {
+    const { backupCommand } = require("./commands/briefing");
+    return backupCommand();
+  });
+
+// 30. mint memory / mint obsidian
+program
+  .command("memory [action] [target]")
+  .alias("obsidian")
+  .description("Gestión de memoria viva y persistente en Obsidian Vault (Markdown y WikiLinks)")
+  .option("--json", "Salida en formato JSON")
+  .action((action, target, options) => {
+    const { memoryCommand } = require("./commands/memory");
+    return memoryCommand(action, target, options);
+  });
+
+// 31. mint source [subcommand] [target]
+program
+  .command("source [subcommand] [target]")
+  .description("Gestión e ingestión de fuentes de datos (discover, inspect, add, status, list, test)")
+  .option("--sheet <sheet>", "Nombre de hoja de Excel")
+  .option("--table <table>", "Nombre de tabla SQLite o PostgreSQL")
+  .option("--name <name>", "Nombre personalizado para la fuente")
+  .option("--force", "Aceptar cambio de esquema (drift)")
+  .option("--json", "Salida en formato JSON")
+  .action((subcommand, target, options) => {
+    const {
+      sourceDiscoverCommand,
+      sourceInspectCommand,
+      sourceAddCommand,
+      sourceStatusCommand,
+      sourceListCommand,
+      sourceTestCommand,
+    } = require("./commands/source");
+
+    const sub = (subcommand || "list").toLowerCase();
+    if (sub === "discover") return sourceDiscoverCommand(target, options);
+    if (sub === "inspect") return sourceInspectCommand(target, options);
+    if (sub === "add") return sourceAddCommand(target, options);
+    if (sub === "status") return sourceStatusCommand(options);
+    if (sub === "test") return sourceTestCommand(target, options);
+    return sourceListCommand(options);
+  });
+
+// 32. mint demo [action]
+program
+  .command("demo [action]")
+  .description("Modo demo sandbox con datos aislados de prueba (enter, exit)")
+  .option("--json", "Salida en formato JSON")
+  .action((action, options) => {
+    const { demoCommand } = require("./commands/demo");
+    return demoCommand(action, options);
+  });
+
+// 33. mint selftest
+program
+  .command("selftest")
+  .description("Verificación y aserción de producción: BD, memoria, canales, roles y agentes [OK/ERROR]")
   .option("--json", "Salida en formato JSON")
   .action((options) => {
-    const { notifyListCommand } = require("./commands/notify");
+    const { selftestCommand } = require("./commands/selftest");
+    return selftestCommand(options);
+  });
+
+// 34. mint audit
+program
+  .command("audit")
+  .alias("auditoria")
+  .description("Canal de auditoría inmutable de eventos y decisiones operativas")
+  .option("--limit <number>", "Límite de registros a mostrar", "50")
+  .option("--user <name>", "Filtrar por usuario o actor")
+  .option("--date <YYYY-MM-DD>", "Filtrar por fecha específica")
+  .option("--module <module>", "Filtrar por módulo (stock, ventas, logistica, compras, config)")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { auditCommand } = require("./commands/audit");
+    return auditCommand({
+      limit: parseInt(options.limit, 10) || 50,
+      user: options.user,
+      date: options.date,
+      module: options.module,
+      json: options.json,
+    });
+  });
+
+// 35. mint customers
+program
+  .command("customers")
+  .alias("clientes")
+  .description("Cartera de clientes, clientes en riesgo de abandono y top de mayor valor")
+  .action(() => {
+    const { customersCommand } = require("./commands/customers");
+    return customersCommand();
+  });
+
+// 36. mint autonomy [level]
+program
+  .command("autonomy [level]")
+  .description("Consulta o configura el nivel de autonomía operativa (dry-run, assisted, auto)")
+  .option("--json", "Salida en formato JSON")
+  .action((level, options) => {
+    const { autonomyGetCommand, autonomySetCommand } = require("./commands/autonomy");
+    if (level) {
+      return autonomySetCommand(level, options);
+    }
+    return autonomyGetCommand(options);
+  });
+
+// 37. mint daemon [action]
+program
+  .command("daemon [action]")
+  .description("Control del proceso daemon autónomo en segundo plano (start, stop, status)")
+  .option("--json", "Salida en formato JSON")
+  .action((action, options) => {
+    const { daemonStartCommand, daemonStopCommand, daemonStatusCommand } = require("./commands/daemon");
+    const act = (action || "status").toLowerCase();
+    if (act === "start") return daemonStartCommand(options);
+    if (act === "stop") return daemonStopCommand(options);
+    return daemonStatusCommand(options);
+  });
+
+// 38. mint pause
+program
+  .command("pause")
+  .description("Interruptor de emergencia: Pausa la ejecución autónoma del daemon")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { pauseCommand } = require("./commands/daemon");
+    return pauseCommand(options);
+  });
+
+// 39. mint resume
+program
+  .command("resume")
+  .description("Reanuda la ejecución autónoma del daemon tras una pausa de emergencia")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { resumeCommand } = require("./commands/daemon");
+    return resumeCommand(options);
+  });
+
+// 40. mint watch
+program
+  .command("watch")
+  .description("Monitorea eventos y decisiones autónomas en tiempo real")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { watchCommand } = require("./commands/daemon");
+    return watchCommand(options);
+  });
+
+// 41. mint notify [subcommand] [type]
+program
+  .command("notify [subcommand] [type]")
+  .description("Gestión de canales y alertas de notificación (list, add, test)")
+  .option("--name <name>", "Nombre del canal")
+  .option("--token <token>", "Token de Telegram bot")
+  .option("--chat-id <chatId>", "Chat ID de Telegram")
+  .option("--webhook <webhook>", "Webhook URL para Slack")
+  .option("--email <email>", "Correo electrónico para Gmail")
+  .option("--quiet-start <HH:MM>", "Inicio de horario silencioso")
+  .option("--quiet-end <HH:MM>", "Fin de horario silencioso")
+  .option("--json", "Salida en formato JSON")
+  .action((subcommand, type, options) => {
+    const { notifyListCommand, notifyAddCommand, notifyTestCommand } = require("./commands/notify");
+    const sub = (subcommand || "list").toLowerCase();
+    if (sub === "add") return notifyAddCommand(type || "telegram", options);
+    if (sub === "test") return notifyTestCommand(type || "telegram", options);
     return notifyListCommand(options);
   });
+
+// 42. mint plan [target]
+program
+  .command("plan [target]")
+  .description("Plan operativo diario generado por el orquestador autónomo")
+  .option("--json", "Salida en formato JSON")
+  .action((_target, options) => {
+    const { planTodayCommand } = require("./commands/daemon");
+    return planTodayCommand(options);
+  });
+
+// 43. mint telegram [subcommand]
+program
+  .command("telegram [subcommand]")
+  .description("Inicia el bot conversacional de Telegram para responder preguntas y aprobar decisiones en vivo")
+  .option("--token <token>", "Token de Telegram bot")
+  .action(async (_subcommand, options) => {
+    try {
+      const { startTelegramListener } = await import("@mint/notifiers");
+      await startTelegramListener({ botToken: options.token });
+    } catch {
+      process.exit(1);
+    }
+  });
+
+// 44. mint goal <prompt>
+program
+  .command("goal <prompt>")
+  .description("Motor de objetivos estratégicos cuantitativos y proyección de ahorro")
+  .option("--json", "Salida en formato JSON")
+  .action((prompt, options) => {
+    const { goalCommand } = require("./commands/goal");
+    return goalCommand(prompt, options);
+  });
+
+// 45. mint graph
+const { graphCommand } = require("./commands/graph");
+program.addCommand(graphCommand);
 
 export function runCli(argv = process.argv) {
   if (argv.length <= 2) {

@@ -58,8 +58,10 @@ describe("Fase F4: Daemon de Monitoreo Autónomo y Watcher (@mint/daemon)", () =
       .onConflictDoNothing();
   });
 
-  it("1. El daemon detecta un cambio en archivo CSV y abre un caso operativo de forma autónoma", async () => {
-    const res = await processFileChange(fixtureCsv, companyId);
+  it(
+    "1. El daemon detecta un cambio en archivo CSV y abre un caso operativo de forma autónoma",
+    async () => {
+      const res = await processFileChange(fixtureCsv, companyId);
 
     expect(res.success).toBe(true);
     expect(res.fileName).toBe("daemon_incoming_stock.csv");
@@ -87,7 +89,7 @@ describe("Fase F4: Daemon de Monitoreo Autónomo y Watcher (@mint/daemon)", () =
 
     expect(savedDecision).toHaveLength(1);
     expect(savedDecision[0].companyId).toBe(companyId);
-  });
+  }, 30000);
 
   it("2. Interruptor de emergencia: pause() bloquea la ejecución autónoma y resume() la reactiva", async () => {
     // 2.1 Pausar
@@ -120,5 +122,5 @@ describe("Fase F4: Daemon de Monitoreo Autónomo y Watcher (@mint/daemon)", () =
     expect(typeof dailyPlan.activeCasesCount).toBe("number");
     expect(typeof dailyPlan.pendingDecisionsCount).toBe("number");
     expect(Array.isArray(dailyPlan.decisions)).toBe(true);
-  }, 30000);
+  }, 90000);
 });

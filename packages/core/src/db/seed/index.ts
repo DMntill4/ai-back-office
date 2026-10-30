@@ -1,6 +1,12 @@
 import { db, pool } from "../client";
 import { sql } from "drizzle-orm";
 import {
+  cases,
+  caseEvents,
+  llmCalls,
+  toolCalls,
+  idempotencyKeys,
+  approvals,
   companies,
   products,
   warehouses,
@@ -14,43 +20,19 @@ import {
 } from "../schema";
 
 export async function runSeed() {
-  console.log("[SEED] Sembrando datos de empresa de herramientas y ferreteria industrial en Colombia (Bucaramanga/Bogota/Medellin)...");
+  console.log("[INICIO] Iniciando siembra masiva de datos logísticos e industriales...");
 
-  // 0. Empresa Base (Comercializadora Industrial en Colombia)
+  // 0. Empresa Base (Multi-tenant)
   await db
     .insert(companies)
     .values([
       {
         id: "comp_default",
-        name: "Ferreteria Industrial Santandereana S.A.S.",
-        slug: "ferreteria-industrial-santander",
-        legalName: "Herramientas y Ferreteria Industrial de Santander S.A.S.",
-        taxId: "900.842.190-3",
-        rfcTaxId: "9008421903",
-        currency: "COP",
-        streetAddress: "Zona Franca Santander, Bodega 4",
-        city: "Bucaramanga",
-        state: "Santander",
-        country: "Colombia",
-        latitude: "7.072200",
-        longitude: "-73.167800",
+        name: "Acme Industrial Corp",
+        slug: "acme-industrial",
       },
     ])
-    .onConflictDoUpdate({
-      target: companies.id,
-      set: {
-        name: sql`excluded.name`,
-        legalName: sql`excluded.legal_name`,
-        taxId: sql`excluded.tax_id`,
-        currency: sql`excluded.currency`,
-        streetAddress: sql`excluded.street_address`,
-        city: sql`excluded.city`,
-        state: sql`excluded.state`,
-        country: sql`excluded.country`,
-        latitude: sql`excluded.latitude`,
-        longitude: sql`excluded.longitude`,
-      },
-    });
+    .onConflictDoNothing();
 
   // 0.1 Usuario Administrador / Dueño Base
   await db
@@ -59,56 +41,32 @@ export async function runSeed() {
       {
         id: "usr_default_admin",
         companyId: "comp_default",
-        email: "operaciones@ferreteriasantander.com.co",
-        name: "Andres Administrador",
+        email: "andres@mint-ai.io",
+        name: "Andrés Administrador",
         role: "owner",
-        setupCompleted: true,
+        setupCompleted: false, // Permitir ver el setup wizard
       },
     ])
     .onConflictDoNothing();
 
-  // 1. Almacenes y Centros de Distribucion en Colombia (GPS Real)
+  // 1. Almacenes / Bodegas
   await db
     .insert(warehouses)
     .values([
       {
         id: "alm_central",
-        companyId: "comp_default",
-        name: "Almacen Central Bucaramanga",
-        location: "Zona Franca Santander, Bodega 4",
-        streetAddress: "Km 4 Anillo Vial Giron - Floridablanca",
-        city: "Bucaramanga",
-        state: "Santander",
-        country: "Colombia",
-        latitude: "7.072200",
-        longitude: "-73.167800",
-        contactPhone: "+57 (607) 685-1100",
+        name: "Almacén Central (Bodega Principal)",
+        location: "Sector Industrial A - Bahía 4",
       },
       {
-        id: "alm_bogota",
-        companyId: "comp_default",
-        name: "Centro de Distribucion Bogota",
-        location: "Parque Logistico Calle 80, Modulo 12",
-        streetAddress: "Autopista Medellin Km 2.5 Cota",
-        city: "Bogota",
-        state: "Cundinamarca",
-        country: "Colombia",
-        latitude: "4.743100",
-        longitude: "-74.135200",
-        contactPhone: "+57 (601) 745-3300",
+        id: "alm_refrig",
+        name: "Almacén Refrigerado (Cámara Fría)",
+        location: "Sector B - Cadena de Frío",
       },
       {
-        id: "alm_medellin",
-        companyId: "comp_default",
-        name: "Hub Regional Medellin",
-        location: "Itagui, Sector Guayabal, Bodega 8",
-        streetAddress: "Carrera 42 # 54A-71",
-        city: "Medellin",
-        state: "Antioquia",
-        country: "Colombia",
-        latitude: "6.173000",
-        longitude: "-75.611100",
-        contactPhone: "+57 (604) 448-2200",
+        id: "alm_norte",
+        name: "Almacén Regional Norte",
+        location: "Parque Logístico Norte - Bodega 12",
       },
     ])
     .onConflictDoUpdate({
@@ -116,178 +74,158 @@ export async function runSeed() {
       set: {
         name: sql`excluded.name`,
         location: sql`excluded.location`,
-        streetAddress: sql`excluded.street_address`,
-        city: sql`excluded.city`,
-        state: sql`excluded.state`,
-        country: sql`excluded.country`,
-        latitude: sql`excluded.latitude`,
-        longitude: sql`excluded.longitude`,
-        contactPhone: sql`excluded.contact_phone`,
       },
     });
 
-  // 2. Catalogo Real de Herramientas y Ferreteria Industrial (16 SKUs)
+  // 2. Catálogo Extendido de Productos (16 SKUs industriales y comerciales)
   await db
     .insert(products)
     .values([
+      // Componentes y Automatización Industrial
       {
-        id: "tool_tld_850",
-        companyId: "comp_default",
-        name: "Taladro Percutor Industrial 850W Mandril 1/2\"",
-        description: "Taladro percutor reversible de alto torque con caja de engranajes metalica",
-        category: "herramientas_electricas",
-        sku: "SKU-TLD-850",
-        minStock: 15,
-        origin: "real",
-      },
-      {
-        id: "tool_esm_450",
-        companyId: "comp_default",
-        name: "Esmeriladora Angular 4-1/2\" 11000 RPM",
-        description: "Amoladora angular profesional para corte y desbaste pesado de acero",
-        category: "herramientas_electricas",
-        sku: "SKU-ESM-450",
-        minStock: 20,
-        origin: "real",
-      },
-      {
-        id: "tool_rtm_sds",
-        companyId: "comp_default",
-        name: "Rotomartillo SDS Plus 800W 3 Modos",
-        description: "Martillo perforador y demoledor 3.2 Joules para concreto y mamposteria",
-        category: "herramientas_electricas",
-        sku: "SKU-RTM-SDS",
+        id: "prod_st200",
+        name: "Sensor Térmico ST-200",
+        description: "Sensor de temperatura industrial de alta precisión (-40C a 200C)",
+        category: "industrial",
+        sku: "SKU-ST200",
         minStock: 10,
-        origin: "real",
-      },
-      {
-        id: "tool_llv_24p",
-        companyId: "comp_default",
-        name: "Juego de Llaves Combinadas Cromo-Vanadio 24pz",
-        description: "Set profesional milimetrico y en pulgadas forjado en acero Cr-V",
-        category: "herramientas_manuales",
-        sku: "SKU-LLV-24P",
-        minStock: 12,
-        origin: "real",
-      },
-      {
-        id: "tool_cmp_50l",
-        companyId: "comp_default",
-        name: "Compresor de Aire Lubricado 50L 2.5HP",
-        description: "Compresor de transmision directa para herramientas neumaticas y pintura",
-        category: "maquinaria_industrial",
-        sku: "SKU-CMP-50L",
-        minStock: 8,
-        origin: "real",
-      },
-      {
-        id: "prod_b200",
-        companyId: "comp_default",
-        name: "Bomba Centrifuga Industrial 2HP 220V",
-        description: "Bomba sumergible de acero inoxidable para fluidos y refrigeracion",
-        category: "hidraulica_industrial",
-        sku: "SKU-B200",
-        minStock: 6,
         origin: "real",
       },
       {
         id: "prod_v500",
-        companyId: "comp_default",
-        name: "Valvula Reguladora de Presion 2\" Brida",
-        description: "Valvula de paso para control de sobrepresion hidraulica y de vapor",
-        category: "hidraulica_industrial",
+        name: "Válvula Reguladora V-500",
+        description: "Válvula de presión hidráulica de acero inoxidable",
+        category: "industrial",
         sku: "SKU-V500",
-        minStock: 8,
-        origin: "real",
-      },
-      {
-        id: "prod_st200",
-        companyId: "comp_default",
-        name: "Sensor Termico Industrial PT-100 Alta Precision",
-        description: "Sonda termometrica de acero inoxidable para hornos y calderas industriales",
-        category: "instrumentacion_control",
-        sku: "SKU-ST200",
-        minStock: 15,
-        origin: "real",
-      },
-      {
-        id: "prod_plc10",
-        companyId: "comp_default",
-        name: "Controlador Logico Programable PLC 24V Ethernet",
-        description: "Modulo CPU para automatizacion de lineas de ensamblaje industrial",
-        category: "instrumentacion_control",
-        sku: "SKU-PLC10",
         minStock: 5,
         origin: "real",
       },
       {
-        id: "tool_cable_c12",
-        companyId: "comp_default",
-        name: "Bobina Cable Cobre Calibre 12 AWG THHN (500m)",
-        description: "Conductor electrico antiflama certificado RETIE para fuerza industrial",
-        category: "material_electrico",
-        sku: "SKU-C12-500",
-        minStock: 10,
+        id: "prod_mc32",
+        name: "Microcontrolador MCU-32",
+        description: "Placa base de automatización PLC Cortex-M4",
+        category: "electronica",
+        sku: "SKU-MC32",
+        minStock: 25,
         origin: "real",
       },
       {
-        id: "tool_guantes_g1",
-        companyId: "comp_default",
-        name: "Guantes de Nitrilo Industrial Reforzados (Caja 100u)",
-        description: "Guantes desechables de alta resistencia a solventes quimicos y aceites",
-        category: "seguridad_industrial",
-        sku: "SKU-GNT100",
-        minStock: 50,
+        id: "prod_plc10",
+        name: "Controlador Lógico Programable PLC-10",
+        description: "Módulo CPU de automatización con puertos Ethernet/IP",
+        category: "industrial",
+        sku: "SKU-PLC10",
+        minStock: 8,
         origin: "real",
       },
       {
-        id: "tool_careta_sol",
-        companyId: "comp_default",
-        name: "Careta Fotosensible para Soldadura 4 Sensores",
-        description: "Casco de soldadura electronico con oscurecimiento automatico DIN 9-13",
-        category: "seguridad_industrial",
-        sku: "SKU-CRT-SLD",
-        minStock: 15,
-        origin: "real",
-      },
-      {
-        id: "tool_disco_corte",
-        companyId: "comp_default",
-        name: "Discos de Corte Extra Fino 4-1/2\" x 1mm (Paquete 25u)",
-        description: "Discos abrasivos de oxido de aluminio para corte rapido de acero inoxidable",
-        category: "consumibles_taller",
-        sku: "SKU-DSC-100",
-        minStock: 40,
-        origin: "real",
-      },
-      {
-        id: "tool_lub_02",
-        companyId: "comp_default",
-        name: "Aceite Lubricante Sintetico ISO 68 Caneca 5 Galones",
-        description: "Lubricante de alta viscosidad para engranajes y reductores industriales",
-        category: "mantenimiento_industrial",
-        sku: "SKU-LUB-05G",
+        id: "prod_val99",
+        name: "Válvula Sellada VS-100",
+        description: "Válvula de seguridad contra sobrepresión para tuberías de vapor",
+        category: "hidraulica",
+        sku: "SKU-VS100",
         minStock: 12,
         origin: "real",
       },
       {
-        id: "tool_calibrador_v",
-        companyId: "comp_default",
-        name: "Calibrador Pie de Rey Digital 6\" Acero Inox",
-        description: "Vernier digital resolucion 0.01mm con display LCD y estuche rigido",
-        category: "metrologia",
-        sku: "SKU-CAL-06D",
-        minStock: 10,
+        id: "prod_bomba_h20",
+        name: "Bomba Centrífuga B-200",
+        description: "Bomba industrial sumergible para recirculación de refrigerante",
+        category: "industrial",
+        sku: "SKU-B200",
+        minStock: 4,
         origin: "real",
       },
       {
-        id: "tool_cortadora_met",
-        companyId: "comp_default",
-        name: "Tronzadora Sensitiva de Metales 14\" 2400W",
-        description: "Cortadora de metales estacionaria con mordaza de fijacion rapida",
-        category: "maquinaria_industrial",
-        sku: "SKU-TRZ-14",
-        minStock: 6,
+        id: "prod_rele_r12",
+        name: "Relevador de Estado Sólido SSR-12",
+        description: "Relevador de conmutación rápida 40A para control térmico",
+        category: "electronica",
+        sku: "SKU-SSR12",
+        minStock: 30,
+        origin: "real",
+      },
+      {
+        id: "prod_cables_c5",
+        name: "Bobina Cable Cobre Calibre 12 (500m)",
+        description: "Conductor eléctrico THHN antiflama para instalaciones de fuerza",
+        category: "electrico",
+        sku: "SKU-C12-500",
+        minStock: 15,
+        origin: "real",
+      },
+      // Alimentos y Perecederos (Cadena de Frío)
+      {
+        id: "food_app01",
+        name: "Caja de Manzanas Orgánicas (20kg)",
+        description: "Manzanas rojas cosecha nacional para exportación",
+        category: "food",
+        sku: "SKU-APP01",
+        minStock: 50,
+        origin: "real",
+      },
+      {
+        id: "food_mil04",
+        name: "Leche Entera 1L (Pack x12)",
+        description: "Leche pasteurizada en envase tetrapack",
+        category: "food",
+        sku: "SKU-MIL04",
+        minStock: 200,
+        origin: "real",
+      },
+      {
+        id: "food_queso05",
+        name: "Queso Manchego Artesanal 500g",
+        description: "Queso madurado de leche entera",
+        category: "food",
+        sku: "SKU-QMA05",
+        minStock: 60,
+        origin: "real",
+      },
+      {
+        id: "food_carne01",
+        name: "Corte Res Vacío Premium (5kg)",
+        description: "Carne fresca empacada al alto vacío",
+        category: "food",
+        sku: "SKU-CRV01",
+        minStock: 25,
+        origin: "real",
+      },
+      {
+        id: "food_pan02",
+        name: "Harina de Trigo Industrial 25kg",
+        description: "Saco de harina para panificación y alimentos",
+        category: "food",
+        sku: "SKU-HAR25",
+        minStock: 40,
+        origin: "real",
+      },
+      // Herramientas y Consumibles Operativos
+      {
+        id: "tool_guantes_g1",
+        name: "Guantes de Nitrilo Industrial (Caja 100u)",
+        description: "Guantes resistentes a químicos e hidrocarburos",
+        category: "seguridad",
+        sku: "SKU-GNT100",
+        minStock: 100,
+        origin: "real",
+      },
+      {
+        id: "tool_lub_02",
+        name: "Lubricante Sintético Alimenticio 5L",
+        description: "Aceite sintético grado NSF H1 para engranajes",
+        category: "mantenimiento",
+        sku: "SKU-LUB05",
+        minStock: 15,
+        origin: "real",
+      },
+      {
+        id: "prod_filtro_f10",
+        name: "Filtro de Aire HEPA Industrial",
+        description: "Filtro de alta eficiencia para cuartos limpios y plantas",
+        category: "mantenimiento",
+        sku: "SKU-HEPA10",
+        minStock: 20,
         origin: "real",
       },
     ])
@@ -302,132 +240,117 @@ export async function runSeed() {
       },
     });
 
-  // 3. Inventario Físico en Bodegas (Con casos reales de quiebre y alerta ROP)
+  // 3. Inventario Actualizado (Incluye productos agotados en 0, carencias y vencimientos)
   await db
     .insert(inventory)
     .values([
-      // Taladro: Carencia severa (4 de 15) -> Alerta ROP
-      { id: "inv_001", companyId: "comp_default", productId: "tool_tld_850", warehouseId: "alm_central", stock: 4, salesCount: 380 },
-      // Esmeriladora: Stock critico (3 de 20) -> Alerta ROP
-      { id: "inv_002", companyId: "comp_default", productId: "tool_esm_450", warehouseId: "alm_central", stock: 3, salesCount: 520 },
-      // Rotomartillo: COMPLETAMENTE AGOTADO (0 de 10) -> Quiebre total
-      { id: "inv_003", companyId: "comp_default", productId: "tool_rtm_sds", warehouseId: "alm_central", stock: 0, salesCount: 190 },
-      // Juego de Llaves: Saludable (22 de 12)
-      { id: "inv_004", companyId: "comp_default", productId: "tool_llv_24p", warehouseId: "alm_central", stock: 22, salesCount: 410 },
-      // Compresor 50L: Carencia critica (1 de 8)
-      { id: "inv_005", companyId: "comp_default", productId: "tool_cmp_50l", warehouseId: "alm_central", stock: 1, salesCount: 65 },
-      // Bomba Centrifuga: Saludable (8 de 6)
-      { id: "inv_006", companyId: "comp_default", productId: "prod_b200", warehouseId: "alm_central", stock: 8, salesCount: 42 },
-      // Valvula Reguladora: COMPLETAMENTE AGOTADO (0 de 8)
-      { id: "inv_007", companyId: "comp_default", productId: "prod_v500", warehouseId: "alm_central", stock: 0, salesCount: 110 },
-      // Sensor Termico PT-100: Carencia (3 de 15)
-      { id: "inv_008", companyId: "comp_default", productId: "prod_st200", warehouseId: "alm_central", stock: 3, salesCount: 140 },
-      // PLC 24V: Stock critico (1 de 5)
-      { id: "inv_009", companyId: "comp_default", productId: "prod_plc10", warehouseId: "alm_central", stock: 1, salesCount: 28 },
-      // Cable Cobre 12: Saludable (18 de 10)
-      { id: "inv_010", companyId: "comp_default", productId: "tool_cable_c12", warehouseId: "alm_central", stock: 18, salesCount: 95 },
-      // Guantes de Nitrilo: TOP VENTAS (120 de 50)
-      { id: "inv_011", companyId: "comp_default", productId: "tool_guantes_g1", warehouseId: "alm_central", stock: 120, salesCount: 1450 },
-      // Careta Soldadura: Carencia (4 de 15)
-      { id: "inv_012", companyId: "comp_default", productId: "tool_careta_sol", warehouseId: "alm_central", stock: 4, salesCount: 210 },
-      // Discos de Corte: Saludable (65 de 40)
-      { id: "inv_013", companyId: "comp_default", productId: "tool_disco_corte", warehouseId: "alm_central", stock: 65, salesCount: 980 },
-      // Lubricante Caneca: Carencia (2 de 12)
-      { id: "inv_014", companyId: "comp_default", productId: "tool_lub_02", warehouseId: "alm_central", stock: 2, salesCount: 75 },
-      // Calibrador Digital: Saludable (14 de 10)
-      { id: "inv_015", companyId: "comp_default", productId: "tool_calibrador_v", warehouseId: "alm_central", stock: 14, salesCount: 160 },
-      // Tronzadora 14\": Carencia (1 de 6)
-      { id: "inv_016", companyId: "comp_default", productId: "tool_cortadora_met", warehouseId: "alm_central", stock: 1, salesCount: 35 },
-
-      // Stock distribuido en Bodega Bogota para permitir Cross-Docking y Balanceo
-      { id: "inv_017", companyId: "comp_default", productId: "tool_rtm_sds", warehouseId: "alm_bogota", stock: 12, salesCount: 80 },
-      { id: "inv_018", companyId: "comp_default", productId: "tool_esm_450", warehouseId: "alm_medellin", stock: 25, salesCount: 150 },
+      // Sensor ST-200: Carencia severa (2 de 10)
+      { id: "inv_001", productId: "prod_st200", warehouseId: "alm_central", stock: 2, salesCount: 450 },
+      // Válvula V-500: Saludable (15 de 5)
+      { id: "inv_002", productId: "prod_v500", warehouseId: "alm_central", stock: 15, salesCount: 1250 },
+      // Microcontrolador MCU-32: ¡COMPLETAMENTE AGOTADO (0 de 25)!
+      { id: "inv_003", productId: "prod_mc32", warehouseId: "alm_central", stock: 0, salesCount: 890 },
+      // PLC-10: Carencia crítica (1 de 8)
+      { id: "inv_004", productId: "prod_plc10", warehouseId: "alm_central", stock: 1, salesCount: 120 },
+      // Válvula VS-100: ¡COMPLETAMENTE AGOTADO (0 de 12)!
+      { id: "inv_005", productId: "prod_val99", warehouseId: "alm_central", stock: 0, salesCount: 310 },
+      // Bomba Centrífuga: Saludable (3 de 4)
+      { id: "inv_006", productId: "prod_bomba_h20", warehouseId: "alm_central", stock: 3, salesCount: 45 },
+      // Relevador SSR-12: ¡COMPLETAMENTE AGOTADO (0 de 30)!
+      { id: "inv_007", productId: "prod_rele_r12", warehouseId: "alm_central", stock: 0, salesCount: 680 },
+      // Bobina Cable: Stock abundante (40 de 15)
+      { id: "inv_008", productId: "prod_cables_c5", warehouseId: "alm_central", stock: 40, salesCount: 210 },
+      // Manzanas: Carencia (45 de 50) - Caduca en 6 días
+      {
+        id: "inv_009",
+        productId: "food_app01",
+        warehouseId: "alm_refrig",
+        stock: 45,
+        salesCount: 650,
+        expirationDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
+      },
+      // Leche: Carencia (180 de 200) - ¡Caduca en 2 días (Crítica)!
+      {
+        id: "inv_010",
+        productId: "food_mil04",
+        warehouseId: "alm_refrig",
+        stock: 180,
+        salesCount: 1980,
+        expirationDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+      },
+      // Queso Manchego: ¡COMPLETAMENTE AGOTADO (0 de 60)!
+      {
+        id: "inv_011",
+        productId: "food_queso05",
+        warehouseId: "alm_refrig",
+        stock: 0,
+        salesCount: 520,
+        expirationDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+      },
+      // Carne Res: Carencia urgente (8 de 25) - Caduca en 3 días
+      {
+        id: "inv_012",
+        productId: "food_carne01",
+        warehouseId: "alm_refrig",
+        stock: 8,
+        salesCount: 780,
+        expirationDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      },
+      // Harina de Trigo: Saludable (150 de 40)
+      { id: "inv_013", productId: "food_pan02", warehouseId: "alm_central", stock: 150, salesCount: 340 },
+      // Guantes de Nitrilo: ¡TOP GANADOR EN VENTAS (2,450 ventas)! Stock saludable (350 de 100)
+      { id: "inv_014", productId: "tool_guantes_g1", warehouseId: "alm_central", stock: 350, salesCount: 2450 },
+      // Lubricante Alimenticio: Carencia (4 de 15)
+      { id: "inv_015", productId: "tool_lub_02", warehouseId: "alm_central", stock: 4, salesCount: 95 },
+      // Filtro HEPA: ¡COMPLETAMENTE AGOTADO (0 de 20)!
+      { id: "inv_016", productId: "prod_filtro_f10", warehouseId: "alm_norte", stock: 0, salesCount: 140 },
     ])
     .onConflictDoUpdate({
       target: inventory.id,
       set: {
         stock: sql`excluded.stock`,
         salesCount: sql`excluded.sales_count`,
+        expirationDate: sql`excluded.expiration_date`,
       },
     });
 
-  // 4. Proveedores Reales del Sector Industrial en Colombia (Bogota, Medellin, Bucaramanga)
+  // 4. Proveedores Industriales y Comerciales
   await db
     .insert(suppliers)
     .values([
       {
-        id: "prov_dewalt",
-        companyId: "comp_default",
-        name: "DeWalt Colombia S.A.S.",
-        email: "pedidos@dewalt.com.co",
-        phone: "+57 (601) 745-8900",
-        taxId: "860.052.120-1",
-        streetAddress: "Calle 100 # 19-61, Piso 8",
-        city: "Bogota",
-        state: "Cundinamarca",
-        country: "Colombia",
-        latitude: "4.686500",
-        longitude: "-74.053200",
+        id: "prov_grainger",
+        name: "Grainger Industrial México",
+        email: "ordenes@grainger.com.mx",
+        phone: "+52 55 5804 5000",
         origin: "real",
       },
       {
-        id: "prov_bosch",
-        companyId: "comp_default",
-        name: "Bosch Herramientas Industriales Colombia",
-        email: "ventas@bosch-herramientas.com.co",
-        phone: "+57 (604) 448-1200",
-        taxId: "890.900.540-3",
-        streetAddress: "Carrera 48 # 26-85, Sector Industriales",
-        city: "Medellin",
-        state: "Antioquia",
-        country: "Colombia",
-        latitude: "6.225400",
-        longitude: "-75.576800",
+        id: "prov_uline",
+        name: "Uline Supply Co.",
+        email: "ventas@uline.mx",
+        phone: "+52 800 295 5510",
         origin: "real",
       },
       {
-        id: "prov_makita",
-        companyId: "comp_default",
-        name: "Makita de Colombia S.A.S.",
-        email: "ordenes@makita.com.co",
-        phone: "+57 (607) 632-4500",
-        taxId: "800.142.330-9",
-        streetAddress: "Centro Industrial Chimita, Bodega 12",
-        city: "Bucaramanga",
-        state: "Santander",
-        country: "Colombia",
-        latitude: "7.142100",
-        longitude: "-73.155400",
+        id: "prov_mouser",
+        name: "Mouser Electronics México",
+        email: "soporte@mouser.com",
+        phone: "+52 33 3612 9000",
         origin: "real",
       },
       {
-        id: "prov_stanley",
-        companyId: "comp_default",
-        name: "Stanley Black & Decker Andina",
-        email: "comercial@stanleyandina.com.co",
-        phone: "+57 (601) 390-5000",
-        taxId: "860.001.450-7",
-        streetAddress: "Parque Industrial San Carlos, Bodega 3",
-        city: "Bogota",
-        state: "Cundinamarca",
-        country: "Colombia",
-        latitude: "4.711000",
-        longitude: "-74.072100",
+        id: "prov_sysco",
+        name: "Sysco Alimentos & Abasto",
+        email: "pedidos@sysco.com.mx",
+        phone: "+52 55 9010 4000",
         origin: "real",
       },
       {
-        id: "prov_seguridad",
-        companyId: "comp_default",
-        name: "Distribuidora de EPP y Seguridad Industrial S.A.S.",
-        email: "suministros@seguridad-santander.com",
-        phone: "+57 (607) 685-2200",
-        taxId: "900.320.115-2",
-        streetAddress: "Carrera 15 # 34-45, Centro",
-        city: "Bucaramanga",
-        state: "Santander",
-        country: "Colombia",
-        latitude: "7.119300",
-        longitude: "-73.122700",
+        id: "prov_festo",
+        name: "Festo Automatización S.A.",
+        email: "ventas@festo.com.mx",
+        phone: "+52 55 5321 6600",
         origin: "real",
       },
     ])
@@ -437,161 +360,128 @@ export async function runSeed() {
         name: sql`excluded.name`,
         email: sql`excluded.email`,
         phone: sql`excluded.phone`,
-        taxId: sql`excluded.tax_id`,
-        streetAddress: sql`excluded.street_address`,
-        city: sql`excluded.city`,
-        state: sql`excluded.state`,
-        country: sql`excluded.country`,
-        latitude: sql`excluded.latitude`,
-        longitude: sql`excluded.longitude`,
       },
     });
 
-  // 5. Ofertas y Cotizaciones en Moneda Real COP (Evaluacion Costo vs Tiempo)
+  // 5. Oferta y Cotizaciones de Proveedores (Para evaluar costo vs tiempo)
   await db
     .insert(supplierProducts)
     .values([
-      // Taladro Percutor 850W
-      { id: "sp_001", companyId: "comp_default", supplierId: "prov_dewalt", productId: "tool_tld_850", unitPrice: "185000.00", minOrderQuantity: 5, leadTimeDays: 2 },
-      { id: "sp_002", companyId: "comp_default", supplierId: "prov_makita", productId: "tool_tld_850", unitPrice: "192000.00", minOrderQuantity: 2, leadTimeDays: 1 },
-      // Esmeriladora Angular 4-1/2
-      { id: "sp_003", companyId: "comp_default", supplierId: "prov_bosch", productId: "tool_esm_450", unitPrice: "165000.00", minOrderQuantity: 6, leadTimeDays: 2 },
-      { id: "sp_004", companyId: "comp_default", supplierId: "prov_dewalt", productId: "tool_esm_450", unitPrice: "172000.00", minOrderQuantity: 3, leadTimeDays: 2 },
-      // Rotomartillo SDS Plus (Agotado)
-      { id: "sp_005", companyId: "comp_default", supplierId: "prov_dewalt", productId: "tool_rtm_sds", unitPrice: "480000.00", minOrderQuantity: 2, leadTimeDays: 2 },
-      { id: "sp_006", companyId: "comp_default", supplierId: "prov_makita", productId: "tool_rtm_sds", unitPrice: "495000.00", minOrderQuantity: 1, leadTimeDays: 1 },
-      // Juego de Llaves Combinadas
-      { id: "sp_007", companyId: "comp_default", supplierId: "prov_stanley", productId: "tool_llv_24p", unitPrice: "120000.00", minOrderQuantity: 4, leadTimeDays: 2 },
-      // Compresor de Aire 50L
-      { id: "sp_008", companyId: "comp_default", supplierId: "prov_bosch", productId: "tool_cmp_50l", unitPrice: "750000.00", minOrderQuantity: 1, leadTimeDays: 3 },
-      // Bomba Centrifuga 2HP
-      { id: "sp_009", companyId: "comp_default", supplierId: "prov_makita", productId: "prod_b200", unitPrice: "580000.00", minOrderQuantity: 1, leadTimeDays: 1 },
-      // Valvula Reguladora de Presion 2\"
-      { id: "sp_010", companyId: "comp_default", supplierId: "prov_dewalt", productId: "prod_v500", unitPrice: "210000.00", minOrderQuantity: 2, leadTimeDays: 2 },
-      // Sensor Termico PT-100
-      { id: "sp_011", companyId: "comp_default", supplierId: "prov_bosch", productId: "prod_st200", unitPrice: "95000.00", minOrderQuantity: 5, leadTimeDays: 2 },
-      // PLC 24V Ethernet
-      { id: "sp_012", companyId: "comp_default", supplierId: "prov_bosch", productId: "prod_plc10", unitPrice: "1250000.00", minOrderQuantity: 1, leadTimeDays: 3 },
-      // Bobina Cable 12 AWG
-      { id: "sp_013", companyId: "comp_default", supplierId: "prov_makita", productId: "tool_cable_c12", unitPrice: "320000.00", minOrderQuantity: 2, leadTimeDays: 1 },
-      // Guantes de Nitrilo (Caja 100u)
-      { id: "sp_014", companyId: "comp_default", supplierId: "prov_seguridad", productId: "tool_guantes_g1", unitPrice: "28000.00", minOrderQuantity: 20, leadTimeDays: 1 },
-      // Careta de Soldadura
-      { id: "sp_015", companyId: "comp_default", supplierId: "prov_seguridad", productId: "tool_careta_sol", unitPrice: "85000.00", minOrderQuantity: 3, leadTimeDays: 1 },
-      // Discos de Corte (Paquete 25u)
-      { id: "sp_016", companyId: "comp_default", supplierId: "prov_bosch", productId: "tool_disco_corte", unitPrice: "45000.00", minOrderQuantity: 10, leadTimeDays: 2 },
+      // Sensor ST-200
+      { id: "sp_001", supplierId: "prov_grainger", productId: "prod_st200", unitPrice: "450.00", minOrderQuantity: 5, leadTimeDays: 2 },
+      { id: "sp_002", supplierId: "prov_uline", productId: "prod_st200", unitPrice: "420.00", minOrderQuantity: 10, leadTimeDays: 4 },
+      // Válvula V-500
+      { id: "sp_003", supplierId: "prov_festo", productId: "prod_v500", unitPrice: "1250.00", minOrderQuantity: 2, leadTimeDays: 3 },
+      { id: "sp_004", supplierId: "prov_grainger", productId: "prod_v500", unitPrice: "1350.00", minOrderQuantity: 1, leadTimeDays: 1 },
+      // Microcontrolador MCU-32 (Agotado)
+      { id: "sp_005", supplierId: "prov_mouser", productId: "prod_mc32", unitPrice: "85.50", minOrderQuantity: 20, leadTimeDays: 1 },
+      { id: "sp_006", supplierId: "prov_grainger", productId: "prod_mc32", unitPrice: "79.00", minOrderQuantity: 50, leadTimeDays: 5 },
+      // PLC-10 (Carencia)
+      { id: "sp_007", supplierId: "prov_festo", productId: "prod_plc10", unitPrice: "4800.00", minOrderQuantity: 1, leadTimeDays: 2 },
+      // Válvula VS-100 (Agotado)
+      { id: "sp_008", supplierId: "prov_grainger", productId: "prod_val99", unitPrice: "890.00", minOrderQuantity: 5, leadTimeDays: 2 },
+      // Relevador SSR-12 (Agotado)
+      { id: "sp_009", supplierId: "prov_mouser", productId: "prod_rele_r12", unitPrice: "120.00", minOrderQuantity: 10, leadTimeDays: 1 },
+      // Manzanas
+      { id: "sp_010", supplierId: "prov_sysco", productId: "food_app01", unitPrice: "280.00", minOrderQuantity: 10, leadTimeDays: 1 },
+      // Leche
+      { id: "sp_011", supplierId: "prov_sysco", productId: "food_mil04", unitPrice: "220.00", minOrderQuantity: 20, leadTimeDays: 1 },
+      // Queso Manchego (Agotado)
+      { id: "sp_012", supplierId: "prov_sysco", productId: "food_queso05", unitPrice: "75.00", minOrderQuantity: 30, leadTimeDays: 2 },
+      // Guantes de Nitrilo (Top Ventas)
+      { id: "sp_013", supplierId: "prov_uline", productId: "tool_guantes_g1", unitPrice: "140.00", minOrderQuantity: 20, leadTimeDays: 2 },
+      { id: "sp_014", supplierId: "prov_grainger", productId: "tool_guantes_g1", unitPrice: "155.00", minOrderQuantity: 10, leadTimeDays: 1 },
     ])
     .onConflictDoNothing();
 
-  // 6. Configuracion de Negocio (Moneda COP y Limite de Aprobacion en Pesos Colombianos)
+  // 6. Configuración de Negocio (Límite de Aprobación de Compras)
   await db
     .insert(businessConfig)
     .values([
       {
         companyId: "comp_default",
         key: "approval_limit_amount",
-        value: "5000000.00",
-        currency: "COP",
-        description: "Monto maximo en COP ($5,000,000) permitido para compras antes de requerir autorizacion humana en /inbox",
-      },
-      {
-        companyId: "comp_default",
-        key: "currency",
-        value: "COP",
-        currency: "COP",
-        description: "Moneda de operacion contable y logistica",
-      },
-      {
-        companyId: "comp_default",
-        key: "bot_name",
-        value: "Mint Autonomous Logistics Director",
-        currency: "COP",
-        description: "Nombre del asistente autonomo",
+        value: "10000.00",
+        currency: "MXN",
+        description: "Monto máximo en MXN permitido para crear órdenes de compra sin requerir aprobación humana",
       },
     ])
-    .onConflictDoUpdate({
-      target: [businessConfig.companyId, businessConfig.key],
-      set: {
-        value: sql`excluded.value`,
-        currency: sql`excluded.currency`,
-        description: sql`excluded.description`,
-      },
-    });
+    .onConflictDoNothing();
 
-  // 7. Historial de Ventas (Para cálculo de Burn Rate y ROP Dinámico)
+  // 7. Historial de Ventas (Para pronosticar_demanda)
   const now = new Date();
   const daysAgo = (d: number) => new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
 
   await db
     .insert(salesHistory)
     .values([
-      { id: "sh_001", companyId: "comp_default", productId: "tool_tld_850", saleDate: daysAgo(28), quantity: 8, unitPrice: "245000.00", totalAmount: "1960000.00", channel: "mostrador" },
-      { id: "sh_002", companyId: "comp_default", productId: "tool_tld_850", saleDate: daysAgo(14), quantity: 12, unitPrice: "245000.00", totalAmount: "2940000.00", channel: "contratista" },
-      { id: "sh_003", companyId: "comp_default", productId: "tool_tld_850", saleDate: daysAgo(5), quantity: 10, unitPrice: "245000.00", totalAmount: "2450000.00", channel: "mostrador" },
-      { id: "sh_004", companyId: "comp_default", productId: "tool_esm_450", saleDate: daysAgo(20), quantity: 14, unitPrice: "215000.00", totalAmount: "3010000.00", channel: "industrial" },
-      { id: "sh_005", companyId: "comp_default", productId: "tool_esm_450", saleDate: daysAgo(7), quantity: 16, unitPrice: "215000.00", totalAmount: "3440000.00", channel: "industrial" },
-      { id: "sh_006", companyId: "comp_default", productId: "tool_guantes_g1", saleDate: daysAgo(15), quantity: 40, unitPrice: "36000.00", totalAmount: "1440000.00", channel: "mostrador" },
-      { id: "sh_007", companyId: "comp_default", productId: "tool_guantes_g1", saleDate: daysAgo(3), quantity: 60, unitPrice: "36000.00", totalAmount: "2160000.00", channel: "empresa" },
-      { id: "sh_008", companyId: "comp_default", productId: "tool_rtm_sds", saleDate: daysAgo(18), quantity: 6, unitPrice: "620000.00", totalAmount: "3720000.00", channel: "contratista" },
+      { id: "sh_001", companyId: "comp_default", productId: "prod_st200", saleDate: daysAgo(30), quantity: 12, unitPrice: "520.00", totalAmount: "6240.00", channel: "directo" },
+      { id: "sh_002", companyId: "comp_default", productId: "prod_st200", saleDate: daysAgo(21), quantity: 15, unitPrice: "520.00", totalAmount: "7800.00", channel: "directo" },
+      { id: "sh_003", companyId: "comp_default", productId: "prod_st200", saleDate: daysAgo(14), quantity: 18, unitPrice: "520.00", totalAmount: "9360.00", channel: "directo" },
+      { id: "sh_004", companyId: "comp_default", productId: "prod_st200", saleDate: daysAgo(7), quantity: 22, unitPrice: "520.00", totalAmount: "11440.00", channel: "directo" },
+      { id: "sh_005", companyId: "comp_default", productId: "prod_v500", saleDate: daysAgo(25), quantity: 4, unitPrice: "1400.00", totalAmount: "5600.00", channel: "industrial" },
+      { id: "sh_006", companyId: "comp_default", productId: "prod_v500", saleDate: daysAgo(10), quantity: 6, unitPrice: "1400.00", totalAmount: "8400.00", channel: "industrial" },
+      { id: "sh_007", companyId: "comp_default", productId: "tool_guantes_g1", saleDate: daysAgo(15), quantity: 50, unitPrice: "180.00", totalAmount: "9000.00", channel: "retail" },
+      { id: "sh_008", companyId: "comp_default", productId: "tool_guantes_g1", saleDate: daysAgo(5), quantity: 70, unitPrice: "180.00", totalAmount: "12600.00", channel: "retail" },
     ])
     .onConflictDoNothing();
 
-  // 8. Seguimiento de Envíos en Colombia (Corredores Bucaramanga - Bogota - Medellin)
+  // 8. Seguimiento de Envíos (Para consultar_envios)
   await db
     .insert(shipments)
     .values([
       {
         id: "ship_001",
         companyId: "comp_default",
-        trackingNumber: "TRK-SER-44910",
-        carrier: "Servientrega Industrial",
+        trackingNumber: "TRK-FEDEX-98214",
+        carrier: "FedEx Express",
         status: "en_transito",
         estimatedDelivery: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000),
-        originLocation: "Centro de Distribucion Bogota (Parque Cota)",
-        currentLocation: "Tunja - Boyaca (En transito por Ruta 55)",
-        destinationLocation: "Almacen Central Bucaramanga",
-        notes: "Despacho consolidado de herramientas electricas. Transito en tiempo.",
+        originLocation: "Monterrey Hub",
+        currentLocation: "Querétaro Distribución",
+        destinationLocation: "Almacén Central (CDMX)",
+        notes: "Tránsito regular sin incidencias",
       },
       {
         id: "ship_002",
         companyId: "comp_default",
-        trackingNumber: "TRK-COO-88120",
-        carrier: "Coordinadora Mercantil",
+        trackingNumber: "TRK-DHL-44102",
+        carrier: "DHL Supply Chain",
         status: "retrasado",
-        estimatedDelivery: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // Venció ayer
-        originLocation: "Hub Regional Medellin (Itagui)",
-        currentLocation: "Puerto Araujo (Retencion preventiva en via Magdalena Medio)",
-        destinationLocation: "Almacen Central Bucaramanga",
-        notes: "Alerta de retraso: derrumbe temporal reportado por Invias.",
+        estimatedDelivery: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // Venció ayer!
+        originLocation: "Guadalajara Norte",
+        currentLocation: "Toluca Retención Aduana/Inspección",
+        destinationLocation: "Almacén Refrigerado",
+        notes: "Retraso logístico de 48h por inspección en ruta",
       },
       {
         id: "ship_003",
         companyId: "comp_default",
-        trackingNumber: "TRK-TCC-10934",
-        carrier: "TCC Logistica",
+        trackingNumber: "TRK-SIM-10023",
+        carrier: "Simulado Logistics",
         status: "en_preparacion",
-        estimatedDelivery: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),
-        originLocation: "Almacen Central Bucaramanga",
-        currentLocation: "Bahia de Despachos Bucaramanga",
-        destinationLocation: "Centro de Distribucion Bogota",
-        notes: "En espera de consolidacion de carga de maquinaria liviana.",
+        estimatedDelivery: new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000),
+        originLocation: "Saltillo Terminal",
+        currentLocation: "Patio de Salida",
+        destinationLocation: "Almacén Regional Norte",
+        notes: "En espera de carga de unidades",
       },
       {
         id: "ship_004",
         companyId: "comp_default",
-        trackingNumber: "TRK-ENV-55219",
-        carrier: "Envia Colvanes",
+        trackingNumber: "TRK-MX-88902",
+        carrier: "Estafeta Logistics",
         status: "en_transito",
-        estimatedDelivery: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000),
-        originLocation: "Distribuidora EPP Bucaramanga Centro",
-        currentLocation: "Giron - Anillo Vial",
-        destinationLocation: "Almacen Central Bucaramanga",
-        notes: "Entrega local prioritaria de insumos de seguridad.",
+        estimatedDelivery: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000),
+        originLocation: "Guadalajara Hub",
+        currentLocation: "Querétaro Distribución",
+        destinationLocation: "Almacén Central (CDMX)",
+        notes: "Envío prioritario en ruta",
       },
     ])
     .onConflictDoNothing();
 
-  console.log("[SEED] Empresa de herramientas industriales en Colombia sembrada con exito en PostgreSQL.");
+  console.log("[OK] Datos logísticos de prueba sembrados exitosamente en Supabase.");
 }
 
 if (require.main === module) {

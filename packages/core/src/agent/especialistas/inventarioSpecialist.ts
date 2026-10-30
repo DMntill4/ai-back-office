@@ -10,8 +10,10 @@ export interface InventoryAnalysis {
   currentStock: number;
   minStock: number;
   deficit: number;
-  burnRate: number; // Unidades vendidas por día
-  daysCoverage: number;
+  burnRate: number | null; // Unidades vendidas por día (null si historial insuficiente)
+  daysCoverage: number | null;
+  hasSufficientHistory: boolean;
+  historyExplanation: string;
   status: "QUIEBRE_TOTAL" | "CRÍTICO_INMINENTE" | "BAJO_STOCK_SEGURIDAD" | "ÓPTIMO";
   compactFacts: string;
 }
@@ -53,22 +55,28 @@ export async function analyzeInventoryForProduct(
     .orderBy(desc(salesHistory.saleDate))
     .limit(30);
 
-  let burnRate = 0;
+  let burnRate: number | null = null;
+  let daysCoverage: number | null = null;
+  let hasSufficientHistory = false;
+  let historyExplanation = "Historial insuficiente (0 ventas registradas). No se pronostica cobertura ni burn rate sin datos históricos.";
+
   if (sales.length > 0) {
     const totalSold = sales.reduce((sum, s) => sum + s.quantity, 0);
-    burnRate = totalSold / 30;
-  } else {
-    // Estimación empírica segura basada en el stock mínimo si no hay historial previo
-    burnRate = minStock / 14;
+    const calculatedRate = totalSold / 30;
+    if (sales.length >= 3 || totalSold >= 3) {
+      burnRate = Math.max(0.1, calculatedRate);
+      daysCoverage = currentStock / burnRate;
+      hasSufficientHistory = true;
+      historyExplanation = `Calculado sobre ${sales.length} ventas en los últimos 30 días (${totalSold} unidades totales).`;
+    } else {
+      historyExplanation = `Historial insuficiente (${sales.length} venta(s) registrada(s)). No se proyecta burn rate sin datos estadísticamente válidos.`;
+    }
   }
-  burnRate = Math.max(0.5, burnRate); // Evitar división por cero
-
-  const daysCoverage = currentStock / burnRate;
 
   const status =
     currentStock === 0
       ? "QUIEBRE_TOTAL"
-      : daysCoverage < 3
+      : daysCoverage !== null && daysCoverage < 3
         ? "CRÍTICO_INMINENTE"
         : currentStock < minStock
           ? "BAJO_STOCK_SEGURIDAD"
@@ -91,6 +99,8 @@ export async function analyzeInventoryForProduct(
     deficit,
     burnRate,
     daysCoverage,
+    hasSufficientHistory,
+    historyExplanation,
     status,
     compactFacts,
   };

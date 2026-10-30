@@ -6,8 +6,8 @@ import {
   saveBotSetupConfig,
   getTemplateSql,
   executeSqlUpload,
-} from "../packages/core/src/services/authAndSetupService";
-import { getStockByProduct } from "../packages/core/src/services/inventoryService";
+  getStockByProduct,
+} from "@mint/core";
 
 describe("Autenticación, Roles y Flujo de Setup Step-by-Step", () => {
   it("debe definir adecuadamente los 4 roles canónicos con sus permisos de gobernanza", () => {
@@ -123,5 +123,58 @@ describe("Autenticación, Roles y Flujo de Setup Step-by-Step", () => {
       expect(stock.origin).toBe("real");
       expect(stock.currentStock).toBe(45);
     }
+  });
+
+  it("debe hashear contraseñas con scrypt y validar correctamente en login", async () => {
+    const testEmail = `pwd_test_${Date.now()}@security.com`;
+    const regResult = await registerUser({
+      name: "Ana Morales",
+      email: testEmail,
+      companyName: "Seguridad Logística SA",
+      role: "owner",
+      password: "PasswordSegura2026!",
+    });
+
+    expect(regResult.success).toBe(true);
+
+    // Intentar login con contraseña incorrecta
+    const badLogin = await loginUser({ email: testEmail, password: "wrong_password" });
+    expect(badLogin.success).toBe(false);
+    expect(badLogin.error).toContain("Contraseña incorrecta");
+
+    // Login con contraseña correcta
+    const goodLogin = await loginUser({ email: testEmail, password: "PasswordSegura2026!" });
+    expect(goodLogin.success).toBe(true);
+    expect(goodLogin.user?.email).toBe(testEmail);
+  });
+
+  it("debe rechazar sentencias SQL destructivas (DROP, TRUNCATE, DELETE) en executeSqlUpload", async () => {
+    const maliciousSql = "DROP TABLE products; TRUNCATE TABLE users;";
+    const res = await executeSqlUpload({
+      companyId: "comp_test",
+      sqlContent: maliciousSql,
+    });
+
+    expect(res.success).toBe(false);
+    expect(res.error).toContain("Operación rechazada por gobernanza");
+  });
+
+  it("debe rechazar executeSqlUpload si el usuario no tiene permiso upload_sql", async () => {
+    const opEmail = `operator_${Date.now()}@test.com`;
+    const regOp = await registerUser({
+      name: "Operador Juan",
+      email: opEmail,
+      companyName: "Test Company",
+      role: "operator",
+    });
+
+    const res = await executeSqlUpload({
+      companyId: regOp.user!.companyId,
+      userId: regOp.user!.id,
+      sqlContent: "INSERT INTO products (id, sku, name) VALUES ('p1', 's1', 'n1');",
+    });
+
+    expect(res.success).toBe(false);
+    expect(res.error).toContain("Permisos insuficientes");
   });
 });

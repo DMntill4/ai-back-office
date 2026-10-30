@@ -2,12 +2,13 @@ import { db } from "../db/client";
 import { users, companies } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { type UserRole } from "./authAndSetupService";
 
 export interface TeamMember {
   id: string;
   name: string;
   email: string;
-  role: "owner" | "operator" | "auditor" | "viewer";
+  role: UserRole;
   companyId: string;
   companyName: string;
   createdAt: string;
@@ -44,7 +45,7 @@ export async function inviteTeamMember(params: {
   companyId: string;
   email: string;
   name: string;
-  role?: "owner" | "operator" | "auditor" | "viewer";
+  role?: UserRole;
 }): Promise<{ success: boolean; member?: TeamMember; message: string }> {
   const role = params.role || "operator";
   const email = params.email.trim().toLowerCase();
@@ -95,7 +96,7 @@ export async function inviteTeamMember(params: {
 export async function updateTeamMemberRole(params: {
   companyId: string;
   userId: string;
-  newRole: "owner" | "operator" | "auditor" | "viewer";
+  newRole: UserRole;
 }): Promise<{ success: boolean; message: string }> {
   const result = await db
     .update(users)

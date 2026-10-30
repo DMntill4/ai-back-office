@@ -12,18 +12,24 @@ export async function simulateCommand(
   const session = await getSession();
   const companyId = options.companyId || session?.companyId || "comp_default";
 
-  const validScenarios = ["stockout", "delay", "price-spike"];
+  const { getCompanyConfig } = await import("@mint/core");
+  const config = await getCompanyConfig(companyId);
+
+  const validScenarios = ["stockout", "delay", "price-spike", "demand-surge", "supplier-outage"];
   if (!validScenarios.includes(scenarioType.toLowerCase())) {
     console.error(
       theme.redBold(
         `[ERROR] Escenario '${scenarioType}' no válido. Escenarios disponibles: ${validScenarios.join(", ")}`,
       ),
     );
+    if (!options.json) {
+      return;
+    }
     process.exit(1);
   }
 
   if (!options.json) {
-    console.log("\n" + theme.mintBold("MINT AUTONOMOUS SIMULATOR // WHAT-IF LOGISTICS"));
+    console.log("\n" + theme.mintBold("SIMULADOR MULTI-AGENTE // WHAT-IF LOGISTICS"));
     console.log(theme.muted(`   Empresa: ${companyId} │ Escenario: ${scenarioType.toUpperCase()} │ Modo: Sandbox Dry-Run\n`));
   }
 
@@ -55,6 +61,14 @@ export async function simulateCommand(
       eventType = "PRICE_ANOMALY";
       title = "Simulación de Anomalía y Subida de Precios";
       description = "Cotización de proveedor presenta incremento atípico";
+    } else if (scenarioType.toLowerCase() === "demand-surge") {
+      eventType = "STOCK_CRITICAL";
+      title = "Simulación de Pico Repentino de Demanda (+50%)";
+      description = "Aumento acelerado de consumo diario agota cobertura antes del lead time";
+    } else if (scenarioType.toLowerCase() === "supplier-outage") {
+      eventType = "STOCK_CRITICAL";
+      title = "Simulación de Paro / Quiebre en Proveedor Habitual";
+      description = "Proveedor principal no disponible, forzando evaluación de alternativas secundarias";
     }
 
     const result = await withSpinner(
@@ -67,6 +81,7 @@ export async function simulateCommand(
           title,
           description,
           autonomyLevel: "dry-run",
+          force: true,
         });
       },
     );
@@ -77,7 +92,7 @@ export async function simulateCommand(
     }
 
     if (!result.success || !result.proposal) {
-      console.log(`\n${theme.warning("[AVISO]")} Simulación completada con advertencia:`);
+      console.log(`\n${theme.amberBold("[AVISO]")} Simulación completada con advertencia:`);
       console.log(`   ${result.summary}\n`);
       return;
     }
@@ -92,7 +107,7 @@ export async function simulateCommand(
           ? "amber"
           : "red";
 
-    const costStr = `$${result.proposal.costMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
+    const costStr = `$${result.proposal.costMxn.toLocaleString("es-CO", { minimumFractionDigits: 2 })} ${config.currency}`;
     const riskScore = result.proposal.riskAssessment.riskScore;
     const riskPct = `${(riskScore * 100).toFixed(0)}%`;
 
@@ -137,6 +152,5 @@ export async function simulateCommand(
     } else {
       console.error(theme.redBold(`[ERROR] Error en simulación: ${err.message}`));
     }
-    process.exit(1);
   }
 }

@@ -49,6 +49,11 @@ export async function processRemoteApproval(params: {
   }
 
   const decision = decList[0];
+  if (decision.policyDecision === "approved" || decision.policyDecision === "rejected") {
+    throw new Error(
+      `La decisión "${decisionId}" ya se encuentra en estado "${decision.policyDecision}". No se puede procesar una segunda vez (idempotente).`,
+    );
+  }
 
   // 4. Si la acción es RECHAZO
   if (action === "reject") {
@@ -79,7 +84,19 @@ export async function processRemoteApproval(params: {
   }
 
   // 5. Si la acción es APROBACIÓN: Ejecutar la decisión y verificar resultado real
-  const execution = await executeAndVerifyDecision(decisionId, `${approverName} [vía ${channel}]`);
+  const approverUserId = (tokenPayload as any).userId || `remote_${channel}_${approverName}`;
+  const approverRole = (tokenPayload as any).role || "owner";
+  const execution = await executeAndVerifyDecision(
+    decisionId,
+    `${approverName} [vía ${channel}]`,
+    undefined,
+    approverUserId,
+    approverRole,
+  );
+
+  if (!execution.success) {
+    throw new Error(`Fallo en la ejecución de la decisión: ${execution.message}`);
+  }
 
   // 6. Marcar el token como usado en todos los registros de notification_log para este token
   if (existingLogs.length > 0) {

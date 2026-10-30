@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   db,
   products,
@@ -88,7 +89,7 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     companyId,
     sourceName,
     sourceType,
-    uriOrPath,
+    uriOrPath: inputUriOrPath,
     currentHeaders,
     rows,
     explicitMappings,
@@ -99,13 +100,14 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     allowImmediateDeletion = false,
   } = options;
 
+  const uriOrPath = inputUriOrPath || (options as any).sourceUri || "local://fuente_datos";
   const jobId = `job_sync_${randomUUID().slice(0, 8)}`;
 
   // 1. Extraer mtime de origen si es un archivo local
   let originMtime: string | null = null;
   if (options.originMtime) {
     originMtime = new Date(options.originMtime).toISOString();
-  } else if (fs.existsSync(uriOrPath)) {
+  } else if (uriOrPath && !uriOrPath.startsWith("memory://") && fs.existsSync(uriOrPath)) {
     try {
       originMtime = fs.statSync(uriOrPath).mtime.toISOString();
     } catch {
@@ -139,10 +141,15 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
       maxStalenessHours: options.maxStalenessHours || 24,
     };
 
+    const effectiveName =
+      sourceName ||
+      (uriOrPath ? path.basename(uriOrPath.replace(/^memory:\/\//, "")) : "Fuente de Datos") ||
+      "Fuente de Datos";
+
     await db.insert(dataSources).values({
       id: dataSourceId,
       companyId,
-      name: sourceName,
+      name: effectiveName,
       sourceType,
       uriOrPath,
       config: activeConfig,
@@ -293,14 +300,34 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     }
 
     try {
-      const sku = (sanitized[mappings.sku] || "").trim();
       const name = (sanitized[mappings.name] || "").trim();
+      let sku = (sanitized[mappings.sku] || "").trim();
+
+      if (!name) throw new Error("El campo 'name' es requerido y está vacío.");
+
+      // Si no hay columna de SKU o está vacía, auto-derivar un SKU determinista a partir del nombre
+      if (!sku || mappings.sku === mappings.name) {
+        const cleanSlug = name
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, "-")
+          .slice(0, 25)
+          .replace(/^-+|-+$/g, "");
+        sku = `SKU-${cleanSlug || "ITEM"}`;
+      }
+
       const stockRaw = sanitized[mappings.stock] || "0";
       const minStockRaw = mappings.minStock ? sanitized[mappings.minStock] || "10" : "10";
       const category = mappings.category ? (sanitized[mappings.category] || "general").trim() : "general";
 
-      if (!sku) throw new Error("El campo 'sku' es requerido y está vacío.");
-      if (!name) throw new Error("El campo 'name' es requerido y está vacío.");
+      let price: string | null = null;
+      if (mappings.unitCost && sanitized[mappings.unitCost]) {
+        const parsedPrice = parseFloat(sanitized[mappings.unitCost].replace(/[^0-9.]/g, ""));
+        if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+          price = parsedPrice.toFixed(2);
+        }
+      }
 
       const stock = parseInt(stockRaw.replace(/[^0-9-]/g, ""), 10);
       if (isNaN(stock) || stock < 0) {
@@ -310,7 +337,16 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
       const minStock = parseInt(minStockRaw.replace(/[^0-9]/g, ""), 10) || 10;
       currentSyncSkus.push(sku);
 
-      const productId = `prod_${sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+      const cleanCompany = companyId.replace(/[^a-z0-9_]/g, "_");
+      const cleanSku = sku.toLowerCase().replace(/[^a-z0-9_]/g, "_");
+
+      const existingProd = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.companyId, companyId), eq(products.sku, sku)))
+        .limit(1);
+
+      const productId = existingProd[0]?.id || `prod_${cleanCompany}_${cleanSku}`;
 
       // Upsert producto
       await db
@@ -322,6 +358,8 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
           name,
           category,
           minStock,
+          price: price || undefined,
+          costPrice: price || undefined,
           origin: "real",
         })
         .onConflictDoUpdate({
@@ -330,37 +368,42 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
             name,
             category,
             minStock,
+            price: price || undefined,
+            costPrice: price || undefined,
             origin: "real",
           },
         });
 
       // Resolver almacén (si la fila especifica bodega/sucursal, crearla y geocodificarla)
-      let targetWarehouseId = "alm_central";
+      let targetWarehouseId = companyId === "comp_default" ? "alm_central" : `alm_central_${cleanCompany}`;
       const rawWarehouseName = mappings.warehouseName ? (sanitized[mappings.warehouseName] || "").trim() : "";
       const rawWarehouseCity = mappings.warehouseCity ? (sanitized[mappings.warehouseCity] || "").trim() : "";
 
       if (rawWarehouseName) {
         const whSlug = rawWarehouseName.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 24);
-        targetWarehouseId = `alm_${whSlug}`;
-        if (!warehouseCache.has(targetWarehouseId)) {
-          warehouseCache.set(targetWarehouseId, rawWarehouseName);
-          try {
-            const geo = await geocodeAddressOrCity(rawWarehouseCity || rawWarehouseName).catch(() => null);
-            await db
-              .insert(warehouses)
-              .values({
-                id: targetWarehouseId,
-                companyId,
-                name: rawWarehouseName,
-                location: rawWarehouseCity || rawWarehouseName,
-                city: geo?.city || rawWarehouseCity || null,
-                latitude: geo ? String(geo.latitude) : null,
-                longitude: geo ? String(geo.longitude) : null,
-              })
-              .onConflictDoNothing();
-          } catch {
-            // Continuar si el mock no soporta tabla warehouses
-          }
+        targetWarehouseId = `alm_${cleanCompany}_${whSlug}`;
+      }
+
+      if (!warehouseCache.has(targetWarehouseId)) {
+        warehouseCache.set(targetWarehouseId, rawWarehouseName || "Almacén Central");
+        try {
+          const geo = rawWarehouseName
+            ? await geocodeAddressOrCity(rawWarehouseCity || rawWarehouseName).catch(() => null)
+            : null;
+          await db
+            .insert(warehouses)
+            .values({
+              id: targetWarehouseId,
+              companyId,
+              name: rawWarehouseName || "Almacén Central",
+              location: rawWarehouseCity || rawWarehouseName || "Bahía Principal",
+              city: geo?.city || rawWarehouseCity || null,
+              latitude: geo ? String(geo.latitude) : null,
+              longitude: geo ? String(geo.longitude) : null,
+            })
+            .onConflictDoNothing();
+        } catch {
+          // Continuar si el mock no soporta tabla warehouses
         }
       }
 
@@ -412,8 +455,8 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
               companyId,
               name: effectiveSupplierName,
               email: `contacto@${suppSlug || "proveedor"}.com`,
-              streetAddress: rawSupplierCity || "Parque Industrial",
-              city: geo?.city || rawSupplierCity || "Centro de Distribución Homologado",
+              streetAddress: rawSupplierCity || null,
+              city: geo?.city || rawSupplierCity || null,
               latitude: geo ? String(geo.latitude) : null,
               longitude: geo ? String(geo.longitude) : null,
             })
@@ -506,9 +549,16 @@ export async function syncDataSource(options: SyncEngineOptions): Promise<SyncRe
     const effectiveRequireTwoPhase = requireTwoPhaseDeletion && !allowImmediateDeletion;
     const updatedPendingDeletions: Record<string, number> = { ...pendingDeletions };
 
+    const cleanCompany = (companyId || "comp_default").toLowerCase().replace(/[^a-z0-9_]/g, "_");
+
     for (const removedSku of removedSkus) {
       const consecutiveMissing = (updatedPendingDeletions[removedSku] || 0) + 1;
-      const prodId = `prod_${removedSku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+      const existingProduct = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.sku, removedSku), eq(products.companyId, companyId)))
+        .limit(1);
+      const prodId = existingProduct[0]?.id || `prod_${cleanCompany}_${removedSku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
 
       if (!effectiveRequireTwoPhase || consecutiveMissing >= 2 || allowMassDeletion) {
         deletedCount++;

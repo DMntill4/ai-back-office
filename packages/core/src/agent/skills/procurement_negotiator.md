@@ -1,9 +1,9 @@
-# [SKILL] PROCUREMENT NEGOTIATOR
+# [ACCION] SKILL MARKDOWN: PROCUREMENT NEGOTIATOR
 
 ## ESTRATEGIA DE PROVEEDORES Y SELECCIÓN DE COMPRAS
 1. **Matriz Comparativa de Proveedores:**
    - Invoca siempre `evaluar_proveedores` pasando el `producto_id` y el `criterio` correspondiente (`costo`, `velocidad` o `balanceado`).
-   - Muestra la tabla comparativa con los proveedores disponibles, indicando precio unitario, días de entrega y volumen mínimo.
+   - Muestra la tabla comparativa con los proveedores disponibles (Grainger, Uline, Mouser), indicando precio unitario, días de entrega y volumen mínimo.
 
 2. **Reglas de Elección:**
    - Si el caso es de rutina, elige el proveedor de menor costo.

@@ -38,28 +38,43 @@ const PRICE_PER_1M_COMPLETION = 10.0;
 const MAX_RETRIES = 3;
 
 export class GrokClient {
-  private client: OpenAI;
+  private client: OpenAI | null = null;
+  private currentApiKey: string | null = null;
   private defaultModel: string;
 
   constructor() {
-    const apiKey = getLlmApiKey() || "dummy_grok_key_for_test_environment";
-    this.client = new OpenAI({
-      apiKey,
-      baseURL: env.GROK_BASE_URL,
-    });
     this.defaultModel = env.GROK_MODEL || "grok-4.6";
   }
 
+  private ensureClient(): OpenAI {
+    const key = getLlmApiKey();
+    if (!key) {
+      throw new Error(
+        "LLM no configurado: falta la API key (revisa .env). MINT no responde sin modelo real para no inventar.",
+      );
+    }
+    if (!this.client || this.currentApiKey !== key) {
+      this.currentApiKey = key;
+      this.client = new OpenAI({
+        apiKey: key,
+        baseURL: env.GROK_BASE_URL,
+      });
+    }
+    return this.client;
+  }
+
   async listModels(): Promise<any[]> {
-    const list = await this.client.models.list();
+    const client = this.ensureClient();
+    const list = await client.models.list();
     return list.data;
   }
 
   async chatCompletion(options: LLMCallOptions): Promise<LLMCallResult> {
+    const client = this.ensureClient();
     const startTime = Date.now();
 
     const response = await this.executeWithRetry(() =>
-      this.client.chat.completions.create({
+      client.chat.completions.create({
         model: options.model || this.defaultModel,
         messages: options.messages,
         tools: options.tools,
@@ -80,7 +95,9 @@ export class GrokClient {
       (usage as any)?.prompt_tokens_details?.cached_tokens ?? 0;
     const totalTokens = usage?.total_tokens ?? 0;
 
-    const promptCost = (promptTokens / 1_000_000) * PRICE_PER_1M_PROMPT;
+    const uncachedPromptTokens = Math.max(0, promptTokens - cachedTokens);
+    // Tokens en caché tienen costo con descuento del 50%
+    const promptCost = ((uncachedPromptTokens + cachedTokens * 0.5) / 1_000_000) * PRICE_PER_1M_PROMPT;
     const completionCost =
       (completionTokens / 1_000_000) * PRICE_PER_1M_COMPLETION;
     const totalCostUsd = (promptCost + completionCost).toFixed(6);

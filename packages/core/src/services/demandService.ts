@@ -33,8 +33,12 @@ export async function calculateDemandForecast(
   const horizonDays = input.horizonDays && input.horizonDays > 0 ? input.horizonDays : 30;
   const effectiveCompanyId = input.companyId || "comp_default";
 
-  // 1. Obtener datos actuales del producto y stock en tiempo real
-  const stockInfo = await getStockByProduct(input.productId);
+  // 1. Obtener datos actuales del producto y stock en tiempo real (resuelve SKU, nombre o ID)
+  const stockInfo = await getStockByProduct(input.productId, effectiveCompanyId);
+  const resolvedProductId =
+    stockInfo && !("isFuzzyMatch" in stockInfo) && stockInfo.productId
+      ? stockInfo.productId
+      : input.productId;
   const productName =
     stockInfo && !("isFuzzyMatch" in stockInfo)
       ? stockInfo.productName
@@ -46,14 +50,14 @@ export async function calculateDemandForecast(
   const minStock =
     stockInfo && !("isFuzzyMatch" in stockInfo) ? stockInfo.minStock : 10;
 
-  // 2. Consultar historial de ventas real desde la tabla sales_history
+  // 2. Consultar historial de ventas real desde la tabla sales_history usando el ID resuelto
   const history = await db
     .select()
     .from(salesHistory)
     .where(
       and(
         eq(salesHistory.companyId, effectiveCompanyId),
-        eq(salesHistory.productId, input.productId),
+        eq(salesHistory.productId, resolvedProductId),
       ),
     );
 
@@ -78,7 +82,7 @@ export async function calculateDemandForecast(
     : `Sin historial previo de ventas en la tabla 'sales_history' para este SKU. Stock disponible: ${currentStock} u (mínimo de seguridad: ${minStock} u). Se sugiere registrar ventas para activar proyección predictiva.`;
 
   return {
-    productId: input.productId,
+    productId: resolvedProductId,
     productName,
     horizonDays,
     currentStock,

@@ -1,0 +1,38 @@
+---
+id: "q_de4eaa52"
+tipo: "pregunta_operador"
+fecha: "2026-10-29T16:47:04.698Z"
+empresa: "comp_auto_a_1793292418304"
+tema: "supplier_missing"
+estado: "pending"
+tags:
+  - mint
+  - pregunta
+  - verdad_de_datos
+  - supplier_missing
+  - estado_pending
+---
+
+# Pregunta al Operador: [[q_de4eaa52]]
+
+## Pregunta Formulada por MINT
+> El producto ID 'prod_orphan_1793292423624' no tiene proveedor asignado ni historial de compras. Favor indicar proveedor y precio acordado.
+
+- **ID Pregunta**: `q_de4eaa52`
+- **Tema**: `supplier_missing`
+- **Estado**: `PENDING`
+- **Fecha de Creacion**: `2026-10-29T16:47:04.698Z`
+
+## Estado: Pendiente de Confirmacion
+_MINT no inventa este dato. Permanece a la espera de que el operador humano lo defina a traves de `mint questions answer <id> <respuesta>`._
+
+## Contexto de la Deteccion
+```json
+{
+  "productId": "prod_orphan_1793292423624",
+  "targetQuantity": 20
+}
+```
+
+## Enlaces Relacionados
+- Ver registro diario de auditoria: [[Auditoria/LOG-2026-10-29|LOG-2026-10-29]]

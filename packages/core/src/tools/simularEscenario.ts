@@ -10,10 +10,13 @@ export const simularEscenarioSchema = z.object({
 
 export type SimularEscenarioInput = z.infer<typeof simularEscenarioSchema>;
 
-export async function executeSimularEscenario(args: SimularEscenarioInput) {
+export async function executeSimularEscenario(
+  args: SimularEscenarioInput,
+  context?: { companyId?: string },
+) {
   try {
     const { getStockByProduct } = await import("../services/inventoryService");
-    const stockInfo = await getStockByProduct(args.producto_id);
+    const stockInfo = await getStockByProduct(args.producto_id, context?.companyId);
 
     if ("isFuzzyMatch" in stockInfo && stockInfo.isFuzzyMatch) {
       return {
@@ -38,6 +41,7 @@ export async function executeSimularEscenario(args: SimularEscenarioInput) {
     const forecast = await calculateDemandForecast({
       productId: stockInfo.productId,
       horizonDays: 30,
+      companyId: context?.companyId,
     });
 
     const consumoDiarioBase =

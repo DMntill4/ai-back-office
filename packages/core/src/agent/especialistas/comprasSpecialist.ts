@@ -1,9 +1,14 @@
 import { db } from "../../db/client";
-import { suppliers, supplierProducts, warehouses, purchaseOrders } from "../../db/schema";
+import { suppliers, supplierProducts, warehouses, purchaseOrders, decisions } from "../../db/schema";
 import { eq, and, asc, desc } from "drizzle-orm";
 import { compactSupplierFacts } from "../context/contextManager";
 import { resolveNodeGeoPoint } from "../../services/geocodingService";
 import { calculateRealRoute } from "../../services/routeCalculator";
+import { addPendingQuestion } from "../../services/pendingQuestionsService";
+import { getCompanyConfig } from "../../services/configService";
+
+// Cache en memoria para evitar tormentas de peticiones HTTP a OSRM/geocodificacion
+const routeCalcCache = new Map<string, { freightCostMxn: number; distanceKm: number; expiresAt: number }>();
 
 export interface SupplierOption {
   supplierId: string;
@@ -15,7 +20,8 @@ export interface SupplierOption {
   freightCostMxn?: number;
   distanceKm?: number;
   landedCostMxn?: number;
-  isEstimatedFallback?: boolean;
+  priceStatus: "estable" | "precio por confirmar";
+  priceOrigin: string;
 }
 
 export interface PurchasingProposal {
@@ -25,19 +31,48 @@ export interface PurchasingProposal {
   totalCostMxn: number;
   reason: string;
   compactFacts: string;
+  requesterUserId?: string;
+  expiresInDays: number;
 }
 
 /**
- * Especialista en Compras: evalúa proveedores reales homologados en PostgreSQL,
- * calcula Landed Cost (Precio Producto + Flete OSRM) y NUNCA falla si la tienda
- * aún no tiene proveedores o tablas supplier_products (genera Licitación Abierta / Compra Directa).
+ * Tarea 4: Compras a proveedores con aprobación estricta (reemplaza lógica anterior).
+ * 1. Detecta stock bajo o quiebre estimado.
+ * 2. Busca proveedor y precio estable en la BD. Sin proveedor: registra en el banco de preguntas pendientes.
+ *    Sin precio estable: no inventa precio; marca 'precio por confirmar'.
+ * 3. Con datos reales genera un borrador con proveedor, producto, cantidad, precio y origen.
+ * 4. Valida que exista una sola solicitud abierta por producto y proveedor.
+ * 5. MINT nunca paga ni envía la orden por sí solo.
  */
 export async function analyzePurchasingOptions(
   productId: string,
   targetQuantity: number,
   companyId: string = "comp_default",
   isUrgent: boolean = false,
+  requesterUserId: string = "agent_compras",
+  force: boolean = false,
 ): Promise<PurchasingProposal | null> {
+  const config = await getCompanyConfig(companyId);
+
+  // 1. Verificar si la empresa tiene proveedores en la BD
+  const registeredSuppliers = await db
+    .select()
+    .from(suppliers)
+    .where(eq(suppliers.companyId, companyId))
+    .limit(1);
+
+  if (registeredSuppliers.length === 0) {
+    // Si la empresa no tiene proveedores registrados, MINT no los inventa. Registra en banco de preguntas.
+    await addPendingQuestion(
+      companyId,
+      "supplier_missing",
+      `No hay proveedores registrados en la base de datos para reabastecer el producto ID '${productId}'. ¿Quién es el proveedor autorizado?`,
+      { productId, targetQuantity },
+    );
+    return null;
+  }
+
+  // 2. Buscar cotizaciones y productos homologados en supplier_products
   const options = await db
     .select({
       supplierId: suppliers.id,
@@ -55,7 +90,48 @@ export async function analyzePurchasingOptions(
     .where(and(eq(supplierProducts.productId, productId), eq(supplierProducts.companyId, companyId)))
     .orderBy(asc(supplierProducts.unitPrice));
 
-  // Buscar almacén destino para calcular flete real OSRM si es posible
+  if (options.length === 0) {
+    // Verificar si existen órdenes históricas para este producto
+    const historicalPo = await db
+      .select()
+      .from(purchaseOrders)
+      .where(and(eq(purchaseOrders.productId, productId), eq(purchaseOrders.companyId, companyId)))
+      .orderBy(desc(purchaseOrders.createdAt))
+      .limit(5);
+
+    if (historicalPo.length === 0) {
+      // Sin historial ni oferta formal -> Registrar pregunta pendiente
+      await addPendingQuestion(
+        companyId,
+        "supplier_missing",
+        `El producto ID '${productId}' no tiene proveedor asignado ni historial de compras. Favor indicar proveedor y precio acordado.`,
+        { productId, targetQuantity },
+      );
+      return null;
+    }
+  }
+
+  // 3. Verificar si ya existe una propuesta abierta (en borrador o pendiente de aprobación) para este producto
+  if (!force) {
+    const existingPending = await db
+      .select()
+      .from(decisions)
+      .where(
+        and(
+          eq(decisions.companyId, companyId),
+          eq(decisions.policyDecision, "pending_approval"),
+          eq(decisions.actionType, "crear_orden_compra"),
+        ),
+      );
+
+    const alreadyOpen = existingPending.find((d) => (d.evidencePayload as any)?.productId === productId);
+    if (alreadyOpen) {
+      return null; // Regla: Una sola solicitud abierta por producto y proveedor
+    }
+  }
+
+  // 4. Evaluar opciones y estabilidad de precio
+  // Buscar almacén destino para flete
   const whRows = await db
     .select()
     .from(warehouses)
@@ -63,18 +139,52 @@ export async function analyzePurchasingOptions(
     .limit(1);
   const destGeo = whRows.length > 0 ? await resolveNodeGeoPoint(whRows[0]).catch(() => null) : null;
 
-  let mappedOptions: SupplierOption[] = [];
+  const mappedOptions: SupplierOption[] = [];
 
-  if (options.length > 0) {
-    for (const opt of options) {
-      const unitPrice = parseFloat(opt.unitPrice);
-      const qty = Math.max(targetQuantity, opt.minOrderQuantity);
-      const productCost = unitPrice * qty;
+  for (const opt of options) {
+    const rawPrice = parseFloat(opt.unitPrice);
+    const qty = Math.max(targetQuantity, opt.minOrderQuantity);
 
-      let freightCostMxn = 0;
-      let distanceKm = 0;
+    // Comprobar variación histórica de precios para este proveedor
+    const pastOrders = await db
+      .select({ unitPrice: purchaseOrders.unitPrice })
+      .from(purchaseOrders)
+      .where(
+        and(
+          eq(purchaseOrders.companyId, companyId),
+          eq(purchaseOrders.productId, productId),
+          eq(purchaseOrders.supplierId, opt.supplierId),
+        ),
+      )
+      .orderBy(desc(purchaseOrders.createdAt))
+      .limit(5);
 
-      if (destGeo) {
+    let priceStatus: SupplierOption["priceStatus"] = "estable";
+    let priceOrigin = `Catálogo de proveedor (${config.currency} ${rawPrice.toFixed(2)}/u)`;
+
+    if (pastOrders.length > 1) {
+      const prices = pastOrders.map((p) => parseFloat(p.unitPrice));
+      const minP = Math.min(...prices);
+      const maxP = Math.max(...prices);
+      const variationRatio = minP > 0 ? (maxP - minP) / minP : 0;
+
+      // Umbral configurable de estabilidad (15% por defecto)
+      if (variationRatio > 0.15) {
+        priceStatus = "precio por confirmar";
+        priceOrigin = `Variación histórica del ${(variationRatio * 100).toFixed(0)}% detectada. Precio por confirmar antes de compra.`;
+      }
+    }
+
+    let freightCostMxn = 0;
+    let distanceKm = 0;
+
+    if (destGeo) {
+      const cacheKey = `${companyId}:${opt.supplierId || opt.supplierName}->${destGeo.latitude},${destGeo.longitude}`;
+      const cached = routeCalcCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        freightCostMxn = cached.freightCostMxn;
+        distanceKm = cached.distanceKm;
+      } else {
         const origGeo = await resolveNodeGeoPoint({
           latitude: opt.supplierLat,
           longitude: opt.supplierLon,
@@ -84,96 +194,58 @@ export async function analyzePurchasingOptions(
         }).catch(() => null);
 
         if (origGeo) {
-          const route = await calculateRealRoute(origGeo, destGeo).catch(() => null);
+          const route = await calculateRealRoute(origGeo, destGeo, {
+            currency: config.currency,
+            companyId,
+          }).catch(() => null);
           if (route) {
-            freightCostMxn = route.estimatedFreightCostMxn;
+            freightCostMxn = route.estimatedFreightCostMxn ?? 0;
             distanceKm = route.distanceKm;
+            routeCalcCache.set(cacheKey, {
+              freightCostMxn,
+              distanceKm,
+              expiresAt: Date.now() + 10 * 60 * 1000,
+            });
           }
         }
       }
-
-      mappedOptions.push({
-        supplierId: opt.supplierId,
-        supplierName: opt.supplierName,
-        unitPrice,
-        leadTimeDays: opt.leadTimeDays,
-        minOrderQuantity: opt.minOrderQuantity,
-        totalCostMxn: productCost,
-        freightCostMxn,
-        distanceKm,
-        landedCostMxn: Number((productCost + freightCostMxn).toFixed(2)),
-      });
     }
-  } else {
-    // FALLBACK RESILIENTE: Si la base de datos de la tienda no tiene filas en supplier_products
-    // 1. Verificar si existen órdenes históricas de este producto para inferir su último costo real
-    const historicalPo = await db
-      .select()
-      .from(purchaseOrders)
-      .where(and(eq(purchaseOrders.productId, productId), eq(purchaseOrders.companyId, companyId)))
-      .orderBy(desc(purchaseOrders.createdAt))
-      .limit(1);
 
-    const inferredUnitPrice =
-      historicalPo.length > 0 && Number(historicalPo[0].unitPrice) > 0
-        ? Number(historicalPo[0].unitPrice)
-        : 250.0;
+    const productCost = rawPrice * qty;
 
-    // 2. Verificar si la empresa tiene proveedores generales registrados en la tabla suppliers
-    const companySuppliers = await db
-      .select()
-      .from(suppliers)
-      .where(eq(suppliers.companyId, companyId));
-
-    if (companySuppliers.length > 0) {
-      mappedOptions = companySuppliers.map((s) => {
-        const qty = Math.max(targetQuantity, 5);
-        return {
-          supplierId: s.id,
-          supplierName: s.name,
-          unitPrice: inferredUnitPrice,
-          leadTimeDays: 3,
-          minOrderQuantity: 5,
-          totalCostMxn: Number((inferredUnitPrice * qty).toFixed(2)),
-          landedCostMxn: Number((inferredUnitPrice * qty).toFixed(2)),
-          isEstimatedFallback: true,
-        };
-      });
-    } else {
-      // 3. Si la base de datos no maneja proveedores en absoluto, usar Licitación Abierta / Compra Directa
-      const qty = Math.max(targetQuantity, 5);
-      mappedOptions = [
-        {
-          supplierId: `supp_direct_${companyId}`,
-          supplierName: "Compra Directa / Licitación Abierta (RFQ)",
-          unitPrice: inferredUnitPrice,
-          leadTimeDays: 3,
-          minOrderQuantity: 5,
-          totalCostMxn: Number((inferredUnitPrice * qty).toFixed(2)),
-          landedCostMxn: Number((inferredUnitPrice * qty).toFixed(2)),
-          isEstimatedFallback: true,
-        },
-      ];
-    }
+    mappedOptions.push({
+      supplierId: opt.supplierId,
+      supplierName: opt.supplierName,
+      unitPrice: rawPrice,
+      leadTimeDays: opt.leadTimeDays,
+      minOrderQuantity: opt.minOrderQuantity,
+      totalCostMxn: productCost,
+      freightCostMxn,
+      distanceKm,
+      landedCostMxn: Number((productCost + freightCostMxn).toFixed(2)),
+      priceStatus,
+      priceOrigin,
+    });
   }
 
-  // Si es urgente, priorizar proveedor con menor tiempo de entrega
-  let recommended: SupplierOption;
+  if (mappedOptions.length === 0) {
+    return null;
+  }
+
+  // Seleccionar la mejor opción
   if (isUrgent) {
     mappedOptions.sort(
       (a, b) =>
         a.leadTimeDays - b.leadTimeDays ||
         (a.landedCostMxn ?? a.totalCostMxn) - (b.landedCostMxn ?? b.totalCostMxn),
     );
-    recommended = mappedOptions[0];
   } else {
-    // Si es rutinario, priorizar menor Landed Cost (o costo de producto)
-    mappedOptions.sort((a, b) => a.unitPrice - b.unitPrice);
-    recommended = mappedOptions[0];
+    mappedOptions.sort((a, b) => (a.landedCostMxn ?? a.totalCostMxn) - (b.landedCostMxn ?? b.totalCostMxn));
   }
 
+  const recommended = mappedOptions[0];
   const finalQuantity = Math.max(targetQuantity, recommended.minOrderQuantity);
-  const totalCostMxn = Number((recommended.unitPrice * finalQuantity).toFixed(2));
+  const totalCost = Number((recommended.unitPrice * finalQuantity).toFixed(2));
 
   const compactFacts = compactSupplierFacts(
     mappedOptions.map((o) => ({
@@ -183,23 +255,24 @@ export async function analyzePurchasingOptions(
       leadTimeDays: o.leadTimeDays,
       minOrderQuantity: o.minOrderQuantity,
     })),
+    config.currency,
   );
 
-  const freightSuffix =
-    recommended.freightCostMxn && recommended.freightCostMxn > 0
-      ? ` (Flete estimado OSRM: $${recommended.freightCostMxn.toFixed(2)} MXN / ${recommended.distanceKm} km)`
+  const priceWarning =
+    recommended.priceStatus === "precio por confirmar"
+      ? " [ALERTA: Precio fluctuante, requiere confirmación formal]"
       : "";
 
   return {
     recommendedOption: recommended,
     alternativeOptions: mappedOptions.filter((o) => o.supplierId !== recommended.supplierId),
     recommendedQuantity: finalQuantity,
-    totalCostMxn,
-    reason: recommended.isEstimatedFallback
-      ? `Modalidad "${recommended.supplierName}" asignada automáticamente con costo estimado ($${recommended.unitPrice.toFixed(2)} MXN/u) dado que el catálogo no registraba proveedor fijo para este SKU.`
-      : isUrgent
-        ? `Proveedor "${recommended.supplierName}" seleccionado por menor tiempo de entrega (${recommended.leadTimeDays} días) para mitigar riesgo de desabasto.${freightSuffix}`
-        : `Proveedor "${recommended.supplierName}" seleccionado por mejor costo unitario ($${recommended.unitPrice.toFixed(2)} MXN).${freightSuffix}`,
+    totalCostMxn: totalCost,
+    reason: isUrgent
+      ? `Proveedor '${recommended.supplierName}' seleccionado por menor tiempo de entrega (${recommended.leadTimeDays} días). Origen de precio: ${recommended.priceOrigin}.${priceWarning}`
+      : `Proveedor '${recommended.supplierName}' seleccionado por menor costo total. Origen de precio: ${recommended.priceOrigin}.${priceWarning}`,
     compactFacts,
+    requesterUserId,
+    expiresInDays: 7, // Vence tras 7 días configurables
   };
 }

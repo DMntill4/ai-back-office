@@ -76,7 +76,7 @@ export async function runTuiGraph(options: TuiGraphOptions = {}) {
     }
 
     // PANEL DE LA ARAÑA (MINT)
-    const spiderGlyph = isShadow ? "👻 [SOMBRA-MINT]" : "🕷️  [MINT]";
+    const spiderGlyph = isShadow ? "[SOMBRA-MINT]" : "[MINT]";
     let stateColor = "\x1b[32m";
     if (spiderState === "analiza") stateColor = "\x1b[35m";
     else if (spiderState === "decide") stateColor = "\x1b[33m";
@@ -99,7 +99,7 @@ export async function runTuiGraph(options: TuiGraphOptions = {}) {
 
     let mLine = "  │ ";
     for (const m of modules) {
-      const activeMarker = (m.id === spiderLocation) ? "🕷️" : "⠶";
+      const activeMarker = (m.id === spiderLocation) ? "*" : "⠶";
       mLine += `[${activeMarker} ${m.label.replace("[DEMO] ", "").replace("Módulo ", "")}] ── `;
     }
     console.log(mLine.slice(0, -4) + " │");
@@ -108,8 +108,8 @@ export async function runTuiGraph(options: TuiGraphOptions = {}) {
 
     for (const e of entities) {
       const isAtNode = (e.id === spiderLocation);
-      const marker = isAtNode ? "\x1b[32m🕷️ [AQUÍ]\x1b[0m" : "\x1b[90m⠋\x1b[0m";
-      const healthTag = e.health === "confiable" ? "\x1b[32m✓\x1b[0m" : "\x1b[31m!\x1b[0m";
+      const marker = isAtNode ? "\x1b[32m[AQUÍ]\x1b[0m" : "\x1b[90m⠋\x1b[0m";
+      const healthTag = e.health === "confiable" ? "\x1b[32m[OK]\x1b[0m" : "\x1b[31m[ALERTA]\x1b[0m";
       const statusTag = e.status === "alerta" ? "\x1b[33m[ALERTA]\x1b[0m" : "";
       console.log(`  │   ${marker} ${healthTag} \x1b[1m${e.label.padEnd(26)}\x1b[0m (${e.entityType}) ${statusTag}`);
     }

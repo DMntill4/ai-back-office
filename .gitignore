@@ -19,3 +19,12 @@ renders/
 .agents/
 skills-lock.json
 receipts/
+
+# Artefactos generados (no versionar)
+scratch/
+receipts/
+reports/
+resources/
+.claude/*
+!.claude/skills/
+

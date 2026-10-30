@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "../db/client";
-import { suppliers, supplierProducts, products } from "../db/schema";
-import { eq, sql, or, ilike } from "drizzle-orm";
+import { suppliers, supplierProducts, products, companies } from "../db/schema";
+import { eq, and, or, ilike } from "drizzle-orm";
 
 export const evaluarProveedoresSchema = z.object({
   producto_id: z.string().describe("ID, SKU o nombre del producto a cotizar/evaluar (ej. 'prod_st200')"),
@@ -15,30 +15,48 @@ export async function executeEvaluarProveedores(
   args: EvaluarProveedoresInput,
   context?: { companyId?: string },
 ) {
+  const effectiveCompanyId = context?.companyId || "comp_default";
+
   try {
     let targetProductId = args.producto_id;
+    let targetProductName = args.producto_id;
     try {
       const prodMatch = await db
         .select()
         .from(products)
         .where(
-          or(
-            eq(products.id, args.producto_id),
-            eq(products.sku, args.producto_id),
-            ilike(products.name, `%${args.producto_id}%`),
+          and(
+            eq(products.companyId, effectiveCompanyId),
+            or(
+              eq(products.id, args.producto_id),
+              ilike(products.sku, args.producto_id),
+              ilike(products.name, `%${args.producto_id}%`),
+            ),
           ),
         )
         .limit(1);
-      if (prodMatch.length > 0) targetProductId = prodMatch[0].id;
+      if (prodMatch.length > 0) {
+        targetProductId = prodMatch[0].id;
+        targetProductName = prodMatch[0].name;
+      }
     } catch {
       // Continuar con args.producto_id
     }
+
+    let currency = "USD";
+    try {
+      const [comp] = await db
+        .select({ currency: companies.currency })
+        .from(companies)
+        .where(eq(companies.id, effectiveCompanyId))
+        .limit(1);
+      if (comp?.currency) currency = comp.currency;
+    } catch {}
 
     const rows = await db
       .select({
         supplierId: suppliers.id,
         supplierName: suppliers.name,
-        rating: sql<string>`'4.8'`,
         unitPrice: supplierProducts.unitPrice,
         minOrderQuantity: supplierProducts.minOrderQuantity,
         leadTimeDays: supplierProducts.leadTimeDays,
@@ -47,36 +65,27 @@ export async function executeEvaluarProveedores(
       .from(supplierProducts)
       .innerJoin(suppliers, eq(supplierProducts.supplierId, suppliers.id))
       .innerJoin(products, eq(supplierProducts.productId, products.id))
-      .where(eq(supplierProducts.productId, targetProductId));
+      .where(
+        and(
+          eq(supplierProducts.productId, targetProductId),
+          eq(products.companyId, effectiveCompanyId),
+        ),
+      );
 
     if (!rows.length) {
-      // Consultar proveedores registrados en la base de datos o sugerir Compra Directa / RFQ
-      const registeredSuppliers = context?.companyId
-        ? await db.select().from(suppliers).where(eq(suppliers.companyId, context.companyId)).limit(5)
-        : await db.select().from(suppliers).limit(5);
-
-      const fallbackId =
-        registeredSuppliers.length > 0
-          ? registeredSuppliers[0].id
-          : `supp_direct_${context?.companyId || "comp_default"}`;
-      const fallbackName =
-        registeredSuppliers.length > 0
-          ? registeredSuppliers[0].name
-          : "Compra Directa / Licitación Abierta (RFQ)";
+      const registeredSuppliers = await db
+        .select()
+        .from(suppliers)
+        .where(eq(suppliers.companyId, effectiveCompanyId))
+        .limit(5);
 
       return {
-        isSuccess: true,
+        isSuccess: false,
         criterioUsado: args.criterio,
-        message: `El catálogo no tiene un proveedor fijo en 'supplier_products' para '${args.producto_id}', pero puedes emitir la orden con modalidad '${fallbackName}' (ID: '${fallbackId}').`,
-        opcionRecomendada: {
-          proveedorId: fallbackId,
-          nombre: fallbackName,
-          precioUnitario: "$250.00 MXN (Estimado)",
-          tiempoEntregaDias: 3,
-          cantidadMinima: 5,
-          motivoRecomendacion:
-            "Modalidad de Compra Directa / Proveedor General habilitada para tiendas sin catálogo fijo de proveedores.",
-        },
+        message:
+          registeredSuppliers.length === 0
+            ? `No tengo este dato: no hay proveedores registrados en la base de datos de esta empresa. MINT no inventa proveedores ni precios ficticios.`
+            : `No tengo este dato: el producto '${targetProductName}' (${targetProductId}) no tiene precio unitario ni cotización vinculada en 'supplier_products' con ningún proveedor homologado. MINT no asume ni inventa precios.`,
         proveedoresDisponiblesEnSistema: registeredSuppliers.map((s) => ({
           id: s.id,
           nombre: s.name,
@@ -86,7 +95,7 @@ export async function executeEvaluarProveedores(
       };
     }
 
-    return sortAndReturnOptions(rows, args.criterio);
+    return sortAndReturnOptions(rows, args.criterio, currency);
   } catch (err: any) {
     return {
       isSuccess: false,
@@ -96,7 +105,7 @@ export async function executeEvaluarProveedores(
   }
 }
 
-function sortAndReturnOptions(options: any[], criterio: string) {
+function sortAndReturnOptions(options: any[], criterio: string, currency = "USD") {
   const sorted = [...options].sort((a, b) => {
     const priceA = parseFloat(a.unitPrice);
     const priceB = parseFloat(b.unitPrice);
@@ -119,7 +128,7 @@ function sortAndReturnOptions(options: any[], criterio: string) {
     opcionRecomendada: {
       proveedorId: recomendado.supplierId,
       nombre: recomendado.supplierName,
-      precioUnitario: `$${recomendado.unitPrice} MXN`,
+      precioUnitario: `$${recomendado.unitPrice} ${currency}`,
       tiempoEntregaDias: recomendado.leadTimeDays,
       cantidadMinima: recomendado.minOrderQuantity,
       motivoRecomendacion: `Seleccionado por presentar la mejor puntuación bajo el criterio '${criterio}' en la base de datos de proveedores.`,
@@ -127,7 +136,7 @@ function sortAndReturnOptions(options: any[], criterio: string) {
     todasLasOpciones: sorted.map((o) => ({
       proveedorId: o.supplierId,
       nombre: o.supplierName,
-      precioUnitario: `$${o.unitPrice} MXN`,
+      precioUnitario: `$${o.unitPrice} ${currency}`,
       tiempoEntregaDias: o.leadTimeDays,
       cantidadMinima: o.minOrderQuantity,
     })),

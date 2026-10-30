@@ -24,16 +24,18 @@ export const theme = {
   charcoal: wrap("\x1b[38;2;51;65;85m", "\x1b[39m"),       // #334155
   border: wrap("\x1b[38;2;71;85;105m", "\x1b[39m"),        // #475569
 
-  // Technical Accents
-  mint: wrap("\x1b[38;2;16;185;129m", "\x1b[39m"),         // #10B981 Emerald / Mint
+  // Brand colors / Technical Accents
+  mint: wrap("\x1b[38;2;16;185;129m", "\x1b[39m"), // #10B981
   mintBold: wrap("\x1b[1m\x1b[38;2;16;185;129m", "\x1b[22m\x1b[39m"),
-  cyan: wrap("\x1b[38;2;6;182;212m", "\x1b[39m"),          // #06B6D4
+  cyan: wrap("\x1b[38;2;6;182;212m", "\x1b[39m"), // #06B6D4
   cyanBold: wrap("\x1b[1m\x1b[38;2;6;182;212m", "\x1b[22m\x1b[39m"),
-  amber: wrap("\x1b[38;2;245;158;11m", "\x1b[39m"),        // #F59E0B Warning
+  sky: wrap("\x1b[38;2;135;206;250m", "\x1b[39m"), // #87CEFA
+  skyBold: wrap("\x1b[1m\x1b[38;2;135;206;250m", "\x1b[22m\x1b[39m"),
+  amber: wrap("\x1b[38;2;245;158;11m", "\x1b[39m"), // #F59E0B
   amberBold: wrap("\x1b[1m\x1b[38;2;245;158;11m", "\x1b[22m\x1b[39m"),
-  red: wrap("\x1b[38;2;239;68;68m", "\x1b[39m"),           // #EF4444 Error
+  red: wrap("\x1b[38;2;239;68;68m", "\x1b[39m"), // #EF4444
   redBold: wrap("\x1b[1m\x1b[38;2;239;68;68m", "\x1b[22m\x1b[39m"),
-  violet: wrap("\x1b[38;2;139;92;246m", "\x1b[39m"),       // #8B5CF6
+  violet: wrap("\x1b[38;2;139;92;246m", "\x1b[39m"), // #8B5CF6
 
   // Standard ANSI styles
   bold: wrap("\x1b[1m", "\x1b[22m"),
@@ -50,7 +52,7 @@ export const theme = {
   info: wrap("\x1b[38;2;6;182;212m", "\x1b[39m"),
   muted: wrap("\x1b[38;2;148;163;184m", "\x1b[39m"),
 
-  // Technical Badges (Square brackets, high contrast)
+  // Technical Badges
   badge(text: string, type: "mint" | "cyan" | "amber" | "red" | "gray" | "violet" = "mint") {
     if (!isColorSupported) return `[${text}]`;
     switch (type) {
@@ -73,6 +75,40 @@ export const theme = {
   // Strip ANSI helper for alignment calculation
   stripAnsi(str: string): string {
     return str.replace(/\x1b\[[0-9;]*m/g, "");
+  },
+
+  // Hacker / Terminal Semantic Tags (Linux / Kali Cyber-Ops style)
+  tag: {
+    system: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;6;182;212m", "\x1b[22m\x1b[39m")("[SYSTEM]")} ${msg}`,
+    scan: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;135;206;250m", "\x1b[22m\x1b[39m")("[SCAN]")} ${msg}`,
+    event: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;16;185;129m", "\x1b[22m\x1b[39m")("[EVENT]")} ${msg}`,
+    task: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;248;250;252m", "\x1b[22m\x1b[39m")("[TASK]")} ${msg}`,
+    alert: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;245;158;11m", "\x1b[22m\x1b[39m")("[ALERT]")} ${msg}`,
+    approval: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;245;158;11m", "\x1b[22m\x1b[39m")("[APPROVAL]")} ${msg}`,
+    delivery: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;16;185;129m", "\x1b[22m\x1b[39m")("[DELIVERY]")} ${msg}`,
+    error: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;239;68;68m", "\x1b[22m\x1b[39m")("[ERROR]")} ${msg}`,
+    ok: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;16;185;129m", "\x1b[22m\x1b[39m")("[OK]")} ${msg}`,
+    sec: (msg: string) => `${wrap("\x1b[1m\x1b[38;2;139;92;246m", "\x1b[22m\x1b[39m")("[SECURITY]")} ${msg}`,
+  },
+
+  // Status Indicator Dot (Linux TUI / Kali)
+  statusDot(active: boolean): string {
+    if (!isColorSupported) return active ? "[ON]" : "[OFF]";
+    return active ? "\x1b[38;2;16;185;129m●\x1b[39m" : "\x1b[38;2;100;116;139m○\x1b[39m";
+  },
+
+  // Canal de Auditoría Autónoma Visible
+  audit(phase: "OBSERVE" | "DECIDE" | "EXECUTE" | "VERIFY", detail: string): string {
+    const badges: Record<string, string> = {
+      OBSERVE: wrap("\x1b[1m\x1b[38;2;92;207;230m", "\x1b[22m\x1b[39m")("[OBSERVE]"),
+      DECIDE: wrap("\x1b[1m\x1b[38;2;229;192;123m", "\x1b[22m\x1b[39m")("[DECIDE]"),
+      EXECUTE: wrap("\x1b[1m\x1b[38;2;140;207;126m", "\x1b[22m\x1b[39m")("[EXECUTE]"),
+      VERIFY: wrap("\x1b[1m\x1b[38;2;224;108;117m", "\x1b[22m\x1b[39m")("[VERIFY]"),
+    };
+    const time = new Date().toLocaleTimeString("es-CO", { hour12: false });
+    const timeStr = wrap("\x1b[38;2;75;82;99m", "\x1b[39m")(time);
+    const detailStr = wrap("\x1b[38;2;171;178;191m", "\x1b[39m")(detail);
+    return `${timeStr} ${badges[phase] || `[${phase}]`} ${detailStr}`;
   },
 };
 
@@ -121,4 +157,3 @@ export function renderSystemHeader(status: SystemHeaderStatus): string {
     theme.charcoal("└") + borderLine.slice(1, -1) + theme.charcoal("┘"),
   ].join("\n");
 }
-

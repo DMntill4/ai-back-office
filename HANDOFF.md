@@ -1,262 +1,142 @@
-# [MINT] MINT CLI & AUTONOMOUS AI BACK OFFICE - DOCUMENTO DE TRANSFERENCIA TECNICA (HANDOFF)
+# MINT CLI & AUTONOMOUS AI BACK OFFICE — TECHNICAL HANDOFF DOCUMENT
 
-**Fecha de Entrega:** 24 de Octubre de 2026  
-**Rama:** `developGuerra`  
-**Estado:** Produccion / Verificado (82 pruebas en verde en 23 suites, 0 errores de tipado, arquitectura 100% Terminal-First)  
-
----
-
-## 1. RESUMEN EJECUTIVO Y EVOLUCION ARQUITECTONICA
-
-El proyecto culmino una refactorizacion integral que erradico el codigo muerto, el "sindrome del espejo" (carpeta duplicada `/src` en la raiz) y la dependencia de interfaces web innecesarias, consolidando **Mint CLI**: un **Coordinador Logistico Autonomo y AI Back Office** distribuido, seguro y multi-agente operado 100% desde la terminal.
-
-### Pilares Fundamentales del Sistema:
-1. **Arquitectura 100% Terminal-First:** No depende de servidores HTTP ni navegadores web para su operacion diaria. El operador interactua a traves de una consola profesional de terminal (TUI) con arbol de pensamiento (`thoughtTree.ts`) y tarjetas de auditoria de impacto en base de datos.
-2. **Proactividad Basada en Eventos:** El sistema no espera consultas pasivas. El **Daemon** vigila continuamente en segundo plano archivos locales mediante `fs.watch`, evalua niveles minimos de existencias y detecta guias de transporte retrasadas, abriendo casos operativos de forma autonoma.
-3. **Harness Multi-Agente Concurrente:** Cuatro especialistas dedicados (Inventario, Compras, Transporte y Riesgo Adversarial) deliberan concurrentemente antes de emitir cualquier propuesta de accion.
-4. **Gobernanza y Politicas Deterministas:** La IA **nunca** muta la base de datos de compras de forma directa ni tiene acceso a shell. El codigo determinista (`evaluatePolicy`) audita el costo en COP, duplicidad en 72 horas, confiabilidad del proveedor y el nivel de autonomia activo.
-5. **Dominio Industrial Real:** El catalogo y la logica estan calibrados para la distribucion de suministros industriales en Colombia (`Ferreteria Industrial Santandereana S.A.S.`), operando en pesos colombianos (COP), con sedes en Bucaramanga, Bogota y Medellin, y un umbral de aprobacion de $5,000,000 COP.
-6. **Aprobaciones Remotas Seguras:** Capacidad de autorizar o rechazar compras criticas desde **Telegram**, **Slack** o **Gmail** mediante tokens HMAC-SHA256 de un solo uso e idempotentes.
+**Fecha de Entrega:** 29 de Octubre de 2026  
+**Rama de Trabajo:** `developDiego`  
+**Estado:** Arquitectura Multi-Agente Autónoma 24/7 y Matriz de Permisos por Agente (Principio de Mínimo Privilegio) 100% implementada y verificada. 30/30 suites de prueba aprobadas (179/179 tests), 0 errores de TypeScript (`tsc --noEmit`), 0 emojis y cero conceptos de administrador global (todos los roles residen estrictamente dentro de la base de datos de cada empresa cargada).
 
 ---
 
-## 2. ARQUITECTURA MONOREPO Y PAQUETES
+## 1. RESUMEN EJECUTIVO Y ESTADO ACTUAL
 
-El repositorio utiliza **npm workspaces** estructurado en cinco paquetes desacoplados:
+MINT es un **Back Office Autónomo 24/7 y Coordinador Operacional Multi-Agente** operado exclusivamente por línea de comandos (CLI) y daemons en segundo plano. Está diseñado para integrarse con bases de datos relacionales existentes (PostgreSQL / Supabase) sin alterar esquemas del cliente ni inventar datos ficticios.
 
-```text
-ai-back-office/
-├── packages/
-│   ├── core/           # Cerebro autonomo: Agentes, Harness, Tools Zod, DB Drizzle, Politicas y Servicios
-│   ├── cli/            # Interfaz de terminal profesional (Linux TUI, Claude Code theme, Keychain, REPL)
-│   ├── daemon/         # Proceso en segundo plano, Observador de archivos (fs.watch), Triggers periodicos
-│   ├── ingest/         # Motor de ingesta asistida de CSV/Excel/SQLite/Postgres, circuit breaker y drift detection
-│   └── notifiers/      # Canales remotos (Telegram Bot API, Slack Bolt, Gmail SMTP) y tokens firmados
-├── config/             # Variables de entorno y plantillas de seguridad
-├── docker/             # Configuracion de contenedores e inicializacion de PostgreSQL
-├── docs/               # Documentacion tecnica, bitacora de contexto y registros de decision (ADRs)
-├── scripts/            # Utilidades de administracion de base de datos
-└── tests/              # Suite de 82 pruebas automatizadas en Vitest
+### Principios Fundamentales Cumplidos
+1. **Solo el CLI y Daemon**: Operación desatendida mediante `mint daemon start --interval 30` y comandos CLI. Cero dependencias de UI web externa.
+2. **Arquitectura Multi-Agente Especializada**: El Orquestador (`mintOrchestrator`) delega a 6 especialistas con contratos estrictos (`inventario`, `compras`, `logistica`, `notificaciones`, `datos_integraciones`, `auditoria`).
+3. **Principio de Mínimo Privilegio (PoLP)**: Ningún agente tiene acceso ilimitado. Cero auto-aprobación, cero eliminación destructiva y cero modificación de directivas de la empresa por parte de la IA.
+4. **Roles Estrictamente Locales a la Base de Datos Cargada**: **No existe ningún "admin global"**. Todos los roles (`owner`, `admin de negocio`, `supervisor`, `client`, `operator`, `auditor`, `finance`, `driver`, `viewer`) residen y se gestionan exclusivamente dentro de la tabla `users` vinculada a `company_id`.
+5. **Cero Emojis y Cero Secretos en Logs**: Todo el código, bitácoras y salidas de terminal utilizan exclusivamente texto ASCII e indicadores estandarizados `[OK]`, `[ERROR]`, `[AVISO]`. Las credenciales y tokens se sanitizan antes de registrar en auditoría.
+6. **Aislamiento Multi-Tenant**: Toda consulta, tarea y validación de permisos comprueba el aislamiento entre empresas (`DENIED_CROSS_TENANT_VIOLATION`).
+
+---
+
+## 2. ARQUITECTURA DE AGENTES AUTÓNOMOS 24/7 IMPLEMENTADA
+
+```
+                               ┌────────────────────────────────┐
+                               │   Orquestador Central MINT     │
+                               │     (mintOrchestrator.ts)      │
+                               └───────────────┬────────────────┘
+                                               │
+               ┌───────────────┬───────────────┼───────────────┬───────────────┐
+               ▼               ▼               ▼               ▼               ▼
+        ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+        │ Inventario  │ │   Compras   │ │  Logística  │ │Notificacione│ │    Datos    │
+        │    Agent    │ │    Agent    │ │    Agent    │ │    Agent    │ │    Agent    │
+        └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+                                               │
+                                               ▼
+                                        ┌─────────────┐
+                                        │  Auditoría  │
+                                        │    Agent    │
+                                        └─────────────┘
 ```
 
-### Detalle de Paquetes
-
-#### 1. `@mint/core` (`packages/core`)
-- **Agentes y Especialistas:**
-  - `coordinador.ts`: Orquestador principal que abre casos y sintetiza planes de resolucion.
-  - `harness.ts`: Harness de controladores en paralelo (`runBackOfficeHarness`) con arbol de razonamiento.
-  - `inventarioSpecialist.ts`: Calculo de consumo diario, dias de cobertura y deteccion de desabastos.
-  - `comprasSpecialist.ts`: Seleccion de proveedores homologados, cotizaciones, MOQ y tiempos de entrega.
-  - `transporteSpecialist.ts`: Auditoria de guias en transito y replanificacion de rutas por retraso.
-  - `riesgoSpecialist.ts`: Agente adversarial que audita duplicidad en 72h y proveedores riesgosos.
-- **Motor de Politicas (`policyEngine.ts`):** Aplica reglas matematicas inviolables (`RULE_DUPLICATE_ORDER_BLOCK`, `RULE_DRY_RUN_GUARDRAIL`, `RULE_SPEND_EXCEEDS_THRESHOLD`, `RULE_STALE_DATA_REFUSAL`). Niveles: `dry-run` (por defecto), `assisted` (umbral $5,000,000 COP), `auto`.
-- **Servicios de Negocio:** Ingesta de eventos (`eventEngine.ts`), ejecucion y verificacion fisica (`decisionExecutionService.ts`), metas estrategicas cuantitativas (`goalSeekingService.ts`), pronostico de demanda (`demandService.ts`), logistica (`shipmentService.ts`), gestion de equipos SaaS (`teamService.ts`).
-- **Base de Datos:** Drizzle ORM sobre PostgreSQL / Supabase con 19 esquemas fuertemente tipados.
-
-#### 2. `@mint/cli` (`packages/cli`)
-- **Ejecutable:** `./bin/mint.js` registrado globalmente en `package.json`.
-- **Keychain Cifrado (`keychain.ts`):** Almacena credenciales de sesion local en `~/.mint/session.enc` usando **AES-256-GCM** derivado con `scrypt` del usuario/host del sistema. Cero archivos en texto plano.
-- **Sistema de Diseno TUI:** Paleta Mint Green (`#10B981`), arbol de introspeccion (`thoughtTree.ts`), tarjetas de diff de impacto en produccion (`renderProductionAuditCard`), tablas adaptables y banner ASCII.
-- **Consola Interactiva (`mint console`):** Shell REPL permanente para operaciones continuas sin recargar Node.js.
-
-#### 3. `@mint/daemon` (`packages/daemon`)
-- Proceso en segundo plano que vigila el directorio de fuentes de datos (`fs.watch`) e ingesta archivos automaticamente.
-- Disparadores periodicos: `scanStockDeficits`, `scanDelayedShipments`, `generateDailyPlan`.
-- Interruptor de emergencia (`mint pause` / `mint resume`) para congelar la autonomia inmediatamente ante anomalias.
-
-#### 4. `@mint/notifiers` (`packages/notifiers`)
-- Adaptadores modulares para **Telegram**, **Slack** y **Gmail**.
-- Firma criptografica HMAC-SHA256 con TTL de 24 horas y proteccion contra replay attacks mediante `notification_log.is_used`.
-- Aprobacion remota de un solo clic que ejecuta la orden en base de datos y estampa auditoria inmutable.
-
-#### 5. `@mint/ingest` (`packages/ingest`)
-- Parser resiliente que aisla filas con errores sin abortar el lote completo.
-- Mapeador de columnas asistido con scoring de confianza hacia tablas maestras.
-- Circuit breaker que congela la sincronizacion si desaparece mas del 20% de los SKUs activos.
-- Confirmacion de borrado en dos fases y sanitizacion no destructiva.
-- Marca automatica `origin = 'real'` en todos los datos importados.
+### Roles y Responsabilidades de los Especialistas
+1. **Orquestador (`orchestrator`)**: Análisis global, coordinación entre agentes, delegación con verificación de permisos y escalación de decisiones a humanos (HITL). No modifica datos directamente.
+2. **Inventario (`inventario`)**: Detección de roturas de stock, puntos de reorden (ROP), sugerencias de compra y reconciliaciones rutinarias autorizadas.
+3. **Compras (`compras`)**: Evaluación de proveedores reales, análisis de MOQ y costo total, generación de propuestas de compra en estado borrador. CERO dispersión de pagos ni compras automáticas no autorizadas.
+4. **Logística (`logistica`)**: Cálculo de rutas OSRM, consolidación de cargas, monitoreo de envíos en tránsito y detección de demoras operativas.
+5. **Notificaciones (`notificaciones`)**: Preparación y despacho de alertas estructuradas a canales verificados (Telegram, Discord, Slack, Webhook), con cortafuegos anti-spam.
+6. **Datos e Integraciones (`datos_integraciones`)**: Verificación de frescura de fuentes, detección de schema drift y reconciliación de catálogos sin modificar esquemas del cliente.
+7. **Auditoría (`auditoria`)**: Auditoría independiente de propuestas, cálculo de risk scores, detección de anomalías y registro inmutable en `case_events` y Obsidian Vault.
 
 ---
 
-## 3. MATRIZ DE CONTROLADORES Y AGENTES AUTONOMOS
+## 3. MATRIZ DE PERMISOS POR AGENTE (PRINCIPIO DE MÍNIMO PRIVILEGIO)
 
-```text
-            [ Disparador: Archivo Modificado / Stock Bajo / Envio Retrasado ]
-                                          │
-                                          ▼
-                      ┌───────────────────────────────────────┐
-                      │     AGENTE COORDINADOR & HARNESS      │
-                      │   Abre caso operativo en PostgreSQL   │
-                      └───────────────────┬───────────────────┘
-                                          │
-                  ┌───────────────────────┼───────────────────────┐
-                  ▼                       ▼                       ▼
-       ┌──────────────────────┐┌──────────────────────┐┌──────────────────────┐
-       │ ESPECIALISTA EN      ││ ESPECIALISTA EN      ││ ESPECIALISTA EN      │
-       │ INVENTARIO Y DEMANDA ││ TRANSPORTE Y ENVIOS  ││ COMPRAS Y PROVEEDORES│
-       │ Deteccion de deficit ││ Tracking retrasado   ││ Seleccion mejor      │
-       │ y dias de cobertura  ││ y recalculado de ETA ││ cotizacion homologada│
-       └──────────┬───────────┘└──────────┬───────────┘└──────────┬───────────┘
-                  │                       │                       │
-                  └───────────────────────┼───────────────────────┘
-                                          │
-                                          ▼
-                      ┌───────────────────────────────────────┐
-                      │ ESPECIALISTA EN RIESGO Y AUDITORIA    │
-                      │ Abogado del Diablo: Score, duplicados │
-                      │ en 72h, solvencia y sobrecostos       │
-                      └───────────────────┬───────────────────┘
-                                          │ Emite ActionProposal estructurada
-                                          ▼
-                      ┌───────────────────────────────────────┐
-                      │   MOTOR DE POLITICAS DETERMINISTA     │
-                      │  (Codigo matematico, NUNCA el LLM)    │
-                      │  Anti-duplicados, umbral presupuestal,│
-                      │  reversibilidad y modo de autonomia   │
-                      └───────────────────┬───────────────────┘
-                                          │
-                    ┌─────────────────────┴─────────────────────┐
-                    ▼                                           ▼
-      [ AUTO_EXECUTED (Bajo Umbral) ]               [ PENDING_APPROVAL (HITL) ]
-                    │                                           │
-                    ▼                                           ▼
-         Ejecucion Inmediata en BD                   Notificacion Multicanal
-         + Verificacion Fisica                       (Telegram / Slack / Gmail)
-         + Diff de Impacto en Consola                + Token HMAC de Aprobacion
+Implementada en `packages/core/src/security/agentPermissionsMatrix.ts`:
+
+| Agente | Consultar (`read`) | Analizar (`analyze`) | Proponer (`propose`) | Crear Solicitud (`create_request`) | Ejecutar (`execute`) | Modificar (`update`) | Notificar (`notify`) | Aprobar (`approve`) | Configurar Negocio (`configure_business`) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: |
+| **Orquestador** | Dominios necesarios | Todos | Todos | Compras y decisiones | Coordinación autorizada | No | Alertas autorizadas | **PROHIBIDO** | **PROHIBIDO** |
+| **Inventario** | Stock y fuentes | Inventario | Reorden y existencias | Solicitud stock | Reconciliaciones | Ajustes permitidos | Alertas stock crítico | **PROHIBIDO** | **PROHIBIDO** |
+| **Compras** | Suplidores y catálogo | Proveedores | Propuestas compra | Solicitud reposición | Borradores (0 pagos) | Borradores de compra | Alertas cotización | **PROHIBIDO** | **PROHIBIDO** |
+| **Logística** | Envíos y rutas | Logística | Rebalanceo y rutas | Solicitud logística | Actualizaciones ruta | Solo campos envío | Alertas demora | **PROHIBIDO** | **PROHIBIDO** |
+| **Notificaciones** | Eventos aprobados | Mensajería | Plantillas | No | Envío validado | No | Sí, canales válidos | **PROHIBIDO** | **PROHIBIDO** |
+| **Datos** | Fuentes y esquemas | Calidad datos | Mapeos propuestos | Tarea sync | Ingestas autorizadas | Operaciones sync | Alertas conexión | **PROHIBIDO** | **PROHIBIDO** |
+| **Auditoría** | Auditoría y compras | Riesgos y margen | Medidas correctivas | Tarea auditoría | Comprobaciones | No | Alertas seguridad | **PROHIBIDO** | **PROHIBIDO** |
+| **Humano en BD** | Su empresa | Su empresa | Todas | Todas | Por rol en BD | Por rol en BD | Canales empresa | **SÍ (HITL)** | **SÍ (owner/admin/supervisor local)** |
+
+### Reglas Inmutables Aplicadas en Backend
+- **Anti-Self-Approval**: Ningún agente ni usuario puede aprobar una solicitud que él mismo creó o propuso.
+- **Cero Auto-Aprobación para IA**: `approve` está reservado exclusivamente a personal humano autenticado (`owner`, `admin de negocio`, `supervisor`, `auditor`).
+- **Cero Eliminación Destructiva**: `delete` está prohibido para agentes de IA.
+- **Bloqueo de Elevación del Orquestador**: Si el orquestador intenta asignar una tarea fuera de la matriz a un especialista, la operación es abortada con `DENIED_ORCHESTRATOR_ELEVATION_ATTEMPT`.
+- **Aislamiento Multitenant**: El cruce de empresas es rechazado en tiempo de ejecución con `DENIED_CROSS_TENANT_VIOLATION`.
+
+---
+
+## 4. ROLES LOCALES EN LA BASE DE DATOS CARGADA
+
+Todos los roles están definidos en `packages/core/src/db/schema/users.ts` y gobernados por `authAndSetupService.ts`. Pertenecen estrictamente a cada `company_id`:
+
+1. **`owner` (Dueño de la Empresa)**: Control total de la empresa en BD: configuración, umbrales, carga SQL, invitaciones, aprobaciones y pagos.
+2. **`admin` (Administrador de Negocio)**: Administrador local de la empresa en la BD. Gestión operativa total (HITL, despachos, recepción, equipo y canales). No existe admin global.
+3. **`supervisor` (Supervisor de Operaciones)**: Supervisión operativa del negocio en BD. Aprobación HITL, despachos, recepción y supervisión de operadores.
+4. **`operator` (Operador de Logística y Almacén)**: Despacho de pedidos, recepción de inventario y consultas operativas.
+5. **`client` (Cliente / Destinatario)**: Consulta exclusiva del estado de sus propios pedidos. CERO acceso operativo ni de almacén.
+6. **`driver` (Conductor / Transportista)**: Recepción en ruta y consulta de manifiestos asignados.
+7. **`auditor` (Auditor HITL)**: Autorización de compras mayores a umbral y auditoría de eventos inmutables.
+8. **`finance` (Tesorería / Pagos)**: Dispersión de pagos a proveedores de órdenes aprobadas y conciliación.
+9. **`viewer` (Consultor / Solo Lectura)**: Consulta de dashboards y métricas sin permisos de escritura.
+
+---
+
+## 5. RESULTADOS DE LA SUITE DE PRUEBAS AUTOMATIZADAS
+
+Resultado de la ejecución completa con `npx vitest run`:
+
+```
+Test Files  30 passed (30)
+     Tests  179 passed (179)
+  Duration  85.16s
 ```
 
----
-
-## 4. GUIA COMPLETA DE COMANDOS MINT CLI
-
-Todos los comandos soportan `--json` para integracion en pipelines o scripts de shell.
-
-| Comando | Descripcion |
-| :--- | :--- |
-| **`mint start`** | Inicia el sistema completo (Daemon en segundo plano y Consola Interactiva). |
-| **`mint console`** *(alias `repl`)* | Shell interactivo permanente estilo Claude Code / Unix. |
-| **`mint doctor`** | Diagnostica Node (>=22.5.0), SQLite nativo y conexion PostgreSQL. |
-| **`mint login [email] [pass]`** | Autentica contra la organizacion y guarda sesion cifrada AES-256 en keychain. |
-| **`mint logout`** | Cierra sesion y destruye de forma segura el archivo cifrado. |
-| **`mint whoami`** | Muestra usuario, empresa, rol RBAC y estado de la sesion activa. |
-| **`mint dashboard`** *(alias `status`)* | Panel unificado: inventario, alertas de quiebre, casos abiertos y canales. |
-| **`mint stock`** | Tabla en tiempo real del catalogo, bodegas colombianas y existencias. |
-| **`mint orders`** | Tabla de ordenes de compra emitidas, montos y estados en PostgreSQL. |
-| **`mint goal`** | Motor cuantitativo de metas estrategicas y optimizacion de capital de trabajo. |
-| **`mint inbox`** | Bandeja de decisiones pendientes de supervision humana (HITL). |
-| **`mint inbox approve <id>`** | Autoriza una decision ejecutando la compra en BD con Diff de Impacto. |
-| **`mint inbox reject <id>`** | Rechaza una decision y la archiva en auditoria inmutable. |
-| **`mint explain <id>`** | Explicabilidad profunda: desglose de especialistas, riesgo y regla aplicada. |
-| **`mint simulate [shock]`** | Simula choques what-if en sandbox (`stockout`, `delay`, `price-spike`). |
-| **`mint team list`** | Lista miembros y roles RBAC del tenant (`owner`, `operator`, `auditor`, `viewer`). |
-| **`mint team invite <email>`** | Invita o da de alta a un nuevo miembro del equipo. |
-| **`mint team remove <id>`** | Da de baja a un miembro protegiendo al ultimo owner de la empresa. |
-| **`mint source add <path>`** | Ingesta de archivos con mapeo asistido, circuit breaker y drift detection. |
-| **`mint source status`** | Audita frescura de fuentes (alerta fuentes desfasadas >24h). |
-| **`mint source list`** | Lista fuentes de datos conectadas y su estado de salud. |
-| **`mint autonomy get`** | Muestra el nivel de autonomia activo (`dry-run`, `assisted`, `auto`). |
-| **`mint autonomy set <level>`** | Modifica el nivel de gobernanza y autonomia de la empresa. |
-| **`mint daemon start`** | Inicia el proceso autonomo en segundo plano. |
-| **`mint daemon stop`** | Detiene el daemon de monitoreo. |
-| **`mint daemon status`** | Consulta PID, uptime, ciclos y estado del daemon. |
-| **`mint pause`** | **Interruptor de emergencia:** congela de inmediato toda autonomia. |
-| **`mint resume`** | Reanuda las operaciones autonomas pausadas. |
-| **`mint watch`** | Feed en tiempo real con indicador visual de eventos y decisiones. |
-| **`mint plan today`** | Briefing diario: casos en curso, decisiones y dinero gestionado. |
-| **`mint notify add <tipo>`** | Configura canales remotos (Telegram, Slack, Gmail). |
-| **`mint notify test <tipo>`** | Envia notificacion de prueba interactiva con botones firmados. |
-| **`mint chat "<msg>"`** | Consulta conversacional directa al Agente Coordinador con Thought Tree. |
+### Suites Clave Añadidas y Verificadas:
+1. `tests/agent_permissions_matrix.test.ts` (10 tests, 100% éxito):
+   - Ejecución autorizada por rol.
+   - Rechazo de operaciones prohibidas y de `configure_business` para agentes.
+   - Bloqueo de elevación de privilegios del coordinador.
+   - Prohibición de auto-aprobación en IA.
+   - Revocación dinámica de permisos en caliente sobre tareas pendientes.
+   - Aislamiento multitenant de datos.
+   - Resistencia a Prompt Injections con bypass simulado.
+   - Auditoría segura sin fuga de credenciales.
+   - Políticas personalizadas por empresa.
+   - Flujo legítimo con aprobación de `owner` y `supervisor`, y rechazo de `client`.
+2. `tests/autonomous_multiagent_architecture.test.ts` (7 tests, 100% éxito).
+3. `tests/adversarial_security_and_guardrails.test.ts` (5 tests, 100% éxito).
+4. `tests/daemon_watcher.test.ts` (3 tests, 100% éxito).
+5. `tests/sales_channel_execution.test.ts` (4 tests, 100% éxito).
 
 ---
 
-## 5. ESQUEMA DE BASE DE DATOS (DRIZZLE ORM)
+## 6. COMANDOS DE VALIDACIÓN RÁPIDA
 
-| Tabla | Proposito y Blindajes |
-| :--- | :--- |
-| **`companies`** | Multi-tenant maestro (`id`, `name`, `slug`). |
-| **`users`** | Usuarios corporativos con roles (`owner`, `operator`, `auditor`, `viewer`). |
-| **`products`** | Catalogo de productos (`sku`, `min_stock`, `origin = 'real' \| 'simulado'`). |
-| **`inventory`** | Existencias por producto y bodega (`stock`, `warehouse_id`). |
-| **`suppliers`** | Proveedores homologados colombianos (`origin = 'real'`). |
-| **`supplier_products`** | Precios unitarios pactados en COP, MOQ y dias de entrega (`lead_time_days`). |
-| **`purchase_orders`** | Ordenes de compra oficiales generadas de forma autonoma o HITL. |
-| **`shipments`** | Guias de transporte en transito, transportistas y fechas de entrega prometidas vs ETA. |
-| **`cases`** | Casos operativos abiertos por eventos (`recibido`, `en_proceso`, `resuelto`, `escalado`). |
-| **`case_events`** | **Linea de tiempo inmutable append-only** protegida por trigger contra `UPDATE` y `DELETE`. |
-| **`decisions`** | Propuestas evaluadas con evidencia, score de riesgo, regla de politica y verificacion. |
-| **`operational_events`** | Cola de eventos de fondo (`STOCK_CRITICAL`, `SHIPMENT_DELAY`, etc.). |
-| **`policy_rules`** | Politicas dinamicas aprendidas o configuradas por empresa. |
-| **`data_sources`** | Fuentes conectadas (archivos locales, conexiones Postgres externas). |
-| **`import_jobs`** | Historial de importaciones con conteo de filas procesadas y filas erroneas aisladas. |
-| **`notification_channels`** | Canales remotos (Telegram, Slack, Gmail) con horarios silenciosos. |
-| **`notification_log`** | Bitacora de mensajes con tokens HMAC firmados y bandera de consumo unico (`is_used`). |
-| **`business_config`** | Configuracion por tenant (clave compuesta `company_id, key`): tono, umbral, autonomia. |
-
----
-
-## 6. SEGURIDAD Y PREVENCION DE VULNERABILIDADES
-
-1. **Sandboxing de Tools:** El LLM **nunca** tiene acceso a `child_process`, `exec`, ni al sistema de archivos arbitrario. Cada tool expuesta valida sus entradas con esquemas tipados de Zod.
-2. **Inmutabilidad de Auditoria:** `case_events` cuenta con un trigger en PostgreSQL (`trigger_prevent_case_events_delete`) que rechaza y lanza excepcion ante cualquier intento de borrado o alteracion de registros.
-3. **Firmas Digitales en Aprobaciones Remotas:** Los tokens para aprobar compras por Telegram o Slack utilizan HMAC-SHA256 con expiracion de 24 horas y verificacion de uso unico contra `notification_log`.
-4. **Cifrado de Credenciales Locales:** `~/.mint/session.enc` utiliza AES-256-GCM con autenticacion criptografica. Si el archivo es alterado, se detecta y se rechaza.
-5. **Aislamiento Multi-Tenant Estricto:** Toda consulta relacional aplica el filtro `where(eq(table.companyId, companyId))` derivado del token verificado.
-6. **Guardrail de Frescura (`RULE_STALE_DATA_REFUSAL`):** Rechaza compras automaticas sobre inventarios que superen 24 horas de desfase o fuentes alteradas.
-
----
-
-## 7. SUITE DE PRUEBAS AUTOMATIZADAS (100% VERIFICADO)
-
-Se cuenta con **82 pruebas automatizadas en Vitest** distribuidas en 23 suites:
-
-```text
- [OK] tests/immutability.test.ts (3 tests)
- [OK] tests/tools.test.ts (3 tests)
- [OK] tests/cli_keychain.test.ts (3 tests)
- [OK] tests/policy_engine.test.ts (5 tests)
- [OK] tests/auth_setup.test.ts (5 tests)
- [OK] tests/context_manager.test.ts (3 tests)
- [OK] tests/llm_client.test.ts (3 tests)
- [OK] tests/config.test.ts (2 tests)
- [OK] tests/dummy.test.ts (1 test)
- [OK] tests/sales_channel_execution.test.ts (4 tests)
- [OK] tests/agent_schema.test.ts (3 tests)
- [OK] tests/demand_and_shipments.test.ts (5 tests)
- [OK] tests/ingest.test.ts (3 tests)
- [OK] tests/multi_agent_dry_run.test.ts (1 test)
- [OK] tests/benchmark_agent_vs_baseline.test.ts (5 tests)
- [OK] tests/agent_loop.test.ts (2 tests)
- [OK] tests/autonomous_harness_and_team.test.ts (3 tests)
- [OK] tests/cli_terminal_autonomous.test.ts (6 tests)
- [OK] tests/telegram_remote_approval.test.ts (3 tests)
- [OK] tests/scenarios.test.ts (3 tests)
- [OK] tests/e2e_mint_cli.test.ts (4 tests)
- [OK] tests/daemon_watcher.test.ts (3 tests)
- [OK] tests/data_layer_hardening.test.ts (9 tests)
-
- Total: 82 passed (82) | 23 suites | 0 fallos
-```
-
-- **Verificacion de Tipos:** `npm run typecheck` (`tsc --noEmit`) -> **0 errores**.
-- **Diagnostico de Entorno:** `mint doctor` -> **100% Compatible (Node >= 22.5.0, SQLite nativo, PostgreSQL conectado)**.
-
----
-
-## 8. GUIA RAPIDA DE OPERACION EN PRODUCCION
-
-### 1. Iniciar el Sistema
 ```bash
-npm start
-```
-Inicia de forma concurrente el **Daemon vigilante** en segundo plano y la **Consola Interactiva REPL**.
+# 1. Comprobación de tipos estricta (0 errores)
+npm run typecheck
 
-### 2. Comandos Frecuentes en Consola
-- `/status`: Dashboard operativo en tiempo real.
-- `/stock`: Existencias en bodegas y alertas de quiebre.
-- `/inbox`: Bandeja de aprobaciones HITL pendientes.
-- `/approve <id>`: Autoriza una orden de compra y visualiza el Diff de Impacto en base de datos.
-- `/reject <id>`: Rechaza una propuesta de compra.
-- `/goal`: Ejecuta optimizacion cuantitativa de metas estrategicas.
-- `/scan`: Fuerza un ciclo proactivo de escaneo de inventario y transporte.
-- `/clear`: Limpia la pantalla de la terminal.
-- `/exit`: Apagado ordenado del daemon y salida de la consola.
+# 2. Comprobación de Cero Emojis (0 detectados)
+npm run lint:emojis
+
+# 3. Ejecución de la matriz de permisos
+npx vitest run tests/agent_permissions_matrix.test.ts
+
+# 4. Ejecución de la suite completa (179 tests)
+npx vitest run
+
+# 5. Inicio del Daemon Autónomo
+npm run mint -- daemon start --interval 30
+```

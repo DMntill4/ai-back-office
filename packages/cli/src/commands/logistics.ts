@@ -12,6 +12,9 @@ import {
   updateLogisticsNodeLocation,
   resolveNodeGeoPoint,
   calculateRealRoute,
+  companies,
+  hasPermission,
+  getCompanyConfig,
 } from "@mint/core";
 import { eq, desc } from "drizzle-orm";
 import { getSession } from "../keychain";
@@ -31,6 +34,25 @@ function ask(rl: readline.Interface, question: string, defaultValue = ""): Promi
 export async function logisticsCommand(subcommand?: string, args: string[] = []) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
+
+  // Si opera en Solo Tienda, silenciar logística y flota
+  const { businessConfig } = await import("@mint/core");
+  const { and } = await import("drizzle-orm");
+  const [profileCfg] = await db
+    .select({ value: businessConfig.value })
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "business_profile")))
+    .limit(1)
+    .catch(() => []);
+
+  if (profileCfg?.value === "tienda") {
+    console.log(`\n  ${theme.amberBold("[MÓDULO SILENCIADO - SOLO TIENDA]")}`);
+    console.log(`  El módulo de Logística y Despachos de Flota está desactivado para tu modelo de negocio.`);
+    console.log(`  MINT opera en modo exclusivo de tienda (catálogo, ventas y existencias sin ruido logístico).`);
+    console.log(`  ${theme.dim("Para habilitarlo, cambia tu perfil a 'Logística Completa' ejecutando:")} ${theme.mintBold("/config set business_profile logistica_completa")}\n`);
+    return;
+  }
+
   const sub = (subcommand || "overview").toLowerCase();
 
   if (sub === "dispatch" || sub === "despachar") {
@@ -74,21 +96,30 @@ export async function logisticsCommand(subcommand?: string, args: string[] = [])
 
   console.log("\n" + drawDivider(`TORRE DE CONTROL LOGISTICA [${companyId}]`, 88));
 
-  // 1. Nodos Logisticos
+  // 1. Nodos Logísticos
   console.log(`  ${theme.bold("NODOS GPS (BODEGAS Y PROVEEDORES)")}`);
-  for (const w of whs) {
-    const coords =
-      w.latitude && w.longitude
-        ? theme.mint(`${Number(w.latitude).toFixed(4)}, ${Number(w.longitude).toFixed(4)}`)
-        : theme.amber("Sin GPS");
-    console.log(`    [BODEGA]    ${w.name.padEnd(28)} | ${(w.city || w.location || "N/A").padEnd(18)} | ${coords}`);
+  if (whs.length === 0) {
+    console.log(`    ${theme.amber("(No hay bodegas registradas. Configura una con '/logistics gps')")}`);
+  } else {
+    for (const w of whs) {
+      const coords =
+        w.latitude && w.longitude
+          ? theme.mint(`${Number(w.latitude).toFixed(4)}, ${Number(w.longitude).toFixed(4)}`)
+          : theme.amber("Sin GPS");
+      console.log(`    [BODEGA]    ${w.name.padEnd(28)} | ${(w.city || w.location || "N/A").padEnd(18)} | ${coords}`);
+    }
   }
-  for (const s of supps.slice(0, 5)) {
-    const coords =
-      s.latitude && s.longitude
-        ? theme.cyan(`${Number(s.latitude).toFixed(4)}, ${Number(s.longitude).toFixed(4)}`)
-        : theme.dim("Auto-GPS");
-    console.log(`    [PROVEEDOR] ${s.name.padEnd(28)} | ${(s.city || s.streetAddress || "N/A").padEnd(18)} | ${coords}`);
+
+  if (supps.length === 0) {
+    console.log(`    ${theme.dim("(No hay proveedores registrados. Sincroniza un catálogo con '/db sync')")}`);
+  } else {
+    for (const s of supps.slice(0, 5)) {
+      const coords =
+        s.latitude && s.longitude
+          ? theme.cyan(`${Number(s.latitude).toFixed(4)}, ${Number(s.longitude).toFixed(4)}`)
+          : theme.dim("Sin GPS");
+      console.log(`    [PROVEEDOR] ${s.name.padEnd(28)} | ${(s.city || s.streetAddress || "N/A").padEnd(18)} | ${coords}`);
+    }
   }
 
   // 2. Embarques Activos
@@ -140,13 +171,24 @@ export async function logisticsCommand(subcommand?: string, args: string[] = [])
 }
 
 export async function dispatchCliFlow(companyId: string, args: string[] = []) {
+  const session = await getSession();
+  if (!hasPermission(session?.role, "dispatch")) {
+    console.log(`\n  ${theme.redBold("[ACCESO DENEGADO]")} Tu rol '${session?.role}' no tiene permisos para despachar envíos. Se requiere rol 'owner', 'admin' u 'operator'.\n`);
+    return;
+  }
+
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
     console.log("\n" + drawDivider("DESPACHO DE SALIDA A CLIENTE (OUTBOUND + OSRM)", 82));
     const productQuery = args[0] || (await ask(rl, "  1. SKU, ID o nombre del producto"));
     const qtyRaw = args[1] || (await ask(rl, "  2. Cantidad a enviar", "5"));
-    const destCity = args.slice(2).join(" ") || (await ask(rl, "  3. Ciudad o direccion destino", "Bogotá, D.C."));
-    const customerName = await ask(rl, "  4. Cliente o sucursal receptora", "Distribuidora Industrial del Oriente");
+    const destCity = args.slice(2).join(" ") || (await ask(rl, "  3. Ciudad o direccion destino"));
+    if (!destCity) {
+      console.log(theme.amber("  Operación cancelada: se requiere indicar una ciudad o dirección destino.\n"));
+      rl.close();
+      return;
+    }
+    const customerName = await ask(rl, "  4. Cliente o sucursal receptora", "Cliente Corporativo");
 
     rl.close();
 
@@ -164,6 +206,12 @@ export async function dispatchCliFlow(companyId: string, args: string[] = []) {
       return;
     }
 
+    let currency = "USD";
+    try {
+      const [comp] = await db.select({ currency: companies.currency }).from(companies).where(eq(companies.id, companyId)).limit(1);
+      if (comp?.currency) currency = comp.currency;
+    } catch {}
+
     console.log(
       "\n" +
         drawCard(
@@ -172,7 +220,7 @@ export async function dispatchCliFlow(companyId: string, args: string[] = []) {
             `${theme.dim("Bodega Origen:")}    ${theme.bold(res.originWarehouse || "Almacen Central")}`,
             `${theme.dim("Destino Cliente:")}  ${theme.cyanBold(typeof res.destination === "object" ? res.destination.address : res.destination || destCity)}`,
             `${theme.dim("Ruta Vial:")}        ${res.distanceKm ? `${res.distanceKm} km` : "N/A"} (${res.durationFormatted || "N/A"})`,
-            `${theme.dim("Flete Estimado:")}   $${(res.freightCostMxn || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`,
+            `${theme.dim("Flete Estimado:")}   $${(res.freightCostMxn || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`,
             `${theme.dim("Stock Restante:")}   ${theme.bold(String(res.remainingStock ?? 0))} unidades`,
           ],
           {
@@ -190,6 +238,12 @@ export async function dispatchCliFlow(companyId: string, args: string[] = []) {
 }
 
 export async function receiveCliFlow(companyId: string, trackingOrOrderId?: string) {
+  const session = await getSession();
+  if (!hasPermission(session?.role, "receive")) {
+    console.log(`\n  ${theme.redBold("[ACCESO DENEGADO]")} Tu rol '${session?.role}' no tiene permisos para recibir mercancía. Se requiere rol 'owner', 'admin', 'operator' o 'driver'.\n`);
+    return;
+  }
+
   let targetId = trackingOrOrderId;
   if (!targetId) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -213,6 +267,8 @@ export async function receiveCliFlow(companyId: string, trackingOrOrderId?: stri
 
 export async function consolidateCliFlow(companyId: string) {
   console.log("\n" + drawDivider("CONSOLIDACION DE CARGAS Y LANDED COST (OSRM)", 86));
+  const config = await getCompanyConfig(companyId);
+  const currency = config.currency;
   const plans = await buildConsolidatedLoadPlans(companyId);
 
   if (plans.length === 0) {
@@ -223,17 +279,26 @@ export async function consolidateCliFlow(companyId: string) {
   for (const plan of plans) {
     const itemLines = plan.items.map(
       (i) =>
-        `  - [${i.sku.padEnd(12)}] ${i.productName.slice(0, 30).padEnd(30)} | ${String(i.quantity).padStart(4)}u | $${i.unitPrice.toFixed(2)}/u = $${i.lineCostMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`,
+        `  - [${i.sku.padEnd(12)}] ${i.productName.slice(0, 30).padEnd(30)} | ${String(i.quantity).padStart(4)}u | $${i.unitPrice.toFixed(2)}/u = $${i.lineCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`,
     );
+
+    const freightStr =
+      plan.freightCostMxn !== null
+        ? `$${plan.freightCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}${plan.consolidationSavingsMxn !== null ? ` (Ahorro: $${plan.consolidationSavingsMxn.toFixed(2)} ${currency})` : ""}`
+        : "Tarifa no configurada";
+    const landedCostStr =
+      plan.totalLandedCostMxn !== null
+        ? `$${plan.totalLandedCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`
+        : `$${plan.productsCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency} (+ flete)`;
 
     console.log(
       drawCard(
         [
           `${theme.dim("Proveedor:")}          ${theme.bold(plan.supplierName)} (${plan.supplierCity})`,
           `${theme.dim("Ruta Vial:")}          ${plan.distanceKm} km (${plan.durationFormatted})`,
-          `${theme.dim("Subtotal Productos:")} $${plan.productsCostMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`,
-          `${theme.dim("Flete Consolidado:")}  $${plan.freightCostMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN (Ahorro: $${plan.consolidationSavingsMxn.toFixed(2)} MXN)`,
-          `${theme.dim("LANDED COST TOTAL:")}  ${theme.mintBold(`$${plan.totalLandedCostMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`)}`,
+          `${theme.dim("Subtotal Productos:")} $${plan.productsCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`,
+          `${theme.dim("Flete Consolidado:")}  ${freightStr}`,
+          `${theme.dim("LANDED COST TOTAL:")}  ${theme.mintBold(landedCostStr)}`,
           theme.dim("─".repeat(78)),
           ...itemLines,
         ],
@@ -249,6 +314,8 @@ export async function consolidateCliFlow(companyId: string) {
 
 export async function rebalanceCliFlow(companyId: string) {
   console.log("\n" + drawDivider("REBALANCEO INTER-ALMACEN (CROSS-DOCKING)", 84));
+  const config = await getCompanyConfig(companyId);
+  const currency = config.currency;
   const proposals = await evaluateWarehouseRebalancing(companyId);
 
   if (proposals.length === 0) {
@@ -263,8 +330,8 @@ export async function rebalanceCliFlow(companyId: string) {
           `${theme.dim("Producto:")}       ${theme.bold(p.productName)} [${p.sku}]`,
           `${theme.dim("Origen:")}         ${theme.mintBold(p.fromWarehouseName)} -> ${theme.amberBold(p.toWarehouseName)}`,
           `${theme.dim("Cantidad:")}       ${p.transferQuantity} unidades (${p.distanceKm} km / ${p.durationFormatted})`,
-          `${theme.dim("Flete Interno:")}  $${p.transferFreightCostMxn.toFixed(2)} MXN vs Compra Externa $${p.avoidedPurchaseCostMxn.toFixed(2)} MXN`,
-          `${theme.dim("Ahorro Neto:")}    ${theme.mintBold(`$${p.netSavingsMxn.toFixed(2)} MXN`)}`,
+          `${theme.dim("Flete Interno:")}  $${p.transferFreightCostMxn.toFixed(2)} ${currency} vs Compra Externa $${p.avoidedPurchaseCostMxn.toFixed(2)} ${currency}`,
+          `${theme.dim("Ahorro Neto:")}    ${theme.mintBold(`$${p.netSavingsMxn.toFixed(2)} ${currency}`)}`,
         ],
         {
           title: `TRANSFERENCIA SUGERIDA: ${p.sku}`,
@@ -299,7 +366,7 @@ export async function configureGpsNodeCliFlow(companyId: string, args: string[] 
     const typeRaw = args[0] || (await ask(rl, "  1. Tipo ('warehouse' o 'supplier')", "warehouse"));
     const nodeType = typeRaw.toLowerCase().startsWith("s") ? "supplier" : "warehouse";
     const nameOrId = args[1] || (await ask(rl, "  2. Nombre o ID del nodo", "Central"));
-    const cityOrAddr = args.slice(2).join(" ") || (await ask(rl, "  3. Ciudad o direccion fisica", "Ciudad de Mexico"));
+    const cityOrAddr = args.slice(2).join(" ") || (await ask(rl, "  3. Ciudad o direccion fisica"));
     rl.close();
 
     const res = await updateLogisticsNodeLocation({
@@ -317,11 +384,21 @@ export async function configureGpsNodeCliFlow(companyId: string, args: string[] 
 }
 
 export async function routeCalcCliFlow(args: string[] = []) {
+  const session = await getSession();
+  const companyId = session?.companyId || "comp_default";
+  const config = await getCompanyConfig(companyId);
+  const currency = config.currency;
+
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const orig = args[0] || (await ask(rl, "  Ciudad o direccion de Origen", "Bucaramanga"));
-    const dest = args[1] || (await ask(rl, "  Ciudad o direccion de Destino", "Bogotá"));
+    const orig = args[0] || (await ask(rl, "  Ciudad o direccion de Origen"));
+    const dest = args[1] || (await ask(rl, "  Ciudad o direccion de Destino"));
     rl.close();
+
+    if (!orig || !dest) {
+      console.log(theme.redBold("\n  [ERROR] Debes especificar tanto origen como destino.\n"));
+      return;
+    }
 
     const [p1, p2] = await Promise.all([resolveNodeGeoPoint({ city: orig }), resolveNodeGeoPoint({ city: dest })]);
     if (!p1 || !p2) {
@@ -329,7 +406,7 @@ export async function routeCalcCliFlow(args: string[] = []) {
       return;
     }
 
-    const route = await calculateRealRoute(p1, p2, { currency: "COP" });
+    const route = await calculateRealRoute(p1, p2, { currency });
     console.log(
       "\n" +
         drawCard(

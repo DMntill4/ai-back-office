@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as XLSX from "xlsx";
-import { sanitizeCell } from "./sanitizer";
+import { sanitizeCell, sanitizeFilePath } from "./sanitizer";
 
 export interface ParsedExcelSheet {
   sheetName: string;
@@ -13,10 +13,11 @@ export interface ParsedExcelSheet {
  * Lista las hojas disponibles en un archivo Excel (.xlsx, .xls)
  */
 export function listExcelSheets(filePath: string): string[] {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Archivo Excel no encontrado: "${filePath}"`);
+  const safePath = sanitizeFilePath(filePath, [".xlsx", ".xls"]);
+  if (!fs.existsSync(safePath)) {
+    throw new Error(`Archivo Excel no encontrado: "${safePath}"`);
   }
-  const workbook = XLSX.readFile(filePath, { type: "file" });
+  const workbook = XLSX.readFile(safePath, { type: "file" });
   return workbook.SheetNames;
 }
 
@@ -24,11 +25,12 @@ export function listExcelSheets(filePath: string): string[] {
  * Parsea una hoja de un archivo Excel a un formato tabular sanitizado
  */
 export function parseExcelFile(filePath: string, sheetName?: string): ParsedExcelSheet {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Archivo Excel no encontrado: "${filePath}"`);
+  const safePath = sanitizeFilePath(filePath, [".xlsx", ".xls"]);
+  if (!fs.existsSync(safePath)) {
+    throw new Error(`Archivo Excel no encontrado: "${safePath}"`);
   }
 
-  const workbook = XLSX.readFile(filePath, { type: "file", cellDates: true });
+  const workbook = XLSX.readFile(safePath, { type: "file", cellDates: true });
   const targetSheet = sheetName || workbook.SheetNames[0];
 
   if (!targetSheet || !workbook.Sheets[targetSheet]) {
@@ -69,4 +71,12 @@ export function parseExcelFile(filePath: string, sheetName?: string): ParsedExce
     rows,
     totalRows: rows.length,
   };
+}
+
+/**
+ * Parsea todas las hojas de un archivo Excel a colecciones tabulares independientes
+ */
+export function parseAllExcelSheets(filePath: string): ParsedExcelSheet[] {
+  const sheets = listExcelSheets(filePath);
+  return sheets.map((name) => parseExcelFile(filePath, name));
 }

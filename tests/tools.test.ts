@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { executeConsultarStock } from "../packages/core/src/tools/consultarStock";
-import { executeVerOrdenesAbiertas } from "../packages/core/src/tools/verOrdenesAbiertas";
-import { executeCrearOrdenCompra } from "../packages/core/src/tools/crearOrdenCompra";
-import { db } from "../packages/core/src/db/client";
-import { companies, products, suppliers, supplierProducts } from "../packages/core/src/db/schema";
+import {
+  executeConsultarStock,
+  executeVerOrdenesAbiertas,
+  executeCrearOrdenCompra,
+  db,
+  companies,
+  products,
+  suppliers,
+  supplierProducts,
+} from "@mint/core";
 
 describe("Herramientas del Agente (Tools)", () => {
   beforeAll(async () => {
@@ -48,14 +53,14 @@ describe("Herramientas del Agente (Tools)", () => {
     expect(Array.isArray(result.orders)).toBe(true);
   });
 
-  it("crear_orden_compra debe requerir aprobación si excede el límite de dinero", async () => {
-    // Intentar comprar cantidad que supera el límite
+  it("crear_orden_compra debe requerir aprobación si excede el límite de dinero ($10,000 MXN)", async () => {
+    // Intentar comprar 1000 unidades a proveedor que supera $10,000
     const result = await executeCrearOrdenCompra({
       case_id: "case_test_001",
       producto_id: "prod_st200",
       proveedor_id: "prov_acme",
-      cantidad: 20000, // 20000 * 450 = $9,000,000 (Supera el límite)
-      idempotency_key: `idem_test_supera_limite_${Date.now()}`,
+      cantidad: 100, // 100 * 450 = $45,000 MXN (Supera $10,000 MXN)
+      idempotency_key: "idem_test_supera_limite",
     });
 
     expect(result.isSuccess).toBe(true);

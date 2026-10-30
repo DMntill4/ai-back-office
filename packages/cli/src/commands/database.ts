@@ -1,12 +1,12 @@
 import {
   db,
-  companies,
   products,
   inventory,
   suppliers,
   supplierProducts,
   warehouses,
   dataSources,
+  companies,
   checkDatabaseHealth,
   geocodeAddressOrCity,
 } from "@mint/core";
@@ -55,6 +55,54 @@ export async function databaseCommand(args: string[] = []) {
     return;
   }
 
+  if (sub === "query" || sub === "sql") {
+    const rawQuery = args.slice(1).filter((a) => a !== "--force").join(" ");
+    if (!rawQuery) {
+      console.log(theme.amber("\n  Especifica la consulta SQL a ejecutar. Ej: /db sql SELECT * FROM products LIMIT 5;\n"));
+      return;
+    }
+    const { executeSafeSqlQuery } = await import("@mint/core");
+    const res = await executeSafeSqlQuery({
+      companyId,
+      sqlQuery: rawQuery,
+      userRole: session?.role,
+      userName: session?.name || session?.email,
+      confirmed: args.includes("--force"),
+    });
+
+    if (!res.success) {
+      if (res.requiresConfirmation) {
+        console.log(theme.redBold(`\n${res.destructiveWarning}`));
+        console.log(theme.dim("  Para forzar la ejecución: /db sql <query> --force\n"));
+      } else {
+        console.error(theme.redBold(`\n[ERROR] ${res.message}\n`));
+      }
+      return;
+    }
+
+    if (res.isReadOnly) {
+      console.log(`\n${theme.mintBold("[OK] CONSULTA SQL (SOLO LECTURA)")} (${res.latencyMs}ms, ${res.rowCount} filas)`);
+      if (res.rows.length === 0) {
+        console.log(theme.dim("  (0 filas devueltas)\n"));
+        return;
+      }
+      console.log("─".repeat(85));
+      console.log(res.headers.map((h) => h.toUpperCase().padEnd(16)).join(" "));
+      console.log("─".repeat(85));
+      for (const row of res.rows.slice(0, 20)) {
+        console.log(res.headers.map((h) => String(row[h] ?? "").slice(0, 14).padEnd(16)).join(" "));
+      }
+      if (res.rows.length > 20) {
+        console.log(theme.dim(`\n  ... y ${res.rows.length - 20} filas más.`));
+      }
+      console.log("");
+    } else {
+      console.log(`\n${theme.mintBold("[OK] ESCRITURA TRANSACCIONAL EJECUTADA")} (${res.latencyMs}ms)`);
+      console.log(`  ${res.message}\n`);
+    }
+    return;
+  }
+
   // Interactive menu
   console.log("\n" + drawDivider(`GESTION DE BASE DE DATOS Y CATALOGO [${companyId}]`, 84));
   console.log(`  ${theme.bold("Selecciona una opcion:")}`);
@@ -86,29 +134,21 @@ export async function databaseCommand(args: string[] = []) {
 
 async function showDbStatus(companyId: string) {
   const health = await checkDatabaseHealth();
-  let prods: any[] = [];
-  let supps: any[] = [];
-  let sources: any[] = [];
-
-  if (health.connected) {
-    try {
-      prods = await db.select().from(products).where(eq(products.companyId, companyId));
-      supps = await db.select().from(suppliers).where(eq(suppliers.companyId, companyId));
-      sources = await db.select().from(dataSources).where(eq(dataSources.companyId, companyId));
-    } catch {}
-  }
+  const prods = await db.select().from(products).where(eq(products.companyId, companyId));
+  const supps = await db.select().from(suppliers).where(eq(suppliers.companyId, companyId));
+  const sources = await db.select().from(dataSources).where(eq(dataSources.companyId, companyId));
 
   console.log("\n" + drawDivider(`ESTADO DE CONEXIÓN A BASE DE DATOS [${companyId}]`, 84));
   console.log(
     drawCard(
       [
-        `${theme.dim("Motor de Base de Datos:")}  PostgreSQL (Drizzle ORM)`,
+        `${theme.dim("Motor de Base de Datos:")}  PostgreSQL (Supabase Cloud / Drizzle ORM)`,
         `${theme.dim("Estado de Conexión:")}     ${health.connected ? theme.badge("ONLINE", "mint") : theme.badge("OFFLINE", "red")}`,
         `${theme.dim("Empresa Activa:")}          ${theme.bold(companyId)}`,
-        `${theme.dim("Productos en Catálogo:")}   ${theme.bold(prods.length)} registrados en base de datos`,
-        `${theme.dim("Proveedores Registrados:")} ${theme.bold(supps.length)}`,
-        `${theme.dim("Fuentes Sincronizadas:")}   ${sources.length > 0 ? sources.map((s) => path.basename(s.uriOrPath)).join(", ") : "Ninguna fuente externa sincronizada"}`,
-        `${theme.dim("Latencia Relacional:")}     ${health.connected ? theme.mint(`${health.latencyMs ?? 15}ms`) : theme.dim("N/A")}`,
+        `${theme.dim("Productos en Catálogo:")}   ${theme.bold(prods.length)} unidades reales auditadas`,
+        `${theme.dim("Proveedores / RFQ:")}       ${theme.bold(supps.length)} registrados (Fallback RFQ activo si 0)`,
+        `${theme.dim("Fuentes Sincronizadas:")}   ${sources.length > 0 ? sources.map((s) => path.basename(s.uriOrPath)).join(", ") : "Ninguna externa"}`,
+        `${theme.dim("Latencia Relacional:")}     ${theme.mint(`${health.latencyMs ?? 15}ms`)}`,
       ],
       {
         title: "DRIZZLE & POSTGRESQL ENGINE",
@@ -153,28 +193,24 @@ export async function importUniversalCatalogFile(
     return { importedProducts: 0, importedSuppliers: 0 };
   }
 
-  // Asegurar almacén central con coordenadas GPS reales basadas en la empresa
-  const [companyRow] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
-  const companyCity = companyRow?.city || "Bucaramanga";
-  const companyCountry = companyRow?.country || "Colombia";
-  const defaultGeo = await geocodeAddressOrCity(companyCity).catch(() => null);
-
+  // Asegurar almacén central con datos reales o nulos si no hay ubicación
+  const [comp] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+  const defaultCity = comp?.city || comp?.country || null;
+  const defaultGeo = defaultCity ? await geocodeAddressOrCity(defaultCity).catch(() => null) : null;
   await db
     .insert(warehouses)
     .values({
       id: `alm_central_${companyId}`,
       companyId,
-      name: "Almacén Central Operativo",
-      location: `${companyCity}, ${companyCountry}`,
-      city: defaultGeo?.city || companyCity,
-      state: defaultGeo?.state || "Santander",
-      country: defaultGeo?.country || companyCountry,
-      latitude: defaultGeo ? String(defaultGeo.latitude) : "7.1193",
-      longitude: defaultGeo ? String(defaultGeo.longitude) : "-73.1227",
+      name: "Central Operations Warehouse",
+      location: defaultCity || "Sede Central",
+      city: defaultGeo?.city || defaultCity || null,
+      latitude: defaultGeo ? String(defaultGeo.latitude) : null,
+      longitude: defaultGeo ? String(defaultGeo.longitude) : null,
     })
     .onConflictDoNothing();
 
-  // Registrar proveedores extraídos (o proveedor general si el SQL no tiene tabla de proveedores)
+  // Registrar proveedores extraídos realmente del SQL
   const supplierIds: string[] = [];
   for (const s of realSuppliers) {
     const suppSlug = s.name.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 24);
@@ -187,10 +223,8 @@ export async function importUniversalCatalogFile(
         companyId,
         name: s.name,
         email: s.email || `ventas@${suppSlug}.com`,
-        streetAddress: s.city || "Parque Industrial",
-        city: suppGeo?.city || s.city || "Centro de Distribución",
-        state: suppGeo?.state || null,
-        country: suppGeo?.country || null,
+        streetAddress: s.city || null,
+        city: suppGeo?.city || s.city || null,
         latitude: suppGeo ? String(suppGeo.latitude) : null,
         longitude: suppGeo ? String(suppGeo.longitude) : null,
         origin: "real",
@@ -199,26 +233,10 @@ export async function importUniversalCatalogFile(
     supplierIds.push(suppId);
   }
 
-  const fallbackSupplierId = `supp_direct_${companyId}`;
-  if (supplierIds.length === 0) {
-    await db
-      .insert(suppliers)
-      .values({
-        id: fallbackSupplierId,
-        companyId,
-        name: "Compra Directa / Licitación Abierta (RFQ)",
-        email: "compras@proveedor-directo.local",
-        streetAddress: "Parque Industrial de Suministros",
-        city: companyCity,
-        origin: "real",
-      })
-      .onConflictDoNothing();
-    supplierIds.push(fallbackSupplierId);
-  }
-
   for (let i = 0; i < realItems.length; i++) {
     const item = realItems[i];
-    const prodId = `prod_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+    const cleanCompany = companyId.replace(/[^a-z0-9_]/g, "_");
+    const prodId = `prod_${cleanCompany}_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
 
     await db
       .insert(products)
@@ -236,35 +254,39 @@ export async function importUniversalCatalogFile(
         set: { name: item.name, category: item.category, minStock: item.minStock },
       });
 
-    await db
-      .insert(inventory)
-      .values({
-        id: `inv_${companyId}_${prodId}`,
-        companyId,
-        productId: prodId,
-        warehouseId: `alm_central_${companyId}`,
-        stock: item.stock,
-      })
-      .onConflictDoUpdate({
-        target: inventory.id,
-        set: { stock: item.stock, updatedAt: new Date() },
-      });
+    if (Number.isFinite(item.stock) && item.stock >= 0) {
+      await db
+        .insert(inventory)
+        .values({
+          id: `inv_${companyId}_${prodId}`,
+          companyId,
+          productId: prodId,
+          warehouseId: `alm_central_${companyId}`,
+          stock: item.stock,
+        })
+        .onConflictDoUpdate({
+          target: inventory.id,
+          set: { stock: item.stock, updatedAt: new Date() },
+        });
+    }
 
-    // Vincular precio extraído con supplier_products para que Compras y Consolidación operen al 100%
-    const assignedSupplierId = supplierIds[i % supplierIds.length];
-    const spId = `sp_${prodId}_${assignedSupplierId}`.slice(0, 60);
-    await db
-      .insert(supplierProducts)
-      .values({
-        id: spId,
-        companyId,
-        supplierId: assignedSupplierId,
-        productId: prodId,
-        unitPrice: (item.price || 150).toFixed(2),
-        leadTimeDays: 3,
-        minOrderQuantity: Math.max(2, item.minStock),
-      })
-      .onConflictDoNothing();
+    // Vincular precio extraído con supplier_products solo si hay proveedores reales y precio real extraído
+    if (supplierIds.length > 0 && item.price !== undefined && item.price > 0) {
+      const assignedSupplierId = supplierIds[i % supplierIds.length];
+      const spId = `sp_${prodId}_${assignedSupplierId}`.slice(0, 60);
+      await db
+        .insert(supplierProducts)
+        .values({
+          id: spId,
+          companyId,
+          supplierId: assignedSupplierId,
+          productId: prodId,
+          unitPrice: item.price.toFixed(2),
+          leadTimeDays: 3,
+          minOrderQuantity: Math.max(2, item.minStock),
+        })
+        .onConflictDoNothing();
+    }
   }
 
   // Registrar en dataSources para futuras re-sincronizaciones sin hardcodes

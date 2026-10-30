@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { env } from "../packages/core/src/config/env";
-import { logger } from "../packages/core/src/lib/logger";
+import { env, logger } from "@mint/core";
 
 describe("Configuración y Logging", () => {
   it("debe cargar y validar las variables de entorno por defecto con zod", () => {

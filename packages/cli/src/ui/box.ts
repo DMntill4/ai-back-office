@@ -32,8 +32,8 @@ export function drawCard(lines: string[], options: BoxOptions = {}): string {
   const padding = options.padding ?? 1;
 
   // Responsive column calculation
-  const terminalCols = process.stdout.columns || 80;
-  const maxAllowedWidth = Math.min(Math.max(terminalCols - 2, 60), 78);
+  const terminalCols = process.stdout.columns || 86;
+  const maxAllowedWidth = Math.min(Math.max(terminalCols - 2, 60), 88);
   const maxInnerContent = Math.max(30, maxAllowedWidth - 2 - padding * 2);
 
   // Pre-wrap lines to prevent any overflow outside the box
@@ -106,8 +106,8 @@ export function drawCard(lines: string[], options: BoxOptions = {}): string {
 }
 
 export function drawDivider(title?: string, width?: number): string {
-  const terminalCols = process.stdout.columns || 80;
-  const targetWidth = width ? Math.min(width, Math.max(terminalCols - 2, 60)) : Math.min(Math.max(terminalCols - 2, 60), 78);
+  const terminalCols = process.stdout.columns || 86;
+  const targetWidth = width || Math.min(Math.max(terminalCols - 2, 60), 88);
 
   if (!title) {
     return theme.dim("─".repeat(targetWidth));

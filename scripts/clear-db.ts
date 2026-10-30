@@ -31,13 +31,13 @@ async function clear() {
   await db.execute(
     sql`INSERT INTO business_config (company_id, key, value, description) 
         VALUES 
-          ('comp_default', 'approval_limit_amount', '5000000.00', 'Límite de compra autónomo (COP)'),
+          ('comp_default', 'approval_limit_amount', '10000.00', 'Límite de compra autónomo'),
           ('comp_default', 'bot_name', 'MINT', 'Nombre del asistente'),
           ('comp_default', 'bot_tone', 'profesional y ejecutivo', 'Tono del asistente')
         ON CONFLICT (company_id, key) DO NOTHING`
   );
 
-  console.log("[DB] Base de datos reiniciada a 0: Solo el admin, la empresa y el bot limpios.");
+  console.log("✅ Base de datos reiniciada a 0: Solo el admin, la empresa y el bot limpios.");
   await pool.end();
   process.exit(0);
 }

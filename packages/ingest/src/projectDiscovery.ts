@@ -6,7 +6,7 @@ import { GrokClient, getLlmApiKey } from "@mint/core";
 export interface DiscoveredProject {
   projectName: string;
   projectPath: string;
-  framework: "Spring Boot" | "Node.js" | "Python" | "Generic";
+  framework: "Spring Boot" | "Node.js" | "Python" | "Generic" | "Base de Datos SQL" | "Base de Datos SQLite";
   dbType: "mysql" | "postgres" | "sqlite" | "h2" | "sql_script";
   databaseName?: string;
   connectionUrl?: string;
@@ -41,7 +41,7 @@ export async function interpretQueryWithAI(query: string): Promise<AIProjectQuer
   if (apiKey) {
     try {
       const client = new GrokClient();
-      const response = await client.chatCompletion({
+      const callPromise = client.chatCompletion({
         messages: [
           {
             role: "system",
@@ -69,6 +69,10 @@ Return strictly a valid JSON object without markdown fences:
         ],
         temperature: 0.1,
       });
+
+      const timeoutPromise = new Promise<null>((r) => setTimeout(() => r(null), 3500));
+      const response = await Promise.race([callPromise, timeoutPromise]);
+      if (!response) throw new Error("Timeout en interpretación remota");
 
       const raw = response.content?.replace(/```json|```/g, "").trim();
       if (raw) {
@@ -139,7 +143,7 @@ export async function rankAndReasonWithAI(
         })),
       };
 
-      const response = await client.chatCompletion({
+      const callPromise = client.chatCompletion({
         messages: [
           {
             role: "system",
@@ -160,6 +164,10 @@ Return strictly a valid JSON object without markdown fences:
         ],
         temperature: 0.1,
       });
+
+      const timeoutPromise = new Promise<null>((r) => setTimeout(() => r(null), 3500));
+      const response = await Promise.race([callPromise, timeoutPromise]);
+      if (!response) return candidates;
 
       const raw = response.content?.replace(/```json|```/g, "").trim();
       if (raw) {
@@ -240,14 +248,18 @@ export async function searchProjectDatabase(query: string): Promise<DiscoveredPr
     path.join(home, "Downloads"),
     path.join(home, "src"),
     path.join(home, "dev"),
-    home,
   ];
 
-  // Priorizar raíces explícitas si el usuario dijo "busca en downloads / carpeta X"
-  const candidateRoots = Array.from(new Set([...explicitRoots, ...standardRoots]));
+  // Si el usuario especificó una ubicación (ej: "busca en downloads..."), buscar ÚNICAMENTE en esa ubicación
+  const candidateRoots = explicitRoots.length > 0 ? explicitRoots : standardRoots;
 
   const checkedDirs = new Set<string>();
   const candidates: DiscoveredProject[] = [];
+  const isGenericDbQuery =
+    searchTerms.length === 0 ||
+    searchTerms.some((t) =>
+      ["base", "bases", "dato", "datos", "db", "database", "sql", "tablas", "esquema", "catalogo", "csv", "data", "inventario"].includes(t)
+    );
 
   // Escaneo recursivo tolerante a carpetas anidadas (ej. descargas descomprimidas)
   function scanDir(dir: string, depth: number, maxDepth: number) {
@@ -258,15 +270,17 @@ export async function searchProjectDatabase(query: string): Promise<DiscoveredPr
     const isRootCandidate = candidateRoots.includes(dir);
 
     if (!isRootCandidate) {
-      const matchesSelf = searchTerms.some((term) => {
-        const cleanTerm = term.replace(/[^a-z0-9]/g, "");
-        const cleanEntry = baseNameLower.replace(/[^a-z0-9]/g, "");
-        return cleanEntry.includes(cleanTerm) || cleanTerm.includes(cleanEntry);
-      });
+      const matchesSelf =
+        isGenericDbQuery ||
+        searchTerms.some((term) => {
+          const cleanTerm = term.replace(/[^a-z0-9]/g, "");
+          const cleanEntry = baseNameLower.replace(/[^a-z0-9]/g, "");
+          return cleanEntry.includes(cleanTerm) || cleanTerm.includes(cleanEntry);
+        });
 
       if (matchesSelf) {
         const projectInfo = inspectProjectDirectory(dir);
-        if (projectInfo) {
+        if (projectInfo && (projectInfo.sqlFiles.length > 0 || projectInfo.dbFiles.length > 0 || projectInfo.framework !== "Generic")) {
           if (!candidates.some((c) => c.projectPath.toLowerCase() === projectInfo.projectPath.toLowerCase())) {
             candidates.push(projectInfo);
           }
@@ -298,15 +312,17 @@ export async function searchProjectDatabase(query: string): Promise<DiscoveredPr
         }
 
         const subDir = path.join(dir, entry.name);
-        const matchesTerm = searchTerms.some((term) => {
-          const cleanTerm = term.replace(/[^a-z0-9]/g, "");
-          const cleanEntry = entryNameLower.replace(/[^a-z0-9]/g, "");
-          return cleanEntry.includes(cleanTerm) || cleanTerm.includes(cleanEntry);
-        });
+        const matchesTerm =
+          isGenericDbQuery ||
+          searchTerms.some((term) => {
+            const cleanTerm = term.replace(/[^a-z0-9]/g, "");
+            const cleanEntry = entryNameLower.replace(/[^a-z0-9]/g, "");
+            return cleanEntry.includes(cleanTerm) || cleanTerm.includes(cleanEntry);
+          });
 
         if (matchesTerm) {
           const projectInfo = inspectProjectDirectory(subDir);
-          if (projectInfo) {
+          if (projectInfo && (projectInfo.sqlFiles.length > 0 || projectInfo.dbFiles.length > 0 || projectInfo.framework !== "Generic")) {
             if (!candidates.some((c) => c.projectPath.toLowerCase() === projectInfo.projectPath.toLowerCase())) {
               candidates.push(projectInfo);
             }
@@ -480,16 +496,30 @@ export function inspectProjectDirectory(projectDir: string): DiscoveredProject |
       if (dbPortMatch) port = parseInt(dbPortMatch[1], 10);
     }
 
-    // 4. Buscar scripts SQL (en database/init, database, sql, db)
-    const scanDirs = [
+    // 4. Buscar scripts SQL y bases de datos en carpetas comunes y subdirectorios inmediatos
+    const candidateScanDirs = new Set<string>([
+      projectDir,
       path.join(projectDir, "database", "init"),
       path.join(projectDir, "database"),
+      path.join(projectDir, "init-db"),
+      path.join(projectDir, "queries"),
       path.join(projectDir, "db"),
       path.join(projectDir, "sql"),
-      projectDir,
-    ];
+      path.join(projectDir, "data"),
+      path.join(projectDir, "backend"),
+    ]);
 
-    for (const dir of scanDirs) {
+    // Agregar subcarpetas inmediatas que no sean de sistema
+    try {
+      const subEntries = fs.readdirSync(projectDir, { withFileTypes: true });
+      for (const ent of subEntries) {
+        if (ent.isDirectory() && !["node_modules", ".git", ".idea", ".vscode"].includes(ent.name.toLowerCase())) {
+          candidateScanDirs.add(path.join(projectDir, ent.name));
+        }
+      }
+    } catch {}
+
+    for (const dir of Array.from(candidateScanDirs)) {
       if (fs.existsSync(dir)) {
         try {
           const files = fs.readdirSync(dir);
@@ -504,6 +534,16 @@ export function inspectProjectDirectory(projectDir: string): DiscoveredProject |
             }
           }
         } catch {}
+      }
+    }
+
+    if (framework === "Generic") {
+      if (dbFiles.length > 0) {
+        framework = "Base de Datos SQLite";
+        dbType = "sqlite";
+      } else if (sqlFiles.length > 0) {
+        framework = "Base de Datos SQL";
+        dbType = "sql_script";
       }
     }
 

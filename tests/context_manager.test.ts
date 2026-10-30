@@ -4,7 +4,7 @@ import {
   compactSupplierFacts,
   compactShipmentFacts,
   enforceTokenBudget,
-} from "../packages/core/src/agent/context/contextManager";
+} from "@mint/core";
 
 describe("Capa de Gestión y Compresión de Ventana de Contexto (ContextManager)", () => {
   it("debe compactar datos de inventario en hechos densos sin campos innecesarios", () => {
@@ -37,8 +37,7 @@ describe("Capa de Gestión y Compresión de Ventana de Contexto (ContextManager)
 
     expect(facts).toContain("[FACTS_PROVEEDORES_REAL]");
     expect(facts).toContain("Acme Industrial");
-    expect(facts).toContain("120.5");
-    expect(facts).toContain("/u");
+    expect(facts).toContain("$120.50 MXN/u");
     expect(facts).toContain("2 días");
   });
 

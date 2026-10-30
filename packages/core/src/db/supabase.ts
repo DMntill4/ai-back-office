@@ -3,12 +3,12 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseUrl = process.env.SUPABASE_URL || "https://khzatuvmipdptcgyvxce.supabase.co";
 const supabaseRestUrl =
   process.env.SUPABASE_REST_URL ||
-  (supabaseUrl ? `${supabaseUrl.replace(/\/+$/, "")}/rest/v1/` : "");
+  (supabaseUrl ? `${supabaseUrl.replace(/\/+$/, "")}/rest/v1/` : "https://khzatuvmipdptcgyvxce.supabase.co/rest/v1/");
 const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "";
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
 /**
  * Cliente nativo de Supabase para servicios como Storage, Auth y Realtime.
@@ -26,17 +26,16 @@ export const supabase: SupabaseClient | null =
     : null;
 
 export function getSupabaseStatus() {
-  const isConfigured = Boolean(supabaseUrl && supabaseKey);
   const projectRef = supabaseUrl
     ? supabaseUrl.replace(/https?:\/\//, "").split(".")[0]
-    : null;
+    : "khzatuvmipdptcgyvxce";
 
   return {
-    isConfigured,
+    isConfigured: Boolean(supabaseUrl),
     projectRef,
     url: projectRef,
-    fullUrl: supabaseUrl || null,
-    restUrl: supabaseRestUrl || null,
+    fullUrl: supabaseUrl,
+    restUrl: supabaseRestUrl,
     hasClient: Boolean(supabase),
     hasServiceKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     hasAnonKey: Boolean(process.env.SUPABASE_ANON_KEY),
@@ -45,11 +44,9 @@ export function getSupabaseStatus() {
 
 /**
  * Helper para invocar directamente la API REST de Supabase (PostgREST)
+ * Base: https://khzatuvmipdptcgyvxce.supabase.co/rest/v1/
  */
 export async function fetchSupabaseRest(endpoint: string, options: RequestInit = {}) {
-  if (!supabaseRestUrl) {
-    throw new Error("Supabase REST no está configurado (SUPABASE_URL / SUPABASE_REST_URL no definidos).");
-  }
   const base = supabaseRestUrl.replace(/\/+$/, "");
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "";

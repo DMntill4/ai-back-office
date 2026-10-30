@@ -6,7 +6,9 @@ import {
   purchaseOrders,
   decisions,
   cases,
+  businessConfig,
   coordinateOperationalEvent,
+  getProductsWithOpenProposals,
 } from "@mint/core";
 import { eq, and, lte, desc } from "drizzle-orm";
 
@@ -19,31 +21,42 @@ export interface ScanResult {
 
 /**
  * Disparador: Busca existencias agotadas o bajo el mínimo y abre casos autónomos
+ * Idempotente: nunca procesa productos con propuestas abiertas ni satura APIs cartográficas.
  */
 export async function scanStockDeficits(companyId: string = "comp_default"): Promise<number> {
-  const stockRows = await db
-    .select({
-      productId: products.id,
-      sku: products.sku,
-      name: products.name,
-      minStock: products.minStock,
-      stock: inventory.stock,
-    })
-    .from(products)
-    .innerJoin(inventory, eq(products.id, inventory.productId))
-    .where(and(eq(products.companyId, companyId), eq(inventory.companyId, companyId)));
+  const [prods, invs, blocked] = await Promise.all([
+    db.select().from(products).where(eq(products.companyId, companyId)),
+    db.select().from(inventory).where(eq(inventory.companyId, companyId)),
+    getProductsWithOpenProposals(companyId).catch(() => new Set<string>()),
+  ]);
 
-  const deficits = stockRows.filter((r) => r.stock <= r.minStock);
+  const stockMap = new Map<string, number>();
+  for (const inv of invs) {
+    stockMap.set(inv.productId, (stockMap.get(inv.productId) || 0) + Number(inv.stock || 0));
+  }
+
+  const deficits = prods
+    .map((p) => ({
+      productId: p.id,
+      sku: p.sku,
+      name: p.name,
+      minStock: p.minStock,
+      stock: stockMap.get(p.id) || 0,
+    }))
+    .filter((r) => r.stock <= r.minStock && !blocked.has(r.productId));
+
+  // Limitar a maximo 3 por ciclo para evitar tormentas de peticiones fantasma
+  const batch = deficits.slice(0, 3);
   let triggeredCount = 0;
 
-  for (const item of deficits) {
+  for (const item of batch) {
     try {
       await coordinateOperationalEvent({
         eventType: "STOCK_BELOW_MIN",
         companyId,
         productId: item.productId,
         title: `Desabasto detectado: ${item.name} (${item.sku})`,
-        description: `El stock actual (${item.stock}u) es menor o igual al umbral mínimo (${item.minStock}u).`,
+        description: `El stock total disponible (${item.stock}u) es menor o igual al umbral minimo (${item.minStock}u).`,
         payload: {
           productId: item.productId,
           sku: item.sku,
@@ -51,6 +64,7 @@ export async function scanStockDeficits(companyId: string = "comp_default"): Pro
           minStock: item.minStock,
         },
       });
+      blocked.add(item.productId);
       triggeredCount++;
     } catch (err: any) {
       console.error(`[DAEMON TRIGGER] Error evaluando desabasto de ${item.sku}: ${err.message}`);
@@ -64,6 +78,17 @@ export async function scanStockDeficits(companyId: string = "comp_default"): Pro
  * Disparador: Detecta envíos en tránsito retrasados respecto a su ETA prometida
  */
 export async function scanDelayedShipments(companyId: string = "comp_default"): Promise<number> {
+  const [profileCfg] = await db
+    .select({ value: businessConfig.value })
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "business_profile")))
+    .limit(1);
+
+  if (profileCfg?.value === "tienda" || profileCfg?.value === "tienda_proveedores") {
+    // Negocio sin flota: cero ruido de transporte
+    return 0;
+  }
+
   const allShipments = await db
     .select()
     .from(shipments)
@@ -76,7 +101,7 @@ export async function scanDelayedShipments(companyId: string = "comp_default"): 
 
   let triggeredCount = 0;
 
-  for (const shp of delayed) {
+  for (const shp of delayed.slice(0, 3)) {
     try {
       let productId: string | undefined;
       if (shp.purchaseOrderId) {

@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db/client";
-import { cases, decisions, operationalEvents, products, suppliers, supplierProducts } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { cases, decisions, businessConfig, companies } from "../db/schema";
+import { eq } from "drizzle-orm";
 import { analyzeInventoryForProduct, type InventoryAnalysis } from "./especialistas/inventarioSpecialist";
 import { analyzePurchasingOptions, type PurchasingProposal } from "./especialistas/comprasSpecialist";
 import { analyzeShipmentsForProduct, type ShipmentAnalysis } from "./especialistas/transporteSpecialist";
 import { auditProposalRisk, type RiskAuditResult } from "./especialistas/riesgoSpecialist";
-import { evaluatePolicy, type ActionProposal, type PolicyEvaluation, type AutonomyLevel } from "../policy/policyEngine";
+import { evaluatePolicy, type ActionProposal, type AutonomyLevel } from "../policy/policyEngine";
 import { executeAndVerifyDecision } from "../services/decisionExecutionService";
 import { checkDataFreshness } from "../services/dataFreshnessService";
 
@@ -81,7 +81,9 @@ export async function runBackOfficeHarness(params: {
   ]);
 
   const targetQuantity = invResult ? Math.max(invResult.deficit, 10) : 25;
-  const isUrgent = invResult ? invResult.daysCoverage < 3 : true;
+  const isUrgent = invResult
+    ? invResult.currentStock === 0 || (invResult.daysCoverage !== null && invResult.daysCoverage < 3)
+    : true;
 
   // 3. Compras y evaluación de proveedores
   const purchasingResult = await analyzePurchasingOptions(
@@ -104,9 +106,28 @@ export async function runBackOfficeHarness(params: {
     }).catch(() => null);
   }
 
-  // 5. Síntesis de escenarios alternativos (Cost-optimized vs Speed-optimized)
+  // 5. Cargar reglas corporativas reales (divisa, límite de aprobación y nivel de autonomía)
+  let currency = "USD";
+  let approvalLimitAmount: number | undefined = undefined;
+  let configuredAutonomy: string | undefined = undefined;
+  try {
+    const [compRows, cfgRows] = await Promise.all([
+      db.select({ currency: companies.currency }).from(companies).where(eq(companies.id, companyId)).limit(1),
+      db.select().from(businessConfig).where(eq(businessConfig.companyId, companyId)),
+    ]);
+    if (compRows[0]?.currency) currency = compRows[0].currency;
+    const limitCfg = cfgRows.find((c) => c.key === "approval_limit_amount");
+    if (limitCfg?.value) {
+      const parsed = parseFloat(limitCfg.value);
+      if (Number.isFinite(parsed) && parsed > 0) approvalLimitAmount = parsed;
+      if (limitCfg.currency) currency = limitCfg.currency;
+    }
+    const autoCfg = cfgRows.find((c) => c.key === "autonomy_level");
+    if (autoCfg?.value) configuredAutonomy = autoCfg.value;
+  } catch {}
+
   const scenarios: HarnessScenarioOption[] = [];
-  const autonomyLevel = params.forceAutonomyLevel || "dry-run";
+  const autonomyLevel = params.forceAutonomyLevel || (configuredAutonomy as any) || "dry-run";
 
   const freshnessResult = await checkDataFreshness(companyId).catch(() => null);
 
@@ -132,6 +153,7 @@ export async function runBackOfficeHarness(params: {
         supplierName: rec.supplierName,
         quantity: purchasingResult.recommendedQuantity,
         unitPrice: rec.unitPrice,
+        currency,
         dataFreshness: freshnessResult ? {
           isFresh: freshnessResult.isFresh,
           lastSyncedAt: freshnessResult.newestSyncAt ? freshnessResult.newestSyncAt.toISOString() : null,
@@ -148,7 +170,11 @@ export async function runBackOfficeHarness(params: {
       },
     };
 
-    const policyEval = evaluatePolicy(baseProposal, { autonomyLevel });
+    const policyEval = evaluatePolicy(baseProposal, {
+      autonomyLevel,
+      approvalLimitAmount,
+      currency,
+    });
 
     scenarios.push({
       optionId: "opt_primary",
@@ -167,8 +193,12 @@ export async function runBackOfficeHarness(params: {
   const recommendedScenario = scenarios[0] || null;
 
   // 6. Generar árbol ASCII de razonamiento para CLI y Terminal
-  const deficitStr = invResult ? `${invResult.deficit}u (cobertura ${invResult.daysCoverage.toFixed(1)}d)` : "N/A";
-  const vendorStr = purchasingResult?.recommendedOption ? `${purchasingResult.recommendedOption.supplierName} ($${purchasingResult.totalCostMxn} MXN)` : "Sin proveedor";
+  const deficitStr = invResult
+    ? invResult.daysCoverage !== null
+      ? `${invResult.deficit}u (cobertura ${invResult.daysCoverage.toFixed(1)}d)`
+      : `${invResult.deficit}u (historial insuficiente)`
+    : "N/A";
+  const vendorStr = purchasingResult?.recommendedOption ? `${purchasingResult.recommendedOption.supplierName} ($${purchasingResult.totalCostMxn} ${currency})` : "Sin proveedor";
   const riskStr = riskResult ? `${(riskResult.riskScore * 100).toFixed(0)}% riesgo (${riskResult.redFlags.length} alertas)` : "Evaluación estándar";
   const verdictStr = recommendedScenario ? recommendedScenario.policyDecision.toUpperCase() : "PENDING_REVIEW";
 

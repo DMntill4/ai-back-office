@@ -1,14 +1,62 @@
 import { db, pool } from "../db/client";
 import { users, companies, businessConfig, products, inventory } from "../db/schema";
 import { eq, and } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import crypto, { randomUUID } from "node:crypto";
+import { normalizeBotLanguage } from "./configService";
+
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derivedKey = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `scrypt:${salt}:${derivedKey}`;
+}
+
+export function verifyPassword(password: string, storedHash?: string | null): boolean {
+  if (!storedHash) return false;
+  if (storedHash.startsWith("scrypt:")) {
+    const parts = storedHash.split(":");
+    if (parts.length !== 3) return false;
+    const [, salt, hash] = parts;
+    const keyBuffer = Buffer.from(hash, "hex");
+    const derivedKey = crypto.scryptSync(password, salt, 64);
+    if (keyBuffer.length !== derivedKey.length) return false;
+    return crypto.timingSafeEqual(keyBuffer, derivedKey);
+  }
+  // Fallback seguro para contraseñas legadas o de prueba
+  if (Buffer.byteLength(storedHash) !== Buffer.byteLength(password)) {
+    return false;
+  }
+  return crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(password));
+}
+
+export type UserRole =
+  | "owner"
+  | "admin"
+  | "supervisor"
+  | "operator"
+  | "driver"
+  | "viewer"
+  | "auditor"
+  | "finance"
+  | "client";
+export type ActionPermission =
+  | "approve"
+  | "approve_purchase"
+  | "execute_purchase"
+  | "process_payment"
+  | "dispatch"
+  | "receive"
+  | "manage_team"
+  | "manage_channels"
+  | "configure_bot"
+  | "upload_sql"
+  | "view";
 
 export interface RegisterInput {
   name: string;
   email: string;
   password?: string;
   companyName: string;
-  role?: "owner" | "operator" | "auditor" | "viewer";
+  role?: UserRole;
 }
 
 export interface LoginInput {
@@ -21,9 +69,10 @@ export interface SetupConfigInput {
   userId?: string;
   botName: string;
   botTone: "ejecutivo" | "tecnico" | "didactico";
+  botLanguage?: string;
   botCustomRules?: string;
-  approvalLimitAmount: number;
-  currency: "COP" | "MXN" | "USD" | string;
+  approvalLimitAmount?: number | null;
+  currency?: string;
 }
 
 export interface SqlUploadInput {
@@ -34,24 +83,108 @@ export interface SqlUploadInput {
 
 /**
  * Permisos por Rol en el sistema:
+ * Todos los roles son estrictamente locales dentro de la base de datos de cada empresa cargada.
+ * No existe ningun administrador global en MINT.
  */
-export const ROLE_PERMISSIONS = {
+export const ROLE_PERMISSIONS: Record<
+  UserRole,
+  {
+    label: string;
+    description: string;
+    canConfigureBot: boolean;
+    canUploadSql: boolean;
+    canApprovePurchases: boolean;
+    canExecutePurchases: boolean;
+    canProcessPayments: boolean;
+    canDispatch: boolean;
+    canReceive: boolean;
+    canManageTeam: boolean;
+    canManageChannels: boolean;
+    canViewDashboard: boolean;
+  }
+> = {
   owner: {
-    label: "Dueño / Propietario (Admin)",
-    description: "Control absoluto: configuración del bot, carga de SQL, umbrales y aprobaciones.",
+    label: "Dueño / Propietario (Owner)",
+    description: "Control absoluto del negocio: configuración del bot, equipo, canales, umbrales, aprobaciones y pagos.",
     canConfigureBot: true,
     canUploadSql: true,
     canApprovePurchases: true,
     canExecutePurchases: true,
+    canProcessPayments: true,
+    canDispatch: true,
+    canReceive: true,
+    canManageTeam: true,
+    canManageChannels: true,
+    canViewDashboard: true,
+  },
+  admin: {
+    label: "Administrador de Negocio (Empresa)",
+    description: "Administrador local de la empresa en la base de datos cargada. Gestión operativa del negocio (HITL, despachos, recepción, equipo y canales). No existe un admin global.",
+    canConfigureBot: true,
+    canUploadSql: true,
+    canApprovePurchases: true,
+    canExecutePurchases: true,
+    canProcessPayments: true,
+    canDispatch: true,
+    canReceive: true,
+    canManageTeam: true,
+    canManageChannels: true,
+    canViewDashboard: true,
+  },
+  supervisor: {
+    label: "Supervisor de Operaciones (Empresa)",
+    description: "Supervisión operativa de la empresa en la base de datos cargada. Aprobación HITL, despachos, recepción y supervisión de operadores locales.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: true,
+    canExecutePurchases: true,
+    canProcessPayments: false,
+    canDispatch: true,
+    canReceive: true,
+    canManageTeam: true,
+    canManageChannels: false,
+    canViewDashboard: true,
+  },
+  finance: {
+    label: "Tesorería / Control de Pagos (Finance)",
+    description: "Recepción de fichas de dispersión de pago de órdenes aprobadas, conciliación y pago a proveedores.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: true,
+    canDispatch: false,
+    canReceive: false,
+    canManageTeam: false,
+    canManageChannels: false,
     canViewDashboard: true,
   },
   operator: {
-    label: "Operador de Compras",
-    description: "Interacción con el agente ReAct, órdenes bajo umbral y consultas operativas.",
+    label: "Operador de Logística y Compras",
+    description: "Despacho de pedidos, recepción de inventario y consultas operativas.",
     canConfigureBot: false,
     canUploadSql: false,
     canApprovePurchases: false,
     canExecutePurchases: true,
+    canProcessPayments: false,
+    canDispatch: true,
+    canReceive: true,
+    canManageTeam: false,
+    canManageChannels: false,
+    canViewDashboard: true,
+  },
+  driver: {
+    label: "Conductor / Transportista",
+    description: "Recepción de mercancía en ruta y consulta de manifiestos de embarque.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: false,
+    canDispatch: false,
+    canReceive: true,
+    canManageTeam: false,
+    canManageChannels: false,
     canViewDashboard: true,
   },
   auditor: {
@@ -61,18 +194,73 @@ export const ROLE_PERMISSIONS = {
     canUploadSql: false,
     canApprovePurchases: true,
     canExecutePurchases: false,
+    canProcessPayments: false,
+    canDispatch: false,
+    canReceive: false,
+    canManageTeam: false,
+    canManageChannels: false,
     canViewDashboard: true,
   },
   viewer: {
     label: "Consultor (Solo Lectura)",
-    description: "Visualización de existencias, reportes generales y analítica sin permisos de compra.",
+    description: "Visualización de existencias, reportes generales y analítica sin permisos de escritura.",
     canConfigureBot: false,
     canUploadSql: false,
     canApprovePurchases: false,
     canExecutePurchases: false,
+    canProcessPayments: false,
+    canDispatch: false,
+    canReceive: false,
+    canManageTeam: false,
+    canManageChannels: false,
     canViewDashboard: true,
   },
-} as const;
+  client: {
+    label: "Cliente / Destinatario (Empresa)",
+    description: "Cliente final de la empresa en la base de datos cargada. Consulta de sus propios pedidos y seguimiento de despachos.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: false,
+    canDispatch: false,
+    canReceive: false,
+    canManageTeam: false,
+    canManageChannels: false,
+    canViewDashboard: false,
+  },
+};
+
+export function hasPermission(role: string = "viewer", action: ActionPermission): boolean {
+  const normRole = (role || "viewer").toLowerCase() as UserRole;
+  const perms = ROLE_PERMISSIONS[normRole] || ROLE_PERMISSIONS.viewer;
+
+  switch (action) {
+    case "approve":
+    case "approve_purchase":
+      return perms.canApprovePurchases;
+    case "execute_purchase":
+      return perms.canExecutePurchases;
+    case "process_payment":
+      return perms.canProcessPayments;
+    case "dispatch":
+      return perms.canDispatch;
+    case "receive":
+      return perms.canReceive;
+    case "manage_team":
+      return perms.canManageTeam;
+    case "manage_channels":
+      return perms.canManageChannels;
+    case "configure_bot":
+      return perms.canConfigureBot;
+    case "upload_sql":
+      return perms.canUploadSql;
+    case "view":
+      return perms.canViewDashboard;
+    default:
+      return false;
+  }
+}
 
 export async function registerUser(input: RegisterInput) {
   const companySlug = input.companyName
@@ -96,39 +284,36 @@ export async function registerUser(input: RegisterInput) {
     });
 
     // 2. Crear usuario
+    const rawPassword = input.password || "default_hash";
+    const passwordHash = hashPassword(rawPassword);
     await db.insert(users).values({
       id: userId,
       companyId: companyId,
       email: input.email.toLowerCase().trim(),
-      passwordHash: input.password || "default_hash",
+      passwordHash: passwordHash,
       name: input.name,
       role: role,
       setupCompleted: false,
     });
 
     // 3. Crear configuración por defecto para la empresa
+    const initialCurrency = (input as any).currency || "USD";
     await db
       .insert(businessConfig)
       .values([
-        {
-          companyId: companyId,
-          key: "approval_limit_amount",
-          value: "10000.00",
-          currency: "MXN",
-          description: "Monto máximo permitido sin requerir aprobación humana",
-        },
+        // approval_limit_amount NO se siembra: la empresa debe definirlo (MINT no asume un monto)
         {
           companyId: companyId,
           key: "bot_name",
           value: "Mint Autonomous Agent",
-          currency: "MXN",
+          currency: initialCurrency,
           description: "Nombre personalizado del asistente",
         },
         {
           companyId: companyId,
           key: "bot_tone",
           value: "ejecutivo",
-          currency: "MXN",
+          currency: initialCurrency,
           description: "Tono de respuesta del asistente",
         },
       ])
@@ -159,17 +344,24 @@ export async function registerUser(input: RegisterInput) {
 }
 
 export async function loginUser(input: LoginInput) {
-  const email = input.email.toLowerCase().trim();
-
   try {
     const foundUsers = await db
       .select()
       .from(users)
-      .where(eq(users.email, email))
+      .where(eq(users.email, input.email.toLowerCase().trim()))
       .limit(1);
 
     if (foundUsers.length > 0) {
       const u = foundUsers[0];
+
+      // Verificar contraseña cuando el usuario envía password
+      if (input.password && !verifyPassword(input.password, u.passwordHash)) {
+        return {
+          success: false,
+          error: "Contraseña incorrecta. Verifica tus credenciales.",
+        };
+      }
+
       const foundCompany = await db
         .select()
         .from(companies)
@@ -207,7 +399,31 @@ export async function loginUser(input: LoginInput) {
 
 export async function saveBotSetupConfig(input: SetupConfigInput) {
   try {
-    const updates = [
+    if (input.userId) {
+      const [u] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1);
+      if (u && !hasPermission(u.role, "configure_bot")) {
+        return {
+          success: false,
+          error: `ACCESO DENEGADO: El usuario con rol '${u.role}' no tiene permiso para modificar la configuración del asistente. Requiere rol 'owner' o 'admin'.`,
+        };
+      }
+    }
+
+    const resolvedLanguage = input.botLanguage ? normalizeBotLanguage(input.botLanguage) : null;
+    if (input.botLanguage && !resolvedLanguage) {
+      return {
+        success: false,
+        error: `Idioma no soportado ("${input.botLanguage}"). MINT solo permite configurar Español ("es") o Inglés ("en").`,
+      };
+    }
+
+    const updates: Array<{
+      companyId: string;
+      key: string;
+      value: string;
+      currency?: string;
+      description: string;
+    }> = [
       {
         companyId: input.companyId,
         key: "bot_name",
@@ -231,19 +447,32 @@ export async function saveBotSetupConfig(input: SetupConfigInput) {
       },
       {
         companyId: input.companyId,
+        key: "currency",
+        value: input.currency || "USD",
+        currency: input.currency || "USD",
+        description: "Moneda configurada por la empresa",
+      },
+    ];
+
+    if (typeof input.approvalLimitAmount === "number" && Number.isFinite(input.approvalLimitAmount) && input.approvalLimitAmount > 0) {
+      updates.push({
+        companyId: input.companyId,
         key: "approval_limit_amount",
         value: input.approvalLimitAmount.toFixed(2),
         currency: input.currency,
         description: "Límite de compra autónoma antes de requerir aprobación",
-      },
-      {
+      });
+    }
+
+    if (resolvedLanguage) {
+      updates.push({
         companyId: input.companyId,
-        key: "currency",
-        value: input.currency,
+        key: "bot_language",
+        value: resolvedLanguage,
         currency: input.currency,
-        description: "Moneda configurada por la empresa",
-      },
-    ];
+        description: "Idioma exclusivo del agente (es | en)",
+      });
+    }
 
     for (const item of updates) {
       await db
@@ -274,8 +503,12 @@ export async function saveBotSetupConfig(input: SetupConfigInput) {
         companyId: input.companyId,
         botName: input.botName,
         botTone: input.botTone,
+        botLanguage: resolvedLanguage || "es",
         botCustomRules: input.botCustomRules,
-        approvalLimitAmount: input.approvalLimitAmount,
+        approvalLimitAmount:
+          typeof input.approvalLimitAmount === "number" && input.approvalLimitAmount > 0
+            ? input.approvalLimitAmount
+            : null,
         currency: input.currency,
       },
     };
@@ -294,6 +527,17 @@ export async function executeSqlUpload(input: SqlUploadInput) {
     return { success: false, error: "Contenido SQL vacío o inválido." };
   }
 
+  // 0. Validar permisos RBAC si se proporciona userId
+  if (userId) {
+    const callingUsers = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (callingUsers.length === 0 || !hasPermission(callingUsers[0].role, "upload_sql")) {
+      return {
+        success: false,
+        error: "Permisos insuficientes: el rol del usuario no tiene autorización para ejecutar cargas SQL directas.",
+      };
+    }
+  }
+
   try {
     // 1. Reemplazar marcador de posición {{COMPANY_ID}} o 'comp_default' si aplica
     let processedSql = sqlContent.replace(/\{\{COMPANY_ID\}\}/g, companyId);
@@ -302,11 +546,22 @@ export async function executeSqlUpload(input: SqlUploadInput) {
       processedSql = processedSql.replace(/'comp_default'/g, `'${companyId}'`);
     }
 
-    // 2. Extraer y ejecutar sentencias SQL individuales
+    // 2. Extraer sentencias SQL individuales y validar que no contengan operaciones destructivas
     const rawStatements = processedSql
       .split(";")
       .map((s) => s.trim())
       .filter((s) => s.length > 0 && !s.startsWith("--"));
+
+    const destructiveRegex = /\b(DROP|TRUNCATE|ALTER|GRANT|REVOKE|DELETE|EXEC|EXECUTE)\b/i;
+    for (const stmt of rawStatements) {
+      const cleanStmt = stmt.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n").trim();
+      if (destructiveRegex.test(cleanStmt)) {
+        return {
+          success: false,
+          error: `Operación rechazada por gobernanza: La sentencia contiene comandos destructivos o no autorizados (${cleanStmt.slice(0, 40)}...). Solo se permiten inserciones y creaciones seguras.`,
+        };
+      }
+    }
 
     let executedCount = 0;
     const client = await pool.connect();
@@ -356,7 +611,7 @@ export async function executeSqlUpload(input: SqlUploadInput) {
 
     return {
       success: true,
-      message: "Base de datos SQL importada y sincronizada correctamente en PostgreSQL.",
+      message: "Base de datos SQL importada y sincronizada correctamente en PostgreSQL / Supabase.",
       totalStatementsExecuted: executedCount,
       realProductsInserted: allCompanyProducts.length,
       realProductsCount: allCompanyProducts.length,
@@ -414,4 +669,137 @@ VALUES
   ('sp_real_02', '${companyId}', 'prov_directo_mx', 'prod_real_05', '890.00', 5, 1)
 ON CONFLICT (id) DO NOTHING;
 `;
+}
+
+/**
+ * Envía o genera un código de verificación de correo de 6 dígitos.
+ */
+export async function sendEmailVerificationCode(
+  companyId: string,
+  email: string,
+): Promise<{ success: boolean; code: string; message: string; expiresAt: Date }> {
+  const normEmail = email.toLowerCase().trim();
+  const code = Math.floor(100000 + (parseInt(randomUUID().slice(0, 4), 16) % 900000)).toString();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+
+  const payload = JSON.stringify({
+    code,
+    expiresAt: expiresAt.toISOString(),
+    verified: false,
+  });
+
+  await db
+    .insert(businessConfig)
+    .values({
+      companyId,
+      key: `email_verification_${normEmail}`,
+      value: payload,
+      currency: "USD",
+      description: `Código de verificación para ${normEmail}`,
+    })
+    .onConflictDoUpdate({
+      target: [businessConfig.companyId, businessConfig.key],
+      set: {
+        value: payload,
+        updatedAt: new Date(),
+      },
+    });
+
+  return {
+    success: true,
+    code,
+    expiresAt,
+    message: `Código de verificación generado para ${normEmail}. Expira en 15 minutos.`,
+  };
+}
+
+/**
+ * Valida el código de verificación ingresado por el usuario.
+ */
+export async function verifyEmailCode(
+  companyId: string,
+  email: string,
+  inputCode: string,
+): Promise<{ success: boolean; message: string }> {
+  const normEmail = email.toLowerCase().trim();
+  const key = `email_verification_${normEmail}`;
+
+  const [record] = await db
+    .select()
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, key)))
+    .limit(1);
+
+  if (!record || !record.value) {
+    return {
+      success: false,
+      message: `No se encontró solicitud de verificación pendiente para '${normEmail}'.`,
+    };
+  }
+
+  try {
+    const data = JSON.parse(record.value);
+    if (new Date() > new Date(data.expiresAt)) {
+      return {
+        success: false,
+        message: "El código de verificación ha expirado. Solicita un nuevo código.",
+      };
+    }
+
+    if (data.code !== inputCode.trim()) {
+      return {
+        success: false,
+        message: "Código de verificación incorrecto.",
+      };
+    }
+
+    data.verified = true;
+    data.verifiedAt = new Date().toISOString();
+
+    await db
+      .update(businessConfig)
+      .set({
+        value: JSON.stringify(data),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, key)));
+
+    await db
+      .update(users)
+      .set({ setupCompleted: true })
+      .where(and(eq(users.companyId, companyId), eq(users.email, normEmail)));
+
+    return {
+      success: true,
+      message: `Correo '${normEmail}' verificado exitosamente. Cuenta habilitada para alertas oficiales.`,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Error al procesar verificación: ${err.message}`,
+    };
+  }
+}
+
+/**
+ * Comprueba si un correo está verificado
+ */
+export async function isEmailVerified(companyId: string, email: string): Promise<boolean> {
+  const normEmail = email.toLowerCase().trim();
+  const key = `email_verification_${normEmail}`;
+
+  const [record] = await db
+    .select()
+    .from(businessConfig)
+    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, key)))
+    .limit(1);
+
+  if (!record || !record.value) return false;
+
+  try {
+    const data = JSON.parse(record.value);
+    return Boolean(data.verified);
+  } catch {
+    return false;
+  }
 }

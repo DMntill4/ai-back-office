@@ -141,7 +141,7 @@ describe("Fase F5: Notificaciones y Aprobación Remota por Telegram (@mint/notif
     expect(logEntries[0].signedToken).toBeDefined();
     expect(logEntries[0].isUsed).toBe(false);
     expect(logEntries[0].status).toBe("SENT");
-  }, 15000);
+  });
 
   it("2. Aceptación clave: Aprobar la compra desde Telegram ejecuta la orden real en PostgreSQL y queda auditada", async () => {
     // Obtener el token firmado de aprobación generado
@@ -203,16 +203,16 @@ describe("Fase F5: Notificaciones y Aprobación Remota por Telegram (@mint/notif
 
     expect(updatedLog[0].isUsed).toBe(true);
     expect(updatedLog[0].status).toBe("APPROVED");
-  }, 15000);
+  });
 
   it("3. Idempotencia y seguridad: un token ya usado es rechazado ante intentos repetidos", async () => {
-    const logEntry = await db
+    const logEntries = await db
       .select()
       .from(notificationLog)
-      .where(eq(notificationLog.decisionId, decisionId))
-      .limit(1);
+      .where(eq(notificationLog.decisionId, decisionId));
 
-    const signedToken = logEntry[0].signedToken!;
+    const tokenEntry = logEntries.find((l) => Boolean(l.signedToken));
+    const signedToken = tokenEntry!.signedToken!;
 
     // Replay attack o click repetido
     await expect(
@@ -222,5 +222,5 @@ describe("Fase F5: Notificaciones y Aprobación Remota por Telegram (@mint/notif
         channel: "telegram",
       }),
     ).rejects.toThrow(/El token ya fue utilizado previamente/);
-  }, 15000);
+  });
 });

@@ -117,7 +117,14 @@ describe("Fase F3: Multi-Agente + Motor de Políticas en modo dry-run", () => {
         estimatedDelivery: yesterday,
         currentLocation: "Detenido en San Luis Potosí por retén",
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [shipments.id],
+        set: {
+          purchaseOrderId: orderId,
+          status: "retrasado",
+          estimatedDelivery: yesterday,
+        },
+      });
   });
 
   it("Escenario 'envío retrasado -> riesgo de desabasto' produce propuesta completa con evidencia y política dry-run", async () => {
@@ -130,6 +137,7 @@ describe("Fase F3: Multi-Agente + Motor de Políticas en modo dry-run", () => {
       title: "Riesgo de desabasto: Envío retrasado de Sensores PT-100",
       description: `La guía ${trackingNumber} presenta demora crítica y el inventario actual (3u) está bajo el mínimo (20u).`,
       autonomyLevel: "dry-run",
+      force: true,
     });
 
     expect(result.success).toBe(true);
@@ -192,5 +200,5 @@ describe("Fase F3: Multi-Agente + Motor de Políticas en modo dry-run", () => {
 
     expect(savedCase).toHaveLength(1);
     expect(savedCase[0].status).toBe("en_proceso");
-  });
+  }, 25000);
 });

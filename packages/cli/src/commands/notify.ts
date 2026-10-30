@@ -89,7 +89,7 @@ export async function notifyTestCommand(
       return;
     }
 
-    console.log(`\n[OK] PRUEBA DE CONECTIVIDAD EXITOSA:`);
+    console.log(`\n[NOTIF] PRUEBA DE CONECTIVIDAD EXITOSA:`);
     console.log(`   Canal:      ${res.channelType.toUpperCase()}`);
     console.log(`   Message ID: ${res.messageId}`);
     console.log(`   Entregado:  ${res.deliveredAt ? new Date(res.deliveredAt).toLocaleTimeString("es-MX") : "Inmediato"}`);
@@ -122,7 +122,7 @@ export async function notifyListCommand(options: { json?: boolean } = {}) {
       return;
     }
 
-    console.log(`\n[CANALES] CANALES DE NOTIFICACIÓN ACTIVOS [Empresa: ${companyId}]`);
+    console.log(`\n[CANAL] CANALES DE NOTIFICACIÓN ACTIVOS [Empresa: ${companyId}]`);
     console.log(`───────────────────────────────────────────────────────────────────────────`);
     console.log(
       `${"ID".padEnd(20)} ${"TIPO".padEnd(12)} ${"NOMBRE".padEnd(25)} ${"ESTADO".padEnd(10)}`,
@@ -131,7 +131,7 @@ export async function notifyListCommand(options: { json?: boolean } = {}) {
 
     for (const c of channels) {
       console.log(
-        `${c.id.padEnd(20)} ${c.type.padEnd(12)} ${c.name.slice(0, 24).padEnd(25)} ${(c.isActive ? "[ACTIVO]" : "[INACTIVO]").padEnd(10)}`,
+        `${c.id.padEnd(20)} ${c.type.padEnd(12)} ${c.name.slice(0, 24).padEnd(25)} ${(c.isActive ? "[OK] ACTIVO" : "[O] INACTIVO").padEnd(10)}`,
       );
     }
     console.log(`───────────────────────────────────────────────────────────────────────────\n`);

@@ -25,7 +25,6 @@ import {
 import { updateLogisticsNodeLocation } from "../services/geocodingService";
 import { db } from "../db/client";
 import { decisions } from "../db/schema";
-import { telemetryPublisher } from "../telemetry/telemetryPublisher";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -322,7 +321,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
         properties: {
           numero_rastreo: {
             type: "string",
-            description: "Número de guía o tracking (ej: 'TRK-MX-88902')",
+            description: "Número de guía o tracking (ej: 'TRK-FEDEX-88902' o 'TRK-IN-...')",
           },
           orden_id: {
             type: "string",
@@ -426,7 +425,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
         properties: {
           proveedor_id: {
             type: "string",
-            description: "ID, nombre o ciudad del proveedor de origen (ej. 'prov_dewalt', 'Bosch Colombia', 'Bucaramanga')",
+            description: "ID, nombre o ciudad del proveedor de origen (ej. 'prov_01', 'Proveedor Central')",
           },
           almacen_id: {
             type: "string",
@@ -434,11 +433,11 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
           origen_direccion: {
             type: "string",
-            description: "Ciudad o dirección libre de origen (ej. 'Bucaramanga', 'Bogotá')",
+            description: "Ciudad o dirección libre de origen (ej. 'Zona Industrial', 'Calle 26')",
           },
           destino_direccion: {
             type: "string",
-            description: "Ciudad o dirección libre de destino (ej. 'Medellín', 'Barranquilla')",
+            description: "Ciudad o dirección libre de destino (ej. 'Almacén Principal', 'Centro Logístico')",
           },
         },
       },
@@ -463,7 +462,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
           destino_direccion: {
             type: "string",
-            description: "Ciudad o dirección de entrega del cliente (ej. 'Bogotá, D.C.', 'Calle 45 # 13-22, Bucaramanga')",
+            description: "Ciudad o dirección de entrega del cliente (ej. 'Calle 100 #15-20', 'Zona Rosa', ciudad de entrega)",
           },
           cliente_nombre: {
             type: "string",
@@ -471,7 +470,7 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
           transportista: {
             type: "string",
-            description: "Transportista asignado (por defecto 'Coordinadora' o 'Servientrega')",
+            description: "Transportista asignado (por defecto 'Mint Logistics Express')",
           },
         },
         required: ["producto_id", "cantidad", "destino_direccion"],
@@ -535,12 +534,61 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "consultar_memoria_obsidian",
+      description:
+        "Consulta y busca en las notas de memoria viva de Obsidian sincronizadas en la nube (Decisiones, Cuarentena, Preguntas pendientes y Auditoría diaria).",
+      parameters: {
+        type: "object",
+        properties: {
+          termino_busqueda: {
+            type: "string",
+            description:
+              "Palabra clave o concepto a buscar en la memoria viva (ej: 'stock', 'valvula', 'decision', 'proveedor')",
+          },
+        },
+        required: ["termino_busqueda"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "consultar_historial_decisiones",
+      description:
+        "Consulta el registro histórico de decisiones tomadas por MINT en la base de datos Supabase (compras, reasignaciones, cotizaciones, bloqueos y aprobaciones).",
+      parameters: {
+        type: "object",
+        properties: {
+          estado: {
+            type: "string",
+            enum: ["todas", "pending_approval", "approved", "rejected", "auto_executed", "blocked"],
+            description: "Filtrar por estado de la decisión (por defecto 'todas')",
+          },
+          limite: {
+            type: "number",
+            description: "Cantidad máxima de decisiones a recuperar (por defecto 5)",
+          },
+        },
+      },
+    },
+  },
 ];
+
+import { checkToolAuthorization, type SecurityRole } from "../security/agentPermissionsMatrix";
 
 export async function dispatchToolCall(
   name: string,
-  rawArgs: string,
-  context?: { companyId?: string; caseId?: string },
+  rawArgs: any,
+  context?: {
+    companyId?: string;
+    caseId?: string;
+    agentRole?: SecurityRole;
+    isHumanCaller?: boolean;
+    targetCompanyId?: string;
+  },
 ): Promise<{
   result: any;
   isClosingAction: boolean;
@@ -548,7 +596,7 @@ export async function dispatchToolCall(
 }> {
   let parsedArgs: any = {};
   try {
-    parsedArgs = JSON.parse(rawArgs);
+    parsedArgs = typeof rawArgs === "object" && rawArgs !== null ? rawArgs : JSON.parse(rawArgs || "{}");
   } catch {
     return {
       result: {
@@ -561,45 +609,44 @@ export async function dispatchToolCall(
 
   const effectiveCompanyId = context?.companyId || "comp_default";
 
+  // Validación estricta en el backend: Principio de Mínimo Privilegio por Agente
+  const callerRole: SecurityRole = context?.agentRole || (context?.isHumanCaller ? "human_user" : "orchestrator");
+  const auth = await checkToolAuthorization(callerRole, name, {
+    companyId: effectiveCompanyId,
+    targetCompanyId: context?.targetCompanyId || parsedArgs.companyId || parsedArgs.empresa_id,
+    caseId: context?.caseId,
+    toolName: name,
+    isHumanCaller: context?.isHumanCaller,
+  });
+
+  if (!auth.allowed) {
+    return {
+      result: {
+        isSuccess: false,
+        verified: false,
+        permissionDenied: true,
+        code: auth.code,
+        message: `ACCESO DENEGADO [Matriz de Permisos]: ${auth.reason}`,
+      },
+      isClosingAction: false,
+    };
+  }
+
   switch (name) {
-    case "consultar_stock": {
-      telemetryPublisher.emitDatabaseOperation(
-        { id: "agent_mint", label: "Mint Autonomous Coordinator", group: "agent" },
-        "products",
-        "query",
-        "success",
-        1,
-        { sku: parsedArgs.producto_id }
-      );
+    case "consultar_stock":
       return {
         result: await executeConsultarStock(parsedArgs, context),
         isClosingAction: false,
       };
-    }
 
-    case "ver_ordenes_abiertas": {
-      telemetryPublisher.emitDatabaseOperation(
-        { id: "agent_mint", label: "Mint Autonomous Coordinator", group: "agent" },
-        "purchase_orders",
-        "query",
-        "success",
-        5
-      );
+    case "ver_ordenes_abiertas":
+    case "ver_ordenes_compra_abiertas":
       return {
-        result: await executeVerOrdenesAbiertas(parsedArgs),
+        result: await executeVerOrdenesAbiertas(parsedArgs, context),
         isClosingAction: false,
       };
-    }
 
-    case "crear_orden_compra": {
-      telemetryPublisher.emitDatabaseOperation(
-        { id: "agent_mint", label: "Mint Autonomous Coordinator", group: "agent" },
-        "purchase_orders",
-        "write",
-        "success",
-        1,
-        { sku: parsedArgs.producto_id, qty: parsedArgs.cantidad }
-      );
+    case "crear_orden_compra":
       return {
         result: await executeCrearOrdenCompra(
           {
@@ -610,22 +657,12 @@ export async function dispatchToolCall(
         ),
         isClosingAction: false,
       };
-    }
 
-    case "pronosticar_demanda": {
-      telemetryPublisher.emitDatabaseOperation(
-        { id: "agent_mint", label: "Mint Autonomous Coordinator", group: "agent" },
-        "demand_history",
-        "query",
-        "success",
-        60,
-        { sku: parsedArgs.producto_id }
-      );
+    case "pronosticar_demanda":
       return {
         result: await executePronosticarDemanda(parsedArgs, context),
         isClosingAction: false,
       };
-    }
 
     case "consultar_envios":
       return {
@@ -652,6 +689,7 @@ export async function dispatchToolCall(
       };
 
     case "generar_reporte_general":
+    case "reportes_generales":
       return {
         result: await executeReporteGeneral(parsedArgs, context),
         isClosingAction: false,
@@ -664,20 +702,23 @@ export async function dispatchToolCall(
       };
 
     case "analisis_financiero":
+    case "analisis_financiero_inventario":
       return {
-        result: await executeAnalisisFinanciero(parsedArgs),
+        result: await executeAnalisisFinanciero(parsedArgs, context),
         isClosingAction: false,
       };
 
     case "simular_escenario":
+    case "simular_escenario_logistico":
       return {
-        result: await executeSimularEscenario(parsedArgs),
+        result: await executeSimularEscenario(parsedArgs, context),
         isClosingAction: false,
       };
 
     case "auditar_anomalias":
+    case "auditar_anomalias_operativas":
       return {
-        result: await executeAuditarAnomalias(parsedArgs),
+        result: await executeAuditarAnomalias(parsedArgs, context),
         isClosingAction: false,
       };
 
@@ -699,6 +740,7 @@ export async function dispatchToolCall(
       return {
         result: {
           isSuccess: dispatchRes.success,
+          verified: Boolean(dispatchRes.success),
           ...dispatchRes,
         },
         isClosingAction: false,
@@ -713,6 +755,7 @@ export async function dispatchToolCall(
       return {
         result: {
           isSuccess: recvRes.success,
+          verified: Boolean(recvRes.success),
           ...recvRes,
         },
         isClosingAction: false,
@@ -729,6 +772,7 @@ export async function dispatchToolCall(
       return {
         result: {
           isSuccess: true,
+          verified: true,
           resumenCatalogo: {
             totalSkus: health.length,
             skusBajoPuntoReordenDinamico: criticalOrReorder.length,
@@ -752,6 +796,7 @@ export async function dispatchToolCall(
       return {
         result: {
           isSuccess: updRes.success,
+          verified: Boolean(updRes.success),
           ...updRes,
         },
         isClosingAction: false,
@@ -759,6 +804,26 @@ export async function dispatchToolCall(
     }
 
     case "enviar_notificacion_operativa": {
+      const { evaluateOutboundNotificationPayload } = await import("../security/communicationPolicyGuard");
+      const guardCheck = evaluateOutboundNotificationPayload({
+        title: parsedArgs.titulo,
+        message: parsedArgs.mensaje,
+        severity: parsedArgs.severidad,
+        companyId: effectiveCompanyId,
+      });
+
+      if (!guardCheck.isAllowed) {
+        return {
+          result: {
+            isSuccess: false,
+            verified: false,
+            blockedBySecurityPolicy: true,
+            mensaje: `[BLOQUEADO POR SEGURIDAD] ${guardCheck.rejectionReason}`,
+          },
+          isClosingAction: false,
+        };
+      }
+
       const { dispatchDecisionNotification, listNotificationChannels } = await import("@mint/notifiers");
       const chans = await listNotificationChannels(effectiveCompanyId);
       const activeChans = chans.filter((c) => c.isActive);
@@ -900,6 +965,70 @@ export async function dispatchToolCall(
         isClosingAction: true,
         closingType: "escalado",
       };
+
+    case "consultar_memoria_obsidian": {
+      const { searchObsidianMemory, getVaultStats } = await import("../services/obsidianMemoryService");
+      const term = parsedArgs.termino_busqueda || "";
+      const [matches, stats] = await Promise.all([
+        searchObsidianMemory(term, effectiveCompanyId),
+        getVaultStats(effectiveCompanyId).catch(() => null),
+      ]);
+      return {
+        result: {
+          isSuccess: true,
+          termino: term,
+          totalCoincidencias: matches.length,
+          coincidencias: matches,
+          bovedaObsidian: stats
+            ? {
+                totalNotas: stats.totalNotas,
+                decisiones: stats.totalDecisiones,
+                cuarentena: stats.totalCuarentena,
+                preguntas: stats.totalPreguntas,
+              }
+            : undefined,
+          mensaje:
+            matches.length > 0
+              ? `Se encontraron ${matches.length} notas en Obsidian para '${term}'.`
+              : `No se encontraron notas en Obsidian para '${term}'.`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "consultar_historial_decisiones": {
+      const { desc, eq, and } = await import("drizzle-orm");
+      const limit = Math.min(Math.max(Number(parsedArgs.limite) || 5, 1), 20);
+      const estado = parsedArgs.estado || "todas";
+      const conditions: any[] = [eq(decisions.companyId, effectiveCompanyId)];
+      if (estado !== "todas") {
+        conditions.push(eq(decisions.policyDecision, estado as any));
+      }
+      const history = await db
+        .select({
+          id: decisions.id,
+          title: decisions.title,
+          actionType: decisions.actionType,
+          policyDecision: decisions.policyDecision,
+          costMxn: decisions.costMxn,
+          createdAt: decisions.createdAt,
+          policyReason: decisions.policyReason,
+        })
+        .from(decisions)
+        .where(and(...conditions))
+        .orderBy(desc(decisions.createdAt))
+        .limit(limit);
+
+      return {
+        result: {
+          isSuccess: true,
+          total: history.length,
+          filtroEstado: estado,
+          decisiones: history,
+        },
+        isClosingAction: false,
+      };
+    }
 
     default:
       return {

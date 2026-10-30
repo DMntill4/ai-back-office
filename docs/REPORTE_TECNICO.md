@@ -1,176 +1,230 @@
-# [ARQUITECTURA] Reporte Tecnico de Arquitectura e Implementacion
+# Reporte Tecnico de Arquitectura e Implementacion
 
 <p align="center">
   <img src="../resources/img/bannerIcon.png" alt="AI Back Office Banner" width="100%" />
 </p>
 
 <p align="center">
-  <b>AI Back Office Agent (MINT) - Plataforma de Coordinacion Logistica Autonoma Multi-Agente</b><br>
-  <i>Reto de Agentes Autonomos 2026 - Arquitectura 100% Terminal-First, Gobernanza Determinista y Multi-Agente en Paralelo</i>
+  <b>AI Back Office Agent (MINT) - Plataforma de Agente Autónomo para Operaciones de Back Office</b><br>
+  <i>Reto de Agentes Autónomos 2026 - Entrega Integral (Agente Fullstack End-to-End, Consola Web Mint y Human-in-the-Loop)</i>
 </p>
 
 ---
 
 ## 1. Resumen Ejecutivo y Ficha Tecnica
 
-El **AI Back Office Agent (MINT)** es una solucion autonoma orientada a la coordinacion de operaciones logisticas, control de inventarios, gestion de abastecimiento y supervision presupuestaria en empresas de distribucion de suministros industriales.
+El **AI Back Office Agent (MINT)** es una solución integral orientada a la coordinación de operaciones logísticas, control de inventarios, gestión de abastecimiento y supervisión presupuestaria corporativa.
 
-El sistema trasciende los asistentes conversacionales basicos al incorporar:
-1. Una **arquitectura 100% Terminal-First** operada a traves de **Mint CLI** y supervisada en segundo plano por **Mint Daemon**, eliminando la necesidad de frameworks web o servidores HTTP locales.
-2. Un **Harness Multi-Agente Concurrente** con cuatro especialistas dedicados (Inventario, Compras, Transporte y Riesgo) que deliberan en paralelo mediante ejecucion asincrona.
-3. Un **Motor de Politicas Determinista** (`evaluatePolicy`) en codigo matematico que audita el umbral de gasto ($5,000,000 COP), previene duplicidad en 72 horas y aplica guardrails inviolables.
-4. Un arsenal de **herramientas de negocio fuertemente tipadas en Zod** que interactuan de forma segura e idempotente con PostgreSQL mediante Drizzle ORM.
-5. Una interfaz de terminal profesional (TUI) con arbol de introspeccion (**Thought Tree**) y tarjetas tecnicas de **Diff de Impacto en Base de Datos**.
-6. Un **Data Layer blindado** con circuit breaker ante borrados masivos (>20%), confirmacion en dos fases, deteccion de alteracion de esquema (schema drift) y rechazo de datos obsoletos (`RULE_STALE_DATA_REFUSAL`).
-7. Gobernanza remota multicanal a traves de **Telegram**, **Slack** y **Gmail** con tokens criptograficos firmados HMAC-SHA256 de un solo uso.
+La plataforma trasciende los modelos conversacionales tradicionales y los pipelines rígidos de automatización al combinar:
+1. Un **bucle de razonamiento y acción ReAct** autónomo ejecutado sobre **xAI Grok (`grok-4.6`)**.
+2. Un **motor de superpoderes** que inyecta dinámicamente conocimiento experto en Markdown según la naturaleza del problema.
+3. Un arsenal de **8 herramientas de negocio tipadas** que interactúan con base de datos relacional mediante Drizzle ORM.
+4. Una **consola web moderna (Mint Platform)** desarrollada en **React 19, Vite y Tailwind CSS v4** con panel de control, explorador de inventario, chat con el agente y bandeja de aprobaciones **Human-in-the-Loop**.
+5. Persistencia dual: **PostgreSQL 16 en la nube (Supabase)** con triggers inmutables y contenedor local **Docker Compose**.
 
 ### Ficha Tecnica del Proyecto
 
-| Parametro | Especificacion |
+| Parámetro | Especificación |
 | :--- | :--- |
-| **Nombre del Proyecto** | AI Back Office Agent (MINT) & Mint CLI |
+| **Nombre del Proyecto** | AI Back Office Agent (MINT) |
 | **Repositorio Oficial** | [DMntill4/ai-back-office](https://github.com/DMntill4/ai-back-office) |
-| **Rama Activa** | `developGuerra` |
-| **Arquitectura** | Monorepo modular con npm workspaces (100% Terminal-First) |
-| **Dominio de Negocio** | Ferreteria y Suministros Industriales (`Ferreteria Industrial Santandereana S.A.S.`) |
-| **Sedes Operativas** | Bucaramanga (`BOD-BUC`), Bogota (`BOD-BOG`), Medellin (`BOD-MED`) |
-| **Moneda y Umbral** | Pesos Colombianos (COP) / Umbral HITL: $5,000,000 COP |
-| **Modelo Principal de IA** | xAI Grok (`grok-4.6`) mediante Gateway oficial de produccion |
-| **Base de Datos & ORM** | PostgreSQL 16 (Supabase Cloud + Docker Alpine) + Drizzle ORM 0.45 |
-| **Cobertura de Pruebas** | 82 de 82 pruebas automatizadas en Vitest (23 suites de prueba) |
+| **Versión / Hito** | v2.6.0 (Monorepo Limpio: Mint CLI, Daemon Autónomo, Capa Ingesta, Notificadores y Consola Web) |
+| **Dominio de Aplicación** | Coordinación Logística, Compras, Auditoría de Stock y Control Financiero |
+| **Modelo Principal de IA** | xAI Grok (`grok-4.6`) mediante Gateway oficial de producción |
+| **Consola Web (Frontend)** | React 19, TypeScript, Vite 6, Tailwind CSS v4, Framer Motion |
+| **Servidor API Backend** | Fastify 5.x con soporte CORS y bus de eventos proactivos |
+| **Base de Datos & ORM** | PostgreSQL 16 (Dual: Supabase Cloud con SSL + Docker Alpine local) con Drizzle ORM 0.45 |
+| **Cobertura de Pruebas** | 85 de 85 pruebas automáticas en Vitest (23 suites, 100% pasando a costo $0 USD) y 10/10 checks en selftest |
 | **Licencia** | ISC |
+
+### Equipo Contribuidor
+
+<table align="center">
+  <tr>
+    <td align="center" width="220px">
+      <a href="https://github.com/DMntill4">
+        <img src="https://github.com/DMntill4.png" width="90px;" alt="Diego Mantilla" style="border-radius: 50%;" /><br />
+        <sub><b>Diego Mantilla</b></sub>
+      </a><br />
+      <code>@DMntill4</code>
+    </td>
+    <td align="center" width="220px">
+      <a href="https://github.com/andresguerra321">
+        <img src="https://github.com/andresguerra321.png" width="90px;" alt="Andres Guerra" style="border-radius: 50%;" /><br />
+        <sub><b>Andres Guerra</b></sub>
+      </a><br />
+      <code>@andresguerra321</code>
+    </td>
+  </tr>
+</table>
 
 ---
 
-## 2. Diagrama de Secuencia y Flujo Operativo
+## 2. Épicas e Historias de Usuario
 
-El diseno del sistema se rige bajo el principio: **"El modelo de IA propone; el codigo determinista valida, audita el riesgo y ejecuta con verificacion fisica"**.
+La arquitectura del sistema responde a seis épicas de desarrollo diseñadas para garantizar gobernanza, robustez técnica y facilidad operativa.
+
+<p align="center">
+  <img src="../resources/img/userHistoriesAI-BACKOFFICE.png" alt="Historias de Usuario y Epicas" width="100%" />
+</p>
+
+### Épica 1: Infraestructura Cloud y Auditoría Inmutable
+* **Persistencia Cloud en Supabase:** PostgreSQL 16 alojado en la nube con soporte SSL automático en `src/db/client.ts`, operando 24/7 sin dependencia forzosa de contenedores locales.
+* **Trazabilidad Inalterable:** Trigger nativo en PostgreSQL que rechaza modificaciones (`UPDATE`) y eliminaciones (`DELETE`) sobre la tabla de auditoría `case_events`.
+
+### Épica 2: Conexión con Grok y Gobernanza de Costos
+* **Gateway Unificado:** Conector centralizado en `src/llm/client.ts` con manejo de tiempos límite, reintentos exponenciales ante cuotas de API (`429` / `5xx`) y registro de métricas de costo en USD por cada inferencia en `llm_calls`.
+* **Prueba de Humo y Autenticación:** Soporte flexible de llaves de entorno (`RETO_KEY`, `GROK_API_KEY`, `XAI_API_KEY`) verificado mediante pruebas continuas.
+
+### Épica 3: Datos de Negocio y Arsenal de Herramientas
+* **Catálogo Ampliado (16 SKUs):** Sembrado masivo con 5 productos sin stock, carencias de seguridad y alimentos perecederos con fecha de caducidad (criterio FEFO).
+* **Arsenal de 8 Herramientas Tipadas en Zod:**
+  1. `consultar_stock`: Búsqueda de inventario con Fuzzy Matching para tolerancia a errores tipográficos.
+  2. `ver_ordenes_abiertas`: Detección de órdenes en camino y compras activas.
+  3. `crear_orden_compra`: Creación idempotente con límite de aprobación humana ($10,000 MXN).
+  4. `evaluar_proveedores`: Matriz comparativa de proveedores por costo, velocidad o balance general.
+  5. `analisis_financiero`: Valuación de inventario total, compromisos financieros y presupuesto a 30 días.
+  6. `simular_escenario`: Simulaciones What-If de demanda y contingencias por retrasos de proveedores.
+  7. `auditar_anomalias`: Detección automática de descalces de inventario y sobrecostos.
+  8. `generar_reporte_general`: Reportes ejecutivos de productos más vendidos, agotados, por reabastecer y por caducar.
+
+### Épica 4: Bucle ReAct, Superpoderes y Pruebas a Costo Cero
+* **Motor de Superpoderes:** Inyección dinámica de contexto y directivas expertas (`src/agent/skills/`) según la intención detectada en la consulta (financiera, crisis de stock, negociación, seguridad).
+* **Validación a Costo $0 USD:** Cobertura de 20 pruebas automatizadas mediante un cliente simulado (`FakeGrokClient`) que reproduce casos complejos sin incurrir en costos de API.
+
+### Épica 5: Consola Web Interactiva (Mint Platform) y Human-in-the-Loop Visual
+* **Panel de Operaciones (Dashboard):** Visualización de KPIs en tiempo real (órdenes totales, tasa de automatización, revisiones pendientes, ahorros y gasto en USD) y gráficos interactivos de desempeño de proveedores (*Recharts*).
+* **Bandeja de Aprobaciones Human-in-the-Loop:** Interfaz visual para que supervisores autoricen o rechacen órdenes de compra mayores a $10,000 MXN en un clic (`POST /api/approvals/:id`).
+* **Consola de Chat del Agente:** Conversación fluida con sugerencias automáticas, insignias de estado de ejecución en vivo (`en_proceso`, `resuelto`, `escalado`) y desglose de tokens y costo en dólares.
+* **Explorador de Inventario y Línea de Tiempo:** Vista tabular de productos y existencias (`StockView`) y registro cronológico de auditoría que sustituye la terminal tradicional.
+
+### Épica 6: Entornos Reproducibles y Containerización con Docker
+* **Despliegue Local Aislado:** `docker-compose.yml` que orquesta la base de datos `postgres:16-alpine` y el contenedor de la aplicación `node:20-alpine` (`Dockerfile`), con script de inicialización `docker/init-db.sql` con roles y extensiones (`pgcrypto`).
+
+---
+
+## 3. Arquitectura del Sistema y Flujo Fullstack
+
+El diseño del sistema se rige bajo la premisa: **"El modelo decide qué hacer; el código valida, aplica permisos y verifica físicamente"**.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Operador as Operador / Supervisor
-    participant CLI as Mint CLI (Terminal TUI)
-    participant Daemon as Mint Daemon (Segundo Plano)
-    participant Coord as Agente Coordinador (coordinador.ts)
-    participant Harness as Harness Multi-Agente (harness.ts)
-    participant Risk as Especialista de Riesgo (riesgoSpecialist.ts)
-    participant Policy as Motor de Politicas (policyEngine.ts)
-    participant DB as PostgreSQL / Supabase
-    participant Remote as Canales Remotos (Telegram / Slack)
+    actor User as Usuario / Supervisor
+    participant UI as Consola Web Mint (React 19)
+    participant API as Servidor Fastify (server.ts)
+    participant SP as Motor Superpoderes (superpowers.ts)
+    participant AG as Motor ReAct (loop.ts)
+    participant LLM as Cliente Grok (client.ts)
+    participant TR as Herramientas & Zod (tools/)
+    participant DB as Postgres / Supabase
 
-    alt Disparo Automatico por Evento
-        Daemon->>Daemon: fs.watch / Escaneo de Existencias
-        Daemon->>Coord: Evento STOCK_CRITICAL detectado
-    else Consulta en Terminal
-        Operador->>CLI: mint console / mint inbox approve <id>
-        CLI->>Coord: Invocacion con contexto de caso
-    end
-
-    Coord->>DB: Registro del Caso (estado: en_proceso)
-    Coord->>Harness: Deliberacion Concurrente (Promise.all)
-    par Evaluacion Especializada
-        Harness->>Harness: Especialista Inventario (Demanda y Cobertura)
-        Harness->>Harness: Especialista Compras (Cotizaciones y MOQ)
-        Harness->>Harness: Especialista Transporte (Guias y Rutas)
-    end
-    Harness->>Risk: Sintesis de Propuestas
-    Risk->>Risk: Auditoria Adversarial (Score, Duplicados 72h)
-    Risk-->>Coord: ActionProposal Estructurada
-
-    Coord->>Policy: evaluatePolicy(proposal, companyPolicy)
-    alt Compra >= $5,000,000 COP o Nivel Assisted
-        Policy-->>Coord: PENDING_APPROVAL (HITL)
-        Coord->>DB: Insercion en tabla decisions (status: pendiente)
-        Coord->>Remote: Notificacion con Token Firmado HMAC-SHA256
-        Coord->>CLI: Alerta visual en Bandeja HITL
-    else Compra < $5,000,000 COP o Nivel Auto
-        Policy-->>Coord: AUTO_EXECUTED
-        Coord->>DB: Insercion de Orden de Compra (Idempotente)
-        Coord->>DB: Verificacion Fisica de Fila en BD
-        Coord->>DB: Registro Inmutable en case_events
-        Coord->>CLI: Renderizado de Diff de Impacto en BD
+    User->>UI: Interacción (Chat / Aprobación / Consulta)
+    alt Consulta Conversacional o Disparo de Tarea
+        UI->>API: POST /api/chat { message, caseId }
+        API->>SP: Consulta de Negocio
+        SP->>SP: Clasificación e Inyección de Skills Markdown
+        SP->>AG: Prompt Enriquecido
+        AG->>DB: Registro del Caso (estado: en_proceso)
+        loop Ciclo ReAct (Hasta 10 Pasos)
+            AG->>LLM: Inferencia (Mensajes + Herramientas)
+            LLM-->>AG: Decisión (Pensamiento + Tool Call o Dictamen)
+            alt Invocación de Herramienta
+                AG->>TR: Validación de Entrada con Zod
+                alt Compra > $10,000 MXN
+                    TR->>DB: Inserción en tabla approvals (status: pendiente)
+                    TR-->>AG: Requiere aprobación de supervisor
+                else Operación Permitida
+                    TR->>DB: Ejecución Idempotente y Verificación Física
+                    DB-->>TR: Confirmación en BD
+                    TR-->>AG: Resultado Verificado
+                end
+            else Dictamen Final
+                AG->>DB: Cierre de Caso (resuelto o escalado)
+            end
+            AG->>DB: Registro en case_events (Inmutable)
+            AG->>DB: Registro en llm_calls (Costo y Latencia)
+        end
+        API-->>UI: Respuesta estructurada (resumen, métricas, costo USD)
+        UI-->>User: Visualización en Chat y Dashboard
+    else Resolución Human-in-the-Loop
+        User->>UI: Clic en "Aprobar" / "Rechazar" Orden
+        UI->>API: POST /api/approvals/:id { action }
+        API->>DB: Actualización de estado en tabla approvals
+        API-->>UI: Confirmación de orden procesada
+        UI-->>User: Notificación Toast (Sonner) y actualización de KPIs
     end
 ```
 
 ---
 
-## 3. Stack Tecnologico e Infraestructura
+## 4. Stack Tecnológico e Infraestructura
 
-| Capa Tecnologica | Herramienta / Libreria | Funcion Principal |
+| Capa Tecnológica | Herramienta / Librería | Función Principal |
 | :--- | :--- | :--- |
-| **Entorno de Ejecucion** | Node.js (>=22.5.0) | Motor de ejecucion con soporte nativo de `node:sqlite`. |
-| **Lenguaje y Tipado** | TypeScript 5.6 | Tipado estricto end-to-end con cero errores en compilacion. |
-| **Monorepo** | npm workspaces | Modularizacion en `@mint/core`, `@mint/cli`, `@mint/daemon`, `@mint/ingest`, `@mint/notifiers`. |
-| **Terminal TUI** | Chalk + Cli-Table3 + Ora | Interfaz de terminal de alta densidad inspirada en Claude Code / Kali Linux. |
-| **Inteligencia Artificial** | xAI Grok (`grok-4.6`) | Inferencia de razonamiento y generacion de planes ReAct. |
-| **Base de Datos Relacional** | PostgreSQL 16 (Supabase + Docker) | Persistencia transaccional ACID y triggers inmutables de auditoria. |
-| **ORM & Migraciones** | Drizzle ORM 0.45 + Drizzle Kit | Acceso a datos tipado y gestion controlada de esquemas. |
-| **Validacion de Esquemas** | Zod 4.x | Validacion en runtime de parametros de tools y configuraciones. |
-| **Seguridad de Credenciales** | Crypto Nativo (AES-256-GCM / Scrypt) | Boveda cifrada local (`keychain.ts`) sin almacenamiento en texto plano. |
-| **Gobernanza Remota** | Telegram Bot API + Slack Bolt + Nodemailer | Aprobaciones HITL remotas mediante firmas criptograficas HMAC-SHA256. |
-| **Testing Automatizado** | Vitest 5.0 | 82 pruebas automatizadas sin consumo de API gracias a `FakeGrokClient`. |
+| **Frontend UI** | React 19 + TypeScript + Vite 6 | Consola interactiva web de alto rendimiento y bajo consumo. |
+| **Diseño y Estética** | Tailwind CSS v4 + Framer Motion | Interfaz Glassmorphism, tipografía Outfit y físicas fluidas. |
+| **Componentes Visuales** | Lucide React + Recharts + Radix UI + cmdk | Gráficas analíticas, tooltips, paleta de comandos y notificaciones. |
+| **Modelo de Inteligencia Artificial** | xAI Grok (`grok-4.6`) | Razonamiento de alto nivel, descomposición ReAct y toma de decisiones. |
+| **Servidor HTTP / API** | Fastify 5.x + CORS | Endpoints REST de alto rendimiento para chat, dashboard y aprobaciones. |
+| **Base de Datos Relacional** | PostgreSQL 16 (Supabase Cloud + Docker) | Persistencia ACID de negocio y tablas inmutables de auditoría. |
+| **ORM & Migraciones** | Drizzle ORM 0.45 + Drizzle Kit | Mapeo relacional tipado en TypeScript y gestión de migraciones. |
+| **Validación de Esquemas** | Zod 4.x | Validación en tiempo de ejecución de inputs de herramientas y config. |
+| **Logging y Telemetría** | Pino + Pino-Pretty | Registros estructurados en formato JSON ultrarrápido. |
+| **Contenedores** | Docker + Docker Compose + Alpine | Despliegue de desarrollo reproducible y aislado. |
+| **Testing Automatizado** | Vitest 5.0 | Suite de 20 pruebas de unidad y escenarios simulados a costo $0 USD. |
 
 ---
 
-## 4. Gobernanza Determinista, Seguridad Presupuestaria e Inmutabilidad
+## 5. Gobernanza, Seguridad Presupuestaria e Inmutabilidad
 
-Para garantizar estabilidad corporativa y eliminar riesgos de alucinacion, la plataforma implementa:
+Para asegurar operaciones corporativas confiables, la plataforma implementa salvaguardas en cada nivel:
 
-1. **Gobernanza Human-in-the-Loop Presupuestaria ($5,000,000 COP):**
-   - El costo total es calculado matematicamente por codigo determinista (`cantidad × precio_unitario`).
-   - Si la compra es igual o superior a **$5,000,000 COP**, el agente **nunca ejecuta la compra directamente**. En su lugar, emite una propuesta estructurada en la tabla `decisions` y escala el caso para autorizacion humana.
-2. **Garantia de Idempotencia y Ventana Anti-Duplicados (72 Horas):**
-   - Toda transaccion requiere una clave unica (`idempotencyKey`).
-   - El motor de politicas bloquea compras si ya existe una orden activa para el mismo producto con el mismo proveedor dentro de 72 horas.
-3. **Verificacion Fisica Post-Escritura:**
-   - Un caso solo puede cerrarse como `resuelto` si la fila insertada es verificada fisicamente mediante una consulta de confirmacion contra PostgreSQL.
+1. **Gobernanza Human-in-the-Loop Presupuestaria ($10,000 MXN):**
+   - La herramienta `crear_orden_compra` calcula el monto total (`cantidad × precio_unitario`).
+   - Si la orden supera los **$10,000 MXN**, el agente **nunca ejecuta la compra directamente**. En su lugar, emite un requerimiento en la tabla `approvals` con status `pendiente` y escala el caso para autorización en la interfaz web.
+2. **Garantía de Idempotencia:**
+   - Toda escritura exige una clave única de idempotencia (`idempotency_key`), previniendo transacciones duplicadas por caídas de red o reintentos de consulta.
+3. **Verificación Física Post-Escritura:**
+   - Un caso solo puede cerrarse como `resuelto` si el registro físico es verificado mediante una consulta de confirmación contra la base de datos relacional. Si la verificación falla, se clasifica como `escalado`.
 4. **Trigger Append-Only en PostgreSQL:**
-   - La tabla `case_events` cuenta con un trigger nativo (`trigger_prevent_case_events_delete`) que deniega terminantemente sentencias `UPDATE` y `DELETE`.
-5. **Circuit Breaker y Guardrail de Frescura:**
-   - Si una sincronizacion pierde mas del 20% de los productos activos, el motor congela la actualizacion.
-   - Si los datos superan 24 horas sin sincronizarse, el sistema activa `RULE_STALE_DATA_REFUSAL` y rechaza autoejecutar ordenes.
+   - La tabla `case_events` cuenta con un trigger que rechaza sentencias `UPDATE` y `DELETE`, protegiendo la trazabilidad jurídica y corporativa.
 
 ---
 
-## 5. Resumen de Pruebas Tecnicas Automatizadas
+## 6. Pruebas Técnicas y Escenarios Validados (Costo $0 USD)
 
-La suite cuenta con **82 pruebas automatizadas** en `Vitest` (100% pasando):
+Se dispone de una suite integral de **85 pruebas automatizadas** en `Vitest` organizadas en 23 suites de test a lo largo del monorepo (`@mint/core`, `@mint/cli`, `@mint/daemon`, `@mint/ingest`, `@mint/notifiers`). Gracias al adaptador `FakeGrokClient` y mocks deterministas, los tests reproducen llamadas al modelo y flujos de negocio sin consumir saldo real de API:
 
-| Archivo de Prueba | Escenarios Validados | Estado |
+| Suite / Archivo de Prueba | Escenarios Validados | Resultado |
 | :--- | :--- | :---: |
-| `tests/immutability.test.ts` | Triggers PostgreSQL append-only y bloqueo de DELETE | [OK] |
-| `tests/tools.test.ts` | Herramientas de stock, ordenes de compra y esquemas Zod | [OK] |
-| `tests/cli_keychain.test.ts` | Cifrado AES-256-GCM y derivacion scrypt de credenciales | [OK] |
-| `tests/policy_engine.test.ts` | Reglas deterministas, umbrales y modos de autonomia | [OK] |
-| `tests/auth_setup.test.ts` | Flujo de configuracion inicial y provision de empresas | [OK] |
-| `tests/context_manager.test.ts` | Manejo de memoria operativa y contexto multi-turno | [OK] |
-| `tests/llm_client.test.ts` | Conector de xAI Grok, manejo de cuotas y reintentos | [OK] |
-| `tests/config.test.ts` | Validacion de variables de entorno y defaults seguros | [OK] |
-| `tests/sales_channel_execution.test.ts` | Procesamiento idempotente de ventas por canales | [OK] |
-| `tests/agent_schema.test.ts` | Validaciones estrictas de esquemas de datos del agente | [OK] |
-| `tests/demand_and_shipments.test.ts` | Calculo de consumo historico y seguimiento de guias | [OK] |
-| `tests/ingest.test.ts` | Ingesta tolerante a fallos y mapeo semantico de columnas | [OK] |
-| `tests/benchmark_agent_vs_baseline.test.ts` | Evaluacion cuantitativa del agente vs politica basica | [OK] |
-| `tests/agent_loop.test.ts` | Ciclo ReAct, ejecucion de tools y dictamen final | [OK] |
-| `tests/autonomous_harness_and_team.test.ts` | Deliberacion concurrente y roles RBAC SaaS | [OK] |
-| `tests/cli_terminal_autonomous.test.ts` | Comandos de terminal, Thought Tree y UI visual | [OK] |
-| `tests/telegram_remote_approval.test.ts` | Aprobacion remota con tokens firmados HMAC-SHA256 | [OK] |
-| `tests/scenarios.test.ts` | Choques de suministro what-if en sandbox | [OK] |
-| `tests/e2e_mint_cli.test.ts` | Flujo de vida completo end-to-end de Mint CLI | [OK] |
-| `tests/daemon_watcher.test.ts` | Observador de archivos fs.watch y monitor periodico | [OK] |
-| `tests/data_layer_hardening.test.ts` | Circuit breaker (>20%), drift y frescura de datos | [OK] |
+| `tests/agent_schema.test.ts` | Validaciones de esquemas Zod de casos y eventos | [OK] Aprobado |
+| `tests/agent_loop.test.ts` | Ciclo ReAct, resolución de casos y cierre estricto | [OK] Aprobado |
+| `tests/tools.test.ts` | Herramientas de stock, órdenes y control de aprobación | [OK] Aprobado |
+| `tests/scenarios.test.ts` | Escenarios de negocio complejos (reabastecimiento, desabasto) | [OK] Aprobado |
+| `tests/db.test.ts` | Consultas relacionales y persistencia de auditoría | [OK] Aprobado |
+| `tests/superpowers.test.ts` | Detección de intenciones e inyección de skills Markdown | [OK] Aprobado |
+| `tests/proactive.test.ts` | Worker de auditoría proactiva y generación de alertas | [OK] Aprobado |
+| `tests/idempotency.test.ts` | Prevención de duplicados en órdenes de compra concurrentes | [OK] Aprobado |
+| `tests/daemon.test.ts` | Vigilancia en segundo plano y detección de desabasto/retrasos | [OK] Aprobado |
+| `tests/data_layer.test.ts` | Ingesta multi-fuente, fingerprinting y sanitización | [OK] Aprobado |
+| `tests/circuit_breaker.test.ts` | Protección contra borrado masivo (>20%) y two-phase deletion | [OK] Aprobado |
+| `tests/sales_channel.test.ts` | Canales remotos (Discord/Slack/Telegram) e idempotencia | [OK] Aprobado |
+| `tests/decision_execution.test.ts` | Ejecución de compras, guía logística y orden de dispersión financiera | [OK] Aprobado |
+| `tests/benchmark.test.ts` | Benchmark formal vs regla determinista simple ($Q = S_{min} - S_{actual}$) | [OK] Aprobado |
 
 ---
 
-## 6. Telemetria y Control de Costos
+## 7. Telemetría y Control de Costos en USD
 
-Cada llamada a Grok registra de forma estricta sus metricas en la tabla `llm_calls`:
-- **Tarifa Base Grok 4.6:** $2.00 USD por millon de tokens de entrada / $10.00 USD por millon de tokens de salida.
-- **Auditoria de Eficiencia:** El Harness Multi-Agente ejecuta llamadas concurrentes compactas con prompts delimitados por especialista, reduciendo la ventana de contexto y los costos operativos en comparacion con un agente monolítico.
+Cada llamada a Grok registra de forma estricta sus métricas en la tabla `llm_calls`:
+- **Tarifa Base Grok 4.6:** $2.00 USD por millón de tokens de entrada / $10.00 USD por millón de tokens de salida / $0.50 USD por millón de tokens en caché.
+- **Fórmula de Cálculo:**
+  $$\text{Costo Total} = \left(\frac{\text{Tokens Prompt} \times 2.00}{10^6}\right) + \left(\frac{\text{Tokens Completion} \times 10.00}{10^6}\right)$$
+- **Latencia:** Medición en milisegundos de cada turno del agente para auditoría de rendimiento.
 
 ---
 
 <p align="center">
-  <b>AI Back Office Agent (MINT)</b> - Desarrollado para el Reto de Agentes Autonomos 2026.
+  <b>AI Back Office Agent (MINT)</b> - Desarrollado por Diego Mantilla y Andres Guerra para el Reto de Agentes Autónomos 2026.
 </p>

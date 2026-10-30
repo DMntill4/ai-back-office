@@ -1,0 +1,251 @@
+{
+  "mintVersion": "2.5.0",
+  "exportedAt": "2026-10-27T20:57:47.806Z",
+  "company": {
+    "id": "comp_default",
+    "name": "Acme Industrial Corp",
+    "slug": "acme-corp",
+    "legalName": null,
+    "taxId": null,
+    "rfcTaxId": null,
+    "currency": "COP",
+    "streetAddress": null,
+    "postalCode": null,
+    "city": null,
+    "state": null,
+    "country": "México",
+    "latitude": null,
+    "longitude": null,
+    "createdAt": "2026-10-24T18:44:38.495Z",
+    "updatedAt": "2026-10-27T19:42:09.436Z"
+  },
+  "businessConfig": [
+    {
+      "companyId": "comp_default",
+      "key": "email_verification_owner_test_e1@empresa.com",
+      "value": "{\"code\":\"106730\",\"expiresAt\":\"2026-10-27T19:57:08.268Z\",\"verified\":true,\"verifiedAt\":\"2026-10-27T19:42:09.155Z\"}",
+      "currency": "USD",
+      "description": "Código de verificación para owner_test_e1@empresa.com",
+      "updatedAt": "2026-10-27T19:42:09.155Z"
+    },
+    {
+      "companyId": "comp_default",
+      "key": "min_stock_sku_test_01",
+      "value": "35",
+      "currency": "USD",
+      "description": null,
+      "updatedAt": "2026-10-27T19:47:07.714Z"
+    },
+    {
+      "companyId": "comp_default",
+      "key": "currency",
+      "value": "USD",
+      "currency": "USD",
+      "description": null,
+      "updatedAt": "2026-10-27T19:42:09.344Z"
+    },
+    {
+      "companyId": "comp_default",
+      "key": "timezone",
+      "value": "America/Bogota",
+      "currency": "USD",
+      "description": null,
+      "updatedAt": "2026-10-27T19:42:09.672Z"
+    },
+    {
+      "companyId": "comp_default",
+      "key": "autonomy_level",
+      "value": "hitl",
+      "currency": "USD",
+      "description": null,
+      "updatedAt": "2026-10-27T20:02:54.565Z"
+    }
+  ],
+  "tableMappings": [],
+  "pendingQuestions": [
+    {
+      "id": "q_e0299623",
+      "companyId": "comp_default",
+      "topic": "approval_limit_missing",
+      "question": "No tengo este dato: cual es el monto maximo que MINT puede autoejecutar sin aprobacion (en la divisa de la empresa)? Mientras tanto toda propuesta pasa a /inbox.",
+      "context": {},
+      "status": "pending",
+      "answer": null,
+      "answeredBy": null,
+      "createdAt": "2026-10-27T17:05:35.931Z",
+      "answeredAt": null
+    },
+    {
+      "id": "q_c02cb4bf",
+      "companyId": "comp_default",
+      "topic": "supplier_missing",
+      "question": "El producto ID 'prod_mint_val_800' no tiene proveedor asignado ni historial de compras. Favor indicar proveedor y precio acordado.",
+      "context": {
+        "productId": "prod_mint_val_800",
+        "targetQuantity": 10
+      },
+      "status": "pending",
+      "answer": null,
+      "answeredBy": null,
+      "createdAt": "2026-10-27T17:17:02.819Z",
+      "answeredAt": null
+    },
+    {
+      "id": "q_f7bda1b6",
+      "companyId": "comp_default",
+      "topic": "supplier_missing",
+      "question": "El producto ID 'prod_d9d040fc' no tiene proveedor asignado ni historial de compras. Favor indicar proveedor y precio acordado.",
+      "context": {
+        "productId": "prod_d9d040fc",
+        "targetQuantity": 25
+      },
+      "status": "pending",
+      "answer": null,
+      "answeredBy": null,
+      "createdAt": "2026-10-27T20:01:21.212Z",
+      "answeredAt": null
+    },
+    {
+      "id": "q_f9dd05ed",
+      "companyId": "comp_default",
+      "topic": "supplier_missing",
+      "question": "El producto ID 'prod_a7f89516' no tiene proveedor asignado ni historial de compras. Favor indicar proveedor y precio acordado.",
+      "context": {
+        "productId": "prod_a7f89516",
+        "targetQuantity": 25
+      },
+      "status": "pending",
+      "answer": null,
+      "answeredBy": null,
+      "createdAt": "2026-10-27T20:02:21.679Z",
+      "answeredAt": null
+    },
+    {
+      "id": "q_57d81eae",
+      "companyId": "comp_default",
+      "topic": "supplier_missing",
+      "question": "El producto ID 'prod_unlinked_non_existent' no tiene proveedor asignado ni historial de compras. Favor indicar proveedor y precio acordado.",
+      "context": {
+        "productId": "prod_unlinked_non_existent",
+        "targetQuantity": 10
+      },
+      "status": "pending",
+      "answer": null,
+      "answeredBy": null,
+      "createdAt": "2026-10-27T20:53:54.239Z",
+      "answeredAt": null
+    },
+    {
+      "id": "q_158a2035",
+      "companyId": "comp_default",
+      "topic": "freight_tariff_missing",
+      "question": "No tengo este dato: cual es la tarifa base y la tarifa por km de flete (en la divisa de la empresa)? Configura freight_base_rate y freight_rate_per_km.",
+      "context": {},
+      "status": "pending",
+      "answer": null,
+      "answeredBy": null,
+      "createdAt": "2026-10-27T20:55:17.022Z",
+      "answeredAt": null
+    }
+  ],
+  "notificationChannels": [
+    {
+      "id": "chan_telegram_cacf0e94",
+      "companyId": "comp_default",
+      "type": "telegram",
+      "name": "Canal Operaciones Logísticas Telegram",
+      "config": {
+        "chatId": "99887766",
+        "botToken": "simulated_tg_token"
+      },
+      "isActive": true,
+      "quietHoursStart": null,
+      "quietHoursEnd": null,
+      "createdAt": "2026-10-24T18:44:41.682Z"
+    },
+    {
+      "id": "chan_telegram_6fdeaf86",
+      "companyId": "comp_default",
+      "type": "telegram",
+      "name": "Canal Operaciones Logísticas Telegram",
+      "config": {
+        "chatId": "99887766",
+        "botToken": "simulated_tg_token"
+      },
+      "isActive": true,
+      "quietHoursStart": null,
+      "quietHoursEnd": null,
+      "createdAt": "2026-10-24T18:46:49.062Z"
+    },
+    {
+      "id": "chan_telegram_571e386d",
+      "companyId": "comp_default",
+      "type": "telegram",
+      "name": "Canal Operaciones Logísticas Telegram",
+      "config": {
+        "chatId": "99887766",
+        "botToken": "simulated_tg_token"
+      },
+      "isActive": true,
+      "quietHoursStart": null,
+      "quietHoursEnd": null,
+      "createdAt": "2026-10-24T18:47:30.694Z"
+    },
+    {
+      "id": "chan_telegram_8053d3e4",
+      "companyId": "comp_default",
+      "type": "telegram",
+      "name": "Canal Operaciones Logísticas Telegram",
+      "config": {
+        "chatId": "99887766",
+        "botToken": "simulated_tg_token"
+      },
+      "isActive": true,
+      "quietHoursStart": null,
+      "quietHoursEnd": null,
+      "createdAt": "2026-10-24T20:01:56.182Z"
+    },
+    {
+      "id": "chan_telegram_1a2da511",
+      "companyId": "comp_default",
+      "type": "telegram",
+      "name": "Canal Operaciones Logísticas Telegram",
+      "config": {
+        "chatId": "99887766",
+        "botToken": "simulated_tg_token"
+      },
+      "isActive": true,
+      "quietHoursStart": null,
+      "quietHoursEnd": null,
+      "createdAt": "2026-10-27T17:06:55.892Z"
+    },
+    {
+      "id": "chan_telegram_649ce30a",
+      "companyId": "comp_default",
+      "type": "telegram",
+      "name": "Canal Operaciones Logísticas Telegram",
+      "config": {
+        "chatId": "99887766",
+        "botToken": "simulated_tg_token"
+      },
+      "isActive": true,
+      "quietHoursStart": null,
+      "quietHoursEnd": null,
+      "createdAt": "2026-10-27T17:08:40.431Z"
+    },
+    {
+      "id": "chan_telegram_d7c3c85f",
+      "companyId": "comp_default",
+      "type": "telegram",
+      "name": "Canal Operaciones Logísticas Telegram",
+      "config": {
+        "chatId": "99887766",
+        "botToken": "simulated_tg_token"
+      },
+      "isActive": true,
+      "quietHoursStart": null,
+      "quietHoursEnd": null,
+      "createdAt": "2026-10-27T17:17:44.653Z"
+    }
+  ]
+}

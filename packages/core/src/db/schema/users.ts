@@ -7,11 +7,19 @@ import {
 } from "drizzle-orm/pg-core";
 import { companies } from "./business";
 
-// Roles del sistema:
-// - owner: Control total, customización del bot, umbrales y carga de BD SQL.
-// - operator: Consultas de stock, órdenes de compra y seguimiento de envíos.
-// - auditor: Aprobación Human-in-the-Loop, auditoría de logs inmutables y anomalías.
-// - viewer: Solo lectura de dashboards, existencias y métricas.
+// Roles locales dentro de la base de datos de la empresa cargada (companyId):
+// - owner: Dueño/propietario de la empresa, control total, umbrales y carga de datos.
+// - admin: Administrador local del negocio dentro de la empresa cargada (no es un admin global).
+// - supervisor: Supervisor de operaciones del negocio, autorización HITL y gestión operativa.
+// - operator: Operador de inventario, despacho, recepción y seguimiento.
+// - client: Cliente o destinatario registrado en la empresa (consulta de sus pedidos).
+// - driver: Conductor / transportista asignado a rutas de entrega.
+// - auditor: Auditor / supervisor HITL para validación de decisiones y eventos inmutables.
+// - finance: Control de tesorería, dispersión y pagos a proveedores.
+// - viewer: Consultor con acceso de solo lectura a métricas e inventario.
+//
+// NOTA ARQUITECTONICA: Todos los usuarios pertenecen estrictamente a una empresa especifica
+// mediante 'company_id'. No existe ningun 'admin global' ni usuarios con privilegios globales.
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // ej: 'usr_abc123' o uuid
   companyId: text("company_id")
@@ -21,7 +29,17 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   name: text("name").notNull(),
   role: text("role", {
-    enum: ["owner", "operator", "auditor", "viewer"],
+    enum: [
+      "owner",
+      "admin",
+      "supervisor",
+      "operator",
+      "driver",
+      "viewer",
+      "auditor",
+      "finance",
+      "client",
+    ],
   })
     .notNull()
     .default("owner"),

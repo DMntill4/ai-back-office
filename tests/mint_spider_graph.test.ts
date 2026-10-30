@@ -150,7 +150,7 @@ describe("MINT CLI: Grafo en vivo del agente (Spider Graph)", () => {
       target: {
         id: "prod_xss",
         label: "<script>alert('xss')</script>",
-        group: "node" as const,
+        group: "database" as const,
         metadata: {
           apiKey: "sk-super-secret-12345",
           password: "mySecretPassword!",

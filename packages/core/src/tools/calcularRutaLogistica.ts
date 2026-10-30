@@ -6,7 +6,7 @@ export const calcularRutaLogisticaSchema = z.object({
   proveedor_id: z
     .string()
     .optional()
-    .describe("ID, nombre o ciudad del proveedor de origen (ej. 'prov_dewalt', 'Bosch', 'Bogota', 'Bucaramanga')"),
+    .describe("ID, nombre o ciudad del proveedor de origen (ej. 'prov_01', 'Proveedor Central')"),
   almacen_id: z
     .string()
     .optional()
@@ -14,11 +14,11 @@ export const calcularRutaLogisticaSchema = z.object({
   origen_direccion: z
     .string()
     .optional()
-    .describe("Ciudad o dirección libre de origen (ej. 'Bogota, D.C.', 'Medellin', 'Zona Franca Santander')"),
+    .describe("Ciudad o dirección libre de origen (ej. 'Zona Franca', 'Calle 26')"),
   destino_direccion: z
     .string()
     .optional()
-    .describe("Ciudad o dirección libre de destino (ej. 'Bucaramanga, Santander', 'Centro de Distribucion Bogota')"),
+    .describe("Ciudad o dirección libre de destino (ej. 'Almacén Central', 'Bodega Norte')"),
 });
 
 export type CalcularRutaLogisticaInput = z.infer<typeof calcularRutaLogisticaSchema>;
@@ -58,16 +58,19 @@ export async function executeCalcularRutaLogistica(
       if (conf?.currency) currency = conf.currency;
     }
 
-    // 1. Obtener o geocodificar almacén/destino
+    // 1. Obtener o geocodificar almacén/destino (estrictamente dentro de la empresa activa)
     let targetWarehouse: any = null;
     if (args.almacen_id) {
       const found = await db
         .select()
         .from(warehouses)
         .where(
-          or(
-            eq(warehouses.id, args.almacen_id),
-            ilike(warehouses.name, `%${args.almacen_id}%`),
+          and(
+            eq(warehouses.companyId, effectiveCompanyId),
+            or(
+              eq(warehouses.id, args.almacen_id),
+              ilike(warehouses.name, `%${args.almacen_id}%`),
+            ),
           ),
         )
         .limit(1);
@@ -111,16 +114,19 @@ export async function executeCalcularRutaLogistica(
       };
     }
 
-    // 2. Obtener o geocodificar proveedor/origen
+    // 2. Obtener o geocodificar proveedor/origen (estrictamente dentro de la empresa activa)
     let targetSupplier: any = null;
     if (args.proveedor_id) {
       const found = await db
         .select()
         .from(suppliers)
         .where(
-          or(
-            eq(suppliers.id, args.proveedor_id),
-            ilike(suppliers.name, `%${args.proveedor_id}%`),
+          and(
+            eq(suppliers.companyId, effectiveCompanyId),
+            or(
+              eq(suppliers.id, args.proveedor_id),
+              ilike(suppliers.name, `%${args.proveedor_id}%`),
+            ),
           ),
         )
         .limit(1);
@@ -163,7 +169,10 @@ export async function executeCalcularRutaLogistica(
       };
     }
 
-    const route = await calculateRealRoute(origin, destination, { currency });
+    const route = await calculateRealRoute(origin, destination, {
+      currency,
+      companyId: effectiveCompanyId,
+    });
 
     const formatCost = (num: number) =>
       `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
@@ -187,11 +196,17 @@ export async function executeCalcularRutaLogistica(
         tiempoEstimadoTransito: route.durationFormatted,
         costoFleteEstimado: route.costoFleteFormatted,
         moneda: currency,
-        desgloseFlete: {
-          tarifaBaseManiobra: formatCost(route.desgloseCostos.tarifaBase),
-          costoPorDistancia: formatCost(route.desgloseCostos.costoPorDistancia),
-          peajesYTasasTransito: formatCost(route.desgloseCostos.peajesYTasasTransito),
-        },
+        desgloseFlete: route.desgloseCostos
+          ? {
+              tarifaBaseManiobra: formatCost(route.desgloseCostos.tarifaBase),
+              costoPorDistancia: formatCost(route.desgloseCostos.costoPorDistancia),
+              peajesYTasasTransito: formatCost(route.desgloseCostos.peajesYTasasTransito),
+            }
+          : {
+              tarifaBaseManiobra: "Tarifa no configurada",
+              costoPorDistancia: "Tarifa no configurada",
+              peajesYTasasTransito: "Tarifa no configurada",
+            },
         motorCartografico: route.motorUtilizado,
       },
     };

@@ -47,15 +47,23 @@ export interface ActionProposal {
 
 export type AutonomyLevel = "dry-run" | "assisted" | "auto";
 
+export function normalizeAutonomyLevel(raw?: string | null): AutonomyLevel {
+  if (!raw) return "assisted";
+  const clean = raw.toLowerCase().trim();
+  if (clean === "dry-run" || clean === "hitl") return "dry-run";
+  if (clean === "auto" || clean === "autonomo") return "auto";
+  return "assisted";
+}
+
 export interface CompanyPolicyRules {
-  approvalLimitAmount?: number; // Límite monetario autónomo (por defecto: 5,000,000 COP)
+  approvalLimitAmount?: number; // Límite monetario autónomo configurado por la empresa
   prohibitedSuppliers?: string[];
   requireHitlOnIrreversible?: boolean;
   minConfidenceThreshold?: number; // ej: 0.80
   maxAutonomousRiskScore?: number; // ej: 0.25
-  autonomyLevel?: AutonomyLevel; // dry-run | assisted | auto
+  autonomyLevel?: AutonomyLevel | "hitl" | "semiautonomo" | "autonomo"; // Soporta ambos vocabularios
   maxDataStalenessHours?: number; // Límite máximo de desfase en horas (ej: 24h)
-  currency?: string; // COP por defecto
+  currency?: string; // Divisa oficial de la empresa (USD, COP, MXN, etc.)
 }
 
 export interface PolicyEvaluation {
@@ -75,13 +83,21 @@ export function evaluatePolicy(
   proposal: ActionProposal,
   rules: CompanyPolicyRules = {},
 ): PolicyEvaluation {
-  const approvalLimit = rules.approvalLimitAmount ?? 5000000;
+  // Sin limite configurado por la empresa NO se asume ninguno: nada se autoejecuta
+  const approvalLimit: number | undefined =
+    typeof rules.approvalLimitAmount === "number" && rules.approvalLimitAmount > 0
+      ? rules.approvalLimitAmount
+      : undefined;
   const minConfidence = rules.minConfidenceThreshold ?? 0.80;
   const maxRiskForAuto = rules.maxAutonomousRiskScore ?? 0.25;
-  const requireHitlOnIrreversible = rules.requireHitlOnIrreversible ?? true;
-  const autonomyLevel = rules.autonomyLevel ?? "assisted";
+  const autonomyLevel = normalizeAutonomyLevel(rules.autonomyLevel);
+  const requireHitlOnIrreversible =
+    rules.requireHitlOnIrreversible !== undefined
+      ? rules.requireHitlOnIrreversible
+      : autonomyLevel === "assisted"
+        ? false // En modo asistido, el umbral presupuestal rige las compras
+        : true;
   const maxStaleness = rules.maxDataStalenessHours ?? 24;
-  const currency = rules.currency || "COP";
 
   const evaluatedAt = new Date().toISOString();
 
@@ -90,7 +106,6 @@ export function evaluatePolicy(
   const freshness = proposal.evidence?.dataFreshness;
   if (
     freshness &&
-    freshness.sourceStatus !== "NO_SOURCES" &&
     (!freshness.isFresh ||
       freshness.sourceStatus === "DRIFTED" ||
       freshness.sourceStatus === "ERROR" ||
@@ -147,13 +162,12 @@ export function evaluatePolicy(
 
   // 2. REGLAS DE AUTO-EJECUCIÓN (AUTONOMÍA COMPLETA)
   // Debe cumplir simultáneamente: bajo el umbral, bajo riesgo, alta confianza y proveedor conocido
-  const effectiveLimit =
-    rules.approvalLimitAmount !== undefined
-      ? rules.approvalLimitAmount
-      : autonomyLevel === "auto"
-      ? Math.max(approvalLimit, 10000000)
-      : approvalLimit;
-  const isUnderThreshold = proposal.costMxn <= effectiveLimit;
+  const currency = rules.currency || (proposal.evidence as any)?.currency || "USD";
+  const formatMoney = (val: number) =>
+    `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+
+  const effectiveLimit = approvalLimit;
+  const isUnderThreshold = effectiveLimit !== undefined && proposal.costMxn <= effectiveLimit;
   const isSafeRisk = proposal.riskAssessment.riskScore <= maxRiskForAuto;
   const isHighConfidence = proposal.confidence >= minConfidence;
   const isReversibleOrAllowed = proposal.reversible || !requireHitlOnIrreversible || autonomyLevel === "auto";
@@ -164,7 +178,7 @@ export function evaluatePolicy(
     if (autonomyLevel === "dry-run") {
       return {
         policyDecision: "pending_approval",
-        reason: `MODO DRY-RUN ACTIVO: La propuesta califica para auto-ejecución ($${proposal.costMxn.toLocaleString("es-CO", { minimumFractionDigits: 2 })} ${currency}), pero no se ejecutó en base de datos porque el modo activo es dry-run.`,
+        reason: `MODO DRY-RUN ACTIVO: La propuesta califica para auto-ejecución (${formatMoney(proposal.costMxn)}), pero no se ejecutó en base de datos porque el modo activo es dry-run.`,
         matchedRule: "RULE_DRY_RUN_GUARDRAIL",
         requiresHitl: true,
         canExecuteNow: false,
@@ -175,7 +189,7 @@ export function evaluatePolicy(
 
     return {
       policyDecision: "auto_executed",
-      reason: `AUTO-EJECUTADO: El monto ($${proposal.costMxn.toLocaleString("es-CO", { minimumFractionDigits: 2 })} ${currency}) está bajo el umbral de autonomía ($${effectiveLimit.toLocaleString("es-CO")} ${currency}), con riesgo mínimo (${(proposal.riskAssessment.riskScore * 100).toFixed(0)}%) y confianza sólida (${(proposal.confidence * 100).toFixed(0)}%).`,
+      reason: `AUTO-EJECUTADO: El monto (${formatMoney(proposal.costMxn)}) está bajo el umbral de autonomía (${formatMoney(effectiveLimit as number)}), con riesgo mínimo (${(proposal.riskAssessment.riskScore * 100).toFixed(0)}%) y confianza sólida (${(proposal.confidence * 100).toFixed(0)}%).`,
       matchedRule: "RULE_AUTONOMOUS_EXECUTION_ELIGIBLE",
       requiresHitl: false,
       canExecuteNow: true,
@@ -186,8 +200,10 @@ export function evaluatePolicy(
 
   // 3. REGLAS DE ESCALAMIENTO HUMANO (HUMAN-IN-THE-LOOP - BANDEJA DE DECISIONES)
   const hitlReasons: string[] = [];
-  if (!isUnderThreshold) {
-    hitlReasons.push(`El monto ($${proposal.costMxn.toLocaleString("es-CO", { minimumFractionDigits: 2 })} ${currency}) excede el umbral de autonomía autorizado de $${approvalLimit.toLocaleString("es-CO")} ${currency}`);
+  if (approvalLimit === undefined) {
+    hitlReasons.push("No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana");
+  } else if (!isUnderThreshold) {
+    hitlReasons.push(`El monto (${formatMoney(proposal.costMxn)}) excede el umbral de autonomía autorizado de ${formatMoney(approvalLimit)}`);
   }
   if (!proposal.reversible && requireHitlOnIrreversible && proposal.actionType === "crear_orden_compra") {
     hitlReasons.push("La orden de compra es una operación financiera vinculante");

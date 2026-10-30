@@ -261,7 +261,7 @@ export function getWebClientHtml(token: string, companyId: string, isDemo: boole
   <!-- 1. Header Bar -->
   <header>
     <div class="brand">
-      <span style="font-size: 15px; font-weight: 800; color: #fff;">🕷️ MINT Graph</span>
+      <span style="font-size: 15px; font-weight: 800; color: #fff;">MINT Graph</span>
       <span class="brand-badge">CLI LIVE</span>
       ${isDemo ? '<span class="demo-tag">[MODO DEMO]</span>' : ""}
       ${isShadow ? '<span style="background:#164e63; color:#67e8f9; font-size:10px; font-family:monospace; padding:2px 6px; border-radius:4px; border:1px solid #0891b2;">MODO SOMBRA</span>' : ""}
@@ -271,14 +271,14 @@ export function getWebClientHtml(token: string, companyId: string, isDemo: boole
     <input type="text" id="search-input" class="search-box" placeholder="Buscar nodo, SKU o proveedor..." />
 
     <div class="controls">
-      <button class="btn" id="btn-follow" title="La cámara sigue automáticamente a la araña">
-        <span>👁️ Seguir Araña</span>
+      <button class="btn" id="btn-follow" title="La cámara sigue automáticamente al agente">
+        <span>[CAM] Seguir Agente</span>
       </button>
       <button class="btn" id="btn-reduced-motion" title="Accesibilidad: reducir animaciones físicas">
-        <span>♿ Movimiento Suave</span>
+        <span>Movimiento Suave</span>
       </button>
       <button class="btn" id="btn-recenter" title="Centrar cámara en el grafo">
-        <span>🎯 Centrar</span>
+        <span>Centrar</span>
       </button>
     </div>
   </header>
@@ -305,7 +305,7 @@ export function getWebClientHtml(token: string, companyId: string, isDemo: boole
     <div class="overlay-panel" id="inspector-panel">
       <div class="now-title">
         <span>Detalle del Nodo</span>
-        <button id="close-inspector" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">✕</button>
+        <button id="close-inspector" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">X</button>
       </div>
       <div class="now-target" id="insp-label">Nombre del Nodo</div>
       <div style="font-size: 11px; font-family: monospace; color: var(--mint);" id="insp-type">TIPO</div>
@@ -315,7 +315,7 @@ export function getWebClientHtml(token: string, companyId: string, isDemo: boole
 
     <!-- Estado Vacío (Base de datos sin registros) -->
     <div id="empty-state">
-      <div style="font-size: 36px; margin-bottom: 12px;">🕸️</div>
+      <div style="font-size: 28px; margin-bottom: 12px; font-weight: bold; color: var(--mint);">[GRAFO]</div>
       <h2>Sin datos en la base de datos</h2>
       <p>No se encontraron productos, almacenes ni decisiones registradas en PostgreSQL para la empresa <strong id="empty-comp">${companyId}</strong>.<br><br>
       Por directiva de gobernanza de MINT, está <strong>prohibido inventar nodos o datos de relleno</strong>. Registra inventario o ejecuta un caso para observar el grafo.</p>
@@ -325,8 +325,8 @@ export function getWebClientHtml(token: string, companyId: string, isDemo: boole
   <!-- 3. Bottom Timeline Bar -->
   <footer>
     <div style="display: flex; align-items: center; gap: 8px;">
-      <button class="btn" id="btn-play-pause">⏸ Pausar</button>
-      <button class="btn" id="btn-rewind">⏪ -10s</button>
+      <button class="btn" id="btn-play-pause">Pausar</button>
+      <button class="btn" id="btn-rewind">Rebobinar -10s</button>
       <span id="clock" style="font-family: monospace; color: var(--text-muted);">--:--:--</span>
     </div>
 
@@ -892,7 +892,7 @@ export function getWebClientHtml(token: string, companyId: string, isDemo: boole
 
     document.getElementById("btn-play-pause").onclick = function() {
       isPaused = !isPaused;
-      this.textContent = isPaused ? "▶ Reanudar" : "⏸ Pausar";
+      this.textContent = isPaused ? "Reanudar" : "Pausar";
     };
 
     document.getElementById("btn-speed").onclick = function() {

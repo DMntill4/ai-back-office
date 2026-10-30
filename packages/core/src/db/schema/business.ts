@@ -47,6 +47,8 @@ export const products = pgTable(
     category: text("category").default("general"),
     sku: varchar("sku", { length: 50 }).notNull(),
     minStock: integer("min_stock").notNull().default(10),
+    price: decimal("price", { precision: 10, scale: 2 }),
+    costPrice: decimal("cost_price", { precision: 10, scale: 2 }),
     origin: text("origin", { enum: ["simulado", "real"] })
       .notNull()
       .default("simulado"),
@@ -120,6 +122,9 @@ export const suppliers = pgTable("suppliers", {
   country: varchar("country", { length: 50 }),
   latitude: decimal("latitude", { precision: 10, scale: 6 }),
   longitude: decimal("longitude", { precision: 10, scale: 6 }),
+  bankName: text("bank_name"),
+  bankAccountNumber: text("bank_account_number"),
+  bankClabe: varchar("bank_clabe", { length: 30 }),
   origin: text("origin", { enum: ["simulado", "real"] })
     .notNull()
     .default("simulado"),
@@ -167,6 +172,11 @@ export const purchaseOrders = pgTable("purchase_orders", {
   })
     .notNull()
     .default("abierta"),
+  paymentStatus: text("payment_status", {
+    enum: ["pendiente_pago", "pagada", "cancelada"],
+  })
+    .notNull()
+    .default("pendiente_pago"),
   idempotencyKey: varchar("idempotency_key", { length: 255 }).unique(),
   caseId: text("case_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -182,7 +192,7 @@ export const businessConfig = pgTable(
       .references(() => companies.id, { onDelete: "cascade" })
       .notNull()
       .default("comp_default"),
-    key: varchar("key", { length: 100 }).notNull(),
+    key: text("key").notNull(),
     value: text("value").notNull(),
     currency: varchar("currency", { length: 10 }).notNull().default("MXN"),
     description: text("description"),

@@ -21,7 +21,7 @@ export const MINT_SUPERPOWERS: Record<string, SuperpowerDefinition> = {
   FINANCIAL_MAESTRO: {
     id: "FINANCIAL_MAESTRO",
     name: "Finanzas & ROI de Inventario",
-    badge: "[SKILL] Financial Maestro",
+    badge: "[ACCION] Superpower: Financial Maestro",
     description: "Dominio en optimización de flujo de caja, retorno de inversión y presupuestos.",
     markdownFile: "financial_maestro.md",
     triggers: ["financiero", "dinero", "presupuesto", "costo", "valuacion", "gasto", "roi", "pesos", "valioso"],
@@ -29,7 +29,7 @@ export const MINT_SUPERPOWERS: Record<string, SuperpowerDefinition> = {
   SUPPLY_CHAIN_CRISIS: {
     id: "SUPPLY_CHAIN_CRISIS",
     name: "Resiliencia & Gestión de Crisis",
-    badge: "[SKILL] Supply Chain Crisis",
+    badge: "[ACCION] Superpower: Supply Chain Crisis",
     description: "Dominio en desabastecimiento inminente, simulaciones y compras urgentes.",
     markdownFile: "supply_chain_crisis.md",
     triggers: ["agotado", "emergencia", "crisis", "retraso", "urgente", "sin stock", "carencia", "falta"],
@@ -37,7 +37,7 @@ export const MINT_SUPERPOWERS: Record<string, SuperpowerDefinition> = {
   PROCUREMENT_NEGOTIATOR: {
     id: "PROCUREMENT_NEGOTIATOR",
     name: "Estratega de Compras & Proveedores",
-    badge: "[SKILL] Procurement Negotiator",
+    badge: "[ACCION] Superpower: Procurement Negotiator",
     description: "Dominio en matriz comparativa de proveedores y selección por costo/velocidad.",
     markdownFile: "procurement_negotiator.md",
     triggers: ["proveedor", "proveedores", "cotizar", "cotizacion", "grainger", "uline", "mouser", "elegir"],
@@ -45,7 +45,7 @@ export const MINT_SUPERPOWERS: Record<string, SuperpowerDefinition> = {
   EXECUTIVE_ANALYTICS: {
     id: "EXECUTIVE_ANALYTICS",
     name: "Analítica & Reportes Ejecutivos",
-    badge: "[SKILL] Executive Analytics",
+    badge: "[ACCION] Superpower: Executive Analytics",
     description: "Dominio en síntesis de KPIs de negocio y reportes para dirección.",
     markdownFile: "executive_analytics.md",
     triggers: ["reporte", "resumen", "ejecutivo", "ganadores", "mas vendido", "kpi", "analisis", "estado"],
@@ -107,12 +107,12 @@ export function buildSuperpowerContext(activatedSuperpowers: SuperpowerDefinitio
 
   return `
 ---
-### [HABILIDADES] SISTEMA DE HABILIDADES OPERATIVAS ACTIVADO (${badges})
+### [ACCION] SISTEMA DE SUPERPODERES ACTIVADO (${badges})
 
 ${superpowerMarkdowns}
 
 ---
-### [GUARDRAILS] DIRECTIVAS Y REGLAS DE SEGURIDAD GENERALES
+### [SEGURIDAD] GUARDRAILS Y REGLAS DE SEGURIDAD GENERALES
 ${securityMarkdown}
 ---
 `;

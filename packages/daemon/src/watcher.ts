@@ -62,16 +62,14 @@ export async function processFileChange(
   for (const row of parsed.rows) {
     const rawSku = (row[mappingResult.mappings.sku] || "").trim();
     if (!rawSku) continue;
-    const prodId = `prod_${rawSku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
-
     const prodRow = await db
-      .select()
+      .select({ id: products.id })
       .from(products)
-      .where(and(eq(products.id, prodId), eq(products.companyId, companyId)))
+      .where(and(eq(products.sku, rawSku), eq(products.companyId, companyId)))
       .limit(1);
 
     if (prodRow.length > 0) {
-      targetProductId = prodId;
+      targetProductId = prodRow[0].id;
       break;
     }
   }
@@ -90,6 +88,7 @@ export async function processFileChange(
       importedRows: importSummary.importedRows,
       failedRows: importSummary.failedRows,
     },
+    force: true,
   });
 
   return {

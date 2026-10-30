@@ -5,7 +5,7 @@ export const consultarEnviosSchema = z.object({
   numero_rastreo: z
     .string()
     .optional()
-    .describe("Número de guía o tracking del envío (ej. 'TRK-MX-88902')"),
+    .describe("Número de guía o tracking del envío (ej. 'TRK-FEDEX-88902' o 'TRK-IN-...')"),
   orden_id: z
     .string()
     .optional()

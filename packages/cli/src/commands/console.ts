@@ -1,6 +1,7 @@
 import * as readline from "readline";
-import { theme, renderSystemHeader } from "../ui/theme";
+import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
+import { drawFrame, type FrameRow } from "../ui/frame";
 import { getSession } from "../keychain";
 import { getDaemonStatus } from "@mint/daemon";
 import {
@@ -8,18 +9,50 @@ import {
   db,
   products,
   decisions,
-  shipments,
   warehouses,
+  suppliers,
   companies,
-  cases,
-  runAgentLoop,
   businessConfig,
-  analyzeDynamicCatalogHealth,
-  buildConsolidatedLoadPlans,
+  notificationChannels,
+  runPreflightCheck,
 } from "@mint/core";
-import { eq, and } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
-import { formatTerminalMarkdown } from "../ui/markdown";
+import { eq, and, sql } from "drizzle-orm";
+
+async function countRows(table: any, where: any): Promise<number> {
+  const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(table).where(where);
+  return Number(row?.n ?? 0);
+}
+
+/** Carga conteos livianos en paralelo con un tope de tiempo para no bloquear el arranque. */
+async function loadHeaderStats(companyId: string) {
+  const work = Promise.all([
+    countRows(products, eq(products.companyId, companyId)),
+    countRows(suppliers, eq(suppliers.companyId, companyId)),
+    countRows(warehouses, eq(warehouses.companyId, companyId)),
+    countRows(notificationChannels, eq(notificationChannels.companyId, companyId)),
+    countRows(decisions, and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval"))),
+    db.select().from(companies).where(eq(companies.id, companyId)).limit(1),
+    db
+      .select()
+      .from(businessConfig)
+      .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "autonomy_level")))
+      .limit(1),
+  ]);
+  const timeout = new Promise<null>((r) => setTimeout(() => r(null), 2500));
+  const res = await Promise.race([work, timeout]);
+  if (!res) return null;
+  const [prods, supps, whs, chans, pending, comp, autonomy] = res;
+  return {
+    prods,
+    supps,
+    whs,
+    chans,
+    pending,
+    country: (comp[0] as any)?.country as string | undefined,
+    currency: (comp[0] as any)?.currency as string | undefined,
+    autonomy: ((autonomy[0] as any)?.value as string | undefined) ?? "dry-run",
+  };
+}
 
 export async function consoleCommand() {
   let session = await getSession();
@@ -32,86 +65,104 @@ export async function consoleCommand() {
 
   const companyId = session?.companyId || "comp_default";
   const userName = session?.name || "operator";
-  const companyDisplayName = session?.companyName || "Ferretería Industrial Santandereana S.A.S.";
+  const companyDisplayName = session?.companyName || companyId;
 
   console.clear();
 
-  let dbConnected = true;
-  let autonomyLevel = "dry-run";
-  let prodsCount = 0;
-  let activeShipsCount = 0;
-  let ropAlertsCount = 0;
-  let whCity = "Bucaramanga";
-  let pendingCount = 0;
-  let initialScanFindings: string[] = [];
+  const daemon = getDaemonStatus();
+  const daemonLabel = daemon.isPaused ? "PAUSADO" : daemon.isRunning ? "ONLINE" : "STANDBY";
 
+  let preflight = null;
   try {
-    const [prods, whs, ships, pendingDecs, health, bConfigs] = await Promise.all([
-      db.select().from(products).where(eq(products.companyId, companyId)),
-      db.select().from(warehouses).where(eq(warehouses.companyId, companyId)),
-      db.select().from(shipments).where(eq(shipments.companyId, companyId)),
-      db
-        .select()
-        .from(decisions)
-        .where(and(eq(decisions.companyId, companyId), eq(decisions.policyDecision, "pending_approval"))),
-      analyzeDynamicCatalogHealth(companyId).catch(() => []),
-      db.select().from(businessConfig).where(eq(businessConfig.companyId, companyId)).catch(() => []),
-    ]);
-
-    prodsCount = prods.length;
-    pendingCount = pendingDecs.length;
-    activeShipsCount = ships.filter((s) => s.status === "en_transito" || s.status === "retrasado").length;
-    const ropAlerts = health.filter((h) => h.needsReorder);
-    ropAlertsCount = ropAlerts.length;
-    whCity = whs[0]?.city || whs[0]?.location || "Bucaramanga";
-    const autoCfg = bConfigs.find((c) => c.key === "autonomy_level");
-    if (autoCfg?.value) autonomyLevel = autoCfg.value;
-
-    if (ropAlerts.length > 0) {
-      initialScanFindings.push(
-        `${theme.amberBold("[STOCK BAJO ROP]")} ${ropAlerts.length} productos críticos: ${ropAlerts.slice(0, 3).map((r) => r.name).join(", ")}`,
-      );
-    }
-    const delayed = ships.filter((s) => s.status === "retrasado");
-    if (delayed.length > 0) {
-      initialScanFindings.push(
-        `${theme.redBold("[ALERTA ENVÍO]")} Guía ${delayed[0].trackingNumber} retrasada (${delayed[0].carrier || "Transportista"}).`,
-      );
-    }
+    preflight = await runPreflightCheck(companyId);
   } catch {
-    dbConnected = false;
+    // Continuar en modo degradado sin bloquear el arranque si la BD está inaccesible
   }
 
-  const daemon = getDaemonStatus();
+  const preflightBadgeColor =
+    preflight?.overallStatus === "OK"
+      ? theme.mint
+      : preflight?.overallStatus === "DEGRADADO"
+      ? theme.amber
+      : theme.red;
+
+  const rows: FrameRow[] = [
+    { key: "Empresa", value: companyDisplayName },
+    { key: "Rol", value: session?.role || "sin sesión" },
+  ];
+
+  if (preflight) {
+    const cfg = preflight.components.config.details;
+    const dbStatus = preflight.components.database.status;
+    const dbLatency = preflight.components.database.details?.latencyMs;
+
+    rows.push(
+      {
+        key: "Salud / Preflight",
+        value: `${preflight.overallStatus} (BD: ${dbStatus} ${dbLatency ? `${dbLatency}ms` : ""})`,
+        color: preflightBadgeColor,
+      },
+      {
+        key: "País / Moneda",
+        value: `${cfg.country || "sin definir"} / ${cfg.currency || "sin definir"} (${cfg.timezone || "sin definir"})`,
+        color: cfg.country && cfg.country !== "sin definir" ? undefined : theme.amber,
+      },
+      {
+        key: "Módulos Activos",
+        value: `${preflight.activeModules.length} activos [${preflight.activeModules.join(", ")}]`,
+        color: preflight.activeModules.length > 0 ? theme.cyan : theme.amber,
+      },
+      {
+        key: "Inbox Pendiente",
+        value: preflight.summarySinceLastSession.pendingDecisions > 0
+          ? `${preflight.summarySinceLastSession.pendingDecisions} aprobaciones`
+          : "al día",
+        color: preflight.summarySinceLastSession.pendingDecisions > 0 ? theme.amber : theme.mint,
+      },
+      {
+        key: "Cuarentena / Memoria",
+        value: `${preflight.summarySinceLastSession.quarantinedCount} en cuarentena | ${preflight.summarySinceLastSession.unansweredQuestions} preguntas`,
+        color: preflight.summarySinceLastSession.quarantinedCount > 0 ? theme.amber : undefined,
+      },
+    );
+  } else {
+    rows.push({ key: "Datos", value: "no disponibles (arranque en modo supervivencia)", color: theme.amber });
+  }
+
+  rows.push({ key: "Daemon", value: daemonLabel, color: daemon.isRunning && !daemon.isPaused ? theme.mint : theme.gray });
+
   console.log("");
   console.log(
-    renderSystemHeader({
-      dbConnected,
-      companyName: companyDisplayName,
-      daemonActive: daemon.isRunning && !daemon.isPaused,
-      autonomyLevel,
-      pendingCount,
+    drawFrame({
+      title: `${userName}@${companyId}`,
+      rows,
+      footerLeft: theme.dim("escribe en lenguaje natural o /help"),
+      footerRight: theme.dim(`v2.5.0  ${new Date().toLocaleTimeString()}`),
     }),
   );
-  console.log(
-    `  ${theme.dim("Catálogo:")} ${theme.smokeBold(String(prodsCount))} SKUs  │  ${theme.dim("Sede:")} ${theme.smoke(whCity)}  │  ${theme.dim("Bajo ROP:")} ${ropAlertsCount > 0 ? theme.amberBold(String(ropAlertsCount)) : theme.mint("0")}  │  ${theme.dim("En Tránsito:")} ${activeShipsCount}  │  ${theme.dim("Inbox:")} ${pendingCount}`,
-  );
-  console.log(
-    `  ${theme.dim("Comandos:")} ${theme.mintBold("/goal")}  ${theme.mint("/logistics")}  ${theme.mint("/dispatch")}  ${theme.mint("/stock")}  ${theme.mint("/inbox")}  ${theme.mint("/approve")}  ${theme.mint("/daemon")}  ${theme.mint("/help")}`,
-  );
-  console.log(theme.charcoal("  " + "─".repeat(82)));
 
-  // Diagnóstico autónomo inicial al arranque
-  if (initialScanFindings.length > 0) {
-    console.log(`\n  ${theme.mintBold("[DIAGNÓSTICO AUTÓNOMO INICIAL]")}`);
-    initialScanFindings.forEach((finding, idx) => {
-      const isLast = idx === initialScanFindings.length - 1 && pendingCount === 0;
-      console.log(`  ${theme.charcoal(isLast ? "└─" : "├─")} ${finding}`);
-    });
-    if (pendingCount > 0) {
-      console.log(`  ${theme.charcoal("└─")} ${theme.smoke(`Propuestas formuladas en /inbox. Usa ${theme.mintBold("/inbox")} o ${theme.mintBold("/approve <id>")} para autorizarlas.`)}`);
-    }
-    console.log("");
+  if (preflight && preflight.degradedModules.length > 0) {
+    console.log(
+      theme.amber(
+        `\n[AVISO] MODO DEGRADADO ACTIVO: ${preflight.degradedModules.map((m) => `${m.module} (${m.reason})`).join(" | ")}`
+      )
+    );
+  }
+
+  if (preflight && preflight.summarySinceLastSession.quarantinedCount > 0) {
+    console.log(
+      theme.amber(
+        `[AVISO] CUARENTENA: ${preflight.summarySinceLastSession.quarantinedCount} registros corruptos aislados de clientes. Ejecuta /quarantine para inspeccionar.`
+      )
+    );
+  }
+
+  if (preflight && preflight.summarySinceLastSession.unansweredQuestions > 0) {
+    console.log(
+      theme.cyan(
+        `[INFO] VERDAD DE DATOS: ${preflight.summarySinceLastSession.unansweredQuestions} preguntas pendientes para operar con total certeza. Ejecuta /questions.`
+      )
+    );
   }
 
   console.log("");
@@ -120,7 +171,26 @@ export async function consoleCommand() {
 
   return new Promise<void>((resolve) => {
     const slashCommands = [
-      "/goal",
+      "/agents",
+      "/orchestrate",
+      "/feed",
+      "/live",
+      "/audit",
+      "/sales",
+      "/profit",
+      "/reports",
+      "/track",
+      "/map",
+      "/questions",
+      "/doctor",
+      "/data-health",
+      "/quarantine",
+      "/briefing",
+      "/reconcile",
+      "/intel",
+      "/fleet",
+      "/suppliers",
+      "/customers",
       "/logistics",
       "/dispatch",
       "/receive",
@@ -139,10 +209,7 @@ export async function consoleCommand() {
       "/inbox",
       "/approve",
       "/reject",
-      "/invoice",
-      "/vouchers",
-      "/daemon",
-      "/agent",
+      "/cancel",
       "/explain",
       "/simulate",
       "/scan",
@@ -154,6 +221,9 @@ export async function consoleCommand() {
       "/whoami",
       "/login",
       "/logout",
+      "/goal",
+      "/graph",
+      "/memory",
       "/help",
       "/clear",
       "/exit",
@@ -173,6 +243,7 @@ export async function consoleCommand() {
 
     // Pulso silencioso en segundo plano (solo imprime si hay alerta nueva)
     let isScanning = false;
+    let lastHeartbeatError: string | undefined;
     const runAutonomousHeartbeat = async (isStartup = false) => {
       if (isScanning) return;
       isScanning = true;
@@ -181,20 +252,25 @@ export async function consoleCommand() {
         const scan = await runFullOperationalEventScan(companyId);
         const timeStr = new Date().toLocaleTimeString();
 
-        if (!isStartup && (scan.stockDeficitsFound > 0 || scan.delayedShipmentsFound > 0)) {
+        if (!isStartup && scan.processedDecisions.length > 0) {
           console.log(
-            `\n  ${theme.amberBold("[ALERTA]")} ${theme.dim(timeStr)} ${scan.stockDeficitsFound} desabasto(s) / ${scan.delayedShipmentsFound} retraso(s). ${scan.processedDecisions.length} propuesta(s) en /inbox.`,
+            `\n  ${theme.amberBold("[ALERTA]")} ${theme.dim(timeStr)} ${scan.processedDecisions.length} propuesta(s) nueva(s) en /inbox (${scan.stockDeficitsFound} desabasto(s), ${scan.delayedShipmentsFound} retraso(s)).`,
           );
           rl.prompt(true);
         }
-      } catch {
-        // Ignorar errores de red transitorios
+      } catch (err: any) {
+        // No se oculta el fallo: se avisa una vez por mensaje distinto
+        if (lastHeartbeatError !== err?.message) {
+          lastHeartbeatError = err?.message;
+          console.log(`\n  ${theme.amberBold("[AVISO]")} Heartbeat fallo: ${err?.message || "error desconocido"}`);
+          rl.prompt(true);
+        }
       } finally {
         isScanning = false;
       }
     };
 
-    setTimeout(() => runAutonomousHeartbeat(true), 500);
+    setTimeout(() => runAutonomousHeartbeat(true), 8000);
     const heartbeatTimer = setInterval(() => runAutonomousHeartbeat(false), 45000);
 
     rl.on("close", () => {
@@ -237,22 +313,51 @@ export async function consoleCommand() {
         switch (cmd) {
           case "help":
           case "?": {
-            console.log("\n" + drawDivider("COMANDOS DEL COORDINADOR LOGISTICO", 84));
-            console.log(`  ${theme.mintBold("/goal <objetivo>")}          Formular plan cuantitativo de ahorro (-30%) y encolar propuestas`);
+            console.log("\n" + drawDivider("COMANDOS DEL COORDINADOR LOGISTICO", 80));
             console.log(`  ${theme.mintBold("/logistics")}                Estado de bodegas GPS, embarques y ROP`);
+            console.log(`  ${theme.mintBold("/track <guia|pedido|camion>")} Rastreo en tiempo real, ETA, incidencias y mapa`);
+            console.log(`  ${theme.mintBold("/map [discover|confirm]")}    Convivencia y mapeo seguro de tablas del cliente (Tarea 0)`);
+            console.log(`  ${theme.mintBold("/questions [answer|dismiss]")} Banco de preguntas pendientes (Verdad de datos)`);
+            console.log(`  ${theme.mintBold("/intel [quiebre|overstock|abc]")} Inteligencia: días de quiebre, rotación y sobrestock`);
+            console.log(`  ${theme.mintBold("/fleet [track|drivers]")}     Control de flota, conductores y rastreo de envíos`);
+            console.log(`  ${theme.mintBold("/suppliers [add|<id>]")}      Directorio de proveedores y catálogo de precios`);
+            console.log(`  ${theme.mintBold("/orders [<id>|open|recibida]")} Órdenes de compra emitidas y estado de recepción`);
+            console.log(`  ${theme.mintBold("/customers")}                Demanda de clientes y canales comerciales`);
+            console.log(`  ${theme.mintBold("/reports [briefing|profit|csv]")} Reportes ejecutivos, ganancias y exportación`);
             console.log(`  ${theme.mintBold("/dispatch")}                 Despachar envio a cliente (ruta OSRM + guia)`);
             console.log(`  ${theme.mintBold("/receive <guia|po>")}        Recibir mercancia en almacen y sumar stock`);
             console.log(`  ${theme.mintBold("/consolidate")}              Consolidacion multi-SKU y Landed Cost`);
             console.log(`  ${theme.mintBold("/rebalance")}                Transferencias entre almacenes (Cross-Docking)`);
             console.log(`  ${theme.mintBold("/stock")}                    Tabla de existencias en tiempo real`);
-            console.log(`  ${theme.mintBold("/inbox")}                    Propuestas pendientes de aprobacion (HITL)`);
-            console.log(`  ${theme.mintBold("/approve <id>")}             Aprobar propuesta, emitir orden y factura electronica`);
-            console.log(`  ${theme.mintBold("/invoice [id]")}             Visualizar factura electronica y comprobante fiscal`);
-            console.log(`  ${theme.mintBold("/daemon | /agent")}          Explicacion y estado del agente autonomo 24/7`);
+            console.log(`  ${theme.mintBold("/inbox [all|<id>|clean]")}   Propuestas pendientes (lista, todas, detalle o archivar duplicadas)`);
+            console.log(`  ${theme.mintBold("/approve <id>")}             Aprobar propuesta (solo admin distinto al solicitante)`);
+            console.log(`  ${theme.mintBold("/cancel <id>")}              Cancelar propuesta pendiente antes de ejecutarse`);
+            console.log(`  ${theme.mintBold("/audit")}                    Canal en vivo de decisiones autónomas [OBSERVE, DECIDE, EXECUTE, VERIFY]`);
+            console.log(`  ${theme.mintBold("/team [list|invite|remove]")} Control de acceso RBAC y roles de la empresa`);
+            console.log(`  ${theme.mintBold("/config [set|minstock|tz]")}  Configuración, zona horaria y umbrales por producto`);
             console.log(`  ${theme.mintBold("/db [status|sync|switch]")}  Conectar o sincronizar base de datos`);
             console.log(`  ${theme.mintBold("/channels")}                 Gestionar canales Discord / Telegram / Slack`);
-            console.log(`  ${theme.mintBold("/app")}                      Abrir aplicacion de escritorio (Control Tower)`);
-            console.log(`  ${theme.mintBold("/whoami | /logout")}         Ver sesion activa o cerrar sesion\n`);
+            console.log(`  ${theme.mintBold("/data-health")}             Salud de datos por módulo, calidad y compuerta de decisión`);
+            console.log(`  ${theme.mintBold("/quarantine [resolve|ignore]")} Mesa de registros corruptos aislados`);
+            console.log(`  ${theme.mintBold("/shadow [on|off]")}           Modo sombra: simulación sin riesgo y comparación`);
+            console.log(`  ${theme.mintBold("/briefing")}                 Resumen diario ejecutivo: ventas, quiebres y retrasos`);
+            console.log(`  ${theme.mintBold("/reconcile")}                Conciliación 3 vías: ventas vs pagos vs despachos`);
+            console.log(`  ${theme.mintBold("/backup")}                   Exportar copia de seguridad de configuración y memoria`);
+            console.log(`  ${theme.mintBold("/demo [enter|exit]")}         Modo demo sandbox con datos aislados de prueba`);
+            console.log(`  ${theme.mintBold("/selftest")}                 Verificación integral del sistema [OK/ERROR] con evidencia`);
+            console.log(`  ${theme.mintBold("/whoami | /logout")}         Ver sesion activa y matriz de permisos o cerrar sesion\n`);
+            break;
+          }
+
+          case "intel":
+          case "rotacion":
+          case "quiebre":
+          case "overstock":
+          case "abc": {
+            const { intelCommand } = require("./intel");
+            const sub = cmd === "intel" ? args[0] : cmd;
+            const target = cmd === "intel" ? args[1] : args[0];
+            await intelCommand(sub, target);
             break;
           }
 
@@ -301,9 +406,17 @@ export async function consoleCommand() {
           }
 
           case "settings":
-          case "config": {
-            const { settingsCommand } = require("./channels");
-            await settingsCommand();
+          case "config":
+          case "thresholds":
+          case "minstock": {
+            const { configCommand } = require("./config");
+            if (cmd === "thresholds") {
+              await configCommand("thresholds");
+            } else if (cmd === "minstock") {
+              await configCommand("minstock", args[0], ...args.slice(1));
+            } else {
+              await configCommand(args[0], args[1], ...args.slice(2));
+            }
             break;
           }
 
@@ -323,8 +436,8 @@ export async function consoleCommand() {
           case "app":
           case "desktop":
           case "web": {
-            console.log(`\n  ${theme.mint("[TERMINAL-FIRST]")} Mint opera exclusivamente en modo terminal/consola en esta rama.`);
-            console.log(`  Ejecuta ${theme.bold("dashboard")} o ${theme.bold("status")} para ver la torre de control en tiempo real.\n`);
+            const { appCommand } = require("./app");
+            await appCommand({ open: true });
             break;
           }
 
@@ -375,12 +488,14 @@ export async function consoleCommand() {
 
             if (hResult.recommendedScenario) {
               const sc = hResult.recommendedScenario;
+              const { getCompanyConfig } = await import("@mint/core");
+              const cfg = await getCompanyConfig(companyId);
               console.log(
                 drawCard(
                   [
                     `${theme.dim("Estrategia:")}  ${theme.bold(sc.title)}`,
                     `${theme.dim("Proveedor:")}   ${theme.cyanBold(sc.supplierName)} (${sc.deliveryDays} dias)`,
-                    `${theme.dim("Monto:")}       $${sc.totalCostMxn.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`,
+                    `${theme.dim("Monto:")}       $${sc.totalCostMxn.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${cfg.currency}`,
                     `${theme.dim("Riesgo:")}      ${(sc.riskScore * 100).toFixed(0)}%`,
                     `${theme.dim("Veredicto:")}   ${theme.bold(sc.policyDecision.toUpperCase())}`,
                   ],
@@ -400,6 +515,86 @@ export async function consoleCommand() {
             break;
           }
 
+          case "agents":
+          case "agentes":
+          case "orchestrate":
+          case "orquestador": {
+            const { agentsCommand } = require("./agents");
+            await agentsCommand(args[0]);
+            break;
+          }
+
+          case "feed":
+          case "live":
+          case "watch": {
+            const { watchCommand } = require("./daemon");
+            await watchCommand();
+            break;
+          }
+
+          case "audit":
+          case "auditoria":
+          case "logs": {
+            const { auditCommand } = require("./audit");
+            let limit = 50;
+            let user: string | undefined;
+            let date: string | undefined;
+            let moduleName: string | undefined;
+
+            for (let i = 0; i < args.length; i++) {
+              const arg = args[i];
+              if (arg === "--user" && args[i + 1]) {
+                user = args[++i];
+              } else if (arg === "--date" && args[i + 1]) {
+                date = args[++i];
+              } else if (arg === "--module" && args[i + 1]) {
+                moduleName = args[++i];
+              } else if (!isNaN(parseInt(arg, 10)) && limit === 50) {
+                limit = parseInt(arg, 10);
+              }
+            }
+
+            await auditCommand({ limit, user, date, module: moduleName });
+            break;
+          }
+
+          case "profile":
+          case "perfil": {
+            const { profileCommand } = require("./profile");
+            await profileCommand();
+            break;
+          }
+
+          case "questions":
+          case "preguntas": {
+            const { questionsCommand } = require("./questions");
+            await questionsCommand(args[0], args[1], args.slice(2).join(" "));
+            break;
+          }
+
+          case "track":
+          case "rastreo":
+          case "rastrear": {
+            const { trackCommand } = require("./track");
+            await trackCommand(args[0], args[1]);
+            break;
+          }
+
+          case "map":
+          case "mapping":
+          case "esquema": {
+            const { mappingCommand } = require("./mapping");
+            await mappingCommand(args[0], args[1]);
+            break;
+          }
+
+          case "cancel":
+          case "cancelar": {
+            const { inboxCommand } = require("./inbox");
+            await inboxCommand("cancel", args[0], { noExit: true });
+            break;
+          }
+
           case "status":
           case "dash":
           case "dashboard": {
@@ -408,10 +603,81 @@ export async function consoleCommand() {
             break;
           }
 
-          case "today":
-          case "briefing": {
+          case "today": {
             const { todayCommand } = require("./chat");
             await todayCommand({ noExit: true });
+            break;
+          }
+
+          case "briefing": {
+            const { briefingCommand } = require("./briefing");
+            await briefingCommand();
+            break;
+          }
+
+          case "reconcile":
+          case "conciliar": {
+            const { reconcileCommand } = require("./reconcile");
+            await reconcileCommand();
+            break;
+          }
+
+          case "goal":
+          case "meta":
+          case "objetivo": {
+            const { goalCommand } = require("./goal");
+            await goalCommand(args.join(" "), { noExit: true });
+            break;
+          }
+
+          case "graph":
+          case "grafo": {
+            const { runTuiGraph } = require("../graph/tuiGraph");
+            await runTuiGraph({ companyIdOverride: companyId });
+            break;
+          }
+
+          case "memory":
+          case "memoria":
+          case "obsidian": {
+            const { memoryCommand } = require("./memory");
+            await memoryCommand(args[0], args[1]);
+            break;
+          }
+
+          case "customers":
+          case "clientes": {
+            const { customersCommand } = require("./customers");
+            await customersCommand();
+            break;
+          }
+
+          case "backup":
+          case "respaldo": {
+            const { backupCommand } = require("./briefing");
+            await backupCommand();
+            break;
+          }
+
+          case "data-health":
+          case "datahealth":
+          case "salud": {
+            const { dataHealthCommand } = require("./dataHealth");
+            await dataHealthCommand();
+            break;
+          }
+
+          case "quarantine":
+          case "cuarentena": {
+            const { quarantineCommand } = require("./dataHealth");
+            await quarantineCommand(args);
+            break;
+          }
+
+          case "shadow":
+          case "sombra": {
+            const { shadowCommand } = require("./shadow");
+            await shadowCommand(args);
             break;
           }
 
@@ -421,9 +687,70 @@ export async function consoleCommand() {
             break;
           }
 
-          case "orders": {
+          case "orders":
+          case "pedidos":
+          case "compras": {
             const { ordersCommand } = require("./stock");
-            await ordersCommand({ noExit: true });
+            await ordersCommand(args[0], { noExit: true });
+            break;
+          }
+
+          case "fleet":
+          case "flota":
+          case "shipments":
+          case "envios": {
+            const { fleetCommand } = require("./fleet");
+            await fleetCommand(args[0], args[1]);
+            break;
+          }
+
+          case "suppliers":
+          case "proveedores":
+          case "supplier": {
+            const { suppliersCommand } = require("./suppliers");
+            await suppliersCommand(args[0], args[1], ...args.slice(2));
+            break;
+          }
+
+
+          case "reports":
+          case "reportes": {
+            const { reportsCommand } = require("./reports");
+            await reportsCommand(args[0], args[1]);
+            break;
+          }
+
+          case "sales":
+          case "ventas": {
+            const { reportsCommand } = require("./reports");
+            await reportsCommand("sales", args[0]);
+            break;
+          }
+
+          case "profit":
+          case "ganancias":
+          case "margen": {
+            const { reportsCommand } = require("./reports");
+            await reportsCommand("profit", args[0]);
+            break;
+          }
+
+          case "selftest":
+          case "test": {
+            const { selftestCommand } = require("./selftest");
+            await selftestCommand();
+            break;
+          }
+
+          case "demo": {
+            const { demoCommand } = require("./demo");
+            await demoCommand(args[0]);
+            break;
+          }
+
+          case "doctor": {
+            const { doctorCommand } = require("./doctor");
+            await doctorCommand();
             break;
           }
 
@@ -434,20 +761,28 @@ export async function consoleCommand() {
           }
 
           case "approve": {
-            const { inboxCommand } = require("./inbox");
-            await inboxCommand("approve", args[0], { noExit: true });
+            if (!args[0]) {
+              console.log(theme.amber("Especifica el ID de la decision. Ej: /approve dec_123"));
+            } else {
+              const { inboxCommand } = require("./inbox");
+              await inboxCommand("approve", args[0], { noExit: true });
+            }
             break;
           }
 
           case "reject": {
-            const { inboxCommand } = require("./inbox");
-            await inboxCommand("reject", args[0], { noExit: true });
+            if (!args[0]) {
+              console.log(theme.amber("Especifica el ID de la decision. Ej: /reject dec_123"));
+            } else {
+              const { inboxCommand } = require("./inbox");
+              await inboxCommand("reject", args[0], { noExit: true });
+            }
             break;
           }
 
           case "explain": {
             const { explainCommand } = require("./explain");
-            await explainCommand(args[0], { noExit: true });
+            await explainCommand(args[0]);
             break;
           }
 
@@ -462,7 +797,10 @@ export async function consoleCommand() {
             console.log(theme.muted("Ejecutando escaneo de stock, ROP y transporte..."));
             const res = await runFullOperationalEventScan(companyId);
             console.log(
-              `  [OK] ${res.stockDeficitsFound} desabastos, ${res.delayedShipmentsFound} retrasos, ${res.processedDecisions.length} propuestas en /inbox.`,
+              `  [OK] ${res.stockDeficitsFound} desabasto(s), ${res.delayedShipmentsFound} retraso(s) detectados.`,
+            );
+            console.log(
+              `  ${res.processedDecisions.length} propuesta(s) nueva(s)  ·  ${res.alreadyOpen} ya tenían propuesta abierta  ·  ${res.deferred} diferida(s) al siguiente ciclo.`,
             );
             break;
           }
@@ -514,7 +852,8 @@ export async function consoleCommand() {
           }
 
           case "chat": {
-            await executeAgentQuery(args.join(" "), { noExit: true });
+            const { chatCommand } = require("./chat");
+            await chatCommand(args.join(" "), { noExit: true });
             break;
           }
 
@@ -539,121 +878,14 @@ export async function consoleCommand() {
             return;
           }
 
-          case "goal":
-          case "meta":
-          case "objetivo": {
-            const { goalCommand } = require("./goal");
-            await goalCommand(args.join(" ") || "bajar gastos en un 30%", { noExit: true });
-            break;
-          }
-
-          case "agent":
-          case "daemon":
-          case "autonomo": {
-            console.log("\n" + drawDivider("ARQUITECTURA Y ESTADO DEL AGENTE AUTÓNOMO MINT", 82));
-            console.log(
-              drawCard(
-                [
-                  `${theme.bold("Mint NO es un simple chatbot de preguntas y respuestas.")}`,
-                  `${theme.dim("Es un agente back-office autónomo que vigila las operaciones de tu empresa 24/7.")}`,
-                  "",
-                  `${theme.mintBold("1. Daemon Proactivo de Fondo:")}`,
-                  `   Escanea permanentemente PostgreSQL y canales externos en ciclos automáticos.`,
-                  `   Audita el punto de reorden (ROP), stock bajo umbral y retrasos en despachos.`,
-                  "",
-                  `${theme.mintBold("2. Deliberación Multi-Agente Especializada:")}`,
-                  `   - Coordinador: Orquesta eventos y sintetiza el árbol de decisión.`,
-                  `   - Inventario: Calcula tasa de consumo diario (burn rate) y cobertura de días.`,
-                  `   - Compras: Cotiza proveedores y calcula Landed Cost con flete OSRM.`,
-                  `   - Transporte: Geocodifica bodegas y calcula rutas óptimas multi-parada.`,
-                  `   - Auditor de Riesgo: Bloquea compras duplicadas o sobrecostos anormales.`,
-                  "",
-                  `${theme.mintBold("3. Gobernanza Human-in-the-Loop (HITL):")}`,
-                  `   CERO compras unilaterales a ciegas. El agente formula la propuesta óptima,`,
-                  `   la documenta con evidencia y la deja en /inbox para tu autorización con /approve.`,
-                  "",
-                  `${theme.mintBold("4. Motor de Objetivos Estratégicos (/goal):")}`,
-                  `   Calcula planes cuantitativos (ej: -30% en gastos) y encola las acciones necesarias.`,
-                  "",
-                  `${theme.mintBold("5. Facturación y Auditoría Criptográfica:")}`,
-                  `   Al aprobar una compra, emite la Factura Electrónica con sello SHA-256 en /receipts.`,
-                ],
-                {
-                  title: "SISTEMA OPERATIVO AUTÓNOMO",
-                  badge: "AUTONOMOUS BACK-OFFICE",
-                  badgeColor: "mint",
-                  borderColor: theme.mint,
-                },
-              ),
-            );
-            break;
-          }
-
-          case "invoice":
-          case "factura":
-          case "voucher":
-          case "vouchers":
-          case "receipt":
-          case "receipts": {
-            const fs = require("node:fs");
-            const path = require("node:path");
-            const receiptsDir = path.join(process.cwd(), "receipts");
-            if (!fs.existsSync(receiptsDir)) {
-              console.log(theme.amber("\n  [AVISO] No hay comprobantes generados aún en ./receipts. Aprueba una orden con /approve.\n"));
-              break;
-            }
-
-            const files = fs.readdirSync(receiptsDir).filter((f: string) => f.endsWith(".json"));
-            if (files.length === 0) {
-              console.log(theme.amber("\n  [AVISO] No hay facturas en ./receipts. Aprueba una decisión con /approve para generar una.\n"));
-              break;
-            }
-
-            let targetFile = "";
-            if (args[0]) {
-              const direct = path.join(receiptsDir, args[0].endsWith(".json") ? args[0] : `${args[0]}.json`);
-              if (fs.existsSync(direct)) {
-                targetFile = direct;
-              } else {
-                const match = files.find((f: string) => f.toLowerCase().includes(args[0].toLowerCase()));
-                if (match) targetFile = path.join(receiptsDir, match);
-              }
-            }
-
-            if (!targetFile) {
-              targetFile = path.join(receiptsDir, files[files.length - 1]);
-            }
-
-            try {
-              const voucherData = JSON.parse(fs.readFileSync(targetFile, "utf-8"));
-              const { renderInvoiceVoucher } = require("../ui/voucher");
-              console.log("\n" + renderInvoiceVoucher(voucherData) + "\n");
-              if (files.length > 1) {
-                console.log(theme.dim(`  Comprobantes disponibles en disco (${files.length}):`));
-                for (const f of files.slice(-5)) {
-                  console.log(`    ${theme.cyan("/invoice " + f.replace(".json", ""))}`);
-                }
-                console.log("");
-              }
-            } catch (err: any) {
-              console.error(theme.redBold(`  [ERROR] No se pudo leer la factura: ${err.message}`));
-            }
-            break;
-          }
-
           default: {
             if (rawCmd.startsWith("/")) {
               console.log(
                 theme.amber(`Comando '${rawCmd}' no reconocido. Escribe ${theme.mintBold("/help")} para ver la lista.`),
               );
             } else {
-              const lower = trimmed.toLowerCase();
-              if (/bajar gastos|reducir gastos|reducir costos|ahorrar|meta de ahorro/i.test(lower)) {
-                const { goalCommand } = require("./goal");
-                await goalCommand(trimmed, { noExit: true });
-              } else {
-                await executeAgentQuery(trimmed, { noExit: true });
-              }
+              const { chatCommand } = require("./chat");
+              await chatCommand(trimmed, { noExit: true });
             }
             break;
           }
@@ -667,175 +899,3 @@ export async function consoleCommand() {
     });
   });
 }
-
-/**
- * Ejecuta una consulta operativa puntual al Agente Autónomo Mint
- * mostrando el árbol de pensamiento multi-agente en la terminal.
- */
-export async function executeAgentQuery(
-  message: string,
-  options: { json?: boolean; noExit?: boolean } = {},
-) {
-  const session = await getSession();
-  const companyId = session?.companyId || "comp_default";
-  const caseId = `chat_${randomUUID().slice(0, 8)}`;
-
-  try {
-    await db.insert(cases).values({
-      id: caseId,
-      companyId,
-      title: "Operacion Coordinador",
-      description: message,
-      status: "en_proceso",
-      priority: "media",
-    });
-
-    if (options.json) {
-      const res = await runAgentLoop(caseId);
-      console.log(JSON.stringify(res, null, 2));
-      return;
-    }
-
-    const executedSteps: Array<{
-      agent: string;
-      action: string;
-      details?: string;
-      resultSummary?: string;
-    }> = [];
-
-    const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-    let spinnerMsg = "Consultando modelo y deliberando...";
-    let frameIdx = 0;
-    const isTTY = Boolean(process.stdout.isTTY);
-    let timer: any = null;
-    if (isTTY) {
-      timer = setInterval(() => {
-        process.stdout.write(`\r  ${theme.mint(frames[frameIdx++ % frames.length])} ${theme.dim(spinnerMsg)} `);
-      }, 80);
-    } else {
-      console.log(`  ${theme.dim("... Deliberando con el agente...")}`);
-    }
-
-    let res;
-    try {
-      res = await runAgentLoop(caseId, {
-        onEvent: (ev) => {
-          spinnerMsg = `${ev.agent}: ejecutando ${ev.action}...`;
-          executedSteps.push({
-            agent: ev.agent,
-            action: ev.action,
-            details: ev.details,
-            resultSummary: ev.resultSummary,
-          });
-        },
-      });
-    } finally {
-      if (timer) clearInterval(timer);
-      if (isTTY) process.stdout.write("\r\x1b[K");
-    }
-
-    console.log("");
-    if (executedSteps.length > 0) {
-      const { renderThoughtTree } = await import("../ui/thoughtTree");
-      console.log(renderThoughtTree(executedSteps, message));
-      console.log("");
-    }
-
-    const responseLines = formatTerminalMarkdown(
-      res.summary || "Sin respuesta del modelo.",
-    );
-    console.log(theme.charcoal("  " + "─".repeat(76)));
-    for (const line of responseLines) {
-      console.log(`  ${line}`);
-    }
-    console.log(theme.charcoal("  " + "─".repeat(76)));
-  } catch (err: any) {
-    if (options.json) {
-      console.log(JSON.stringify({ error: err.message }));
-    } else {
-      console.error(theme.redBold(`  [ERROR] ${err.message}`));
-    }
-    if (!options.noExit) {
-      process.exit(1);
-    }
-  }
-}
-
-export const chatCommand = executeAgentQuery;
-
-/**
- * Resumen diario de decisiones autónomas y presupuesto gestionado.
- */
-export async function todayCommand(options: { json?: boolean; noExit?: boolean } = {}) {
-  const session = await getSession();
-  const companyId = session?.companyId || "comp_default";
-
-  try {
-    const allDecisions = await db
-      .select()
-      .from(decisions)
-      .where(eq(decisions.companyId, companyId));
-
-    const autoExecuted = allDecisions.filter((d) => d.policyDecision === "auto_executed");
-    const pendingReview = allDecisions.filter((d) => d.policyDecision === "pending_approval");
-    const blockedRisk = allDecisions.filter((d) => d.policyDecision === "blocked");
-
-    const totalSpend = autoExecuted.reduce((sum, d) => sum + Number(d.costMxn || 0), 0);
-    const estimatedSavings = totalSpend * 0.12;
-    const systemHealth = pendingReview.length === 0 && blockedRisk.length === 0 ? "OPTIMAL" : "ATTENTION";
-
-    const b = {
-      totalDecisions: allDecisions.length,
-      autoExecutedCount: autoExecuted.length,
-      pendingReviewCount: pendingReview.length,
-      blockedRiskCount: blockedRisk.length,
-      totalAutonomousSpendMxn: totalSpend,
-      estimatedSavingsMxn: estimatedSavings,
-      systemHealth,
-    };
-
-    if (options.json) {
-      console.log(JSON.stringify(b, null, 2));
-      return;
-    }
-
-    let currency = "COP";
-    try {
-      const [comp] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
-      if (comp?.currency) currency = comp.currency;
-    } catch {}
-
-    const spendStr = `$${b.totalAutonomousSpendMxn.toLocaleString("es-CO", { minimumFractionDigits: 0 })} ${currency}`;
-    const savingsStr = `$${b.estimatedSavingsMxn.toLocaleString("es-CO", { minimumFractionDigits: 0 })} ${currency}`;
-
-    console.log("\n" + drawDivider("RESUMEN DE OPERACIONES Y AUTONOMÍA HOY", 80));
-    console.log(
-      drawCard(
-        [
-          `${theme.dim("Salud Operativa:")}       ${b.systemHealth === "OPTIMAL" ? theme.mintBold("ÓPTIMA") : theme.amberBold("ATENCIÓN REQUERIDA")}`,
-          `${theme.dim("Total Decisiones:")}      ${theme.bold(b.totalDecisions)}`,
-          `  - Auto-ejecutadas:    ${theme.mintBold(b.autoExecutedCount)} (Bajo umbral autónomo)`,
-          `  - Pendientes HITL:    ${b.pendingReviewCount > 0 ? theme.amberBold(b.pendingReviewCount) : theme.dim("0")} (En /inbox)`,
-          `  - Bloqueadas riesgo:  ${b.blockedRiskCount > 0 ? theme.redBold(b.blockedRiskCount) : theme.dim("0")}`,
-          "",
-          `${theme.dim("Presupuesto Gestionado:")} ${theme.bold(spendStr)}`,
-          `${theme.dim("Ahorro Estimado:")}       ${theme.mintBold(savingsStr)}`,
-        ],
-        {
-          title: `HOY // ${new Date().toLocaleDateString("es-CO")}`,
-          badge: b.systemHealth,
-          badgeColor: b.systemHealth === "OPTIMAL" ? "mint" : "amber",
-          borderColor: theme.mint,
-        },
-      ),
-    );
-    console.log("");
-  } catch (err: any) {
-    if (options.json) {
-      console.log(JSON.stringify({ error: err.message }));
-    } else {
-      console.log(`\n  ${theme.amber("[AVISO]")} Base de datos desconectada o no disponible. No se pudieron consultar las decisiones de hoy.\n`);
-    }
-  }
-}
-

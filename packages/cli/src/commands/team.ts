@@ -1,23 +1,28 @@
-import { listTeamMembers, inviteTeamMember, removeTeamMember } from "@mint/core";
+import { listTeamMembers, inviteTeamMember, removeTeamMember, hasPermission, type UserRole } from "@mint/core";
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { renderTable } from "../ui/table";
-import { drawCard, drawDivider } from "../ui/box";
+import { drawDivider } from "../ui/box";
 
 export async function teamCommand(
   action: "list" | "invite" | "remove" = "list",
   targetArg?: string,
-  options: { name?: string; role?: "owner" | "operator" | "auditor" | "viewer"; json?: boolean } = {},
+  options: { name?: string; role?: UserRole; json?: boolean } = {},
 ) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
   // 1. Invitar nuevo miembro al equipo
   if (action === "invite") {
+    if (!hasPermission(session?.role, "manage_team")) {
+      console.error(theme.redBold(`\n[ERROR] Permiso denegado: tu rol '${session?.role}' no tiene permiso para invitar miembros al equipo. Se requiere 'owner' o 'admin'.\n`));
+      return;
+    }
+
     const email = targetArg;
     if (!email) {
-      console.error(theme.redBold("[ERROR] Debes indicar el correo electrónico. Ejemplo: mint team invite colega@empresa.com --name 'Carlos' --role operator"));
-      process.exit(1);
+      console.error(theme.redBold("[ERROR] Debes indicar el correo electrónico. Ejemplo: mint team invite colega@empresa.com --name 'Carlos' --role finance"));
+      return;
     }
     const name = options.name || email.split("@")[0];
     const role = options.role || "operator";
@@ -36,7 +41,7 @@ export async function teamCommand(
         if (res.success) {
           console.log(`\n${theme.success("[OK]")} ${theme.bold(res.message)}\n`);
         } else {
-          console.error(theme.redBold(`[ERROR] ${res.message}`));
+          console.error(theme.redBold(`[ERROR] Error: ${res.message}`));
         }
       }
       return;
@@ -46,16 +51,21 @@ export async function teamCommand(
       } else {
         console.error(theme.redBold(`[ERROR] Error al invitar usuario: ${err.message}`));
       }
-      process.exit(1);
+      return;
     }
   }
 
   // 2. Eliminar miembro del equipo
   if (action === "remove") {
+    if (!hasPermission(session?.role, "manage_team")) {
+      console.error(theme.redBold(`\n[ERROR] Permiso denegado: tu rol '${session?.role}' no tiene permiso para eliminar miembros del equipo. Se requiere 'owner' o 'admin'.\n`));
+      return;
+    }
+
     const userId = targetArg;
     if (!userId) {
       console.error(theme.redBold("[ERROR] Debes indicar el ID del usuario a eliminar. Ejemplo: mint team remove usr_12345"));
-      process.exit(1);
+      return;
     }
 
     try {
@@ -66,7 +76,7 @@ export async function teamCommand(
         if (res.success) {
           console.log(`\n${theme.success("[OK]")} ${theme.bold(res.message)}\n`);
         } else {
-          console.error(theme.redBold(`[ERROR] ${res.message}`));
+          console.error(theme.redBold(`[ERROR] Error: ${res.message}`));
         }
       }
       return;
@@ -100,11 +110,21 @@ export async function teamCommand(
       const roleBadge =
         m.role === "owner"
           ? theme.badge("OWNER", "mint")
-          : m.role === "operator"
-            ? theme.badge("OPERATOR", "cyan")
-            : m.role === "auditor"
-              ? theme.badge("AUDITOR", "amber")
-              : theme.badge("VIEWER", "gray");
+          : m.role === "admin"
+            ? theme.badge("ADMIN_NEGOCIO", "cyan")
+            : m.role === "supervisor"
+              ? theme.badge("SUPERVISOR", "cyan")
+              : m.role === "client"
+                ? theme.badge("CLIENTE", "gray")
+                : m.role === "finance"
+                  ? theme.badge("FINANCE/PAGOS", "mint")
+                  : m.role === "operator"
+                    ? theme.badge("OPERATOR", "cyan")
+                    : m.role === "driver"
+                      ? theme.badge("DRIVER", "violet")
+                      : m.role === "auditor"
+                        ? theme.badge("AUDITOR", "amber")
+                        : theme.badge("VIEWER", "gray");
 
       const dateStr = m.createdAt ? new Date(m.createdAt).toLocaleDateString("es-MX") : "N/A";
 
@@ -123,14 +143,14 @@ export async function teamCommand(
           { header: "USER ID", key: "id", width: 14 },
           { header: "NOMBRE", key: "name", width: 22 },
           { header: "CORREO", key: "email", width: 28 },
-          { header: "ROL", key: "role", width: 14, align: "center" },
+          { header: "ROL", key: "role", width: 16, align: "center" },
           { header: "ALTA", key: "date", width: 12, align: "center" },
         ],
         rows,
       ),
     );
 
-    console.log(`\n  ${theme.dim("Total miembros:")} ${theme.bold(members.length)} │ ${theme.dim("Invitar:")} ${theme.mintBold("mint team invite <correo> --name <nombre> --role <operator|auditor|viewer>")}\n`);
+    console.log(`\n  ${theme.dim("Total miembros:")} ${theme.bold(members.length)} │ ${theme.dim("Invitar:")} ${theme.mintBold("mint team invite <correo> --name <nombre> --role <finance|auditor|operator|viewer>")}\n`);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));

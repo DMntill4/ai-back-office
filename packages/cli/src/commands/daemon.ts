@@ -8,25 +8,29 @@ import {
   writeDaemonState,
 } from "@mint/daemon";
 import { getSession } from "../keychain";
-import { db, decisions } from "@mint/core";
+import { db, decisions, operationalEvents } from "@mint/core";
 import { eq, desc } from "drizzle-orm";
 import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
 
-export async function daemonStartCommand(options: { json?: boolean } = {}) {
+export async function daemonStartCommand(options: { json?: boolean; once?: boolean; interval?: number } = {}) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
   try {
-    const state = readDaemonState();
-    state.isRunning = true;
-    state.pid = process.pid;
-    state.startedAt = new Date().toISOString();
-    state.companyId = companyId;
-    writeDaemonState(state);
+    if (options.json || options.once) {
+      const initialTick = await tickOnce(companyId);
+      const state = readDaemonState();
+      state.isRunning = true;
+      state.pid = process.pid;
+      state.companyId = companyId;
+      writeDaemonState(state);
 
-    if (options.json) {
-      console.log(JSON.stringify({ success: true, status: "started", pid: process.pid, companyId }));
+      if (options.json) {
+        console.log(JSON.stringify({ success: true, status: "started", pid: process.pid, companyId, initialTick }));
+      } else {
+        console.log(`  ${theme.success("[OK]")} Ciclo de vigilancia completado: ${initialTick.stockDeficitsTriggered} desabastos, ${initialTick.shipmentDelaysTriggered} retrasos, ${initialTick.recoveredEventsCount} eventos recuperados.`);
+      }
       return;
     }
 
@@ -36,24 +40,43 @@ export async function daemonStartCommand(options: { json?: boolean } = {}) {
         [
           `${theme.dim("PID:")}         ${theme.bold(process.pid)}`,
           `${theme.dim("Empresa:")}     ${theme.bold(companyId)}`,
-          `${theme.dim("Modo:")}        Segundo plano autónomo`,
-          `${theme.dim("Vigilancia:")}  Fuentes de datos CSV/SQL, desabastos de stock y retrasos en tránsito.`,
+          `${theme.dim("Modo:")}        Vigilancia Autónoma Continua 24/7`,
+          `${theme.dim("Frecuencia:")}  Cada ${options.interval || 15} segundos`,
+          `${theme.dim("Vigilancia:")}  Fuentes CSV/SQL, eventos en cola, desabastos de stock y retrasos en tránsito.`,
         ],
         {
-          title: "DAEMON AUTÓNOMO MINT INICIADO",
-          badge: "ONLINE",
+          title: "DAEMON AUTÓNOMO MINT EN VIVO",
+          badge: "ACTIVO 24/7",
           badgeColor: "mint",
           borderColor: theme.mint,
         },
       ),
     );
-    console.log(theme.dim("\nPresiona Ctrl+C o ejecuta 'mint daemon stop' para detener el proceso.\n"));
+    console.log(theme.dim("\nPresiona Ctrl+C o ejecuta 'mint daemon stop' para detener la vigilancia autónoma.\n"));
 
-    // Ejecutar un ciclo inicial
-    const initialTick = await tickOnce(companyId);
-    console.log(
-      `  ${theme.success("[OK]")} Ciclo inicial: ${initialTick.stockDeficitsTriggered} desabastos detectados, ${initialTick.shipmentDelaysTriggered} retrasos evaluados.\n`,
-    );
+    const abortController = new AbortController();
+    const handleExit = () => {
+      console.log(`\n${theme.warning("[AVISO]")} Deteniendo daemon autónomo de forma segura...`);
+      abortController.abort();
+    };
+
+    process.on("SIGINT", handleExit);
+    process.on("SIGTERM", handleExit);
+
+    const { startContinuousDaemon } = await import("@mint/daemon");
+    await startContinuousDaemon({
+      companyId,
+      intervalMs: (options.interval || 15) * 1000,
+      signal: abortController.signal,
+      onTick: (summary) => {
+        const timeStr = new Date(summary.timestamp).toLocaleTimeString();
+        console.log(
+          `  ${theme.dim(`[${timeStr}]`)} ${theme.mintBold("[TICK]")} Desabastos: ${summary.stockDeficitsTriggered} │ Retrasos: ${summary.shipmentDelaysTriggered} │ Eventos Recuperados: ${summary.recoveredEventsCount}`,
+        );
+      },
+    });
+
+    console.log(`  ${theme.success("[OK]")} Daemon detenido correctamente.\n`);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ success: false, error: err.message }));
@@ -67,6 +90,14 @@ export async function daemonStartCommand(options: { json?: boolean } = {}) {
 export async function daemonStopCommand(options: { json?: boolean } = {}) {
   try {
     const state = readDaemonState();
+    if (state.pid && state.pid !== process.pid) {
+      try {
+        process.kill(state.pid, "SIGTERM");
+      } catch {
+        // El proceso ya no existía
+      }
+    }
+
     state.isRunning = false;
     state.pid = null;
     writeDaemonState(state);
@@ -76,7 +107,7 @@ export async function daemonStopCommand(options: { json?: boolean } = {}) {
       return;
     }
 
-    console.log(`\n${theme.warning("[DETENIDO]")} ${theme.bold("DAEMON MINT DETENIDO")}`);
+    console.log(`\n${theme.warning("[STOP] ")} ${theme.bold("DAEMON MINT DETENIDO")}`);
     console.log(`   El proceso autónomo en segundo plano ha finalizado correctamente.\n`);
   } catch (err: any) {
     if (options.json) {
@@ -193,11 +224,15 @@ export async function planTodayCommand(options: { json?: boolean } = {}) {
       ),
     );
 
+    const { getCompanyConfig, formatCompanyDate } = await import("@mint/core");
+    const config = await getCompanyConfig(companyId);
+    const currency = config.currency;
+
     if (plan.decisions.length > 0) {
-      console.log(`\n${theme.amberBold("[DECISIONES] ESPERANDO APROBACIÓN:")}`);
+      console.log(`\n${theme.amberBold("[LISTA] DECISIONES ESPERANDO APROBACIÓN:")}`);
       for (const d of plan.decisions) {
         console.log(
-          `   ${theme.amber("•")} [${theme.bold(d.id)}] ${d.title} (${theme.mintBold(`$${Number(d.costMxn).toLocaleString("es-MX")} MXN`)}) - Por ${theme.cyanBold(d.proposingAgent)}`,
+          `   ${theme.amber("•")} [${theme.bold(d.id)}] ${d.title} (${theme.mintBold(`$${Number(d.costMxn).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`)}) - Por ${theme.cyanBold(d.proposingAgent)}`,
         );
       }
       console.log(`\n${theme.dim("Para autorizar:")} ${theme.mintBold("mint inbox approve <id>")} │ ${theme.dim("Para auditar:")} ${theme.cyanBold("mint explain <id>")}`);
@@ -221,38 +256,64 @@ export async function watchCommand(options: { json?: boolean } = {}) {
   }
 
   try {
-    const recentDecisions = await db
-      .select()
-      .from(decisions)
-      .where(eq(decisions.companyId, companyId))
-      .orderBy(desc(decisions.createdAt))
-      .limit(8);
+    const { getCompanyConfig, formatCompanyDate } = await import("@mint/core");
+    const config = await getCompanyConfig(companyId);
+    const currency = config.currency;
+
+    const [recentDecisions, recentEvents] = await Promise.all([
+      db
+        .select()
+        .from(decisions)
+        .where(eq(decisions.companyId, companyId))
+        .orderBy(desc(decisions.createdAt))
+        .limit(6),
+      db
+        .select()
+        .from(operationalEvents)
+        .where(eq(operationalEvents.companyId, companyId))
+        .orderBy(desc(operationalEvents.createdAt))
+        .limit(6),
+    ]);
 
     if (options.json) {
-      console.log(JSON.stringify(recentDecisions, null, 2));
+      console.log(JSON.stringify({ decisions: recentDecisions, events: recentEvents }, null, 2));
       return;
     }
 
-    if (recentDecisions.length === 0) {
-      console.log(theme.dim("   (Aún no hay decisiones registradas en el feed)\n"));
-      return;
+    if (recentEvents.length > 0) {
+      console.log(`${theme.cyanBold("EVENTOS OPERATIVOS CAPTADOS POR EL CANAL DE ESCUCHA:")}`);
+      for (const ev of recentEvents.reverse()) {
+        const timeStr = formatCompanyDate(new Date(ev.createdAt), config.timezone, true);
+        const sevColor = ev.severity === "CRITICAL" ? "red" : ev.severity === "HIGH" ? "amber" : "cyan";
+        console.log(`  ${theme.dim(`[${timeStr}]`)} ${theme.badge(ev.eventType, sevColor)} ${theme.bold(ev.title)}`);
+        console.log(`      ${theme.dim(ev.description || "")}`);
+      }
+      console.log("");
     }
 
-    for (const d of recentDecisions.reverse()) {
-      const timeStr = new Date(d.createdAt).toLocaleTimeString("es-MX");
-      const badgeType =
-        d.policyDecision === "auto_executed"
-          ? "mint"
-          : d.policyDecision === "pending_approval"
-            ? "amber"
-            : "red";
+    if (recentDecisions.length > 0) {
+      console.log(`${theme.mintBold("DECISIONES FORMULADAS POR EL ORQUESTADOR MULTI-AGENTE:")}`);
+      for (const d of recentDecisions.reverse()) {
+        const timeStr = formatCompanyDate(new Date(d.createdAt), config.timezone, true);
+        const badgeType =
+          d.policyDecision === "auto_executed"
+            ? "mint"
+            : d.policyDecision === "pending_approval"
+              ? "amber"
+              : "red";
 
-      console.log(
-        `${theme.dim(`[${timeStr}]`)} ${theme.badge(d.policyDecision.toUpperCase(), badgeType)} ${theme.bold(d.title)}`,
-      );
-      console.log(
-        `   ${theme.dim("Agente:")} ${theme.cyanBold(d.proposingAgent)} │ ${theme.dim("Monto:")} $${Number(d.costMxn).toLocaleString("es-MX")} MXN │ ${theme.dim("Razón:")} ${theme.muted(d.policyReason || "")}\n`,
-      );
+        console.log(
+          `  ${theme.dim(`[${timeStr}]`)} ${theme.badge(d.policyDecision.toUpperCase(), badgeType)} ${theme.bold(d.title)}`,
+        );
+        console.log(
+          `      ${theme.dim("Agente:")} ${theme.cyanBold(d.proposingAgent)} │ ${theme.dim("Monto:")} $${Number(d.costMxn).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency} │ ${theme.dim("Razón:")} ${theme.muted(d.policyReason || "")}`,
+        );
+      }
+      console.log("");
+    }
+
+    if (recentEvents.length === 0 && recentDecisions.length === 0) {
+      console.log(theme.dim("   (Aún no hay eventos ni decisiones registradas en el feed)\n"));
     }
   } catch (err: any) {
     console.error(theme.redBold(`[ERROR] Error en feed en vivo: ${err.message}`));

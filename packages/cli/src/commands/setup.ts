@@ -8,48 +8,97 @@ import {
   suppliers,
   supplierProducts,
   businessConfig,
+  ensureDecisionsTables,
 } from "@mint/core";
 import { parseCsvFile, proposeColumnMapping, executeImport } from "@mint/ingest";
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
-import { drawCard } from "../ui/box";
+import { drawCard, drawDivider } from "../ui/box";
 import { eq } from "drizzle-orm";
+import { runOnboardingWizard } from "./onboarding";
 
 export interface SetupOptions {
   file?: string;
   companyName?: string;
   json?: boolean;
+  quick?: boolean;
+  interactive?: boolean;
 }
 
 /**
  * mint setup / /setup
- * Inicialización Zero-Config de 1 paso para nuevos clientes:
- * Configura empresa, almacén central, proveedores homologados,
- * catalogo de productos de prueba y gobernanza en menos de 2 segundos.
+ * Punto de entrada oficial de instalación e inicialización de MINT:
+ * 1. Comprueba requisitos de entorno y conectividad a base de datos.
+ * 2. Prepara esquemas e infraestructura física mediante ensureDecisionsTables() de forma idempotente.
+ * 3. En terminal interactiva TTY, lanza el onboarding conversacional guiado.
+ * 4. En modo rápido (--quick), headless o con archivo, ejecuta la inicialización Zero-Config.
  */
 export async function setupCommand(options: SetupOptions = {}) {
+  // 1. Diagnóstico de requisitos del entorno y migración segura
+  try {
+    await ensureDecisionsTables();
+  } catch (err: any) {
+    if (options.json) {
+      console.log(JSON.stringify({ success: false, error: "Fallo de conexión a la base de datos", detail: err.message }));
+      return;
+    }
+    console.error(theme.redBold("\n[ERROR] No se pudo verificar la base de datos PostgreSQL:"));
+    console.error(theme.red(`  ${err.message}`));
+    console.error(theme.dim("  Verifica la variable DATABASE_URL en tu archivo .env.\n"));
+    process.exit(1);
+  }
+
+  // 2. Si se invoca de forma interactiva en una terminal TTY sin flags de archivo o quick, iniciar onboarding guiado
+  const isInteractive = !options.quick && !options.file && !options.json && Boolean(process.stdin.isTTY);
+  if (isInteractive) {
+    const existingSession = await getSession();
+    if (existingSession) {
+      console.log("\n" + drawDivider("MINT SETUP — ASISTENTE OPERATIVO", 78));
+      console.log(
+        drawCard(
+          [
+            `${theme.dim("Sesión detectada:")}   ${theme.bold(existingSession.name)} (${existingSession.role})`,
+            `${theme.dim("Empresa:")}            ${theme.mintBold(existingSession.companyName)} [${existingSession.companyId}]`,
+            `${theme.dim("País / Moneda:")}      ${theme.bold(existingSession.country || "Colombia")} / ${theme.bold(existingSession.currency || "COP")}`,
+            theme.dim("─────────────────────────────────────────────────────────────"),
+            theme.mint("[OK] Tu instalación de MINT ya cuenta con una configuración activa."),
+            theme.dim("Puedes ejecutar 'mint console' para operar o continuar para reconfigurar."),
+          ],
+          {
+            title: "ESTADO DE LA INSTALACIÓN",
+            borderColor: theme.mint,
+          },
+        ),
+      );
+    }
+
+    return await runOnboardingWizard();
+  }
+
+  // 3. Flujo Zero-Config / Rápido para entornos automatizados o con archivo
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
   const companyName = options.companyName || session?.companyName || "Mi Empresa Logística";
 
-  // 1. Asegurar empresa activa en base de datos
+  // Asegurar empresa activa en base de datos
   await db
     .insert(companies)
     .values({ id: companyId, name: companyName })
     .onConflictDoNothing();
 
-  // 2. Asegurar almacén central
+  // Asegurar almacén central
+  const centralWarehouseId = companyId === "comp_default" ? "alm_central" : `alm_central_${companyId}`;
   await db
     .insert(warehouses)
     .values({
-      id: "alm_central",
+      id: centralWarehouseId,
       companyId,
       name: "Almacén Central de Operaciones",
       location: "Bahía Principal",
     })
     .onConflictDoNothing();
 
-  // 3. Registrar proveedores homologados de base (Express y Mayorista)
+  // Registrar proveedores homologados de base (Express y Mayorista)
   const suppFastId = `supp_fast_${companyId}`;
   const suppEconId = `supp_econ_${companyId}`;
   await db
@@ -60,7 +109,7 @@ export async function setupCommand(options: SetupOptions = {}) {
     ])
     .onConflictDoNothing();
 
-  // 4. Configurar nivel de autonomía por defecto a "assisted"
+  // Configurar nivel de autonomía por defecto a "assisted"
   await db
     .insert(businessConfig)
     .values({
@@ -74,7 +123,7 @@ export async function setupCommand(options: SetupOptions = {}) {
       set: { value: "assisted", updatedAt: new Date() },
     });
 
-  // 5. Cargar catálogo de datos (archivo indicado o fixtures de prueba)
+  // Cargar catálogo de datos (archivo indicado o fixtures de prueba)
   let targetFile = options.file;
   if (!targetFile) {
     const sampleFixtures = path.resolve(__dirname, "../../../../tests/fixtures/sample_inventory.csv");
@@ -137,8 +186,8 @@ export async function setupCommand(options: SetupOptions = {}) {
           autonomyLevel: "assisted",
         },
         null,
-        2
-      )
+        2,
+      ),
     );
     return;
   }
@@ -148,25 +197,26 @@ export async function setupCommand(options: SetupOptions = {}) {
     drawCard(
       [
         `${theme.dim("Empresa:")}        ${theme.mintBold(companyName)} (${theme.dim(companyId)})`,
-        `${theme.dim("Almacén:")}        ${theme.bold("Almacén Central de Operaciones")} (Bahía Principal)`,
+        `${theme.dim("Almacén:")}        ${theme.bold("Almacén Central de Operaciones")}`,
         `${theme.dim("Catálogo:")}       ${theme.bold(importedCount)} SKUs sincronizados con existencias reales`,
-        `${theme.dim("Proveedores:")}    ${theme.cyanBold("2")} homologados (Express: 1 día / Mayorista: 6 días)`,
-        `${theme.dim("Autonomía:")}      ${theme.badge("ASISTIDO", "mint")} (Compras < $10,000 MXN automáticas)`,
+        `${theme.dim("Proveedores:")}    Directorio listo para alta de proveedores (/suppliers)`,
+        `${theme.dim("Autonomía:")}      ${theme.badge("ASISTIDO", "mint")} (Supervisión HITL activa)`,
         `${theme.dim("Vigilancia:")}     Daemon y sensores de desabasto activos 24/7`,
       ],
       {
-        title: "SETUP RÁPIDO COMPLETADO (ZERO-CONFIG)",
+        title: "[ACCION] SETUP RÁPIDO COMPLETADO (ZERO-CONFIG)",
         badge: "LISTO PARA OPERAR",
         badgeColor: "mint",
         borderColor: theme.mint,
-      }
-    )
+      },
+    ),
   );
 
   console.log(
     `\n${theme.mintBold("[OK] Tu Back Office ya está 100% operativo.")}\n` +
       `  • Escribe ${theme.cyanBold("/status")} para ver tu panel en vivo.\n` +
       `  • Escribe ${theme.cyanBold("/stock")} para revisar tus existencias.\n` +
-      `  • O simplemente escribe tu consulta (ej: ${theme.dim('"¿hay algún desabasto?"')}).\n`
+      `  • Escribe ${theme.cyanBold("/inbox")} para revisar propuestas del agente.\n` +
+      `  • Escribe ${theme.cyanBold("/console")} para abrir la terminal interactiva de MINT.\n`,
   );
 }

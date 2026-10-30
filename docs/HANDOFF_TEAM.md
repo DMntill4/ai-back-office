@@ -1,144 +1,110 @@
-# [HANDOFF] Transferencia Tecnica para el Equipo: AI Back Office (MINT)
+# Handoff Técnico para el Equipo: AI Back Office (MINT)
 
-Documento oficial de transferencia tecnica y arquitectura de las funcionalidades implementadas en la plataforma **Mint CLI** y **Autonomous AI Back Office** en la rama `developGuerra`.
-
----
-
-## 1. Resumen de Capacidades Implementadas
-
-El proyecto evoluciono desde un prototipo conversacional hacia un **Coordinador Logistico Autonomo Multi-Agente 100% Terminal-First**:
-
-1. **Arquitectura 100% Terminal-First (Cero Frontend Web):**
-   - Se erradico por completo la dependencia de interfaces web locales (React 19, Fastify HTTP en puerto 3001, Vite).
-   - Se elimino el "sindrome del espejo" (la carpeta `/src` duplicada en la raiz fue eliminada; toda la logica reside en `packages/core`).
-   - El operador interactua a traves de una consola de terminal profesional (TUI) con estética sobria (estilo Kali Linux / Claude Code).
-
-2. **Thought Tree y Tarjetas de Impacto en Base de Datos:**
-   - **Thought Tree (`thoughtTree.ts`):** Renderiza en tiempo real el arbol de deliberacion del agente con ramas visuales (`┌─`, `├─`, `└─`), detallando fase de introspeccion, herramientas consultadas y argumentos.
-   - **Production Impact Diff Card (`renderProductionAuditCard`):** Al autorizar o ejecutar compras en la bandeja HITL (`mint inbox approve`), despliega una tarjeta tecnica con los cambios en PostgreSQL (estado previo vs nuevo, ID de orden, transaccion y verificacion fisica).
-
-3. **Dominio Industrial Colombiano y Datos Verificables:**
-   - Preconfigurado para el sector ferretero: **Ferreteria Industrial Santandereana S.A.S.** (Bucaramanga `BOD-BUC`, Bogota `BOD-BOG`, Medellin `BOD-MED`).
-   - Moneda oficial en pesos colombianos (COP).
-   - Umbral de supervision humana (HITL) en modo asistido fijado en **$5,000,000 COP**.
-   - Catalogo de 16 SKUs industriales reales (taladros DeWalt, motobombas Honda, pulidoras Bosch, etc.) con proveedores homologados y cotizaciones de mercado.
-
-4. **Motor Cuantitativo de Metas Estrategicas (`mint goal`):**
-   - Eliminacion de porcentajes fijos ficticios (40%, 25%, 20%, 15%) y costos inventados.
-   - `goalSeekingService.ts` analiza matematicamente las ordenes de compra historicas y el consumo real en PostgreSQL para calcular palancas de optimizacion reales (renegociacion por volumen, ajuste de cobertura de stock, fletes consolidados).
-
-5. **Harness Multi-Agente Concurrente:**
-   - Cuatro especialistas deliberan en paralelo:
-     - **Inventario:** Calculo de burn rate, dias de cobertura y deteccion de quiebres.
-     - **Compras:** Evaluacion de cotizaciones homologadas, MOQ y tiempos de entrega.
-     - **Transporte:** Tracking de despachos y recálculo de rutas por retrasos.
-     - **Riesgo:** Abogado del diablo que audita duplicidad en 72 horas y proveedores riesgosos.
-   - Sintesis estructurada evaluada por el **Motor de Politicas Determinista** (`evaluatePolicy`).
-
-6. **Daemon Vigilante en Segundo Plano:**
-   - Proceso desacoplado que vigila el sistema de archivos (`fs.watch`), detecta desabastos y guias retrasadas, e incluye el interruptor de emergencia (`mint pause` / `mint resume`).
-
-7. **Notificaciones y Aprobaciones Remotas:**
-   - Canales interactivos para **Telegram**, **Slack** y **Gmail** con tokens criptograficos HMAC-SHA256 de un solo uso para aprobacion remota sin requerir consola abierta.
+**Proyecto:** Mint CLI & Autonomous AI Back Office  
+**Fecha de Actualización:** 27 de Octubre de 2026  
+**Rama Base:** `developDiego`  
+**Arquitectura:** Monorepo (NPM Workspaces) — Enfoque Terminal & Motor Autónomo  
 
 ---
 
-## 2. Estructura de Archivos del Repositorio
+## 1. Evolución de la Arquitectura
 
-```text
+El proyecto migró formalmente desde un prototipo monolítico web a un **Monorepo modular por paquetes (`packages/*`) centrado en un CLI autónomo y servicios de back office**.
+
+> [!IMPORTANT]
+> **Cambio de Enfoque:** El prototipo previo con UI web desacoplada en `frontend/` fue descontinuado en favor del **CLI profesional de terminal (`packages/cli`)**. La aplicación cliente histórica se encuentra aislada en `packages/app` y no es requerida para la operación central de los agentes ni del back office.
+
+### Estructura de Paquetes (`packages/`)
+
+```
 ai-back-office/
 ├── packages/
-│   ├── core/           # Cerebro: Agentes, Harness, Tools Zod, DB Drizzle, Politicas y Servicios
-│   ├── cli/            # Interfaz de terminal: Comandos, TUI, Thought Tree, Diff Card y Keychain
-│   ├── daemon/         # Daemon supervisor en segundo plano con fs.watch nativo
-│   ├── ingest/         # Ingesta resiliente: CSV/Excel/SQLite/Postgres con circuit breaker y drift detection
-│   └── notifiers/      # Canales remotos: Telegram Bot API, Slack Bolt, Gmail SMTP
-├── config/             # Variables de entorno y plantillas de seguridad
-├── docker/             # Dockerfile y scripts de inicializacion de PostgreSQL
-├── docs/               # Documentacion tecnica, bitacora de contexto y registros de decision (ADRs)
-├── resources/          # Diagramas de arquitectura y recursos visuales
-├── scripts/            # Scripts operacionales de base de datos
-└── tests/              # Suite de 82 pruebas automatizadas en Vitest (23 suites)
+│   ├── cli/            # Interfaz de terminal interactiva (TUI, REPL, Comandos de negocio, Keychain)
+│   ├── core/           # Motor de dominio (Agentes, Drizzle ORM, OSRM, Políticas deterministas, Analítica)
+│   ├── daemon/         # Vigilante en segundo plano (Triggers, escaneo de stock y retrasos)
+│   ├── ingest/         # Conectores multi-fuente (CSV, Excel, JSON, SQLite, SQL Server, Sanitizer)
+│   ├── notifiers/      # Canales remotos (Discord, Telegram, Slack, Cola Outbox con reintentos)
+│   ├── api/            # API REST de soporte
+│   └── app/            # Aplicación web aislada de terceros
+├── vault/              # Almacenamiento local persistente (Auditoría, Decisiones, Backups, Outbox)
+├── scratch/            # Scripts de verificación automatizada y pruebas E2E
+├── reports/            # Informes generados en CSV/PDF
+└── docs/               # Documentación y auditorías de arquitectura
 ```
 
 ---
 
-## 3. Instrucciones de Ejecucion para el Equipo
+## 2. Capacidades Principales Implementadas
+
+1. **CLI Autónomo Empresarial (`@mint/cli`):**
+   - Inicia con `npm start` (`tsx packages/cli/src/index.ts start`).
+   - Terminal interactiva sin dependencias de navegadores web.
+   - Formato estandarizado sin emojis (estrictamente texto ASCII y etiquetas `[OK]`, `[ERROR]`, `[ADVERTENCIA]`).
+   - Cifrado de credenciales y tokens con AES-256-GCM (`keychain.ts`).
+
+2. **Capa de Ingesta y Blindaje de Datos (`@mint/ingest`):**
+   - 14 módulos de ingestión tolerante a fallos.
+   - Detección de drift de esquema y marcado de filas eliminadas en el origen (`syncEngine.ts`).
+   - Sanitización preventiva de prompt injections y caracteres hostiles (`sanitizer.ts`).
+   - Comandos de descubrimiento local: `mint source discover`, `inspect`, `sync` y `status`.
+
+3. **Gobernanza, Human-in-the-Loop y Dispersión Financiera (`@mint/core`):**
+   - Regla determinista de frescura `RULE_STALE_DATA_REFUSAL`: El agente rehúsa auto-aprobar decisiones basadas en datos obsoletos o fuentes con drift.
+   - Bloqueo de auto-aprobación (quien solicita la compra jamás puede ser el aprobador).
+   - Unificación de aprobaciones en la tabla `decisions`: Al autorizarse una orden, se genera la Orden de Compra (`purchase_orders`), la Guía de Embarque (`shipments`) y se despacha la Orden de Dispersión de Pagos al equipo de Finanzas/Tesoreria.
+   - Eliminación del Split-Brain: Los módulos de `src/` re-exportan limpiamente `@mint/core`, erradicando discrepancias de lógica.
+   - Generación de comprobantes de auditoría con huella SHA-256 e idempotencia estricta.
+
+4. **Logística y Ruteo Vial Real:**
+   - Integración con OSRM para cálculo de distancias y tiempos reales de traslado entre sucursales y proveedores.
+   - Generación automática de guías logísticas de embarque (`TRK-IN-...`).
+
+---
+
+## 3. Instrucciones de Ejecución para el Equipo
 
 ### Requisitos Previos:
-- Node.js version 22.5.0 o superior (para soporte de `node:sqlite` nativo).
-- Archivo `.env` en la raiz con las siguientes variables:
-  ```env
-  DATABASE_URL=postgresql://postgres.[ID_PROYECTO]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
-  RETO_KEY=pk_...
-  GROK_BASE_URL=https://api.reto.pltk.mx/v1
-  GROK_MODEL=grok-4.6
-  ```
+- **Node.js** v20 o superior.
+- **PostgreSQL 16**: Puede ser:
+  - **Local vía Docker:** `docker compose up -d postgres` (el puerto 5432 debe estar disponible).
+  - **Cloud vía Supabase / Neon:** Configurando la URL con SSL en `DATABASE_URL`.
+- Archivo `.env` configurado en la raíz.
 
-### Comandos de Utilidad:
+### Comandos de Operación:
 
-1. **Iniciar el Sistema Completo (Daemon + Consola Interactiva):**
-   ```bash
-   npm start
-   # O directamente:
-   mint console
-   ```
+```bash
+# 1. Iniciar la consola interactiva del agente (CLI)
+npm start
+# O comando equivalente:
+npm run mint -- console
 
-2. **Diagnostico de Entorno y Arquitectura:**
-   ```bash
-   mint doctor
-   ```
+# 2. Diagnóstico de salud del sistema
+npm run mint -- doctor
 
-3. **Ejecutar Suite de Pruebas Automatizadas (82 tests):**
-   ```bash
-   npm test
-   ```
+# 3. Resumen diario ejecutivo de operaciones
+npm run mint -- briefing
 
-4. **Verificacion Estricta de Tipos TypeScript:**
-   ```bash
-   npm run typecheck
-   ```
+# 4. Consulta y análisis de inventario
+npm run mint -- stock
 
-5. **Migrar y Sembrar Catalogo Industrial Colombiano:**
-   ```bash
-   npm run db:migrate
-   npm run db:seed
-   ```
-
-6. **Consultar Existencias y Bodegas:**
-   ```bash
-   mint stock
-   ```
-
-7. **Bandeja de Aprobaciones Human-in-the-Loop:**
-   ```bash
-   mint inbox
-   mint inbox approve <id>
-   mint inbox reject <id>
-   ```
-
-8. **Motor de Metas Cuantitativas:**
-   ```bash
-   mint goal --target 15000000
-   ```
+# 5. Escaneo y descubrimiento de fuentes de datos locales
+npm run mint -- source discover ./
+```
 
 ---
 
-## 4. Estado de Pruebas y Cobertura
+## 4. Estado de Verificación y Base de Datos
 
-- **82 pruebas aprobadas exitosamente (100% verde)** en 23 suites de prueba en Vitest.
-- Cobertura completa de:
-  - Reposicion de existencias y guardrail presupuestal ($5,000,000 COP).
-  - Bloqueo por duplicidad en ventana de 72 horas.
-  - Inmutabilidad estricta en tabla `case_events` (trigger PostgreSQL).
-  - Sanitizacion no destructiva y circuito de proteccion contra borrado masivo (>20%).
-  - Aprobaciones remotas con firma HMAC-SHA256 de un solo uso.
-  - Ejecucion e idempotencia en canal de ventas.
-  - Benchmark cuantitativo vs baseline basico determinista.
+> [!WARNING]
+> **Atención al ejecutar en entornos locales limpios:**
+> El comando `npm run mint -- selftest` evalúa 10 subsistemas críticos. Para que el 100% de las pruebas pase en un entorno local nuevo, la base de datos PostgreSQL debe tener aplicadas todas las tablas de MINT (`mint_pending_questions`, `mint_quarantine_records`, `mint_sales_orders`, etc.).
+> 
+> Si utilizas una base de datos recién creada, sincroniza el esquema completo ejecutando:
+> ```bash
+> npx drizzle-kit push
+> ```
 
----
-
-## 5. Plan de Remediación Técnica (Auditoría Bot & Gobernanza)
-
-Para consultar el diagnóstico de causas raíz y el plan de refactorización en 6 fases aprobado tras la auditoría técnica, ver:
-- [Plan de Acción y Remediación Técnica](file:///docs/PLAN_ACCION_AUDITORIA_BOT.md)
+* **Pruebas Automatizadas:** `npm test` (85 de 85 pruebas pasando, 23 test suites, 100% de éxito).
+* **Diagnóstico Integral de Producción:** `npm run mint -- selftest` (10/10 comprobaciones operativas aprobadas).
+* **Linter de Emojis:** `npm run lint:emojis` (100% aprobado, 0 emojis).
+* **Chequeo de Tipos:** `npm run typecheck` (100% aprobado, 0 errores de tipado).
