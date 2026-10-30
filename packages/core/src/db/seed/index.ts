@@ -78,167 +78,177 @@ export async function runSeed() {
     });
 
   // 2. Catálogo Extendido de Productos (16 SKUs industriales y comerciales)
-  await db
-    .insert(products)
-    .values([
-      // Componentes y Automatización Industrial
-      {
-        id: "prod_st200",
-        name: "Sensor Térmico ST-200",
-        description: "Sensor de temperatura industrial de alta precisión (-40C a 200C)",
-        category: "industrial",
-        sku: "SKU-ST200",
-        minStock: 10,
-        origin: "real",
-      },
-      {
-        id: "prod_v500",
-        name: "Válvula Reguladora V-500",
-        description: "Válvula de presión hidráulica de acero inoxidable",
-        category: "industrial",
-        sku: "SKU-V500",
-        minStock: 5,
-        origin: "real",
-      },
-      {
-        id: "prod_mc32",
-        name: "Microcontrolador MCU-32",
-        description: "Placa base de automatización PLC Cortex-M4",
-        category: "electronica",
-        sku: "SKU-MC32",
-        minStock: 25,
-        origin: "real",
-      },
-      {
-        id: "prod_plc10",
-        name: "Controlador Lógico Programable PLC-10",
-        description: "Módulo CPU de automatización con puertos Ethernet/IP",
-        category: "industrial",
-        sku: "SKU-PLC10",
-        minStock: 8,
-        origin: "real",
-      },
-      {
-        id: "prod_val99",
-        name: "Válvula Sellada VS-100",
-        description: "Válvula de seguridad contra sobrepresión para tuberías de vapor",
-        category: "hidraulica",
-        sku: "SKU-VS100",
-        minStock: 12,
-        origin: "real",
-      },
-      {
-        id: "prod_bomba_h20",
-        name: "Bomba Centrífuga B-200",
-        description: "Bomba industrial sumergible para recirculación de refrigerante",
-        category: "industrial",
-        sku: "SKU-B200",
-        minStock: 4,
-        origin: "real",
-      },
-      {
-        id: "prod_rele_r12",
-        name: "Relevador de Estado Sólido SSR-12",
-        description: "Relevador de conmutación rápida 40A para control térmico",
-        category: "electronica",
-        sku: "SKU-SSR12",
-        minStock: 30,
-        origin: "real",
-      },
-      {
-        id: "prod_cables_c5",
-        name: "Bobina Cable Cobre Calibre 12 (500m)",
-        description: "Conductor eléctrico THHN antiflama para instalaciones de fuerza",
-        category: "electrico",
-        sku: "SKU-C12-500",
-        minStock: 15,
-        origin: "real",
-      },
-      // Alimentos y Perecederos (Cadena de Frío)
-      {
-        id: "food_app01",
-        name: "Caja de Manzanas Orgánicas (20kg)",
-        description: "Manzanas rojas cosecha nacional para exportación",
-        category: "food",
-        sku: "SKU-APP01",
-        minStock: 50,
-        origin: "real",
-      },
-      {
-        id: "food_mil04",
-        name: "Leche Entera 1L (Pack x12)",
-        description: "Leche pasteurizada en envase tetrapack",
-        category: "food",
-        sku: "SKU-MIL04",
-        minStock: 200,
-        origin: "real",
-      },
-      {
-        id: "food_queso05",
-        name: "Queso Manchego Artesanal 500g",
-        description: "Queso madurado de leche entera",
-        category: "food",
-        sku: "SKU-QMA05",
-        minStock: 60,
-        origin: "real",
-      },
-      {
-        id: "food_carne01",
-        name: "Corte Res Vacío Premium (5kg)",
-        description: "Carne fresca empacada al alto vacío",
-        category: "food",
-        sku: "SKU-CRV01",
-        minStock: 25,
-        origin: "real",
-      },
-      {
-        id: "food_pan02",
-        name: "Harina de Trigo Industrial 25kg",
-        description: "Saco de harina para panificación y alimentos",
-        category: "food",
-        sku: "SKU-HAR25",
-        minStock: 40,
-        origin: "real",
-      },
-      // Herramientas y Consumibles Operativos
-      {
-        id: "tool_guantes_g1",
-        name: "Guantes de Nitrilo Industrial (Caja 100u)",
-        description: "Guantes resistentes a químicos e hidrocarburos",
-        category: "seguridad",
-        sku: "SKU-GNT100",
-        minStock: 100,
-        origin: "real",
-      },
-      {
-        id: "tool_lub_02",
-        name: "Lubricante Sintético Alimenticio 5L",
-        description: "Aceite sintético grado NSF H1 para engranajes",
-        category: "mantenimiento",
-        sku: "SKU-LUB05",
-        minStock: 15,
-        origin: "real",
-      },
-      {
-        id: "prod_filtro_f10",
-        name: "Filtro de Aire HEPA Industrial",
-        description: "Filtro de alta eficiencia para cuartos limpios y plantas",
-        category: "mantenimiento",
-        sku: "SKU-HEPA10",
-        minStock: 20,
-        origin: "real",
-      },
-    ])
-    .onConflictDoUpdate({
-      target: products.id,
-      set: {
-        name: sql`excluded.name`,
-        description: sql`excluded.description`,
-        category: sql`excluded.category`,
-        sku: sql`excluded.sku`,
-        minStock: sql`excluded.min_stock`,
-      },
-    });
+  // Idempotencia: `products` tiene PK `id` Y una restricción única en
+  // (company_id, sku). Postgres solo permite un target de conflicto por
+  // sentencia, así que insertamos ignorando conflictos (por id o por sku)
+  // y luego refrescamos los campos mutables fila por fila por `id`.
+  const productSeed: Array<typeof products.$inferInsert> = [
+    // Componentes y Automatización Industrial
+    {
+      id: "prod_st200",
+      name: "Sensor Térmico ST-200",
+      description: "Sensor de temperatura industrial de alta precisión (-40C a 200C)",
+      category: "industrial",
+      sku: "SKU-ST200",
+      minStock: 10,
+      origin: "real",
+    },
+    {
+      id: "prod_v500",
+      name: "Válvula Reguladora V-500",
+      description: "Válvula de presión hidráulica de acero inoxidable",
+      category: "industrial",
+      sku: "SKU-V500",
+      minStock: 5,
+      origin: "real",
+    },
+    {
+      id: "prod_mc32",
+      name: "Microcontrolador MCU-32",
+      description: "Placa base de automatización PLC Cortex-M4",
+      category: "electronica",
+      sku: "SKU-MC32",
+      minStock: 25,
+      origin: "real",
+    },
+    {
+      id: "prod_plc10",
+      name: "Controlador Lógico Programable PLC-10",
+      description: "Módulo CPU de automatización con puertos Ethernet/IP",
+      category: "industrial",
+      sku: "SKU-PLC10",
+      minStock: 8,
+      origin: "real",
+    },
+    {
+      id: "prod_val99",
+      name: "Válvula Sellada VS-100",
+      description: "Válvula de seguridad contra sobrepresión para tuberías de vapor",
+      category: "hidraulica",
+      sku: "SKU-VS100",
+      minStock: 12,
+      origin: "real",
+    },
+    {
+      id: "prod_bomba_h20",
+      name: "Bomba Centrífuga B-200",
+      description: "Bomba industrial sumergible para recirculación de refrigerante",
+      category: "industrial",
+      sku: "SKU-B200",
+      minStock: 4,
+      origin: "real",
+    },
+    {
+      id: "prod_rele_r12",
+      name: "Relevador de Estado Sólido SSR-12",
+      description: "Relevador de conmutación rápida 40A para control térmico",
+      category: "electronica",
+      sku: "SKU-SSR12",
+      minStock: 30,
+      origin: "real",
+    },
+    {
+      id: "prod_cables_c5",
+      name: "Bobina Cable Cobre Calibre 12 (500m)",
+      description: "Conductor eléctrico THHN antiflama para instalaciones de fuerza",
+      category: "electrico",
+      sku: "SKU-C12-500",
+      minStock: 15,
+      origin: "real",
+    },
+    // Alimentos y Perecederos (Cadena de Frío)
+    {
+      id: "food_app01",
+      name: "Caja de Manzanas Orgánicas (20kg)",
+      description: "Manzanas rojas cosecha nacional para exportación",
+      category: "food",
+      sku: "SKU-APP01",
+      minStock: 50,
+      origin: "real",
+    },
+    {
+      id: "food_mil04",
+      name: "Leche Entera 1L (Pack x12)",
+      description: "Leche pasteurizada en envase tetrapack",
+      category: "food",
+      sku: "SKU-MIL04",
+      minStock: 200,
+      origin: "real",
+    },
+    {
+      id: "food_queso05",
+      name: "Queso Manchego Artesanal 500g",
+      description: "Queso madurado de leche entera",
+      category: "food",
+      sku: "SKU-QMA05",
+      minStock: 60,
+      origin: "real",
+    },
+    {
+      id: "food_carne01",
+      name: "Corte Res Vacío Premium (5kg)",
+      description: "Carne fresca empacada al alto vacío",
+      category: "food",
+      sku: "SKU-CRV01",
+      minStock: 25,
+      origin: "real",
+    },
+    {
+      id: "food_pan02",
+      name: "Harina de Trigo Industrial 25kg",
+      description: "Saco de harina para panificación y alimentos",
+      category: "food",
+      sku: "SKU-HAR25",
+      minStock: 40,
+      origin: "real",
+    },
+    // Herramientas y Consumibles Operativos
+    {
+      id: "tool_guantes_g1",
+      name: "Guantes de Nitrilo Industrial (Caja 100u)",
+      description: "Guantes resistentes a químicos e hidrocarburos",
+      category: "seguridad",
+      sku: "SKU-GNT100",
+      minStock: 100,
+      origin: "real",
+    },
+    {
+      id: "tool_lub_02",
+      name: "Lubricante Sintético Alimenticio 5L",
+      description: "Aceite sintético grado NSF H1 para engranajes",
+      category: "mantenimiento",
+      sku: "SKU-LUB05",
+      minStock: 15,
+      origin: "real",
+    },
+    {
+      id: "prod_filtro_f10",
+      name: "Filtro de Aire HEPA Industrial",
+      description: "Filtro de alta eficiencia para cuartos limpios y plantas",
+      category: "mantenimiento",
+      sku: "SKU-HEPA10",
+      minStock: 20,
+      origin: "real",
+    },
+  ];
+
+  // Inserta ignorando conflictos (por PK `id` o por unique (company_id, sku)).
+  await db.insert(products).values(productSeed).onConflictDoNothing();
+
+  // Refresca los campos mutables de cada producto por su `id` para que el
+  // seed sea idempotente y converja al estado esperado en cada ejecución.
+  for (const p of productSeed) {
+    await db
+      .update(products)
+      .set({
+        name: p.name,
+        description: p.description,
+        category: p.category,
+        sku: p.sku,
+        minStock: p.minStock,
+      })
+      .where(sql`${products.id} = ${p.id}`);
+  }
 
   // 3. Inventario Actualizado (Incluye productos agotados en 0, carencias y vencimientos)
   await db

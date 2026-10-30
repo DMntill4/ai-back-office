@@ -23,7 +23,7 @@ import {
   FakeGrokClient,
 } from "@mint/core";
 import { tickOnce, startContinuousDaemon, stopDaemonLoop } from "@mint/daemon";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 describe("MINT — Arquitectura de Agentes y Subagentes Autónomos 24/7 (Pruebas Obligatorias A-F)", () => {
   const companyAId = `comp_auto_a_${Date.now()}`;
@@ -330,25 +330,35 @@ describe("MINT — Arquitectura de Agentes y Subagentes Autónomos 24/7 (Pruebas
     expect(result.summary).toContain("compras externas silenciado");
 
     // Limpieza
-    await db.delete(businessConfig).where(eq(businessConfig.companyId, tiendaCompanyId)).catch(() => {});
-    await db.delete(inventory).where(eq(inventory.companyId, tiendaCompanyId)).catch(() => {});
-    await db.delete(products).where(eq(products.companyId, tiendaCompanyId)).catch(() => {});
-    await db.delete(warehouses).where(eq(warehouses.companyId, tiendaCompanyId)).catch(() => {});
-    await db.delete(companies).where(eq(companies.id, tiendaCompanyId)).catch(() => {});
+    await db.delete(businessConfig).where(eq(businessConfig.companyId, tiendaCompanyId)).catch(() => { });
+    await db.delete(inventory).where(eq(inventory.companyId, tiendaCompanyId)).catch(() => { });
+    await db.delete(products).where(eq(products.companyId, tiendaCompanyId)).catch(() => { });
+    await db.delete(warehouses).where(eq(warehouses.companyId, tiendaCompanyId)).catch(() => { });
+    await db.delete(companies).where(eq(companies.id, tiendaCompanyId)).catch(() => { });
   });
 
   afterAll(async () => {
-    // Limpieza de datos de prueba
-    await db.delete(decisions).where(eq(decisions.companyId, companyAId)).catch(() => {});
-    await db.delete(cases).where(eq(cases.companyId, companyAId)).catch(() => {});
-    await db.delete(operationalEvents).where(eq(operationalEvents.companyId, companyAId)).catch(() => {});
-    await db.delete(mintPendingQuestions).where(eq(mintPendingQuestions.companyId, companyAId)).catch(() => {});
-    await db.delete(inventory).where(eq(inventory.companyId, companyAId)).catch(() => {});
-    await db.delete(supplierProducts).where(eq(supplierProducts.companyId, companyAId)).catch(() => {});
-    await db.delete(suppliers).where(eq(suppliers.companyId, companyAId)).catch(() => {});
-    await db.delete(products).where(eq(products.companyId, companyAId)).catch(() => {});
-    await db.delete(warehouses).where(eq(warehouses.companyId, companyAId)).catch(() => {});
-    await db.delete(companies).where(eq(companies.id, companyAId)).catch(() => {});
-    await db.delete(companies).where(eq(companies.id, companyBId)).catch(() => {});
+    // Limpieza de datos de prueba. Se ejecuta dentro de una transacción con
+    // `lock_timeout` para que un lock residual (p. ej. del daemon) no deje el
+    // hook colgado hasta el timeout global. El orden respeta las FKs.
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL lock_timeout = '5s'`);
+        await tx.delete(decisions).where(eq(decisions.companyId, companyAId));
+        await tx.delete(operationalEvents).where(eq(operationalEvents.companyId, companyAId));
+        await tx.delete(mintPendingQuestions).where(eq(mintPendingQuestions.companyId, companyAId));
+        await tx.delete(cases).where(eq(cases.companyId, companyAId));
+        await tx.delete(inventory).where(eq(inventory.companyId, companyAId));
+        await tx.delete(supplierProducts).where(eq(supplierProducts.companyId, companyAId));
+        await tx.delete(suppliers).where(eq(suppliers.companyId, companyAId));
+        await tx.delete(products).where(eq(products.companyId, companyAId));
+        await tx.delete(warehouses).where(eq(warehouses.companyId, companyAId));
+        await tx.delete(companies).where(eq(companies.id, companyAId));
+        await tx.delete(companies).where(eq(companies.id, companyBId));
+      });
+    } catch (err) {
+      // La limpieza es best-effort: no debe hacer fallar la suite.
+      console.warn("[afterAll] Limpieza parcial de datos de prueba:", (err as Error).message);
+    }
   });
 });

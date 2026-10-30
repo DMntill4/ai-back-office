@@ -1,9 +1,10 @@
+﻿import * as path from "node:path";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { db, pool } from "./client";
 
 export async function runMigrations() {
   console.log("Applying database migrations...");
-  await migrate(db, { migrationsFolder: "./src/db/migrations" });
+  await migrate(db, { migrationsFolder: path.resolve(__dirname, "migrations") });
   console.log("Database migrations applied successfully.");
 }
 
@@ -17,3 +18,4 @@ if (require.main === module) {
       await pool.end();
     });
 }
+

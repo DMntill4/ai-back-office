@@ -30,6 +30,9 @@ describe("Auditoría Adversarial Total: Seguridad, Guardrails, Prompt Injection 
   const companyAdvId = `comp_adv_${Date.now()}`;
   const companyOtherId = `comp_other_${Date.now()}`;
   const productId = `prod_adv_${Date.now()}`;
+  // Id único por ejecución: un id fijo colisionaría con la PK en la siguiente
+  // corrida si la limpieza previa no se completó.
+  const warehouseAdvId = `alm_adv_${Date.now()}`;
 
   beforeAll(async () => {
     // 1. Crear empresas aisladas para pruebas de seguridad
@@ -40,7 +43,7 @@ describe("Auditoría Adversarial Total: Seguridad, Guardrails, Prompt Injection 
 
     // 1.1 Crear bodega de prueba en companyAdvId
     await db.insert(warehouses).values({
-      id: "alm_adv",
+      id: warehouseAdvId,
       companyId: companyAdvId,
       name: "Almacén Central Adversarial",
       location: "Bogotá",
@@ -61,7 +64,7 @@ describe("Auditoría Adversarial Total: Seguridad, Guardrails, Prompt Injection 
       id: `inv_adv_${Date.now()}`,
       companyId: companyAdvId,
       productId: productId,
-      warehouseId: "alm_adv",
+      warehouseId: warehouseAdvId,
       stock: 25,
     });
   });
@@ -474,11 +477,12 @@ describe("Auditoría Adversarial Total: Seguridad, Guardrails, Prompt Injection 
 
   afterAll(async () => {
     // Limpieza de datos de prueba
-    await db.delete(decisions).where(eq(decisions.companyId, companyAdvId)).catch(() => {});
-    await db.delete(inventory).where(eq(inventory.companyId, companyAdvId)).catch(() => {});
-    await db.delete(products).where(eq(products.companyId, companyAdvId)).catch(() => {});
-    await db.delete(suppliers).where(eq(suppliers.companyId, companyAdvId)).catch(() => {});
-    await db.delete(companies).where(eq(companies.id, companyAdvId)).catch(() => {});
-    await db.delete(companies).where(eq(companies.id, companyOtherId)).catch(() => {});
+    await db.delete(decisions).where(eq(decisions.companyId, companyAdvId)).catch(() => { });
+    await db.delete(inventory).where(eq(inventory.companyId, companyAdvId)).catch(() => { });
+    await db.delete(products).where(eq(products.companyId, companyAdvId)).catch(() => { });
+    await db.delete(suppliers).where(eq(suppliers.companyId, companyAdvId)).catch(() => { });
+    await db.delete(warehouses).where(eq(warehouses.companyId, companyAdvId)).catch(() => { });
+    await db.delete(companies).where(eq(companies.id, companyAdvId)).catch(() => { });
+    await db.delete(companies).where(eq(companies.id, companyOtherId)).catch(() => { });
   });
 });
