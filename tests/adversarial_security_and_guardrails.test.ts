@@ -24,7 +24,7 @@ import {
 } from "@mint/core";
 import { sanitizeCell, sanitizeRow, sanitizeFilePath, parseCsvContent } from "@mint/ingest";
 import { WebhookAdapter } from "@mint/notifiers";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 describe("Auditoría Adversarial Total: Seguridad, Guardrails, Prompt Injection y Fiabilidad", () => {
   const companyAdvId = `comp_adv_${Date.now()}`;
@@ -476,13 +476,27 @@ describe("Auditoría Adversarial Total: Seguridad, Guardrails, Prompt Injection 
   });
 
   afterAll(async () => {
-    // Limpieza de datos de prueba
-    await db.delete(decisions).where(eq(decisions.companyId, companyAdvId)).catch(() => { });
-    await db.delete(inventory).where(eq(inventory.companyId, companyAdvId)).catch(() => { });
-    await db.delete(products).where(eq(products.companyId, companyAdvId)).catch(() => { });
-    await db.delete(suppliers).where(eq(suppliers.companyId, companyAdvId)).catch(() => { });
-    await db.delete(warehouses).where(eq(warehouses.companyId, companyAdvId)).catch(() => { });
-    await db.delete(companies).where(eq(companies.id, companyAdvId)).catch(() => { });
-    await db.delete(companies).where(eq(companies.id, companyOtherId)).catch(() => { });
+    // Limpieza de datos de prueba en una única transacción acotada.
+    // `lock_timeout` evita que un lock residual (daemon/agente) cuelgue el hook
+    // hasta el timeout global; `session_replication_role = replica` desactiva
+    // los triggers de usuario para que el CASCADE desde `cases` no choque con
+    // el trigger de inmutabilidad de `case_events`.
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL lock_timeout = '5s'`);
+        await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+        await tx.delete(decisions).where(eq(decisions.companyId, companyAdvId));
+        await tx.delete(cases).where(eq(cases.companyId, companyAdvId));
+        await tx.delete(inventory).where(eq(inventory.companyId, companyAdvId));
+        await tx.delete(products).where(eq(products.companyId, companyAdvId));
+        await tx.delete(suppliers).where(eq(suppliers.companyId, companyAdvId));
+        await tx.delete(warehouses).where(eq(warehouses.companyId, companyAdvId));
+        await tx.delete(companies).where(eq(companies.id, companyAdvId));
+        await tx.delete(companies).where(eq(companies.id, companyOtherId));
+      });
+    } catch (err) {
+      // La limpieza es best-effort: no debe hacer fallar la suite.
+      console.warn("[afterAll] Limpieza parcial de datos de prueba:", (err as Error).message);
+    }
   });
 });

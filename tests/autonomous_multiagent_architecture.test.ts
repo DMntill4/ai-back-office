@@ -341,9 +341,16 @@ describe("MINT — Arquitectura de Agentes y Subagentes Autónomos 24/7 (Pruebas
     // Limpieza de datos de prueba. Se ejecuta dentro de una transacción con
     // `lock_timeout` para que un lock residual (p. ej. del daemon) no deje el
     // hook colgado hasta el timeout global. El orden respeta las FKs.
+    //
+    // `session_replication_role = replica` desactiva los triggers de usuario
+    // durante la transacción: `case_events` es inmutable por diseño (trigger
+    // `trg_prevent_case_events_delete`) y bloquearía el CASCADE desde `cases`.
+    // Es seguro aquí porque la transacción solo borra datos de prueba aislados
+    // por `company_id` y se revierte por completo si algo falla.
     try {
       await db.transaction(async (tx) => {
         await tx.execute(sql`SET LOCAL lock_timeout = '5s'`);
+        await tx.execute(sql`SET LOCAL session_replication_role = replica`);
         await tx.delete(decisions).where(eq(decisions.companyId, companyAId));
         await tx.delete(operationalEvents).where(eq(operationalEvents.companyId, companyAId));
         await tx.delete(mintPendingQuestions).where(eq(mintPendingQuestions.companyId, companyAId));
