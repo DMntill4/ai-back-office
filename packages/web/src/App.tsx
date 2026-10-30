@@ -126,7 +126,7 @@ export const App: React.FC = () => {
       case "inventario":
         return (
           <StockInventoryView
-            onTriggerRebalance={(sku) => alert(`Rebalanceo sugerido para ${sku.name}`)}
+            onNavigateTo={handleTabChange}
             onNavigateToInbox={() => setCurrentTab("aprobaciones")}
           />
         );

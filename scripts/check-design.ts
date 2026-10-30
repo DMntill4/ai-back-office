@@ -47,6 +47,7 @@ const PHASE_FILES = [
   "packages/web/src/components/views/HitlApprovalsView.tsx",
   "packages/web/src/components/canvas/WorkflowCanvas.tsx",
   "packages/web/src/components/views/KnowledgeGraphView.tsx",
+  "packages/web/src/components/views/StockInventoryView.tsx",
   "packages/web/src/components/graph/KnowledgeGraphCanvas.tsx",
 ];
 
