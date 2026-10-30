@@ -88,32 +88,7 @@ export const App: React.FC = () => {
           />
         );
 
-      // OPERACIONES
-      case "inventario":
-        return (
-          <StockInventoryView
-            onTriggerRebalance={(sku) => alert(`Rebalanceo sugerido para ${sku.name}`)}
-            onNavigateToInbox={() => setCurrentTab("aprobaciones")}
-          />
-        );
-
-      case "rutas_logistica":
-        return <LogisticsRoutesView />;
-
-      case "proveedores":
-        return <SuppliersView />;
-
-      case "compras_ordenes":
-        return (
-          <PurchaseOrdersView
-            onOpenApprovalModal={() => setIsApprovalDialogOpen(true)}
-          />
-        );
-
-      case "productos":
-        return <ProductsCatalogView />;
-
-      // GOBERNANZA
+      // 2. APROBACIONES
       case "aprobaciones":
         return (
           <HitlApprovalsView
@@ -147,16 +122,35 @@ export const App: React.FC = () => {
           />
         );
 
-      case "auditoria_eventos":
-        return <HistoryView />;
+      // 3. INVENTARIO (Existencias, Rutas y Productos)
+      case "inventario":
+        return (
+          <StockInventoryView
+            onTriggerRebalance={(sku) => alert(`Rebalanceo sugerido para ${sku.name}`)}
+            onNavigateToInbox={() => setCurrentTab("aprobaciones")}
+          />
+        );
 
-      case "reglas_politicas":
-        return <PoliciesRulesView />;
+      case "rutas_logistica":
+        return <LogisticsRoutesView />;
 
-      case "roles_permisos":
-        return <RolesPermissionsView />;
+      case "productos":
+        return <ProductsCatalogView />;
 
-      // INTELIGENCIA
+      // 4. COMPRAS (Órdenes y Proveedores)
+      case "compras":
+      case "compras_ordenes":
+        return (
+          <PurchaseOrdersView
+            onOpenApprovalModal={() => setIsApprovalDialogOpen(true)}
+          />
+        );
+
+      case "proveedores":
+        return <SuppliersView />;
+
+      // 5. AGENTE (Flujo, Grafo, Memoria, Auditoría, Reglas)
+      case "agente":
       case "flujo_agente":
         return (
           <WorkflowCanvas
@@ -173,26 +167,38 @@ export const App: React.FC = () => {
       case "memoria_agente":
         return <MemoryVaultView />;
 
+      case "auditoria_eventos":
+        return <HistoryView />;
+
+      case "reglas_politicas":
+        return <PoliciesRulesView />;
+
+      // 6. REPORTES (Análisis)
+      case "reportes":
       case "analisis_reportes":
         return <AnalyticsReportsView />;
 
-      // COMUNICACIONES
-      case "canales_notificaciones":
-        return <NotificationChannelsView />;
+      // 7. AJUSTES (Empresas, Integraciones, Canales, Webhooks, Roles, General)
+      case "ajustes":
+      case "configuracion_general":
+        return <SettingsView />;
 
-      case "webhooks_api":
-        return <WebhooksApiView />;
-
-      // CONFIGURACIÓN
       case "empresas_sucursales":
         return <CompaniesBranchesView />;
 
       case "integraciones":
         return <IntegrationsView />;
 
-      case "configuracion_general":
-        return <SettingsView />;
+      case "canales_notificaciones":
+        return <NotificationChannelsView />;
 
+      case "webhooks_api":
+        return <WebhooksApiView />;
+
+      case "roles_permisos":
+        return <RolesPermissionsView />;
+
+      // SHOWCASE SOLO EN DESARROLLO
       case "componentes":
         return <ComponentShowcaseView />;
 
@@ -217,17 +223,17 @@ export const App: React.FC = () => {
       <AnimatePresence mode="wait">
         <motion.div
           key={currentTab}
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
           className="w-full flex-1 flex flex-col h-full min-h-0"
         >
           {renderContent()}
         </motion.div>
       </AnimatePresence>
 
-      {/* Diálogo de Aprobación Unificado (Flowcraft Style con Motion) */}
+      {/* Diálogo de Aprobación Unificado */}
       <ApprovalDialog
         isOpen={isApprovalDialogOpen}
         onClose={() => setIsApprovalDialogOpen(false)}

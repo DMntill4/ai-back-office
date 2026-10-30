@@ -5,86 +5,104 @@
 @layer base {
   :root {
     color-scheme: dark;
+
+    /* Superficies Principales */
+    --color-canvas: #0F1612;
+    --color-panel: #151E19;
+    --color-raised: #1C2822;
+
+    /* Bordes y Filetes */
+    --color-border: #26342C;
+    --color-border-strong: #3A4B41;
+
+    /* Textos con Contraste Matemático Verificado AA / AAA */
+    --color-text-primary: #EEF2EC;
+    --color-text-secondary: #AEBCB2;
+    --color-text-muted: #86968B;
+
+    /* Marca Mint (Identidad, Foco, Selección) */
+    --color-brand: #2BB656;
+    --color-brand-lime: #9DE342;
+
+    /* Botón de Acción Principal (Píldora Cálida) */
+    --color-action: #F1EFE8;
+    --color-action-hover: #FFFFFF;
+    --color-action-text: #0F1612;
+
+    /* Escala de Estados Semánticos (Nunca Verde de Marca) */
+    --color-state-ok: #2DD4BF;
+    --color-state-attention: #F5B544;
+    --color-state-error: #F27A88;
+    --color-state-pending: #9AA2FF;
+    --color-state-progress: #9AA9BC;
+
+    /* Fondos de Estado Semánticos */
+    --color-state-ok-surface: rgba(45, 212, 191, 0.12);
+    --color-state-attention-surface: rgba(245, 181, 68, 0.12);
+    --color-state-error-surface: rgba(242, 122, 136, 0.12);
+    --color-state-pending-surface: rgba(154, 162, 255, 0.12);
+    --color-state-progress-surface: rgba(154, 169, 188, 0.12);
+
+    /* Degradés y Halos Oficiales */
+    --gradient-brand: linear-gradient(135deg, #9DE342 0%, #2BB656 100%);
+    --gradient-agent-halo: radial-gradient(circle, rgba(43, 182, 86, 0.18) 0%, rgba(43, 182, 86, 0) 65%);
+    --gradient-entry-grid: linear-gradient(rgba(238, 242, 236, 0.04) 1px, transparent 1px);
+
+    /* Radios */
+    --radius-control: 0.5rem;
+    --radius-container: 0.75rem;
+    --radius-pill: 9999px;
+
+    /* Sombras Funcionales */
+    --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.6);
+    --shadow-focus: 0 0 0 2px #0F1612, 0 0 0 4px #2BB656;
   }
 
   body {
-    background-color: #0A0F0D;
-    color: #F9FAFB;
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    letter-spacing: -0.015em;
+    background-color: var(--color-canvas);
+    color: var(--color-text-primary);
+    font-family: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.5;
+    user-select: text;
   }
 
   *:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px #0A0F0D, 0 0 0 4px #10B981;
+    box-shadow: var(--shadow-focus);
   }
 }
 
-/* Scrollbar táctil en tonos esmeralda-obsidiana */
+/* Scrollbar sobrio en modo bosque */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0A0F0D;
+  background: var(--color-canvas);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #19261E;
+  background: var(--color-border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #25372C;
+  background: var(--color-border-strong);
 }
 
-/* Utilidades de Superficie (Lenguaje táctil Donezo / CheckinOs / Inventar) */
-.bg-canvas {
-  background-color: #0A0F0D;
+/* Clases de utilidad para gradientes y números */
+.bg-gradient-brand {
+  background-image: var(--gradient-brand);
 }
 
-.bg-surface-1 {
-  background-color: #121A16;
-}
-
-.bg-surface-well {
-  background-color: #0B110E;
-}
-
-.bg-hero-emerald {
-  background: linear-gradient(135deg, #0D684D 0%, #063829 100%);
-}
-
-/* Patrón Rayado Diagonal (Estilo Donezo / CheckinOs para barras y medidores) */
-.bg-hatched-emerald {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(16, 185, 129, 0.22),
-    rgba(16, 185, 129, 0.22) 3px,
-    transparent 3px,
-    transparent 8px
-  );
-}
-
-.bg-hatched-slate {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(148, 163, 184, 0.15),
-    rgba(148, 163, 184, 0.15) 3px,
-    transparent 3px,
-    transparent 8px
-  );
-}
-
-/* Gradiente de marca para cifras estelares */
-.text-gradient-mint {
-  background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
+.text-gradient-brand {
+  background: var(--gradient-brand);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-/* Cifras tabulares nativas */
 .tabular-numbers {
   font-variant-numeric: tabular-nums;
 }

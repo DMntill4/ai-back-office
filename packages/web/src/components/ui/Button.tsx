@@ -1,11 +1,10 @@
 import React from "react";
-import { ArrowRight } from "lucide-react";
-import { motion, type HTMLMotionProps } from "motion/react";
+import { ArrowUpRight } from "lucide-react";
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
-export type ButtonSize = "sm" | "md" | "lg";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "destructive" | "danger";
+export type ButtonSize = "sm" | "md" | "lg" | "table"; // 36px, 32px en tablas, sm y lg compatibles
 
-export interface ButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   icon?: React.ReactNode;
@@ -24,59 +23,45 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    "inline-flex items-center justify-center font-medium transition-colors select-none disabled:opacity-40 disabled:cursor-not-allowed rounded-full group cursor-pointer";
+    "inline-flex items-center justify-center font-sans font-medium transition-colors select-none disabled:opacity-40 disabled:cursor-not-allowed rounded-pill group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand";
 
-  const sizeStyles = {
-    sm: "h-8 px-3 text-xs gap-2",
-    md: "h-9 px-4 text-xs gap-2.5",
-    lg: "h-10 px-5 text-sm gap-3",
+  const sizeStyles: Record<ButtonSize, string> = {
+    table: "h-8 px-3 text-caption gap-2", // 32px en tablas
+    sm: "h-8 px-3 text-caption gap-2",    // 32px
+    md: "h-9 px-4 text-caption gap-2.5",  // 36px
+    lg: "h-10 px-5 text-body gap-3",     // 40px
   };
 
-  const arrowCircleSize = {
-    sm: "w-4 h-4 text-[10px]",
-    md: "w-5 h-5 text-xs",
-    lg: "w-6 h-6 text-xs",
-  };
+  const isDestructive = variant === "destructive" || variant === "danger";
 
-  // Flowcraft signature buttons:
-  // Primary: White pill with dark text and dark inner circle arrow
-  // Secondary: Dark forest pill with subtle hairline border
   const variantStyles = {
     primary:
-      "bg-white text-[#070B08] font-semibold hover:bg-neutral-100 active:bg-neutral-200 shadow-buttonGlow",
+      "bg-action text-action-text font-semibold hover:bg-action-hover active:bg-action-hover/90",
     secondary:
-      "bg-forest-surface text-txt-primary border border-forest-border hover:bg-forest-card hover:border-forest-borderBright active:bg-forest-border",
-    danger:
-      "bg-state-errorBg text-state-error border border-state-errorBorder hover:bg-state-error/20 active:bg-state-error/30",
+      "bg-transparent text-primary border border-strong hover:bg-raised active:bg-panel",
     ghost:
-      "bg-transparent text-txt-secondary hover:text-txt-primary hover:bg-forest-card/50",
+      "bg-transparent text-secondary hover:text-primary hover:bg-raised/50",
+    destructive:
+      "bg-transparent text-state-error border border-state-error hover:bg-state-error-surface active:bg-state-error-surface/80",
+    danger:
+      "bg-transparent text-state-error border border-state-error hover:bg-state-error-surface active:bg-state-error-surface/80",
   };
 
   const shouldRenderArrow = showArrow ?? (variant === "primary");
 
   return (
-    <motion.button
-      whileHover={disabled ? undefined : { scale: 1.015, y: -0.5 }}
-      whileTap={disabled ? undefined : { scale: 0.985 }}
-      transition={{ type: "spring", stiffness: 450, damping: 25 }}
-      className={`${baseStyles} ${sizeStyles[size]} ${variantStyles[variant]} ${className}`}
+    <button
       disabled={disabled}
+      className={`${baseStyles} ${sizeStyles[size]} ${variantStyles[variant]} ${className}`}
       {...props}
     >
       {icon && <span className="flex-shrink-0">{icon}</span>}
-      <span className="truncate">{children}</span>
-
+      <span>{children}</span>
       {shouldRenderArrow && (
-        <motion.span
-          className={`flex-shrink-0 rounded-full flex items-center justify-center transition-transform group-hover:translate-x-0.5 ${
-            variant === "primary"
-              ? "bg-[#070B08] text-white"
-              : "bg-forest-border text-txt-secondary"
-          } ${arrowCircleSize[size]}`}
-        >
-          <ArrowRight className="w-2.5 h-2.5" />
-        </motion.span>
+        <span className="w-5 h-5 rounded-pill bg-canvas text-primary flex items-center justify-center flex-shrink-0 transition-transform group-hover:translate-x-0.5">
+          <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
+        </span>
       )}
-    </motion.button>
+    </button>
   );
 };

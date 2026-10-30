@@ -1,9 +1,11 @@
 import React from "react";
-import { Check } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 export interface AgentEventChipProps {
   action: string;
+  reference?: string;
   detail?: string;
+  timeAgo?: string;
   timeOrMetric?: string;
   className?: string;
   onClick?: () => void;
@@ -11,48 +13,37 @@ export interface AgentEventChipProps {
 
 export const AgentEventChip: React.FC<AgentEventChipProps> = ({
   action,
+  reference,
   detail,
+  timeAgo,
   timeOrMetric,
   className = "",
   onClick,
 }) => {
+  const refText = reference || detail || "";
+  const timeText = timeAgo || timeOrMetric || "";
+
   return (
     <div
       onClick={onClick}
-      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-forest-surface/90 border border-forest-border hover:border-forest-borderBright transition-all shadow-subtle ${
-        onClick ? "cursor-pointer hover:bg-forest-card" : ""
+      className={`inline-flex items-center gap-2 px-3 py-1 rounded-pill bg-raised border border-border text-caption text-secondary ${
+        onClick ? "cursor-pointer hover:border-strong transition-colors" : ""
       } ${className}`}
     >
-      {/* Icono de Check en cápsula verde esmeralda */}
-      <span className="w-4 h-4 rounded-full bg-brand/15 text-brand border border-brand/30 flex items-center justify-center flex-shrink-0">
-        <Check className="w-2.5 h-2.5 stroke-[2.5]" />
-      </span>
-
-      {/* Acción en lenguaje natural */}
-      <span className="text-xs font-medium text-txt-primary">
-        {action}
-      </span>
-
-      {/* Detalle / ID técnico en mono */}
-      {detail && (
+      <CheckCircle2 className="w-3.5 h-3.5 text-brand flex-shrink-0" />
+      <span className="text-primary font-medium">{action}</span>
+      {refText && (
         <>
-          <span className="text-txt-tertiary select-none">·</span>
-          <span className="text-[11px] font-mono text-txt-secondary tabular-nums">
-            {detail}
-          </span>
+          <span className="text-muted">·</span>
+          <span className="font-mono text-caption text-primary">{refText}</span>
         </>
       )}
-
-      {/* Tiempo transcurrido o métrica */}
-      {timeOrMetric && (
+      {timeText && (
         <>
-          <span className="text-txt-tertiary select-none">·</span>
-          <span className="text-[11px] font-mono text-txt-tertiary tabular-nums">
-            {timeOrMetric}
-          </span>
+          <span className="text-muted">·</span>
+          <span className="text-muted">{timeText}</span>
         </>
       )}
     </div>
   );
 };
-

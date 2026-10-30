@@ -22,11 +22,11 @@ export const InputField: React.FC<InputFieldProps> = ({
   const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
 
   return (
-    <div className="w-full space-y-1.5">
+    <div className="w-full space-y-hairline">
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-xs font-medium text-txt-secondary"
+          className="block text-label font-medium text-secondary"
         >
           {label}
         </label>
@@ -34,7 +34,7 @@ export const InputField: React.FC<InputFieldProps> = ({
 
       <div className="relative flex items-center">
         {leftIcon && (
-          <span className="absolute left-3 text-txt-tertiary pointer-events-none flex items-center">
+          <span className="absolute left-3 text-muted pointer-events-none flex items-center">
             {leftIcon}
           </span>
         )}
@@ -42,12 +42,12 @@ export const InputField: React.FC<InputFieldProps> = ({
         <input
           id={inputId}
           disabled={disabled}
-          className={`w-full h-9 px-3 text-xs bg-forest-card text-txt-primary border rounded-md transition-colors placeholder:text-txt-tertiary disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`w-full h-9 px-3 text-body bg-panel text-primary border rounded-control transition-colors placeholder:text-muted disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
             leftIcon ? "pl-9" : ""
           } ${rightElement ? "pr-10" : ""} ${
             error
-              ? "border-state-error focus-visible:ring-state-error"
-              : "border-forest-border hover:border-forest-borderBright"
+              ? "border-state-error"
+              : "border-strong hover:border-strong/80"
           } ${className}`}
           {...props}
         />
@@ -60,13 +60,10 @@ export const InputField: React.FC<InputFieldProps> = ({
       </div>
 
       {error ? (
-        <p className="text-[11px] text-state-error flex items-center gap-1">
-          <span aria-hidden="true">■</span> {error}
-        </p>
+        <p className="text-caption text-state-error mt-hairline">{error}</p>
       ) : helperText ? (
-        <p className="text-[11px] text-txt-tertiary">{helperText}</p>
+        <p className="text-caption text-muted mt-hairline">{helperText}</p>
       ) : null}
     </div>
   );
 };
-

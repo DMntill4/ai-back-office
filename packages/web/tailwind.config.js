@@ -8,78 +8,92 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: "#0A0F0D",
-        "surface-1": "#121A16",
-        "surface-well": "#0B110E",
-        surface: {
-          1: "#121A16",
-          well: "#0B110E",
+        canvas: "var(--color-canvas)",
+        panel: "var(--color-panel)",
+        raised: "var(--color-raised)",
+        border: {
+          DEFAULT: "var(--color-border)",
+          strong: "var(--color-border-strong)",
         },
-        forest: {
-          canvas: "#0A0F0D",
-          surface: "#121A16",
-          card: "#121A16",
-          well: "#0B110E",
-          border: "rgba(255, 255, 255, 0.06)",
-          borderBright: "rgba(255, 255, 255, 0.12)",
-          borderActive: "rgba(16, 185, 129, 0.35)",
-        },
+        primary: "var(--color-text-primary)",
+        secondary: "var(--color-text-secondary)",
+        muted: "var(--color-text-muted)",
         brand: {
-          lime: "#9DE342",
-          DEFAULT: "#10B981",
-          primary: "#10B981",
-          dark: "#063829",
-          hover: "#059669",
-          surface: "#0D684D",
-          border: "rgba(16, 185, 129, 0.25)",
+          DEFAULT: "var(--color-brand)",
+          lime: "var(--color-brand-lime)",
+        },
+        action: {
+          DEFAULT: "var(--color-action)",
+          hover: "var(--color-action-hover)",
+          text: "var(--color-action-text)",
         },
         state: {
-          ok: "#10B981",
-          okBg: "rgba(16, 185, 129, 0.12)",
-          okBorder: "rgba(16, 185, 129, 0.28)",
-          attention: "#F59E0B",
-          attentionBg: "rgba(245, 158, 11, 0.12)",
-          attentionBorder: "rgba(245, 158, 11, 0.28)",
-          error: "#EF4444",
-          errorBg: "rgba(239, 68, 68, 0.12)",
-          errorBorder: "rgba(239, 68, 68, 0.28)",
-          pending: "#6366F1",
-          pendingBg: "rgba(99, 102, 241, 0.12)",
-          pendingBorder: "rgba(99, 102, 241, 0.28)",
-          progress: "#94A3B8",
-          progressBg: "rgba(148, 163, 184, 0.12)",
-          progressBorder: "rgba(148, 163, 184, 0.28)",
-        },
-        txt: {
-          primary: "#F9FAFB",
-          secondary: "#8EA495",
-          tertiary: "#586B5F",
+          ok: "var(--color-state-ok)",
+          attention: "var(--color-state-attention)",
+          error: "var(--color-state-error)",
+          pending: "var(--color-state-pending)",
+          progress: "var(--color-state-progress)",
+          "ok-surface": "var(--color-state-ok-surface)",
+          "attention-surface": "var(--color-state-attention-surface)",
+          "error-surface": "var(--color-state-error-surface)",
+          "pending-surface": "var(--color-state-pending-surface)",
+          "progress-surface": "var(--color-state-progress-surface)",
         },
       },
-      backgroundImage: {
-        "hero-emerald": "linear-gradient(135deg, #0D684D 0%, #063829 100%)",
+      textColor: {
+        primary: "var(--color-text-primary)",
+        secondary: "var(--color-text-secondary)",
+        muted: "var(--color-text-muted)",
+        brand: "var(--color-brand)",
+        "brand-lime": "var(--color-brand-lime)",
+        "action-text": "var(--color-action-text)",
+      },
+      backgroundColor: {
+        canvas: "var(--color-canvas)",
+        panel: "var(--color-panel)",
+        raised: "var(--color-raised)",
+        action: "var(--color-action)",
+        "action-hover": "var(--color-action-hover)",
+      },
+      borderColor: {
+        DEFAULT: "var(--color-border)",
+        border: "var(--color-border)",
+        strong: "var(--color-border-strong)",
       },
       fontFamily: {
-        sans: ["'Plus Jakarta Sans'", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
-        mono: ["'JetBrains Mono'", "'IBM Plex Mono'", "monospace"],
+        sans: ["'Figtree'", "system-ui", "-apple-system", "'Segoe UI'", "sans-serif"],
+        mono: ["'IBM Plex Mono'", "ui-monospace", "'SF Mono'", "Consolas", "monospace"],
+      },
+      fontSize: {
+        caption: ["0.75rem", { lineHeight: "1.4", letterSpacing: "0.01em" }],     // 12px
+        label: ["0.8125rem", { lineHeight: "1.4", letterSpacing: "0.005em" }],    // 13px
+        identifier: ["0.8125rem", { lineHeight: "1.5", letterSpacing: "0em" }],   // 13px
+        body: ["0.875rem", { lineHeight: "1.5", letterSpacing: "0em" }],          // 14px
+        "body-large": ["1rem", { lineHeight: "1.5", letterSpacing: "0em" }],      // 16px
+        "group-title": ["1rem", { lineHeight: "1.4", letterSpacing: "-0.005em" }],// 16px
+        "section-title": ["1.125rem", { lineHeight: "1.35", letterSpacing: "-0.01em" }], // 18px
+        "page-title": ["1.5rem", { lineHeight: "1.25", letterSpacing: "-0.02em" }],      // 24px
+        metric: ["2rem", { lineHeight: "1.1", letterSpacing: "-0.025em" }],              // 32px
+        display: ["2.5rem", { lineHeight: "1.1", letterSpacing: "-0.03em" }],             // 40px
+      },
+      spacing: {
+        hairline: "0.25rem", // 4px
+        compact: "0.5rem",   // 8px
+        element: "0.75rem",  // 12px
+        base: "1rem",        // 16px
+        group: "1.5rem",     // 24px
+        section: "2.5rem",   // 40px
+        page: "4rem",        // 64px
       },
       borderRadius: {
-        xs: "4px",
-        sm: "6px",
-        md: "8px",
-        lg: "10px",
-        xl: "12px",
-        "2xl": "16px",
-        pill: "9999px",
+        control: "var(--radius-control)",     // 0.5rem = 8px
+        container: "var(--radius-container)", // 0.75rem = 12px
+        pill: "var(--radius-pill)",           // 9999px
       },
       boxShadow: {
-        subtle: "0 1px 2px rgba(0, 0, 0, 0.35)",
-        surface: "0 4px 12px rgba(0, 0, 0, 0.45)",
-        card: "0 8px 30px rgba(0, 0, 0, 0.4)",
-        dialog: "0 16px 40px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08)",
-        focus: "0 0 0 2px #0A0F0D, 0 0 0 4px #10B981",
-        buttonGlow: "0 0 20px rgba(255, 255, 255, 0.15)",
-        agentGlow: "0 0 30px rgba(16, 185, 129, 0.25)",
+        popover: "var(--shadow-popover)",
+        dialog: "var(--shadow-dialog)",
+        focus: "var(--shadow-focus)",
       },
     },
   },

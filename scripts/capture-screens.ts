@@ -9,6 +9,7 @@ const VIEWPORTS = [
 ];
 
 const PAGES = [
+  { hash: "inicio", filePrefix: "shell" },
   { hash: "inicio", filePrefix: "inicio" },
   { hash: "aprobaciones", filePrefix: "aprobaciones" },
 ];
@@ -45,7 +46,7 @@ async function main() {
       console.log(`Navigating to ${url}...`);
       await page.goto(url, { waitUntil: "networkidle" });
       // Wait for fonts & particle canvas to settle
-      await page.waitForTimeout(1200);
+      await page.waitForTimeout(1000);
 
       const filename = `${target.filePrefix}-${vp.name}.png`;
       const docPath = path.join(DOCS_DIR, filename);
