@@ -21,7 +21,7 @@ const BANNED_TECHNICAL_WORDS = [
   "\\bQUIEBRE_INMINENTE_84H\\b",
 ];
 
-// Archivos de la Fase 0 y Fase 1 (Cimientos, Shell, Componentes Base, Inicio y Aprobaciones)
+// Archivos de la Fase 0, Fase 1 y Fase 2
 const PHASE_FILES = [
   "packages/web/index.html",
   "packages/web/src/index.css",
@@ -45,6 +45,9 @@ const PHASE_FILES = [
   "packages/web/src/components/ui/SimulationSlider.tsx",
   "packages/web/src/components/views/DashboardOverviewView.tsx",
   "packages/web/src/components/views/HitlApprovalsView.tsx",
+  "packages/web/src/components/canvas/WorkflowCanvas.tsx",
+  "packages/web/src/components/views/KnowledgeGraphView.tsx",
+  "packages/web/src/components/graph/KnowledgeGraphCanvas.tsx",
 ];
 
 function checkFile(filePath: string): Violation[] {

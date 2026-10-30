@@ -12,6 +12,8 @@ const PAGES = [
   { hash: "inicio", filePrefix: "shell" },
   { hash: "inicio", filePrefix: "inicio" },
   { hash: "aprobaciones", filePrefix: "aprobaciones" },
+  { hash: "flujo_agente", filePrefix: "flujo-agente" },
+  { hash: "mapa_conocimiento", filePrefix: "mapa-conocimiento" },
 ];
 
 const DOCS_DIR = path.resolve(process.cwd(), "docs/screens");

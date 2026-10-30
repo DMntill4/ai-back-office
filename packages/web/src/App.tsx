@@ -154,6 +154,7 @@ export const App: React.FC = () => {
       case "flujo_agente":
         return (
           <WorkflowCanvas
+            onNavigateTo={handleTabChange}
             onOpenApprovalModal={(id) => {
               setSelectedOrderId(id);
               setIsApprovalDialogOpen(true);
@@ -162,7 +163,7 @@ export const App: React.FC = () => {
         );
 
       case "mapa_conocimiento":
-        return <KnowledgeGraphView />;
+        return <KnowledgeGraphView onNavigateTo={handleTabChange} />;
 
       case "memoria_agente":
         return <MemoryVaultView />;

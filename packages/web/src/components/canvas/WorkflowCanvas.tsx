@@ -1,116 +1,319 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
-  Database,
-  Layers,
-  FileCheck,
   Pause,
   Play,
   RotateCw,
-  ShieldAlert,
-  ChevronRight,
-  Info,
-  CheckCircle2,
   Clock,
   Sparkles,
-  Cpu,
-  ArrowRight,
-  Send,
-  Zap,
-  Terminal,
+  ChevronDown,
+  ChevronRight,
   Copy,
-  ExternalLink,
-  Sliders,
+  Check,
+  ShieldCheck,
 } from "lucide-react";
-import { AgentParticleOrb } from "../ui/AgentParticleOrb";
-import { AgentEventChip } from "../ui/AgentEventChip";
+import { PageHeader } from "../ui/PageHeader";
+import { SegmentedTabs, TabItem } from "../ui/SegmentedTabs";
+import { MetricStrip, MetricItem } from "../ui/MetricStrip";
+import { StatusIndicator, OperationalStatus } from "../ui/StatusIndicator";
 import { Button } from "../ui/Button";
+import { Panel } from "../ui/Panel";
+import { AgentParticleCloud } from "../ui/AgentParticleCloud";
+import { AgentEventChip } from "../ui/AgentEventChip";
 
 interface WorkflowCanvasProps {
   onOpenApprovalModal?: (orderId: string) => void;
+  onNavigateTo?: (tabId: string) => void;
 }
 
 type NodeStage = "trigger" | "inventory" | "agent" | "governance" | "dispatch";
 
-interface NodeData {
+interface StageNodeData {
   id: NodeStage;
-  stageNum: string;
+  stepLabel: string;
   category: string;
   name: string;
-  subname: string;
-  status: "active" | "warning" | "running" | "waiting" | "ready";
+  description: string;
+  status: OperationalStatus;
   statusLabel: string;
-  metrics: string;
-  execTime: string;
+  metricSummary: string;
+  durationLabel: string;
+}
+
+interface StageTraceEvent {
+  time: string;
+  action: string;
+  reference: string;
+  detail: string;
+  status: OperationalStatus;
+  statusText: string;
 }
 
 export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
   onOpenApprovalModal,
+  onNavigateTo,
 }) => {
-  const [isAgentRunning, setIsAgentRunning] = useState(true);
+  const [isAgentRunning, setIsAgentRunning] = useState<boolean>(true);
   const [selectedStage, setSelectedStage] = useState<NodeStage>("agent");
-  const [selectedRun, setSelectedRun] = useState("RUN-8849");
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [selectedRun, setSelectedRun] = useState<string>("CICLO-8849");
+  const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [simulationStep, setSimulationStep] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"config" | "trace" | "json">("trace");
-  const [copiedJson, setCopiedJson] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<string>("bitacora");
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
+  const [copiedPayload, setCopiedPayload] = useState<boolean>(false);
 
-  const nodes: NodeData[] = [
+  // Subpestañas del destino Agente según Mint-DESIGN.md
+  const agentSubTabs: TabItem[] = [
+    { id: "flujo_agente", label: "Flujo del agente" },
+    { id: "mapa_conocimiento", label: "Mapa de conocimiento" },
+    { id: "memoria_agente", label: "Memoria del agente" },
+    { id: "auditoria_eventos", label: "Historial de decisiones" },
+    { id: "reglas_politicas", label: "Reglas y políticas" },
+  ];
+
+  const handleSubTabChange = (tabId: string) => {
+    if (onNavigateTo) {
+      onNavigateTo(tabId);
+    }
+  };
+
+  // Franja de métricas clave sin tarjetas (MetricStrip)
+  const metricsItems: MetricItem[] = [
+    {
+      id: "skus_vigilados",
+      value: "74 SKUs",
+      context: "Referencias vigiladas en 3 sedes físicas",
+      highlightBrand: true,
+      auxiliary: <StatusIndicator status="ok" label="Sincronizado" />,
+    },
+    {
+      id: "frecuencia",
+      value: "30 min",
+      context: "Frecuencia de barrido de inventario",
+      auxiliary: (
+        <span className="text-caption text-secondary">Próximo en 14 min</span>
+      ),
+    },
+    {
+      id: "respuesta",
+      value: "142 ms",
+      context: "Tiempo medio de deliberación del agente",
+      auxiliary: <StatusIndicator status="ok" label="Alta precisión" />,
+    },
+    {
+      id: "pendientes",
+      value: "2",
+      context: "Compras que requieren tu aprobación (> $5M COP)",
+      auxiliary: <StatusIndicator status="pending" label="Requiere firma" />,
+    },
+  ];
+
+  // 5 Etapas del Flujo Operativo en lenguaje de negocio
+  const stages: StageNodeData[] = [
     {
       id: "trigger",
-      stageNum: "01",
-      category: "CAPTURA EN ALMACÉN",
-      name: "Disparadores Telemetría",
-      subname: "Sincronización en vivo · WMS",
-      status: "active",
-      statusLabel: "Escucha activa",
-      metrics: "14 eventos / min",
-      execTime: "12 ms",
+      stepLabel: "Etapa 01",
+      category: "Captura en almacén",
+      name: "Recepción de movimientos",
+      description: "Sincronización de entradas, salidas y despachos en sede",
+      status: "ok",
+      statusLabel: "En línea",
+      metricSummary: "14 mov / min",
+      durationLabel: "12 ms",
     },
     {
       id: "inventory",
-      stageNum: "02",
-      category: "ANÁLISIS STOCK",
-      name: "Evaluación ROP & Cobertura",
-      subname: "Modelo dinámico vs. Lead Time",
-      status: "warning",
-      statusLabel: "1 Quiebre Crítico",
-      metrics: "74 SKUs analizados",
-      execTime: "45 ms",
+      stepLabel: "Etapa 02",
+      category: "Análisis de existencias",
+      name: "Cobertura y punto de reorden",
+      description: "Cálculo de días de inventario frente a demanda de obra",
+      status: "attention",
+      statusLabel: "8 bajo ROP",
+      metricSummary: "74 SKUs revisados",
+      durationLabel: "45 ms",
     },
     {
       id: "agent",
-      stageNum: "03",
-      category: "MOTOR COGNITIVO",
-      name: "Núcleo Autónomo Mint",
-      subname: "xAI Grok-2 · RAG Memoria Activa",
-      status: isSimulating ? "running" : "active",
-      statusLabel: isAgentRunning ? "Ciclo en Vigilancia" : "En Pausa",
-      metrics: "142 ms respuesta · Alta precisión",
-      execTime: "1.24 s",
+      stepLabel: "Etapa 03",
+      category: "Deliberación autónoma",
+      name: "Agente Autónomo Mint",
+      description: "Comparación de proveedores, precios por volumen y tiempos",
+      status: isSimulating ? "progress" : isAgentRunning ? "ok" : "attention",
+      statusLabel: isSimulating
+        ? "Evaluando"
+        : isAgentRunning
+        ? "Activo"
+        : "En pausa",
+      metricSummary: "Ahorro 8.2%",
+      durationLabel: "142 ms",
     },
     {
       id: "governance",
-      stageNum: "04",
-      category: "SUPERVISIÓN EJECUTIVA",
-      name: "Filtro de Políticas & Firma",
-      subname: "Regla POL-01 · Límite $5.000.000",
-      status: "waiting",
-      statusLabel: "Retenido para Firma",
-      metrics: "Orden #OC-402",
-      execTime: "Pendiente",
+      stepLabel: "Etapa 04",
+      category: "Gobernanza y límites",
+      name: "Compras que requieren tu aprobación",
+      description: "Verificación de presupuesto y retención sobre $5.000.000 COP",
+      status: "pending",
+      statusLabel: "2 por firmar",
+      metricSummary: "PO-24A190",
+      durationLabel: "Pendiente",
     },
     {
       id: "dispatch",
-      stageNum: "05",
-      category: "DESPACHO & NOTIFICACIONES",
-      name: "Despacho & Notificaciones",
-      subname: "Facturación DIAN · Telegram · WMS",
-      status: "ready",
-      statusLabel: "En cola transaccional",
-      metrics: "3 canales destino",
-      execTime: "--",
+      stepLabel: "Etapa 05",
+      category: "Ejecución y avisos",
+      name: "Emisión de orden y alertas",
+      description: "Envío a proveedor homologado y notificación a operadores",
+      status: "ok",
+      statusLabel: "Listo",
+      metricSummary: "3 canales",
+      durationLabel: "Inmediato",
     },
   ];
+
+  const stageTraces: Record<NodeStage, StageTraceEvent[]> = {
+    trigger: [
+      {
+        time: "10:24",
+        action: "Actualización de inventario en Bodega Matriz Bucaramanga",
+        reference: "MOV-BGA-901",
+        detail: "Salida de 6 unidades de Rotomartillo Bosch SDS Plus hacia obra Anillo Vial.",
+        status: "ok",
+        statusText: "Registrado",
+      },
+      {
+        time: "10:22",
+        action: "Reporte de tránsito en corredor Bogotá - Bucaramanga",
+        reference: "RUTA-45A",
+        detail: "Vehículo de carga operando en tiempo estimado sin novedades.",
+        status: "ok",
+        statusText: "En ruta",
+      },
+      {
+        time: "10:20",
+        action: "Conciliación periódica de existencias físicas completada",
+        reference: "3 SEDES",
+        detail: "338 referencias verificadas entre Bucaramanga, Bogotá y Medellín.",
+        status: "ok",
+        statusText: "Verificado",
+      },
+    ],
+    inventory: [
+      {
+        time: "10:24",
+        action: "Existencia bajo punto de reorden detectada",
+        reference: "SKU-ROT-001",
+        detail: "Quedan 4 unidades disponibles en Bucaramanga (mínimo de seguridad: 15 unidades).",
+        status: "attention",
+        statusText: "Riesgo < 38h",
+      },
+      {
+        time: "10:24",
+        action: "Proyección de consumo semanal actualizada",
+        reference: "SKU-DW-714",
+        detail: "Ritmo de salida de 1.8 unidades diarias; requiere reposición de 50 unidades.",
+        status: "attention",
+        statusText: "Bajo ROP",
+      },
+      {
+        time: "10:23",
+        action: "Verificación de excedentes entre sucursales",
+        reference: "CD-FONTIBON",
+        detail: "CD Bogotá cuenta con 18 unidades de respaldo disponibles para traslado.",
+        status: "ok",
+        statusText: "Disponible",
+      },
+    ],
+    agent: [
+      {
+        time: "10:24",
+        action: "Consulta de acuerdos comerciales y precedentes de compra",
+        reference: "MEM-PROV-04",
+        detail: "Se priorizan proveedores con entrega garantizada en 24 a 48 horas en Santander.",
+        status: "ok",
+        statusText: "Aplicado",
+      },
+      {
+        time: "10:24",
+        action: "Comparación de cotizaciones por volumen consolidado",
+        reference: "PO-24A190",
+        detail: "Distribuciones Santander otorga 8% de descuento ($1.450.000 COP de ahorro).",
+        status: "ok",
+        statusText: "Óptimo",
+      },
+      {
+        time: "10:24",
+        action: "Propuesta de orden de compra estructurada",
+        reference: "$7.250.000 COP",
+        detail: "50x Rotomartillo Bosch SDS Plus listos para revisión de límite presupuestal.",
+        status: "ok",
+        statusText: "Generada",
+      },
+    ],
+    governance: [
+      {
+        time: "10:24",
+        action: "Retención preventiva por límite de autonomía",
+        reference: "POL-COMP-01",
+        detail: "El monto ($7.250.000 COP) supera el límite autónomo de $5.000.000 COP.",
+        status: "pending",
+        statusText: "Requiere tu firma",
+      },
+      {
+        time: "10:24",
+        action: "Verificación de margen y presupuesto mensual de obra",
+        reference: "PRES-OCT-26",
+        detail: "La compra consume el 5.8% del presupuesto disponible sin exceder el tope trimestral.",
+        status: "ok",
+        statusText: "En presupuesto",
+      },
+    ],
+    dispatch: [
+      {
+        time: "10:25",
+        action: "Aviso enviado a Dirección de Operaciones",
+        reference: "CANAL-TELEGRAM",
+        detail: "Notificación interactiva enviada con resumen ejecutivo para aprobación.",
+        status: "ok",
+        statusText: "Entregado",
+      },
+      {
+        time: "09:40",
+        action: "Orden autónoma enviada a Mundial de Tornillos",
+        reference: "PO-2026-0142",
+        detail: "Compra por $1.450.000 COP autorizada automáticamente (bajo el límite de $5M).",
+        status: "ok",
+        statusText: "En despacho",
+      },
+    ],
+  };
+
+  const stageParameters: Record<NodeStage, { label: string; value: string; note: string }[]> = {
+    trigger: [
+      { label: "Sedes conectadas", value: "Bucaramanga, Bogotá y Medellín", note: "Sincronización continua" },
+      { label: "Ventana de conciliación", value: "Cada 30 minutos", note: "Automática" },
+      { label: " Estado de conexión", value: "100% estable", note: "Sin interrupciones hoy" },
+    ],
+    inventory: [
+      { label: "Cobertura mínima exigida", value: "15 días en obra", note: "Política de abastecimiento" },
+      { label: "Alertas de punto de reorden", value: "8 referencias activas", note: "Prioridad en ferretería pesada" },
+      { label: "Rebalanceo entre sedes", value: "Habilitado", note: "Prioriza traslado antes de compra" },
+    ],
+    agent: [
+      { label: "Criterio de selección", value: "Menor costo total y entrega < 48h", note: "Ponderación equilibrada" },
+      { label: "Consolidación por volumen", value: "Activa (descuento mínimo 5%)", note: "Agrupa pedidos de 3 sedes" },
+      { label: "Memoria de proveedores", value: "12 proveedores homologados", note: "Calificación histórica > 95%" },
+    ],
+    governance: [
+      { label: "Límite de compra autónoma", value: "Hasta $5.000.000 COP", note: "Aprobación automática" },
+      { label: "Compras sobre el límite", value: "Requieren firma ejecutiva", note: "Bandeja de Aprobaciones" },
+      { label: "Responsable asignado", value: "Fernando S. · Director de Operaciones", note: "Notificación inmediata" },
+    ],
+    dispatch: [
+      { label: "Canales de aviso activos", value: "Aplicación de escritorio, Telegram y Correo", note: "Respuesta en 1 clic" },
+      { label: "Seguimiento de entregas", value: "Confirmación de guía con proveedor", note: "Actualiza existencias al recibir" },
+      { label: "Respaldo documental", value: "Orden de compra y acta de decisión", note: "Archivado en historial" },
+    ],
+  };
 
   const handleSimulateCycle = () => {
     if (isSimulating) return;
@@ -118,482 +321,391 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
     setSimulationStep(0);
     setSelectedStage("trigger");
 
-    const steps: NodeStage[] = ["trigger", "inventory", "agent", "governance", "dispatch"];
+    const order: NodeStage[] = ["trigger", "inventory", "agent", "governance", "dispatch"];
+    let idx = 0;
 
-    let current = 0;
-    const interval = setInterval(() => {
-      current += 1;
-      if (current < steps.length) {
-        setSimulationStep(current);
-        setSelectedStage(steps[current]);
+    const timer = setInterval(() => {
+      idx += 1;
+      if (idx < order.length) {
+        setSimulationStep(idx);
+        setSelectedStage(order[idx]);
       } else {
-        clearInterval(interval);
+        clearInterval(timer);
         setIsSimulating(false);
         setSimulationStep(null);
         setSelectedStage("governance");
       }
-    }, 1200);
+    }, 1000);
   };
 
-  const handleCopyJson = () => {
-    setCopiedJson(true);
-    setTimeout(() => setCopiedJson(false), 2000);
+  const activeStageObj = stages.find((s) => s.id === selectedStage) || stages[2];
+
+  const handleCopyTechnical = () => {
+    const payload = JSON.stringify(
+      {
+        ciclo: selectedRun,
+        etapa: activeStageObj.id,
+        nombre: activeStageObj.name,
+        estado: activeStageObj.statusLabel,
+        firmaVerificacion: "9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b",
+      },
+      null,
+      2
+    );
+    navigator.clipboard.writeText(payload);
+    setCopiedPayload(true);
+    setTimeout(() => setCopiedPayload(false), 2000);
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-y-auto bg-[#050806] text-slate-100 p-6 space-y-6">
-      {/* 1. Header con estilo Obsidian Emerald */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-white/[0.06]">
-        <div>
-          <div className="flex items-center gap-2 mb-2 text-xs text-zinc-400 font-sans">
-            <span>Inteligencia</span>
-            <span className="text-zinc-600">/</span>
-            <span className="text-zinc-300">Cadena de Abastecimiento Autónomo</span>
-            <span className="text-zinc-600">/</span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-semibold">
-              Supervisión en Tiempo Real
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-white font-sans">
-              Flujo del Agente
-            </h1>
-            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-medium text-emerald-400">
-              <span className={`w-1.5 h-1.5 rounded-full ${isAgentRunning ? "bg-emerald-400 animate-pulse" : "bg-zinc-500"}`} />
-              {isAgentRunning ? "Motor en Ejecución" : "Ciclo en Pausa"}
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400 mt-1 max-w-2xl font-sans">
-            Trazabilidad del flujo continuo de adquisiciones: sincronización de existencias físicas en tiempo real, cálculo dinámico de punto de reorden (ROP), arbitraje de proveedores y supervisión ejecutiva.
-          </p>
-        </div>
+    <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans p-group space-y-group">
+      {/* 1. Cabecera con Subpestañas del Destino Agente */}
+      <PageHeader
+        title="Flujo del agente"
+        description="Supervisión en vivo de la cadena de abastecimiento autónomo: vigilancia de existencias, cotización y gobernanza."
+        filterControl={
+          <SegmentedTabs
+            tabs={agentSubTabs}
+            activeTab="flujo_agente"
+            onChange={handleSubTabChange}
+          />
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-compact">
+            {/* Selector de Ciclo Operativo */}
+            <div className="flex items-center gap-2 px-3 h-9 rounded-control bg-panel border border-border text-caption text-secondary">
+              <Clock className="w-3.5 h-3.5 text-brand shrink-0" />
+              <select
+                value={selectedRun}
+                onChange={(e) => setSelectedRun(e.target.value)}
+                aria-label="Seleccionar ciclo del agente"
+                className="bg-transparent text-primary font-sans text-caption focus:outline-none cursor-pointer"
+              >
+                <option value="CICLO-8849" className="bg-panel text-primary">
+                  Ciclo #8849 · Hace 3 min (Activo)
+                </option>
+                <option value="CICLO-8848" className="bg-panel text-primary">
+                  Ciclo #8848 · Hace 33 min (2 firmas pendientes)
+                </option>
+                <option value="CICLO-8847" className="bg-panel text-primary">
+                  Ciclo #8847 · Hace 1 hora (Completado)
+                </option>
+              </select>
+            </div>
 
-        <div className="flex items-center gap-2.5">
-          {/* Selector de Ejecución / Run */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0A0F0C] border border-white/[0.08] text-xs">
-            <Clock className="w-3.5 h-3.5 text-zinc-400" />
-            <select
-              value={selectedRun}
-              onChange={(e) => setSelectedRun(e.target.value)}
-              className="bg-transparent text-zinc-200 border-none outline-none cursor-pointer text-xs font-sans"
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setIsAgentRunning(!isAgentRunning)}
+              icon={
+                isAgentRunning ? (
+                  <Pause className="w-3.5 h-3.5" />
+                ) : (
+                  <Play className="w-3.5 h-3.5" />
+                )
+              }
             >
-              <option value="RUN-8849" className="bg-[#0A0F0C] text-white">Ciclo #RUN-8849 (Hace 3m - Activo)</option>
-              <option value="RUN-8848" className="bg-[#0A0F0C] text-white">Ciclo #RUN-8848 (Hace 33m - Requiere Firma)</option>
-              <option value="RUN-8847" className="bg-[#0A0F0C] text-white">Ciclo #RUN-8847 (Hace 1h - Completado)</option>
-            </select>
-          </div>
+              {isAgentRunning ? "Pausar ciclo" : "Reanudar ciclo"}
+            </Button>
 
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={() => setIsAgentRunning(!isAgentRunning)}
-            icon={isAgentRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-          >
-            {isAgentRunning ? "Pausar ciclo" : "Reanudar ciclo"}
-          </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleSimulateCycle}
+              disabled={isSimulating}
+              icon={
+                <RotateCw
+                  className={`w-3.5 h-3.5 ${isSimulating ? "animate-spin" : ""}`}
+                />
+              }
+              showArrow={true}
+            >
+              {isSimulating ? "Recorriendo flujo..." : "Simular ciclo"}
+            </Button>
+          </div>
+        }
+      />
 
-          <Button
-            variant="primary"
-            size="md"
-            onClick={handleSimulateCycle}
-            disabled={isSimulating}
-            className="shadow-sm shadow-emerald-500/20"
-          >
-            <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${isSimulating ? "animate-spin" : ""}`} />
-            {isSimulating ? "Simulando evento..." : "Simular nuevo evento"}
-          </Button>
-        </div>
-      </div>
+      {/* 2. Franja de Métricas sin Tarjetas (MetricStrip) */}
+      <MetricStrip items={metricsItems} />
 
-      {/* 2. Franja de Telemetría Operativa */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-white/[0.06] backdrop-blur-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-400 font-sans">SKUs Vigilados</span>
-            <Database className="w-3.5 h-3.5 text-emerald-400/70" />
+      {/* 3. Escenario Principal: Presencia Protagonista del Agente + Cadena de 5 Etapas */}
+      <Panel className="space-y-group">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact pb-compact border-b border-border">
+          <div className="flex items-center gap-compact">
+            <Sparkles className="w-4 h-4 text-brand shrink-0" />
+            <div>
+              <h2 className="text-section-title font-bold text-primary">
+                Cadena operativa de abastecimiento
+              </h2>
+              <p className="text-caption text-secondary">
+                Selecciona cualquier etapa para inspeccionar las decisiones y criterios aplicados por el agente
+              </p>
+            </div>
           </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold text-white tabular-nums font-sans">74</span>
-            <span className="text-xs text-zinc-400 font-sans">SKUs</span>
-          </div>
-          <span className="text-xs text-zinc-500 block mt-0.5 font-sans">3 bodegas sincronizadas</span>
-        </div>
-
-        <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-white/[0.06] backdrop-blur-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-400 font-sans">Frecuencia de Barrido</span>
-            <Clock className="w-3.5 h-3.5 text-emerald-400/70" />
-          </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold text-white tabular-nums font-sans">30</span>
-            <span className="text-xs text-zinc-400 font-sans">minutos</span>
-          </div>
-          <span className="text-xs text-emerald-400/90 font-sans block mt-0.5">Próximo en 14m 22s</span>
+          <StatusIndicator
+            status={isSimulating ? "progress" : isAgentRunning ? "ok" : "attention"}
+            label={
+              isSimulating
+                ? "Simulación en curso"
+                : isAgentRunning
+                ? "Ciclo continuo activo"
+                : "Ciclo pausado por el operador"
+            }
+          />
         </div>
 
-        <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-white/[0.06] backdrop-blur-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-400 font-sans">Respuesta del Agente</span>
-            <Zap className="w-3.5 h-3.5 text-emerald-400/70" />
-          </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold text-emerald-400 tabular-nums font-sans">142</span>
-            <span className="text-xs text-zinc-400 font-sans">ms respuesta</span>
-          </div>
-          <span className="text-xs text-zinc-500 block mt-0.5 font-sans">Modelo de decisión activo</span>
-        </div>
-
-        <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-amber-500/20 bg-amber-500/[0.02] backdrop-blur-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-amber-300 font-sans">Aprobaciones Ejecutivas</span>
-            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-          </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold text-amber-400 tabular-nums font-sans">2</span>
-            <span className="text-xs text-zinc-400 font-sans">órdenes</span>
-          </div>
-          <span className="text-xs text-zinc-400 block mt-0.5 font-sans">&gt; $5.000.000 COP</span>
-        </div>
-
-        <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-white/[0.06] backdrop-blur-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-400 font-sans">Precisión de Reorden</span>
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70" />
-          </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold text-white tabular-nums font-sans">99.8%</span>
-          </div>
-          <span className="text-xs text-emerald-400/90 block mt-0.5 font-sans">Cero roturas imprevistas</span>
-        </div>
-      </div>
-
-      {/* 3. Escenario Central: Cadena Operativa de Abastecimiento */}
-      <div className="relative rounded-2xl bg-[#0A0F0C] border border-white/[0.08] p-6 overflow-hidden">
-        {/* Sutil Grid de Fondo y Halo Esmeralda */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.035]"
-          style={{
-            backgroundImage: `radial-gradient(#10B981 1px, transparent 1px)`,
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-28 bg-emerald-500/10 blur-3xl pointer-events-none" />
-
-        <div className="flex items-center justify-between mb-4 relative z-10">
-          <div className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs font-semibold text-white tracking-wide font-sans">
-              Cadena Operativa de Abastecimiento · Ejecución Continua
-            </span>
-          </div>
-          <span className="text-xs text-zinc-400 font-sans">
-            Haz clic en cualquier etapa para consultar sus parámetros y traza operativa
-          </span>
-        </div>
-
-        {/* Nodos del DAG en fila horizontal */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3.5 relative z-10">
-          {nodes.map((node, idx) => {
-            const isSelected = selectedStage === node.id;
+        {/* 5 Etapas Conectadas */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-compact items-stretch">
+          {stages.map((stage, idx) => {
+            const isSelected = selectedStage === stage.id;
             const isCurrentSim = simulationStep === idx;
+            const isAgentNode = stage.id === "agent";
 
             return (
               <div
-                key={node.id}
-                onClick={() => setSelectedStage(node.id)}
-                className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between relative ${isSelected
-                  ? "bg-[#0d1611] border-emerald-500/50 shadow-lg shadow-emerald-950/40"
-                  : isCurrentSim
-                    ? "bg-emerald-950/30 border-emerald-400 animate-pulse"
-                    : "bg-[#070b09] border-white/[0.06] hover:border-white/[0.15] hover:bg-[#0a0f0c]"
-                  }`}
+                key={stage.id}
+                onClick={() => setSelectedStage(stage.id)}
+                className={`p-base rounded-container border transition-colors cursor-pointer flex flex-col justify-between relative ${
+                  isSelected
+                    ? "bg-raised border-brand"
+                    : isCurrentSim
+                    ? "bg-raised border-strong"
+                    : "bg-canvas/60 border-border hover:bg-raised/50 hover:border-strong"
+                }`}
               >
-                {/* Indicador superior de selección */}
+                {/* Barra superior de foco si está seleccionado */}
                 {isSelected && (
-                  <div className="absolute -top-px left-4 right-4 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
+                  <div className="absolute top-0 left-3 right-3 h-[3px] rounded-pill bg-brand" />
                 )}
 
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-mono text-emerald-400/90 font-medium tracking-wider">
-                      ETAPA {node.stageNum}
+                <div className="space-y-compact">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="font-mono text-caption text-muted whitespace-nowrap">
+                      {stage.stepLabel}
                     </span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${node.status === "warning"
-                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                        : node.status === "waiting"
-                          ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                          : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        }`}
-                    >
-                      {node.statusLabel}
-                    </span>
-                  </div>
-
-                  <h3 className="text-xs font-semibold text-white tracking-tight">
-                    {node.name}
-                  </h3>
-                  <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
-                    {node.subname}
-                  </p>
-                </div>
-
-                {/* Si es el nodo central del agente, mostrar un mini preview de la Guanábana */}
-                {node.id === "agent" && (
-                  <div className="my-2 py-1 flex items-center justify-center">
-                    <AgentParticleOrb
-                      size={90}
-                      state={isSimulating ? "mutando" : isAgentRunning ? "pensando" : "reposo"}
+                    <StatusIndicator
+                      status={stage.status}
+                      label={stage.statusLabel}
                     />
                   </div>
+
+                  <div>
+                    <span className="text-caption text-secondary font-medium block">
+                      {stage.category}
+                    </span>
+                    <h3 className="text-group-title font-bold text-primary mt-hairline">
+                      {stage.name}
+                    </h3>
+                    <p className="text-caption text-secondary mt-hairline leading-relaxed">
+                      {stage.description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Gesto memorable: Nube de puntos de la Guanábana protagonista en el nodo central */}
+                {isAgentNode && (
+                  <div className="my-compact py-compact flex flex-col items-center justify-center rounded-control bg-panel/70 border border-border">
+                    <AgentParticleCloud
+                      size={132}
+                      state={
+                        isSimulating
+                          ? "mutando"
+                          : isAgentRunning
+                          ? "pensando"
+                          : "reposo"
+                      }
+                    />
+                    <span className="text-caption text-muted mt-hairline">
+                      Presencia activa del agente
+                    </span>
+                  </div>
                 )}
 
-                <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-zinc-400">
-                  <span>{node.metrics}</span>
-                  <span className="text-zinc-500">{node.execTime}</span>
+                <div className="mt-compact pt-compact border-t border-border flex items-center justify-between text-caption text-secondary">
+                  <span className="font-medium text-primary">
+                    {stage.metricSummary}
+                  </span>
+                  <span className="font-mono text-muted tabular-nums">
+                    {stage.durationLabel}
+                  </span>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Stream de Pensamiento del Agente en Vivo (Flowcraft Thought Stream) */}
-        <div className="mt-5 p-3.5 rounded-xl bg-[#050806] border border-white/[0.06] relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 font-mono text-xs">
-          <div className="flex items-center gap-2.5 text-zinc-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span className="text-emerald-400 text-[11px] font-medium">THOUGHT STREAM EN VIVO:</span>
-            <span className="text-zinc-300 text-[11px]">
-              &quot;Evaluando rotura de stock en SKU-ROT-001 (Bucaramanga): Stock actual 4 uds &lt; ROP 12 uds. Cotizando DeWalt vs. Bosch...&quot;
+        {/* Estado de actividad en curso en lenguaje natural */}
+        <div className="p-compact rounded-control bg-raised border border-border flex flex-col md:flex-row md:items-center justify-between gap-compact">
+          <div className="flex items-center gap-compact min-w-0">
+            <span className="w-2.5 h-2.5 rounded-pill bg-brand shrink-0" />
+            <span className="text-caption font-semibold text-primary shrink-0">
+              Actividad actual:
             </span>
+            <p className="text-caption text-secondary truncate">
+              Evaluando reposición de Rotomartillo Bosch SDS Plus en Bodega Bucaramanga (4 unidades disponibles frente al mínimo de 15 unidades).
+            </p>
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-            <span>Tokens: 1,482 in / 391 out</span>
-            <span>·</span>
-            <span>Costo inferencia: $0.0031 USD</span>
+          <div className="flex items-center gap-compact shrink-0">
+            <AgentEventChip
+              action="Orden propuesta"
+              reference="PO-24A190"
+              timeAgo="Hace 3 min"
+            />
           </div>
         </div>
-      </div>
+      </Panel>
 
-      {/* 4. Panel Inferior: Inspector Forense del Nodo Seleccionado */}
-      <div className="rounded-xl bg-[#0A0F0C] border border-white/[0.08] overflow-hidden">
-        {/* Cabecera del Inspector con Tabs */}
-        <div className="p-4 border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <Info className="w-3.5 h-3.5" />
+      {/* 4. Inspector de Etapa Seleccionada */}
+      <Panel className="space-y-group">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact pb-compact border-b border-border">
+          <div className="space-y-hairline">
+            <div className="flex items-center gap-compact">
+              <span className="font-mono text-caption text-brand font-medium">
+                {activeStageObj.stepLabel}
+              </span>
+              <span className="text-muted">·</span>
+              <span className="text-caption text-secondary">
+                {activeStageObj.category}
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                  Inspección de Etapa: {nodes.find((n) => n.id === selectedStage)?.name}
-                </span>
-                <span className="px-1.5 py-0.2 rounded bg-zinc-800 text-[10px] font-mono text-zinc-400">
-                  {selectedStage.toUpperCase()}
-                </span>
-              </div>
-              <p className="text-[11px] text-zinc-400">
-                {selectedStage === "trigger" && "Monitoreo continuo de cambios en PostgreSQL con réplica lógica y telemetría OSRM."}
-                {selectedStage === "inventory" && "Comparación de existencias contra el ROP y tasa de consumo diario (burn rate)."}
-                {selectedStage === "agent" && "Inferencia autónoma xAI Grok-2 con inyección de políticas Markdown desde la bóveda."}
-                {selectedStage === "governance" && "Validación de reglas POL-01 a POL-06 y verificación de firmas criptográficas HMAC."}
-                {selectedStage === "dispatch" && "Generación de factura electrónica XML DIAN, actualización WMS y avisos a mensajería."}
-              </p>
-            </div>
+            <h3 className="text-section-title font-bold text-primary">
+              {activeStageObj.name}
+            </h3>
           </div>
 
-          <div className="flex items-center gap-1 bg-[#050806] p-1 rounded-lg border border-white/[0.06]">
-            <button
-              onClick={() => setActiveTab("trace")}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${activeTab === "trace"
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                : "text-zinc-400 hover:text-white"
-                }`}
-            >
-              Traza Forense
-            </button>
-            <button
-              onClick={() => setActiveTab("config")}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${activeTab === "config"
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                : "text-zinc-400 hover:text-white"
-                }`}
-            >
-              Parámetros
-            </button>
-            <button
-              onClick={() => setActiveTab("json")}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${activeTab === "json"
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                : "text-zinc-400 hover:text-white"
-                }`}
-            >
-              Payload JSON
-            </button>
+          <div className="flex flex-wrap items-center gap-compact">
+            <SegmentedTabs
+              tabs={[
+                { id: "bitacora", label: "Bitácora de la etapa" },
+                { id: "parametros", label: "Criterios operativos" },
+              ]}
+              activeTab={inspectorTab}
+              onChange={setInspectorTab}
+            />
+
+            {selectedStage === "governance" && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => {
+                  if (onOpenApprovalModal) {
+                    onOpenApprovalModal("PO-24A190");
+                  } else if (onNavigateTo) {
+                    onNavigateTo("aprobaciones");
+                  }
+                }}
+                showArrow={true}
+              >
+                Revisar y aprobar compra
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Contenido del Tab */}
-        <div className="p-5">
-          {activeTab === "trace" && (
-            <div className="space-y-3 font-mono text-xs">
-              {selectedStage === "trigger" && (
-                <div className="space-y-2">
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:01.014] Actualización en almacén: Registro de movimiento en inventario (Chimitá)</span>
-                    <span className="text-emerald-400">Sincronizado · 4ms</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:01.018] Telemetría satelital: Camión WFL-892 en Ruta 45A</span>
-                    <span className="text-emerald-400">En ruta · 8ms</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:01.026] Señal de verificación enviada al orquestador</span>
-                    <span className="text-emerald-400">VERIFICACIÓN OK</span>
-                  </div>
-                </div>
-              )}
-
-              {selectedStage === "inventory" && (
-                <div className="space-y-2">
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:02.100] SKU-ROT-001 (Rotomartillo SDS Plus): Stock actual = 4, Punto de Reorden = 12</span>
-                    <span className="text-amber-400">BAJO PUNTO DE REORDEN</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:02.115] Consumo proyectado: 1.8 uds/día · Tiempo de entrega del proveedor: 3 días</span>
-                    <span className="text-emerald-400">Tasa de Consumo OK</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:02.145] Lote óptimo de reposición recomendado: 15 unidades</span>
-                    <span className="text-emerald-400">Lote Calculado</span>
-                  </div>
-                </div>
-              )}
-
-              {selectedStage === "agent" && (
-                <div className="space-y-2">
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:03.200] Consulta de precedentes en boveda: Política de abastecimiento regional</span>
-                    <span className="text-emerald-400">Contexto Cargado</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:03.450] Cotización comparada: DeWalt ($425k COP) vs. Bosch ($440k COP)</span>
-                    <span className="text-emerald-400">Mejor oferta: DeWalt (Ahorro $225.000 COP)</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:04.440] Formulación de Orden de Compra: Total $6.375.000 COP</span>
-                    <span className="text-emerald-400">Propuesta Generada</span>
-                  </div>
-                </div>
-              )}
-
-              {selectedStage === "governance" && (
-                <div className="space-y-3">
-                  <div className="p-3 rounded-lg bg-amber-500/[0.05] border border-amber-500/20 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4 text-amber-400" />
-                      <span className="text-amber-300">[10:21:04.500] Alerta Regla POL-01: El monto ($6.375.000 COP) supera el umbral autónomo de $5.000.000 COP.</span>
+        {/* Contenido de la pestaña activa del inspector */}
+        {inspectorTab === "bitacora" ? (
+          <div className="divide-y divide-border">
+            {stageTraces[selectedStage].map((item, index) => (
+              <div
+                key={index}
+                className="py-compact first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-compact"
+              >
+                <div className="flex items-start gap-base min-w-0">
+                  <span className="font-mono text-caption text-muted tabular-nums pt-0.5 shrink-0">
+                    {item.time}
+                  </span>
+                  <div className="space-y-hairline min-w-0">
+                    <div className="flex flex-wrap items-center gap-compact">
+                      <span className="text-body font-semibold text-primary">
+                        {item.action}
+                      </span>
+                      <span className="font-mono text-caption px-2 py-0.5 rounded-control bg-raised border border-border text-secondary">
+                        {item.reference}
+                      </span>
                     </div>
-                    <span className="text-amber-400 font-bold">RETENCIÓN EJECUTIVA</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:04.520] Creación de solicitud de aprobación: #AP-8842 para Dirección de Operaciones</span>
-                    <span className="text-emerald-400">Registrado</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:04.550] Firma criptográfica HMAC-SHA256 generada y auditada</span>
-                    <span className="text-emerald-400 font-mono text-[10px]">7f3a...b912</span>
-                  </div>
-
-                  {/* Botón interactivo para abrir aprobación directa */}
-                  <div className="pt-2 flex items-center justify-between">
-                    <span className="text-xs text-zinc-400">Requiere firma ejecutiva para proceder al despacho al proveedor.</span>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => onOpenApprovalModal && onOpenApprovalModal("#OC-402")}
-                      className="shadow-sm shadow-emerald-500/30"
-                    >
-                      <FileCheck className="w-3.5 h-3.5 mr-1.5" />
-                      Revisar y Firmar Orden #OC-402
-                    </Button>
+                    <p className="text-caption text-secondary leading-relaxed">
+                      {item.detail}
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {selectedStage === "dispatch" && (
-                <div className="space-y-2">
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:05.100] Remisión digital DIAN preparada</span>
-                    <span className="text-zinc-500">EN ESPERA</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:05.120] Notificación telemática lista para canal móvil</span>
-                    <span className="text-zinc-500">EN ESPERA</span>
-                  </div>
+                <div className="shrink-0 sm:self-center">
+                  <StatusIndicator
+                    status={item.status}
+                    label={item.statusText}
+                  />
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-compact">
+            {stageParameters[selectedStage].map((param, idx) => (
+              <div
+                key={idx}
+                className="p-base rounded-control bg-raised border border-border space-y-hairline"
+              >
+                <span className="text-caption text-secondary block">
+                  {param.label}
+                </span>
+                <span className="text-body font-bold text-primary block">
+                  {param.value}
+                </span>
+                <span className="text-caption text-muted block pt-hairline">
+                  {param.note}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
-          {activeTab === "config" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-              <div className="p-3.5 rounded-xl bg-[#050806] border border-white/[0.06]">
-                <span className="text-xs text-zinc-400 block mb-1">Motor de Inferencia</span>
-                <span className="text-white font-medium">Modelo Cognitivo Mint (Razonamiento & Supervisión)</span>
-                <span className="text-xs text-zinc-500 block mt-1">Modo: Alta consistencia y rigor</span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-[#050806] border border-white/[0.06]">
-                <span className="text-xs text-zinc-400 block mb-1">Directiva de Gobernanza</span>
-                <span className="text-emerald-400 font-sans font-semibold">POL-01 (Tope $5.000.000 COP)</span>
-                <span className="text-[11px] text-zinc-400 block mt-1">Cualquier orden superior requiere firma ejecutiva</span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-[#050806] border border-white/[0.06]">
-                <span className="text-xs text-zinc-400 block mb-1">Base de Datos Conectada</span>
-                <span className="text-white font-sans font-medium">Base de Datos Maestra (PostgreSQL Cifrado)</span>
-                <span className="text-[11px] text-zinc-400 block mt-1">Tiempo de respuesta: 2 ms · Sincronización continua</span>
-              </div>
-            </div>
-          )}
+        {/* Detalle Técnico Oculto tras "Ver detalle técnico" según Mint-DESIGN.md */}
+        <div className="pt-compact border-t border-border">
+          <button
+            onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+            className="flex items-center gap-compact text-caption font-medium text-muted hover:text-primary transition-colors cursor-pointer"
+          >
+            {showTechnicalDetails ? (
+              <ChevronDown className="w-3.5 h-3.5 text-muted" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5 text-muted" />
+            )}
+            <span>Ver detalle técnico (Registro de auditoría y firma criptográfica)</span>
+          </button>
 
-          {activeTab === "json" && (
-            <div className="relative">
-              <div className="absolute top-2 right-2 flex items-center gap-2">
-                <button
-                  onClick={handleCopyJson}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0A0F0C] border border-white/[0.08] text-[11px] text-zinc-300 hover:text-white"
+          {showTechnicalDetails && (
+            <div className="mt-compact p-base rounded-control bg-raised border border-border space-y-compact">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-compact text-caption text-secondary">
+                  <ShieldCheck className="w-4 h-4 text-brand" />
+                  <span>Trazabilidad verificada con firma HMAC-SHA256</span>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="table"
+                  onClick={handleCopyTechnical}
+                  icon={
+                    copiedPayload ? (
+                      <Check className="w-3.5 h-3.5 text-state-ok" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )
+                  }
                 >
-                  <Copy className="w-3 h-3 text-emerald-400" />
-                  {copiedJson ? "Copiado!" : "Copiar JSON"}
-                </button>
+                  {copiedPayload ? "Registro copiado" : "Copiar registro"}
+                </Button>
               </div>
-              <pre className="p-4 rounded-xl bg-[#050806] border border-white/[0.06] text-[11px] font-mono text-emerald-400/90 overflow-x-auto leading-relaxed">
+              <pre className="p-compact rounded-control bg-canvas border border-border font-mono text-caption text-secondary overflow-x-auto">
                 {JSON.stringify(
                   {
-                    runId: selectedRun,
-                    stage: selectedStage,
-                    timestamp: "2026-10-29T10:21:04.440Z",
-                    sku: "SKU-ROT-001",
-                    product: "Rotomartillo SDS Plus 800W",
-                    warehouse: "BOD-BGA-01 (Chimitá)",
-                    currentStock: 4,
-                    ropThreshold: 12,
-                    suggestedQuantity: 15,
-                    selectedSupplier: {
-                      id: "SUP-DEWALT-COL",
-                      name: "DeWalt Colombia Mayorista",
-                      unitPriceCop: 425000,
-                      totalCop: 6375000,
-                      leadTimeDays: 3,
-                    },
-                    governanceCheck: {
-                      policy: "POL-01",
-                      thresholdCop: 5000000,
-                      exceeded: true,
-                      action: "REQUIRE_HUMAN_SIGNATURE",
-                      assignedRole: "DIRECTOR_COMPRAS",
-                    },
-                    hmacSignature: "7f3a8b29c01d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f",
+                    cicloOperativo: selectedRun,
+                    etapaActiva: activeStageObj.id,
+                    nombreEtapa: activeStageObj.name,
+                    estado: activeStageObj.statusLabel,
+                    latenciaMedida: activeStageObj.durationLabel,
+                    firmaIntegridad:
+                      "hmac_sha256_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b",
                   },
                   null,
                   2
@@ -602,7 +714,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
             </div>
           )}
         </div>
-      </div>
+      </Panel>
     </div>
   );
 };
