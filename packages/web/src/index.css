@@ -5,33 +5,72 @@
 @layer base {
   :root {
     color-scheme: dark;
+    --canvas: #0E1512;
+    --panel: #141E1A;
+    --elevated: #1C2823;
+
+    --border-subtle: rgba(255, 255, 255, 0.07);
+    --border-bright: rgba(255, 255, 255, 0.15);
+
+    --text-primary: #F2F5F3;
+    --text-secondary: #A8BCB1;
+    --text-tertiary: #859A8E;
+
+    --brand-lime: #A3E635;
+    --brand-emerald: #10B981;
+    --brand-deep: #0B4632;
+
+    --state-ok: #2DD4BF;
+    --state-ok-bg: rgba(45, 212, 191, 0.10);
+    --state-ok-border: rgba(45, 212, 191, 0.25);
+
+    --state-attention: #FBBF24;
+    --state-attention-bg: rgba(251, 191, 36, 0.10);
+    --state-attention-border: rgba(251, 191, 36, 0.25);
+
+    --state-error: #F87171;
+    --state-error-bg: rgba(248, 113, 113, 0.10);
+    --state-error-border: rgba(248, 113, 113, 0.25);
+
+    --state-pending: #818CF8;
+    --state-pending-bg: rgba(129, 140, 248, 0.10);
+    --state-pending-border: rgba(129, 140, 248, 0.25);
+
+    --state-progress: #94A3B8;
+    --state-progress-bg: rgba(148, 163, 184, 0.10);
+    --state-progress-border: rgba(148, 163, 184, 0.25);
+
+    --radius-control: 8px;
+    --radius-panel: 16px;
+    --radius-pill: 9999px;
   }
 
   body {
-    background-color: #0A0F0D;
-    color: #F9FAFB;
+    background-color: var(--canvas);
+    color: var(--text-primary);
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    letter-spacing: -0.015em;
+    line-height: 1.5;
+    user-select: text;
   }
 
   *:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px #0A0F0D, 0 0 0 4px #10B981;
+    box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--brand-lime);
   }
 }
 
-/* Scrollbar táctil en tonos esmeralda-obsidiana */
+/* Scrollbar sobrio en modo bosque */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0A0F0D;
+  background: var(--canvas);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #19261E;
+  background: #1C2823;
   border-radius: 4px;
 }
 
@@ -39,57 +78,32 @@
   background: #25372C;
 }
 
-/* Utilidades de Superficie (Lenguaje táctil Donezo / CheckinOs / Inventar) */
+/* Utilidades semánticas de superficie */
 .bg-canvas {
-  background-color: #0A0F0D;
+  background-color: var(--canvas);
 }
 
-.bg-surface-1 {
-  background-color: #121A16;
+.bg-panel {
+  background-color: var(--panel);
 }
 
-.bg-surface-well {
-  background-color: #0B110E;
+.bg-elevated {
+  background-color: var(--elevated);
 }
 
-.bg-hero-emerald {
-  background: linear-gradient(135deg, #0D684D 0%, #063829 100%);
+.border-subtle {
+  border-color: var(--border-subtle);
 }
 
-/* Patrón Rayado Diagonal (Estilo Donezo / CheckinOs para barras y medidores) */
-.bg-hatched-emerald {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(16, 185, 129, 0.22),
-    rgba(16, 185, 129, 0.22) 3px,
-    transparent 3px,
-    transparent 8px
-  );
+.border-bright {
+  border-color: var(--border-bright);
 }
 
-.bg-hatched-slate {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(148, 163, 184, 0.15),
-    rgba(148, 163, 184, 0.15) 3px,
-    transparent 3px,
-    transparent 8px
-  );
-}
-
-/* Gradiente de marca para cifras estelares */
-.text-gradient-mint {
-  background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* Cifras tabulares nativas */
 .tabular-numbers {
   font-variant-numeric: tabular-nums;
 }
 
-/* Respeto a accesibilidad y movimiento reducido */
+/* Respeto estricto a accesibilidad y movimiento reducido */
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0.01ms !important;

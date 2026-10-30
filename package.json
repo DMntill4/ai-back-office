@@ -31,7 +31,8 @@
     "api": "tsx packages/api/src/index.ts",
     "web": "npm run dev --workspace=@mint/web",
     "web:build": "npm run build --workspace=@mint/web",
-    "studio": "npm run dev --workspace=@mint/web"
+    "studio": "npm run dev --workspace=@mint/web",
+    "design:check": "tsx scripts/check-design.ts"
   },
   "repository": {
     "type": "git",

@@ -132,7 +132,7 @@ export async function dispatchDecisionNotification(
 
     // 3. Registrar en bitácora de notificaciones
     await db.insert(notificationLog).values({
-      id: `nlog_${randomUUID().slice(0, 8)}`,
+      id: `nlog_${randomUUID().replace(/-/g, "").slice(0, 16)}`,
       companyId,
       channelId: channel.id,
       decisionId,
