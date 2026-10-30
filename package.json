@@ -31,8 +31,7 @@
     "api": "tsx packages/api/src/index.ts",
     "web": "npm run dev --workspace=@mint/web",
     "web:build": "npm run build --workspace=@mint/web",
-    "studio": "npm run dev --workspace=@mint/web",
-    "design:check": "tsx scripts/check-design.ts"
+    "studio": "npm run dev --workspace=@mint/web"
   },
   "repository": {
     "type": "git",
@@ -58,7 +57,6 @@
     "eslint": "^10.12.0",
     "eslint-plugin-prettier": "^5.5.6",
     "globals": "^17.13.0",
-    "playwright": "^1.64.1",
     "prettier": "^3.9.9",
     "tsx": "^4.23.15",
     "typescript": "5.6",

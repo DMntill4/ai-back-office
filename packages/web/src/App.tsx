@@ -103,7 +103,6 @@ export const App: React.FC = () => {
       case "proveedores":
         return <SuppliersView />;
 
-      case "compras":
       case "compras_ordenes":
         return (
           <PurchaseOrdersView
@@ -118,7 +117,33 @@ export const App: React.FC = () => {
       case "aprobaciones":
         return (
           <HitlApprovalsView
-            onNavigateTo={setCurrentTab}
+            decisions={decisions}
+            onApprove={handleApproveDecision}
+            onReject={handleRejectDecision}
+            onSimulateNew={() => {
+              const newDecision: HitlDecision = {
+                id: `dec_${Date.now()}`,
+                caseId: `case_${Date.now()}`,
+                title: "Orden de compra consolidada: Bosch Herramientas",
+                productName: "Herramientas de Precisión Bosch",
+                sku: "SKU-BOS-992",
+                quantity: 20,
+                unitPriceCop: 360000,
+                totalCostCop: 7200000,
+                supplierName: "Bosch Herramientas Colombia",
+                supplierCity: "Bucaramanga",
+                leadTimeDays: 2,
+                currentStock: 5,
+                ropThreshold: 25,
+                riskScore: 0.15,
+                redFlags: ["Excede umbral autónomo"],
+                status: "pendiente",
+                policyDecision: "pending_approval",
+                policyReason: "Punto de reorden alcanzado en ferretería Santander.",
+                createdAt: "Hace unos momentos",
+              };
+              setDecisions((prev) => [newDecision, ...prev]);
+            }}
           />
         );
 
@@ -132,7 +157,6 @@ export const App: React.FC = () => {
         return <RolesPermissionsView />;
 
       // INTELIGENCIA
-      case "agente":
       case "flujo_agente":
         return (
           <WorkflowCanvas
@@ -149,7 +173,6 @@ export const App: React.FC = () => {
       case "memoria_agente":
         return <MemoryVaultView />;
 
-      case "reportes":
       case "analisis_reportes":
         return <AnalyticsReportsView />;
 
@@ -167,7 +190,6 @@ export const App: React.FC = () => {
       case "integraciones":
         return <IntegrationsView />;
 
-      case "ajustes":
       case "configuracion_general":
         return <SettingsView />;
 

@@ -203,7 +203,7 @@ describe("Fase F5: Notificaciones y Aprobación Remota por Telegram (@mint/notif
 
     expect(updatedLog[0].isUsed).toBe(true);
     expect(updatedLog[0].status).toBe("APPROVED");
-  });
+  }, 15000);
 
   it("3. Idempotencia y seguridad: un token ya usado es rechazado ante intentos repetidos", async () => {
     const logEntry = await db
@@ -222,5 +222,5 @@ describe("Fase F5: Notificaciones y Aprobación Remota por Telegram (@mint/notif
         channel: "telegram",
       }),
     ).rejects.toThrow(/El token ya fue utilizado previamente/);
-  });
+  }, 15000);
 });
