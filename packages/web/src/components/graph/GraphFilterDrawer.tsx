@@ -49,7 +49,7 @@ export const GraphFilterDrawer: React.FC<GraphFilterDrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-16 left-4 w-80 max-h-[calc(100vh-140px)] rounded-2xl bg-[#09120e]/95 border border-[#1b3424] shadow-[0_16px_40px_rgba(0,0,0,0.7)] backdrop-blur-md z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-150">
+    <div className="absolute top-16 left-4 w-80 max-h-[calc(100vh-140px)] rounded-2xl bg-[#09120e] border border-[#1b3424] shadow-[0_16px_40px_rgba(0,0,0,0.7)] z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-150">
       {/* Header del Panel */}
       <div className="p-4 border-b border-[#162a1d] flex items-center justify-between">
         <div>
@@ -90,11 +90,10 @@ export const GraphFilterDrawer: React.FC<GraphFilterDrawerProps> = ({
                 <button
                   key={type}
                   onClick={() => onToggleNodeType(type)}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all text-left ${
-                    isChecked
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all text-left ${isChecked
                       ? "bg-[#112318] border-[#224831] text-gray-200"
                       : "bg-[#09120e] border-[#15271c] text-gray-500 hover:border-[#1d3827]"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <span
@@ -134,11 +133,10 @@ export const GraphFilterDrawer: React.FC<GraphFilterDrawerProps> = ({
                 <button
                   key={rel}
                   onClick={() => onToggleRelationType(rel)}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all text-left ${
-                    isChecked
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all text-left ${isChecked
                       ? "bg-[#112318] border-[#224831] text-gray-200"
                       : "bg-[#09120e] border-[#15271c] text-gray-500 hover:border-[#1d3827]"
-                  }`}
+                    }`}
                 >
                   <span className="text-xs font-mono">{label}</span>
                   {isChecked ? (

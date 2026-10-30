@@ -18,7 +18,7 @@ export const AddToolModal: React.FC<AddToolModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-lg rounded-2xl bg-[#111915] border border-white/10 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.75)] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Header */}
         <div className="h-14 px-5 border-b border-white/[0.08] flex items-center justify-between bg-[#0B100E]">
@@ -42,8 +42,8 @@ export const AddToolModal: React.FC<AddToolModalProps> = ({
               key={tool.id}
               onClick={() => onToggleTool(tool.id)}
               className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${tool.isActive
-                  ? "bg-emerald-500/[0.08] border-emerald-500/50 shadow-[0_0_14px_rgba(16,185,129,0.12)]"
-                  : "bg-[#0B100E] border-white/[0.08] hover:border-white/[0.16]"
+                ? "bg-emerald-500/[0.08] border-emerald-500/50 shadow-[0_0_14px_rgba(16,185,129,0.12)]"
+                : "bg-[#0B100E] border-white/[0.08] hover:border-white/[0.16]"
                 }`}
             >
               <div className="space-y-1 pr-4 min-w-0">
@@ -60,8 +60,8 @@ export const AddToolModal: React.FC<AddToolModalProps> = ({
 
               <div
                 className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${tool.isActive
-                    ? "bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-                    : "border border-white/[0.14] text-zinc-500"
+                  ? "bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                  : "border border-white/[0.14] text-zinc-500"
                   }`}
               >
                 {tool.isActive ? <Check className="w-4 h-4 stroke-[3]" /> : <Plus className="w-3.5 h-3.5" />}

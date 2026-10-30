@@ -319,7 +319,7 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
       const target = manualTargetId
         ? filteredData.nodes.find((n) => n.id === manualTargetId)
         : filteredData.nodes.find((n) => n.id === "dec_po_2026_0089") ||
-          filteredData.nodes.find((n) => n.group !== "agent");
+        filteredData.nodes.find((n) => n.group !== "agent");
 
       return {
         currentAgentState: manualState,
@@ -559,8 +559,8 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
           currentAgentState === "READING"
             ? "Leyendo"
             : currentAgentState === "THINKING"
-            ? "Interpretando"
-            : "Mutando";
+              ? "Interpretando"
+              : "Mutando";
         drawMinimalistBadge(ctx, node.x, node.y - radius - 11, badgeLabel, targetColor);
 
       } else {
@@ -574,10 +574,10 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
         ctx.strokeStyle = isSelected
           ? "#10B981"
           : isHovered
-          ? "#64748B"
-          : hasAlert
-          ? "#F59E0B"
-          : THEME.nodeRestStroke;
+            ? "#64748B"
+            : hasAlert
+              ? "#F59E0B"
+              : THEME.nodeRestStroke;
         ctx.stroke();
 
         // Alerta sutil: punto ámbar fino de 2.5px si tiene alerta activa
@@ -738,21 +738,19 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
           <div className="hidden sm:flex items-center rounded-md bg-[#0D1424] border border-[#1E2838] p-0.5 text-[11px] font-mono">
             <button
               onClick={() => setDatasetMode("demo")}
-              className={`px-2.5 py-1 rounded font-medium transition-all ${
-                datasetMode === "demo"
+              className={`px-2.5 py-1 rounded font-medium transition-all ${datasetMode === "demo"
                   ? "bg-[#182338] text-gray-100 shadow-sm"
                   : "text-gray-400 hover:text-gray-200"
-              }`}
+                }`}
             >
               Demo Solicitud
             </button>
             <button
               onClick={() => setDatasetMode("full")}
-              className={`px-2.5 py-1 rounded font-medium transition-all ${
-                datasetMode === "full"
+              className={`px-2.5 py-1 rounded font-medium transition-all ${datasetMode === "full"
                   ? "bg-[#182338] text-gray-100 shadow-sm"
                   : "text-gray-400 hover:text-gray-200"
-              }`}
+                }`}
             >
               Topología Completa
             </button>
@@ -761,11 +759,10 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
           {/* Toggle Vuelo de la Mascota */}
           <button
             onClick={() => setMascotFlightEnabled(!mascotFlightEnabled)}
-            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded border text-[11px] font-mono transition-all ${
-              mascotFlightEnabled
+            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded border text-[11px] font-mono transition-all ${mascotFlightEnabled
                 ? "bg-[#101C18] border-[#164E37] text-mint-300"
                 : "bg-[#0D1424] border-[#1E2838] text-gray-400"
-            }`}
+              }`}
             title="Activa el desplazamiento dinámico de Mint hacia los nodos"
           >
             <Compass className="w-3.5 h-3.5 text-mint-400" />
@@ -784,11 +781,10 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
                 <button
                   key={st}
                   onClick={() => setManualState(manualState === st ? null : st)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition-all ${
-                    isCurrent
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition-all ${isCurrent
                       ? "bg-[#182338] text-white border border-[#2B3A54]"
                       : "text-gray-400 hover:text-gray-200"
-                  }`}
+                    }`}
                   style={{
                     color: isCurrent ? color : undefined,
                   }}
@@ -803,11 +799,10 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
           <button
             onClick={handleRunLiveRequest}
             disabled={requestRunning}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              requestRunning
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${requestRunning
                 ? "bg-[#182436] text-mint-300 border border-[#23354E]"
                 : "bg-mint-500 hover:bg-mint-400 text-slate-950 font-bold active:scale-98 shadow-sm"
-            }`}
+              }`}
           >
             <Play className={`w-3.5 h-3.5 ${requestRunning ? "animate-spin" : ""}`} />
             <span>{requestRunning ? `Paso ${requestStep}/3...` : "Ejecutar Solicitud"}</span>
@@ -865,11 +860,10 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
               <button
                 key={grp.id}
                 onClick={() => toggleGroup(grp.id)}
-                className={`px-2 py-0.5 rounded border text-[10px] transition-all ${
-                  isActive
+                className={`px-2 py-0.5 rounded border text-[10px] transition-all ${isActive
                     ? "bg-[#141E2F] border-[#25354E] text-gray-200 font-medium"
                     : "bg-transparent border-[#172032] text-gray-600 opacity-60"
-                }`}
+                  }`}
               >
                 {grp.label}
               </button>
@@ -968,7 +962,7 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
 
         {/* 5. Inspector Lateral Sobrio */}
         {selectedNode && (
-          <aside className="absolute top-4 right-4 w-76 max-h-[calc(100vh-190px)] rounded-xl bg-[#0D1424]/95 border border-[#1E2838] shadow-2xl backdrop-blur-md z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-3 duration-120 font-sans">
+          <aside className="absolute top-4 right-4 w-76 max-h-[calc(100vh-190px)] rounded-xl bg-[#0D1424] border border-[#1E2838] shadow-2xl z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-3 duration-120 font-sans">
             <div className="p-3.5 border-b border-[#1A2536] flex items-start justify-between gap-3">
               <div>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#162032] text-mint-400 border border-[#24354D] font-medium">

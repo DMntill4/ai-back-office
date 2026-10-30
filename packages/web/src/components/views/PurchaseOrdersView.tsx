@@ -528,7 +528,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E]/95 border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)] backdrop-blur-xl"
+            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E] border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
           >
             <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
             <span className="text-xs font-mono font-medium">{toastMessage}</span>
@@ -1047,7 +1047,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
       {/* ========================================================= */}
       <AnimatePresence>
         {isReceiptDrawerOpen && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/60">
             <motion.div
               initial={{ x: 450 }}
               animate={{ x: 0 }}
@@ -1217,7 +1217,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
       {/* MODAL: NUEVA ORDEN DE COMPRA                              */}
       {/* ========================================================= */}
       {isNewOrderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
           <div className="w-full max-w-md rounded-2xl bg-surface-1 border border-white/[0.1] shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-xs font-sans">
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <div>

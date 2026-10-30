@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import type { ShipmentListItem } from "../../services/apiClient";
+import React, { useState, useMemo, useEffect } from "react";
+import { api, type ShipmentListItem } from "../../services/apiClient";
 import { PageHeader } from "../ui/PageHeader";
 import { SegmentedTabs, TabItem } from "../ui/SegmentedTabs";
 import { MetricStrip, MetricItem } from "../ui/MetricStrip";
@@ -496,6 +496,31 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [timelineFilter, setTimelineFilter] = useState<string>("all");
 
+  // Hidrata los despachos desde el backend real (`GET /api/shipments`).
+  // El API aporta estado, ETA y progreso reales; la semilla visual conserva
+  // la geometría del mapa, hitos y línea de tiempo. Si el backend no responde,
+  // `requestWithFallback` devuelve la semilla y la vista sigue operativa.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await api.shipments.list();
+      if (cancelled || !Array.isArray(res.data) || res.data.length === 0) return;
+      const merged = res.data.map((live) =>
+        mergeShipment(
+          INITIAL_SHIPMENTS.find((s) => s.id === live.id),
+          live,
+        ),
+      );
+      setShipments(merged);
+      setSelectedShipmentId((prev) =>
+        merged.some((s) => s.id === prev) ? prev : merged[0].id,
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const inventoryTabs: TabItem[] = [
     { id: "inventario", label: "Existencias" },
     { id: "productos", label: "Productos" },
@@ -624,9 +649,8 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
                   <button
                     onClick={() => setSelectedShipmentId(s.id)}
                     aria-current={isActive}
-                    className={`w-full text-left px-group py-element space-y-compact cursor-pointer transition-colors ${
-                      isActive ? "bg-raised border-l-2 border-brand" : "hover:bg-raised/50 border-l-2 border-transparent"
-                    }`}
+                    className={`w-full text-left px-group py-element space-y-compact cursor-pointer transition-colors ${isActive ? "bg-raised border-l-2 border-brand" : "hover:bg-raised/50 border-l-2 border-transparent"
+                      }`}
                   >
                     <div className="flex items-center justify-between gap-compact">
                       <span className="font-mono text-caption text-primary">{s.shipmentCode}</span>
@@ -699,9 +723,8 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
               {selected.milestones.map((m) => (
                 <li key={m.label + m.time} className="flex items-start gap-element">
                   <span
-                    className={`mt-1 w-2.5 h-2.5 rounded-pill flex-shrink-0 ${
-                      m.status === "completed" ? "bg-state-ok" : m.status === "current" ? "bg-brand" : "border border-strong"
-                    }`}
+                    className={`mt-1 w-2.5 h-2.5 rounded-pill flex-shrink-0 ${m.status === "completed" ? "bg-state-ok" : m.status === "current" ? "bg-brand" : "border border-strong"
+                      }`}
                   />
                   <div className="flex-1 flex flex-wrap justify-between gap-compact">
                     <div>

@@ -43,7 +43,7 @@ export const Dialog: React.FC<DialogProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/70"
           />
 
           {/* Contenedor del Diálogo: superficie tarjeta #111915, filete white/10, sombra profunda */}
@@ -52,11 +52,11 @@ export const Dialog: React.FC<DialogProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 6 }}
             transition={{ duration: 0.15 }}
-            className="relative w-full max-w-lg rounded-2xl bg-[#111915] border border-white/10 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.75)] p-6 z-10 space-y-5"
+            className="relative w-full max-w-lg rounded-2xl bg-panel border border-white/10 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.75)] p-6 z-10 space-y-5"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-[17px] font-bold text-[#F9FAFB] tracking-tight">
+                <h2 className="text-[17px] font-bold text-primary tracking-tight">
                   {title}
                 </h2>
                 {description && (
@@ -74,7 +74,7 @@ export const Dialog: React.FC<DialogProps> = ({
               </button>
             </div>
 
-            {children && <div className="text-[13px] text-[#F9FAFB]">{children}</div>}
+            {children && <div className="text-[13px] text-primary">{children}</div>}
 
             {(confirmLabel || onConfirm) && (
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-white/[0.08]">

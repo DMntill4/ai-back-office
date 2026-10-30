@@ -105,7 +105,7 @@ export const ModelsView: React.FC = () => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E]/95 border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)] backdrop-blur-xl"
+            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E] border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
           >
             <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
             <span className="text-xs font-mono font-medium">{toastMessage}</span>
@@ -153,21 +153,19 @@ export const ModelsView: React.FC = () => {
                 setSelectedModel(m.id);
                 showToast(`Modelo seleccionado: ${m.name}`);
               }}
-              className={`bg-surface-1 rounded-2xl p-5 border cursor-pointer transition-all flex flex-col justify-between ${
-                isSelected
+              className={`bg-surface-1 rounded-2xl p-5 border cursor-pointer transition-all flex flex-col justify-between ${isSelected
                   ? "border-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.18)] ring-1 ring-emerald-400/40"
                   : "border-white/[0.06] hover:border-white/20"
-              }`}
+                }`}
             >
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
                   <div className="flex items-center gap-2.5">
                     <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                        isSelected
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center ${isSelected
                           ? "bg-emerald-500/20 text-emerald-400"
                           : "bg-surface-well text-zinc-400"
-                      }`}
+                        }`}
                     >
                       <Cpu className="w-4 h-4" />
                     </div>
@@ -181,11 +179,10 @@ export const ModelsView: React.FC = () => {
 
                   {/* Radio indicador */}
                   <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                      isSelected
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
                         ? "border-emerald-400 bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.4)]"
                         : "border-zinc-600 bg-surface-well"
-                    }`}
+                      }`}
                   >
                     {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                   </div>

@@ -20,7 +20,7 @@ export const GraphSettingsModal: React.FC<GraphSettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
       <div className="w-full max-w-md rounded-2xl bg-[#08120e] border border-[#1d3b28] shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b border-[#162d1f] flex items-center justify-between">

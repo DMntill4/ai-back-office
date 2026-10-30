@@ -137,7 +137,7 @@ export const NotificationChannelsView: React.FC = () => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E]/95 border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)] backdrop-blur-xl"
+            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E] border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
           >
             <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
             <span className="text-xs font-mono font-medium">{toastMessage}</span>
@@ -187,8 +187,8 @@ export const NotificationChannelsView: React.FC = () => {
             <div
               key={ch.id}
               className={`bg-surface-1 rounded-2xl p-5 border shadow-card flex flex-col justify-between transition-all ${ch.enabled
-                  ? "border-white/[0.06] hover:border-emerald-500/30"
-                  : "border-white/[0.04] opacity-70"
+                ? "border-white/[0.06] hover:border-emerald-500/30"
+                : "border-white/[0.04] opacity-70"
                 }`}
             >
               <div>
@@ -196,8 +196,8 @@ export const NotificationChannelsView: React.FC = () => {
                   <div className="flex items-center gap-3 min-w-0">
                     <div
                       className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${ch.enabled
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-white/[0.04] text-zinc-500"
+                        ? "bg-emerald-500/15 text-emerald-400"
+                        : "bg-white/[0.04] text-zinc-500"
                         }`}
                     >
                       {isEmail ? <Mail className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
@@ -218,8 +218,8 @@ export const NotificationChannelsView: React.FC = () => {
                     aria-label={`Activar ${ch.name}`}
                     onClick={() => handleToggleChannel(ch.id)}
                     className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-200 border ${ch.enabled
-                        ? "bg-emerald-500 border-emerald-400 shadow-[0_0_14px_rgba(16,185,129,0.45)]"
-                        : "bg-[#0B100E] border-white/[0.12]"
+                      ? "bg-emerald-500 border-emerald-400 shadow-[0_0_14px_rgba(16,185,129,0.45)]"
+                      : "bg-[#0B100E] border-white/[0.12]"
                       }`}
                   >
                     <span

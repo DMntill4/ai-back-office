@@ -77,7 +77,7 @@ export const GraphInspectorDrawer: React.FC<GraphInspectorDrawerProps> = ({
   };
 
   return (
-    <aside className="absolute top-16 right-4 w-96 max-h-[calc(100vh-140px)] rounded-2xl bg-[#08110d]/95 border border-[#1b3424] shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-md z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-4 duration-150">
+    <aside className="absolute top-16 right-4 w-96 max-h-[calc(100vh-140px)] rounded-2xl bg-[#08110d] border border-[#1b3424] shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-4 duration-150">
       {/* Header del Inspector */}
       <div className="p-4 border-b border-[#16291d] flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">

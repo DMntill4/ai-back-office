@@ -48,7 +48,7 @@ export const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm cursor-pointer"
+            className="fixed inset-0 bg-black/80 cursor-pointer"
           />
 
           {/* Dialog Card with Motion Scale & Slide */}

@@ -100,7 +100,7 @@ export const ObjectivesView: React.FC<ObjectivesViewProps> = ({
     <div className="flex-1 h-full overflow-y-auto bg-canvas text-[#F9FAFB] font-sans select-none flex flex-col p-6 space-y-6">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E]/95 border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)] backdrop-blur-xl">
+        <div className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E] border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)]">
           <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
           <span className="text-xs font-mono font-medium">{toastMessage}</span>
           <button
@@ -254,15 +254,15 @@ export const ObjectivesView: React.FC<ObjectivesViewProps> = ({
                 key={lever.id}
                 onClick={() => handleToggleLever(lever.id)}
                 className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${lever.active
-                    ? "bg-surface-well border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.08)]"
-                    : "bg-surface-well/50 border-white/[0.04] opacity-60 hover:opacity-100"
+                  ? "bg-surface-well border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.08)]"
+                  : "bg-surface-well/50 border-white/[0.04] opacity-60 hover:opacity-100"
                   }`}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${lever.active
-                        ? "bg-emerald-500/20 text-emerald-400"
-                        : "bg-white/[0.04] text-zinc-500"
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-white/[0.04] text-zinc-500"
                       }`}
                   >
                     <Sliders className="w-4 h-4" />
