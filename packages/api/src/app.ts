@@ -15,7 +15,15 @@ import { channelsRoutes } from "./routes/channels";
 import { daemonRoutes } from "./routes/daemon";
 import { healthRoutes } from "./routes/health";
 import { telemetryRoutes } from "./routes/telemetry";
+import { logisticsRoutes } from "./routes/logistics";
+import { inventoryRoutes } from "./routes/inventory";
+import { suppliersRoutes } from "./routes/suppliers";
+import { vaultRoutes } from "./routes/vault";
+import { graphRoutes } from "./routes/graph";
+import { ingestRoutes } from "./routes/ingest";
 import fastifyWebsocket from "@fastify/websocket";
+import fastifyMultipart from "@fastify/multipart";
+import { startTelemetryBridge, stopTelemetryBridge } from "./events/telemetryBridge";
 
 export interface BuildAppOptions {
   staticPath?: string;
@@ -38,6 +46,17 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   // Enable native WebSocket support for real-time telemetry streaming
   server.register(fastifyWebsocket);
 
+  // Enable multipart/form-data for CSV/Excel ingestion uploads
+  server.register(fastifyMultipart, {
+    limits: { fileSize: 25 * 1024 * 1024 },
+  });
+
+  // Bridge Core telemetry + proactive alerts into the SSE hub
+  startTelemetryBridge();
+  server.addHook("onClose", async () => {
+    stopTelemetryBridge();
+  });
+
   // Register modular API routes
   server.register(authRoutes);
   server.register(decisionsRoutes);
@@ -50,6 +69,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   server.register(daemonRoutes);
   server.register(healthRoutes);
   server.register(telemetryRoutes);
+  server.register(logisticsRoutes);
+  server.register(inventoryRoutes);
+  server.register(suppliersRoutes);
+  server.register(vaultRoutes);
+  server.register(graphRoutes);
+  server.register(ingestRoutes);
 
   // Static web console serving
   const candidateStaticPaths = [

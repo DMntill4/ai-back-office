@@ -9,6 +9,8 @@ import { Button } from "../ui/Button";
 import { DataTable, TableColumn } from "../ui/DataTable";
 import { InputField } from "../ui/InputField";
 import { Dialog } from "../ui/Dialog";
+import { useInventoryData } from "../../hooks/useInventoryData";
+import type { RopAlert } from "../../services/apiClient";
 
 export interface StockInventoryViewProps {
   onTriggerRebalance?: (sku: StockSkuItem) => void;
@@ -291,11 +293,83 @@ const formatCop = (value: number) =>
 const formatCopCompact = (value: number) =>
   value >= 1_000_000 ? `$${(value / 1_000_000).toFixed(1)} M` : formatCop(value);
 
+/** Traduce el estado del API al estado de presentación de la vista. */
+function toSkuStatus(status: RopAlert["status"]): StockSkuItem["status"] {
+  switch (status) {
+    case "AGOTADO":
+      return "quiebre";
+    case "BAJO":
+    case "ATENCION_ROP":
+      return "alerta";
+    default:
+      return "optimo";
+  }
+}
+
+/**
+ * Adapta una alerta ROP del API al modelo enriquecido de la vista.
+ * Conserva los datos visuales de la semilla (rack, lote, historial) cuando
+ * existe una referencia equivalente; si no, sintetiza valores coherentes.
+ */
+function toEnrichedSku(alert: RopAlert, seed?: EnrichedSkuItem): EnrichedSkuItem {
+  const primaryWarehouse = alert.warehouseBreakdown[0];
+  const coverageDays = Number.isFinite(alert.daysOfCoverage)
+    ? alert.daysOfCoverage
+    : 0;
+  const status = toSkuStatus(alert.status);
+
+  return {
+    id: seed?.id ?? alert.productId,
+    sku: alert.sku,
+    name: alert.name,
+    category: alert.category,
+    warehouseId: primaryWarehouse?.warehouseId ?? seed?.warehouseId ?? "wh_bga",
+    warehouseName:
+      primaryWarehouse?.warehouseName ??
+      seed?.warehouseName ??
+      "Bodega Matriz Bucaramanga",
+    locationRack:
+      seed?.locationRack ??
+      `${primaryWarehouse?.city ?? "Bucaramanga"} · Sin ubicación asignada`,
+    lotNumber: seed?.lotNumber ?? `LT-${alert.sku.replace(/[^A-Z0-9]/gi, "").slice(-6)}`,
+    currentStock: alert.totalStock,
+    minStock: alert.minStock,
+    safetyStock: seed?.safetyStock ?? Math.round(alert.minStock * 0.4),
+    dailyBurnRate: alert.dailyBurnRate,
+    coverageDays,
+    unitPriceCop: alert.unitCostEstimate,
+    ropThreshold: alert.reorderPoint,
+    status,
+    demandHistory: seed?.demandHistory ?? [],
+    demandTrendPct: seed?.demandTrendPct ?? 0,
+    quarantineReason: seed?.quarantineReason,
+  };
+}
+
 export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
   onNavigateToInbox,
   onNavigateTo,
 }) => {
   const [items, setItems] = useState<EnrichedSkuItem[]>(EXTENDED_STOCK_DATA);
+
+  // Inventario en vivo desde /api/inventory con degradación segura a la semilla local.
+  const { ropAlerts, loading: inventoryLoading } = useInventoryData({
+    refreshIntervalMs: 30000,
+  });
+
+  // Sincroniza las alertas ROP reales (o el fallback) con el estado local de la vista.
+  useEffect(() => {
+    if (ropAlerts.length === 0) return;
+    setItems((prev) =>
+      ropAlerts.map((alert) =>
+        toEnrichedSku(
+          alert,
+          prev.find((s) => s.sku === alert.sku) ??
+          EXTENDED_STOCK_DATA.find((s) => s.sku === alert.sku),
+        ),
+      ),
+    );
+  }, [ropAlerts]);
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -385,25 +459,24 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
         items.map((i) =>
           i.sku === adjustModalSku.sku
             ? {
-                ...i,
-                currentStock: adjustQuantity,
-                status:
-                  i.status === "cuarentena"
-                    ? i.status
-                    : adjustQuantity <= i.safetyStock
+              ...i,
+              currentStock: adjustQuantity,
+              status:
+                i.status === "cuarentena"
+                  ? i.status
+                  : adjustQuantity <= i.safetyStock
                     ? ("quiebre" as const)
                     : adjustQuantity <= i.ropThreshold
-                    ? ("alerta" as const)
-                    : ("optimo" as const),
-              }
+                      ? ("alerta" as const)
+                      : ("optimo" as const),
+            }
             : i
         )
       );
       setIsSubmittingAdjust(false);
       setAdjustModalSku(null);
       showToast(
-        `Ajuste confirmado para ${adjustModalSku.sku}: ${adjustQuantity} unidades (${
-          delta >= 0 ? `+${delta}` : delta
+        `Ajuste confirmado para ${adjustModalSku.sku}: ${adjustQuantity} unidades (${delta >= 0 ? `+${delta}` : delta
         }).`
       );
     }, 600);

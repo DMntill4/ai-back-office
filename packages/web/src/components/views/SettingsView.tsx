@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Settings,
@@ -19,7 +19,15 @@ import {
 } from "lucide-react";
 import { KpiStrip, KpiCardItem } from "../ui/KpiStrip";
 
-export const SettingsView: React.FC = () => {
+export interface SettingsViewProps {
+  /** Sub-pestana solicitada por el router (configuracion_general, empresas_sucursales, ...). */
+  initialTab?: string;
+}
+
+export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab }) => {
+  const [activeSection, setActiveSection] = useState<string>(
+    initialTab ?? "configuracion_general",
+  );
   const [approvalLimit, setApprovalLimit] = useState("5000000");
   const [autonomyLevel, setAutonomyLevel] = useState<"assisted" | "strict" | "auto">("assisted");
   const [primaryModel, setPrimaryModel] = useState("gemini-flash");
@@ -32,18 +40,18 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleSave = () => {
-    showToast("Configuración general y parámetros del sistema guardados con éxito.");
+    showToast("ConfiguraciÃ³n general y parÃ¡metros del sistema guardados con Ã©xito.");
   };
 
   const handleRunDoctor = () => {
-    showToast("Diagnóstico del sistema completado: 6/6 servicios verificados en 42ms.");
+    showToast("DiagnÃ³stico del sistema completado: 6/6 servicios verificados en 42ms.");
   };
 
   const kpis: KpiCardItem[] = [
     {
       title: "Salud Global del Sistema",
-      value: "100% Óptimo",
-      subtitle: "6 de 6 módulos en línea",
+      value: "100% Ã“ptimo",
+      subtitle: "6 de 6 mÃ³dulos en lÃ­nea",
       trend: { direction: "up", label: "0 advertencias" },
       icon: CheckCircle2,
       isHero: true,
@@ -58,7 +66,7 @@ export const SettingsView: React.FC = () => {
     },
     {
       title: "Modo Operativo",
-      value: "Autónomo Supervisado",
+      value: "AutÃ³nomo Supervisado",
       subtitle: "Firma delegada hasta $5M",
       trend: { direction: "up", label: "HITL Activo" },
       icon: Shield,
@@ -89,7 +97,7 @@ export const SettingsView: React.FC = () => {
               onClick={() => setToastMessage(null)}
               className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
             >
-              ✕
+              âœ•
             </button>
           </motion.div>
         )}
@@ -99,10 +107,10 @@ export const SettingsView: React.FC = () => {
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            Configuración General y Diagnóstico
+            ConfiguraciÃ³n General y DiagnÃ³stico
           </h1>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Ajuste de parámetros del sistema, diagnóstico de servicios y credenciales operativas
+            Ajuste de parÃ¡metros del sistema, diagnÃ³stico de servicios y credenciales operativas
           </p>
         </div>
 
@@ -112,24 +120,24 @@ export const SettingsView: React.FC = () => {
             className="px-3.5 py-2 rounded-xl bg-surface-1 hover:bg-white/[0.08] text-xs font-medium text-zinc-300 hover:text-white border border-white/[0.08] flex items-center gap-1.5 transition-colors"
           >
             <Zap className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Ejecutar Diagnóstico</span>
+            <span>Ejecutar DiagnÃ³stico</span>
           </button>
           <button
             onClick={handleSave}
             className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
           >
             <Save className="w-3.5 h-3.5" />
-            <span>Guardar Configuración</span>
+            <span>Guardar ConfiguraciÃ³n</span>
           </button>
         </div>
       </header>
 
-      {/* FILA 1: KPI STRIP CON HÉROE */}
+      {/* FILA 1: KPI STRIP CON HÃ‰ROE */}
       <KpiStrip items={kpis} />
 
       {/* FILA 2: GRID DE TARJETAS DE 2 NIVELES */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Tarjeta 1: Parámetros del Motor de Inteligencia */}
+        {/* Tarjeta 1: ParÃ¡metros del Motor de Inteligencia */}
         <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
@@ -148,7 +156,7 @@ export const SettingsView: React.FC = () => {
             </div>
 
             <p className="text-xs text-zinc-300 mt-3 leading-relaxed">
-              Selecciona el modelo de inferencia para orquestación de compras, cálculo de rotación ROP y enrutamiento logístico.
+              Selecciona el modelo de inferencia para orquestaciÃ³n de compras, cÃ¡lculo de rotaciÃ³n ROP y enrutamiento logÃ­stico.
             </p>
           </div>
 
@@ -162,7 +170,7 @@ export const SettingsView: React.FC = () => {
                 onChange={(e) => setPrimaryModel(e.target.value)}
                 className="w-full h-9 bg-surface-1 border border-white/[0.06] rounded-xl px-3 text-xs text-white focus:outline-none focus:border-emerald-500/50"
               >
-                <option value="gemini-flash">Google Gemini 2.0 Flash (Alta Velocidad · Recomendado)</option>
+                <option value="gemini-flash">Google Gemini 2.0 Flash (Alta Velocidad Â· Recomendado)</option>
                 <option value="gemini-pro">Google Gemini 1.5 Pro (Razonamiento Complejo)</option>
                 <option value="claude-sonnet">Anthropic Claude 3.5 Sonnet</option>
               </select>
@@ -170,7 +178,7 @@ export const SettingsView: React.FC = () => {
 
             <div>
               <div className="flex justify-between text-[10px] font-mono text-zinc-400 mb-1">
-                <span>Temperatura de Decisión</span>
+                <span>Temperatura de DecisiÃ³n</span>
                 <span className="text-white font-bold">{temperature} (Determinista)</span>
               </div>
               <input
@@ -186,7 +194,7 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Tarjeta 2: Nivel de Autonomía y Gobernanza */}
+        {/* Tarjeta 2: Nivel de AutonomÃ­a y Gobernanza */}
         <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
@@ -195,17 +203,17 @@ export const SettingsView: React.FC = () => {
                   <Shield className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white">Modo de Autonomía Operacional</h3>
-                  <span className="text-[10px] text-zinc-500 font-mono">Control de Intervención</span>
+                  <h3 className="text-xs font-bold text-white">Modo de AutonomÃ­a Operacional</h3>
+                  <span className="text-[10px] text-zinc-500 font-mono">Control de IntervenciÃ³n</span>
                 </div>
               </div>
               <span className="text-xs font-bold font-mono text-white">
-                {autonomyLevel === "assisted" ? "Supervisado" : autonomyLevel === "strict" ? "Estricto" : "Completamente Autónomo"}
+                {autonomyLevel === "assisted" ? "Supervisado" : autonomyLevel === "strict" ? "Estricto" : "Completamente AutÃ³nomo"}
               </span>
             </div>
 
             <p className="text-xs text-zinc-300 mt-3 leading-relaxed">
-              Define si las compras recurrentes bajo el umbral de seguridad se emiten directamente o si requieren pre-aprobación en bandeja.
+              Define si las compras recurrentes bajo el umbral de seguridad se emiten directamente o si requieren pre-aprobaciÃ³n en bandeja.
             </p>
           </div>
 
@@ -214,7 +222,7 @@ export const SettingsView: React.FC = () => {
               {[
                 { id: "strict", label: "Estricto", desc: "Todo a HITL" },
                 { id: "assisted", label: "Supervisado", desc: "Umbral $5M" },
-                { id: "auto", label: "Autónomo", desc: "Reglas al 100%" },
+                { id: "auto", label: "AutÃ³nomo", desc: "Reglas al 100%" },
               ].map((m) => (
                 <button
                   key={m.id}

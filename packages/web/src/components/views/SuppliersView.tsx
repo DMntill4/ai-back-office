@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Users,
@@ -29,6 +29,8 @@ import {
   Award,
 } from "lucide-react";
 import { StatusBadge } from "../ui/StatusBadge";
+import { useSuppliersData } from "../../hooks/useSuppliersData";
+import type { SupplierListItem } from "../../services/apiClient";
 
 interface SupplierItem {
   id: string;
@@ -164,8 +166,41 @@ const SUPPLIERS_DATA: SupplierItem[] = [
   },
 ];
 
+/** Adapta el contrato del API al modelo de presentación de la vista. */
+function toSupplierItem(s: SupplierListItem): SupplierItem {
+  return {
+    id: s.id,
+    code: s.code,
+    name: s.name,
+    legalName: s.legalName,
+    nit: s.nit,
+    category: s.category,
+    city: s.city,
+    address: s.address,
+    contactPerson: s.contactPerson,
+    phone: s.phone,
+    email: s.email,
+    paymentTerms: s.paymentTerms,
+    annualVolumeCop: s.annualVolumeCop,
+    scoreGlobal: s.scoreGlobal,
+    leadTimeDays: s.leadTimeDays,
+    defectRatePct: s.defectRatePct,
+    status: s.status,
+    sla: s.sla,
+    summary: s.summary,
+  };
+}
+
 export const SuppliersView: React.FC = () => {
+  const { suppliers: liveSuppliers, loading, isFallback } = useSuppliersData();
   const [suppliers, setSuppliers] = useState<SupplierItem[]>(SUPPLIERS_DATA);
+
+  // Sincroniza los datos del backend (o del fallback) con el estado local de la vista.
+  useEffect(() => {
+    if (liveSuppliers.length > 0) {
+      setSuppliers(liveSuppliers.map(toSupplierItem));
+    }
+  }, [liveSuppliers]);
   const [selectedStatus, setSelectedStatus] = useState<string>("todos");
   const [selectedCity, setSelectedCity] = useState<string>("todas");
   const [selectedCategory, setSelectedCategory] = useState<string>("todas");
@@ -300,15 +335,15 @@ export const SuppliersView: React.FC = () => {
                     key={btn.id}
                     onClick={() => setSelectedStatus(btn.id)}
                     className={`py-2 px-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-between border ${selectedStatus === btn.id
-                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)] font-semibold"
-                        : "bg-surface-well border-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+                      ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)] font-semibold"
+                      : "bg-surface-well border-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.04]"
                       }`}
                   >
                     <span>{btn.label}</span>
                     <span
                       className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${selectedStatus === btn.id
-                          ? "bg-emerald-500/25 text-emerald-300 font-bold"
-                          : "bg-white/[0.04] text-zinc-500"
+                        ? "bg-emerald-500/25 text-emerald-300 font-bold"
+                        : "bg-white/[0.04] text-zinc-500"
                         }`}
                     >
                       {btn.count}

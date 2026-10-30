@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Search,
   Target,
@@ -24,6 +24,7 @@ import {
   MintGraphEdge,
   GraphPhysicsSettings,
 } from "../../types/graph";
+import { useLiveGraph } from "../../hooks/useLiveGraph";
 
 interface KnowledgeGraphViewProps {
   onNavigateTo?: (tabId: string) => void;
@@ -360,6 +361,29 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
 
+  // Grafo en vivo desde PostgreSQL (/api/graph/data) con fallback a los datos semilla.
+  const { graphData: liveGraph, loading: graphLoading, isFallback: graphIsFallback } =
+    useLiveGraph({ mode: activeFilter, searchQuery });
+
+  const [graphNodes, setGraphNodes] = useState<MintGraphNode[]>(ENTITY_NODES);
+  const [graphEdges, setGraphEdges] = useState<MintGraphEdge[]>(ENTITY_EDGES);
+
+  // Sincroniza el grafo real (o el fallback del cliente) con el estado local de la vista.
+  useEffect(() => {
+    if (liveGraph && liveGraph.nodes.length > 0) {
+      setGraphNodes(liveGraph.nodes);
+      setGraphEdges(liveGraph.edges);
+    }
+  }, [liveGraph]);
+
+  // Si el nodo seleccionado desaparece del grafo vivo, reencuadra al primer nodo disponible.
+  useEffect(() => {
+    if (graphNodes.length === 0) return;
+    if (!graphNodes.some((n) => n.id === selectedNodeId)) {
+      setSelectedNodeId(graphNodes[0].id);
+    }
+  }, [graphNodes, selectedNodeId]);
+
   const physicsSettings: GraphPhysicsSettings = {
     repulsion: 3200,
     springLength: 215,
@@ -380,7 +404,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
 
   // Un solo control de filtros por categoría
   const filterTabs: TabItem[] = [
-    { id: "all", label: "Todos", badge: ENTITY_NODES.length },
+    { id: "all", label: "Todos", badge: graphNodes.length },
     { id: "warehouse", label: "Bodegas" },
     { id: "sku", label: "Productos" },
     { id: "supplier", label: "Proveedores" },
@@ -389,7 +413,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
 
   const filteredData = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    let nodes = ENTITY_NODES;
+    let nodes = graphNodes;
 
     if (activeFilter !== "all") {
       if (activeFilter === "purchase_order") {
@@ -416,21 +440,22 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     }
 
     const visibleIds = new Set(nodes.map((n) => n.id));
-    const edges = ENTITY_EDGES.filter(
+    const edges = graphEdges.filter(
       (e) => visibleIds.has(e.source) && visibleIds.has(e.target)
     );
 
     return { nodes, edges };
-  }, [searchQuery, activeFilter]);
+  }, [searchQuery, activeFilter, graphNodes, graphEdges]);
 
   const selectedNode =
-    ENTITY_NODES.find((n) => n.id === selectedNodeId) || ENTITY_NODES[0];
+    graphNodes.find((n) => n.id === selectedNodeId) || graphNodes[0];
 
   const connectedEdges = useMemo(() => {
-    const incoming = ENTITY_EDGES.filter((e) => e.target === selectedNode.id);
-    const outgoing = ENTITY_EDGES.filter((e) => e.source === selectedNode.id);
+    if (!selectedNode) return { incoming: [], outgoing: [] };
+    const incoming = graphEdges.filter((e) => e.target === selectedNode.id);
+    const outgoing = graphEdges.filter((e) => e.source === selectedNode.id);
     return { incoming, outgoing };
-  }, [selectedNode]);
+  }, [selectedNode, graphEdges]);
 
   const handleCenterNode = (nodeId: string) => {
     setSelectedNodeId(nodeId);
@@ -465,7 +490,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   };
 
   const findNodeLabel = (id: string) => {
-    return ENTITY_NODES.find((n) => n.id === id)?.label || id;
+    return graphNodes.find((n) => n.id === id)?.label || id;
   };
 
   return (

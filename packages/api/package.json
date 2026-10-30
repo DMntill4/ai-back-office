@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",
+    "@fastify/multipart": "^10.1.6",
     "@fastify/static": "^9.0.0",
     "@fastify/websocket": "^11.3.4",
     "@mint/core": "*",
     "@mint/daemon": "*",
+    "@mint/ingest": "^1.0.0",
     "@mint/notifiers": "*",
     "fastify": "^5.12.5",
     "ws": "^8.22.0"

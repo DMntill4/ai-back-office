@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Search,
@@ -20,6 +20,8 @@ import {
   Zap,
   BookOpen,
 } from "lucide-react";
+import { useVault } from "../../hooks/useVault";
+import type { VaultDocumentSummary } from "../../services/apiClient";
 
 export interface VaultFile {
   id: string;
@@ -91,8 +93,47 @@ const SEED_QUESTIONS: AgentQuestion[] = [
   },
 ];
 
+/** Mapea una categoría del API a la carpeta visual de la vista. */
+function toVaultFolder(category: VaultDocumentSummary["category"]): VaultFile["folder"] {
+  switch (category) {
+    case "quarantine":
+      return "Cuarentena";
+    case "audit":
+      return "Políticas";
+    case "questions":
+      return "Consenso";
+    default:
+      return "Decisiones";
+  }
+}
+
+/** Adapta el contrato del API al modelo de presentación de la vista. */
+function toVaultFile(doc: VaultDocumentSummary): VaultFile {
+  const confidenceNum = Number.parseFloat(String(doc.confianza));
+  return {
+    id: doc.id,
+    filename: doc.relativePath.split("/").pop() ?? `${doc.id}.md`,
+    folder: toVaultFolder(doc.category),
+    title: doc.title,
+    updatedAt: doc.updatedAt,
+    confidence: Number.isFinite(confidenceNum) ? confidenceNum : 0.9,
+    hmacSha256: doc.id.replace(/[^a-zA-Z0-9]/g, "").padEnd(48, "0").slice(0, 48),
+    tags: doc.tags ?? [],
+    summary: `${doc.tipo} · ${doc.modulo} · estado ${doc.estado}`,
+    content: "",
+  };
+}
+
 export const MemoryVaultView: React.FC = () => {
+  const { documents: liveDocuments, loading: vaultLoading, isFallback } = useVault();
   const [files, setFiles] = useState<VaultFile[]>(SEED_VAULT_FILES);
+
+  // Sincroniza la bóveda real (o el fallback) con el estado local de la vista.
+  useEffect(() => {
+    if (liveDocuments.length > 0) {
+      setFiles(liveDocuments.map(toVaultFile));
+    }
+  }, [liveDocuments]);
   const [selectedFolder, setSelectedFolder] = useState<string>("Todas");
   const [selectedFileId, setSelectedFileId] = useState<string>("MEM-DEC-001");
   const [questions, setQuestions] = useState<AgentQuestion[]>(SEED_QUESTIONS);

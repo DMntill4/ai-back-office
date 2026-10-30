@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Truck,
@@ -32,6 +32,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { MilestoneStepper, type MilestoneStep } from "../ui/MilestoneStepper";
+import { useShipments } from "../../hooks/useShipments";
+import type { ShipmentListItem } from "../../services/apiClient";
 
 export interface Milestone {
   label: string;
@@ -436,9 +438,80 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
   },
 ];
 
+/** Traduce el estado del API al estado de presentación de la vista. */
+function toShipmentStatus(
+  status: ShipmentListItem["status"],
+): ShipmentRoute["status"] {
+  switch (status) {
+    case "entregado":
+      return "completado";
+    case "en_preparacion":
+      return "programado";
+    default:
+      return "en_transito";
+  }
+}
+
+/**
+ * Fusiona el envío del API sobre la semilla visual rica.
+ * El backend aporta estado/ETA/progreso reales; la semilla conserva la
+ * geometría del mapa, hitos y línea de tiempo cuando el API no los expone.
+ */
+function mergeShipment(
+  seed: ShipmentRoute | undefined,
+  live: ShipmentListItem,
+): ShipmentRoute {
+  const base: ShipmentRoute =
+    seed ??
+    ({
+      ...INITIAL_SHIPMENTS[0],
+      id: live.id,
+      shipmentCode: live.shipmentCode,
+      orderId: live.orderId ?? "",
+      origin: live.origin ?? "Origen por confirmar",
+      destination: live.destination ?? "Destino por confirmar",
+      driver: "Conductor asignado",
+      carrier: live.carrier,
+    } as ShipmentRoute);
+
+  return {
+    ...base,
+    id: live.id,
+    shipmentCode: live.shipmentCode,
+    orderId: live.orderId ?? base.orderId,
+    carrier: live.carrier || base.carrier,
+    origin: live.origin ?? base.origin,
+    destination: live.destination ?? base.destination,
+    eta: live.eta || base.eta,
+    progressPct: Number.isFinite(live.progressPct)
+      ? live.progressPct
+      : base.progressPct,
+    status: toShipmentStatus(live.status),
+  };
+}
+
 export const LogisticsRoutesView: React.FC = () => {
   const [shipments, setShipments] = useState<ShipmentRoute[]>(INITIAL_SHIPMENTS);
   const [selectedShipmentId, setSelectedShipmentId] = useState<string>("ship_01");
+
+  // Envíos en vivo desde /api/shipments con degradación segura a la semilla local.
+  const { shipments: liveShipments, loading: shipmentsLoading } = useShipments({
+    refreshIntervalMs: 30000,
+  });
+
+  // Sincroniza los envíos reales (o el fallback) con el estado local de la vista.
+  useEffect(() => {
+    if (liveShipments.length === 0) return;
+    setShipments((prev) =>
+      liveShipments.map((live) =>
+        mergeShipment(
+          prev.find((s) => s.id === live.id) ??
+          INITIAL_SHIPMENTS.find((s) => s.id === live.id),
+          live,
+        ),
+      ),
+    );
+  }, [liveShipments]);
 
   // Map layers
   const [layerFleet, setLayerFleet] = useState(true);

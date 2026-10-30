@@ -43,6 +43,7 @@ export * from "./services/routeCalculator";
 export * from "./services/geocodingService";
 export * from "./services/logisticsCoordinatorService";
 export * from "./services/goalSeekingService";
+export * from "./services/vaultService";
 
 // 7. Cliente LLM
 export * from "./llm/client";
