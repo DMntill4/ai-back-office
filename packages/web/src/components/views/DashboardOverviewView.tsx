@@ -7,16 +7,56 @@ import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
 import { AgentEventChip } from "../ui/AgentEventChip";
 import { AgentParticleCloud } from "../ui/AgentParticleCloud";
-import { Calendar, Sparkles, ArrowRight, ShieldCheck, RefreshCw } from "lucide-react";
+import { EmptyState } from "../ui/EmptyState";
+import { Calendar, Sparkles, ArrowRight, RefreshCw } from "lucide-react";
+import type { HitlDecision } from "../../types/workflow";
 
 interface DashboardOverviewViewProps {
   onNavigateTo: (tabId: string) => void;
   onOpenApproval: () => void;
+  /** Decisiones del agente; las pendientes se muestran como "requieren tu firma". */
+  decisions?: HitlDecision[];
 }
+
+type AttentionKind = "firma" | "inventario" | "calidad";
+
+interface AttentionItem {
+  id: string;
+  kind: AttentionKind;
+  /** Menor número = más urgente. */
+  urgency: number;
+  reference: string;
+  source: string;
+  status: "pending" | "attention" | "error";
+  statusLabel: string;
+  title: string;
+  amount?: string;
+  note?: string;
+  rule?: string;
+  actionLabel: string;
+  actionVariant: "primary" | "secondary";
+  targetTab: string;
+}
+
+const KIND_FILTERS: { id: "todas" | AttentionKind; label: string }[] = [
+  { id: "todas", label: "Todas" },
+  { id: "firma", label: "Firmas" },
+  { id: "inventario", label: "Inventario" },
+  { id: "calidad", label: "Calidad" },
+];
+
+const KIND_GLYPH: Record<AttentionKind, { glyph: string; color: string }> = {
+  firma: { glyph: "◆", color: "text-state-pending" },
+  inventario: { glyph: "▲", color: "text-state-attention" },
+  calidad: { glyph: "■", color: "text-state-error" },
+};
+
+const formatCop = (n: number) => `$${n.toLocaleString("es-CO")} COP`;
 
 export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
   onNavigateTo,
   onOpenApproval,
+  decisions = [],
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<string>("resumen");
 
@@ -40,12 +80,124 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
   const capitalizedDate =
     formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
 
-  // 3 Subpestañas oficiales de Inicio según Mint-DESIGN.md
+
+  // Cola de atención. Las firmas salen de las decisiones pendientes reales;
+  // inventario y calidad son datos de muestra hasta que el backend los entregue.
+  const attentionItems: AttentionItem[] = [
+    ...decisions
+      .filter((d) => d.status === "pendiente")
+      .map<AttentionItem>((d) => ({
+        id: `firma:${d.id}`,
+        kind: "firma",
+        urgency: d.redFlags.length > 0 ? 1 : 2,
+        reference: d.sku,
+        source: d.supplierName,
+        status: "pending",
+        statusLabel: "Requiere tu firma",
+        title: d.title,
+        amount: formatCop(d.totalCostCop),
+        note: d.policyReason,
+        rule: d.redFlags[0],
+        actionLabel: "Revisar y aprobar",
+        actionVariant: "primary",
+        targetTab: "aprobaciones",
+      })),
+    {
+      id: "inv:rot-001",
+      kind: "inventario",
+      urgency: 3,
+      reference: "SKU-ROT-001",
+      source: "Bodega Bucaramanga Matriz",
+      status: "attention",
+      statusLabel: "Bajo punto de reorden",
+      title: "Existencia actual: 4 unidades (Mínimo de seguridad: 15)",
+      note: "La tasa de demanda de esta semana es de 1.8 unidades diarias. Se proyecta quiebre en 2 días si no se autoriza la compra o se traslada excedente desde CD Fontibón.",
+      actionLabel: "Simular rebalanceo",
+      actionVariant: "secondary",
+      targetTab: "inventario",
+    } as AttentionItem,
+    {
+      id: "cal:galv-04",
+      kind: "calidad",
+      urgency: 4,
+      reference: "LOTE-GALV-04",
+      source: "Aceros del Oriente S.A.",
+      status: "error",
+      statusLabel: "Retenido en cuarentena",
+      title: "Discrepancia técnica: Calibre 18 recibido vs. Calibre 16 ordenado",
+      actionLabel: "Ver ficha técnica",
+      actionVariant: "secondary",
+      targetTab: "inventario",
+    } as AttentionItem,
+  ].sort((a, b) => a.urgency - b.urgency);
+
+  const [kindFilter, setKindFilter] = useState<"todas" | AttentionKind>("todas");
+  const firmasCount = attentionItems.filter((i) => i.kind === "firma").length;
+  const visibleItems =
+    kindFilter === "todas"
+      ? attentionItems
+      : attentionItems.filter((i) => i.kind === kindFilter);
+
   const subTabs: TabItem[] = [
     { id: "resumen", label: "Resumen del día" },
-    { id: "atencion", label: "Lo que requiere tu atención", badge: 3 },
+    { id: "atencion", label: "Lo que requiere tu atención", badge: attentionItems.length },
     { id: "actividad", label: "Actividad del agente" },
   ];
+
+  const renderAttentionCard = (item: AttentionItem) => {
+    const g = KIND_GLYPH[item.kind];
+    return (
+      <Panel key={item.id} className="space-y-compact hover:border-strong transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-compact">
+          <div className="flex items-start gap-compact flex-1 min-w-0">
+            <div className={`w-8 h-8 rounded-control bg-raised flex items-center justify-center flex-shrink-0 mt-hairline ${g.color}`}>
+              <span className="text-body font-bold">{g.glyph}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-compact">
+                <span className="font-mono text-caption font-medium text-primary whitespace-nowrap">
+                  {item.reference}
+                </span>
+                <span className="text-muted">·</span>
+                <span className="text-caption text-secondary font-medium">{item.source}</span>
+                <StatusIndicator status={item.status} label={item.statusLabel} />
+              </div>
+              <h4 className="text-body-large font-semibold text-primary mt-hairline">
+                {item.title}
+              </h4>
+            </div>
+          </div>
+          {item.amount && (
+            <span className="text-section-title font-bold text-primary tabular-nums text-right flex-shrink-0">
+              {item.amount}
+            </span>
+          )}
+        </div>
+
+        {item.note && (
+          <div className="p-compact rounded-control bg-raised border border-border text-caption text-secondary space-y-hairline">
+            <div className="flex items-center gap-1.5 text-primary font-medium">
+              <Sparkles className="w-3.5 h-3.5 text-brand" />
+              <span>Justificación del agente</span>
+            </div>
+            <p className="leading-relaxed">{item.note}</p>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact pt-hairline">
+          <span className="text-caption text-muted">{item.rule ?? ""}</span>
+          <Button
+            variant={item.actionVariant}
+            size={item.actionVariant === "primary" ? "md" : "table"}
+            showArrow={item.actionVariant === "primary"}
+            onClick={() => onNavigateTo(item.targetTab)}
+          >
+            {item.actionLabel}
+          </Button>
+        </div>
+      </Panel>
+    );
+  };
 
   // Métricas reales sin tarjetas con el MetricStrip
   const metricsData: MetricItem[] = [
@@ -112,9 +264,41 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
     },
   ];
 
+
+  const showResumen = activeSubTab === "resumen";
+  const showAtencion = activeSubTab === "atencion";
+  const showActividad = activeSubTab === "actividad";
+
+  const activityFeed = (
+    <div className="space-y-compact pt-compact">
+      <div className="flex items-center justify-between pb-compact border-b border-border">
+        <div>
+          <h3 className="text-section-title font-bold text-primary">Actividad del agente en vivo</h3>
+          <p className="text-caption text-secondary mt-hairline">
+            Historial cronológico de vigilancia y conciliación autónoma
+          </p>
+        </div>
+        <StatusIndicator status="ok" label="Transmisión activa" />
+      </div>
+      <Panel className="p-0 divide-y divide-border overflow-hidden">
+        {liveEvents.map((evt, idx) => (
+          <div
+            key={idx}
+            className="flex items-center justify-between px-group py-compact hover:bg-raised/30 transition-colors"
+          >
+            <div className="flex items-center gap-group">
+              <span className="text-caption font-mono text-muted whitespace-nowrap w-12">{evt.time}</span>
+              <AgentEventChip action={evt.action} reference={evt.reference} timeAgo={evt.timeAgo} />
+            </div>
+            <ArrowRight className="w-3.5 h-3.5 text-muted" />
+          </div>
+        ))}
+      </Panel>
+    </div>
+  );
+
   return (
     <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans p-page space-y-group">
-      {/* 1. Page Header con Subpestañas Segmentadas */}
       <PageHeader
         title="Centro de Operaciones"
         description="Supervisión autónoma de existencias, compras y gobernanza de obra."
@@ -135,243 +319,102 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
           </div>
         }
         filterControl={
-          <SegmentedTabs
-            tabs={subTabs}
-            activeTab={activeSubTab}
-            onChange={setActiveSubTab}
-          />
+          <SegmentedTabs tabs={subTabs} activeTab={activeSubTab} onChange={setActiveSubTab} />
         }
       />
 
-      {/* 2. Hero Asimétrico: Resumen Narrativo + Nube de Guanábana */}
-      {(activeSubTab === "resumen" || activeSubTab === "atencion") && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-group items-center py-compact">
-          {/* Columna Izquierda: Saludo y Resumen Narrativo */}
-          <div className="lg:col-span-8 space-y-compact">
-            <h2 className="text-display font-bold text-primary tracking-tight">
-              {greeting}
-            </h2>
-            <p className="text-body-large text-secondary leading-relaxed max-w-2xl">
-              El agente completó la conciliación de existencias en{" "}
-              <strong className="text-primary font-semibold">3 sedes físicas</strong>:{" "}
-              se detectaron{" "}
-              <strong className="text-state-attention font-semibold">
-                8 productos bajo el punto de reorden
-              </strong>{" "}
-              y se retuvieron{" "}
-              <strong className="text-state-pending font-semibold">
-                2 compras que requieren tu aprobación
-              </strong>{" "}
-              para asegurar el suministro de obra sin exceder los límites de crédito.
-            </p>
-          </div>
-
-          {/* Columna Derecha: Presencia del Agente (Nube en Canvas 2D) */}
-          <div className="lg:col-span-4 flex flex-col items-center justify-center p-compact rounded-container bg-panel/50 border border-border">
-            <AgentParticleCloud size={160} state="pensando" />
-            <div className="mt-compact text-center">
-              <span className="text-caption font-medium text-primary block">
-                Agente Autónomo Mint
-              </span>
-              <span className="text-caption text-muted block mt-hairline">
-                Vigilancia activa de existencias y logística
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Franja de Métricas sin Tarjetas (MetricStrip Oficial) */}
-      <MetricStrip items={metricsData} />
-
-      {/* 4. Cola: Lo que requiere tu atención (Ordenada por Urgencia) */}
-      {(activeSubTab === "resumen" || activeSubTab === "atencion") && (
-        <div className="space-y-compact pt-compact">
-          <div className="flex items-center justify-between pb-compact border-b border-border">
-            <div>
-              <h3 className="text-section-title font-bold text-primary">
-                Lo que requiere tu atención
-              </h3>
-              <p className="text-caption text-secondary mt-hairline">
-                Acciones prioritarias clasificadas por impacto operativo
+      {/* RESUMEN: saludo, métricas, vista previa de la cola y actividad */}
+      {showResumen && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-group items-center py-compact">
+            <div className="lg:col-span-8 space-y-compact">
+              <h2 className="text-display font-bold text-primary tracking-tight">{greeting}</h2>
+              <p className="text-body-large text-secondary leading-relaxed max-w-2xl">
+                El agente completó la conciliación de existencias en{" "}
+                <strong className="text-primary font-semibold">3 sedes físicas</strong>: se detectaron{" "}
+                <strong className="text-state-attention font-semibold">
+                  8 productos bajo el punto de reorden
+                </strong>{" "}
+                y hay{" "}
+                <strong className="text-state-pending font-semibold">
+                  {firmasCount} {firmasCount === 1 ? "compra que requiere" : "compras que requieren"} tu aprobación
+                </strong>{" "}
+                para asegurar el suministro de obra sin exceder los límites de crédito.
               </p>
             </div>
-            <StatusIndicator status="pending" label="3 acciones pendientes" />
+            <div className="lg:col-span-4 flex flex-col items-center justify-center p-compact rounded-container bg-panel/50 border border-border">
+              <AgentParticleCloud size={160} state="pensando" />
+              <div className="mt-compact text-center">
+                <span className="text-caption font-medium text-primary block">Agente Autónomo Mint</span>
+                <span className="text-caption text-muted block mt-hairline">
+                  Vigilancia activa de existencias y logística
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-compact">
-            {/* Acción 1: Aprobación Ejecutiva (Máxima Prioridad) */}
-            <Panel className="space-y-compact hover:border-strong transition-colors">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-compact">
-                <div className="flex items-start gap-compact flex-1 min-w-0">
-                  <div className="w-8 h-8 rounded-control bg-raised flex items-center justify-center flex-shrink-0 mt-hairline text-state-pending">
-                    <span className="text-body font-bold">◆</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-compact">
-                      <span className="font-mono text-caption font-medium text-primary whitespace-nowrap">
-                        PO-24A190
-                      </span>
-                      <span className="text-muted">·</span>
-                      <span className="text-caption text-secondary font-medium whitespace-nowrap">
-                        Distribuciones Santander
-                      </span>
-                      <StatusIndicator status="pending" label="Requiere tu firma" />
-                    </div>
-                    <h4 className="text-body-large font-semibold text-primary mt-hairline">
-                      50× Rotomartillo Bosch SDS Plus (Reposición Crítica)
-                    </h4>
-                  </div>
-                </div>
+          <MetricStrip items={metricsData} />
 
-                <div className="text-right flex-shrink-0">
-                  <span className="text-section-title font-bold text-primary tabular-nums block">
-                    $7.250.000 COP
-                  </span>
-                  <span className="text-caption text-state-ok font-medium block">
-                    Ahorro negociado: $1.450.000 COP
-                  </span>
-                </div>
-              </div>
-
-              {/* Justificación del Agente */}
-              <div className="p-compact rounded-control bg-raised border border-border text-caption text-secondary space-y-hairline">
-                <div className="flex items-center gap-1.5 text-primary font-medium">
-                  <Sparkles className="w-3.5 h-3.5 text-brand" />
-                  <span>Justificación del agente</span>
-                </div>
-                <p className="leading-relaxed">
-                  Las existencias en Bodega Bucaramanga cayeron a 4 unidades con cobertura proyectada menor a 38 horas. El proveedor homologado garantiza entrega en 24h con 8% de descuento por volumen consolidado.
+          <div className="space-y-compact pt-compact">
+            <div className="flex items-center justify-between pb-compact border-b border-border">
+              <div>
+                <h3 className="text-section-title font-bold text-primary">Lo que requiere tu atención</h3>
+                <p className="text-caption text-secondary mt-hairline">
+                  Las 3 más urgentes de {attentionItems.length}
                 </p>
               </div>
-
-              {/* Botón de Acción Principal en Píldora Cálida */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact pt-hairline">
-                <span className="text-caption text-muted">
-                  Regla POL-COMP-01: Excede el umbral autónomo de $5.000.000 COP
-                </span>
-                <Button
-                  variant="primary"
-                  onClick={onOpenApproval}
-                  showArrow={true}
-                >
-                  Revisar y aprobar
-                </Button>
-              </div>
-            </Panel>
-
-            {/* Acción 2: Quiebre de Stock en Inventario */}
-            <Panel className="space-y-compact hover:border-strong transition-colors">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-compact">
-                <div className="flex items-start gap-compact flex-1 min-w-0">
-                  <div className="w-8 h-8 rounded-control bg-raised flex items-center justify-center flex-shrink-0 mt-hairline text-state-attention">
-                    <span className="text-body font-bold">▲</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-compact">
-                      <span className="font-mono text-caption font-medium text-primary whitespace-nowrap">
-                        SKU-ROT-001
-                      </span>
-                      <span className="text-muted">·</span>
-                      <span className="text-caption text-secondary font-medium whitespace-nowrap">
-                        Bodega Bucaramanga Matriz
-                      </span>
-                      <StatusIndicator status="attention" label="Bajo punto de reorden" />
-                    </div>
-                    <h4 className="text-body-large font-semibold text-primary mt-hairline">
-                      Existencia actual: 4 unidades (Mínimo de seguridad: 15)
-                    </h4>
-                  </div>
-                </div>
-
-                <Button
-                  variant="secondary"
-                  size="table"
-                  onClick={() => onNavigateTo("inventario")}
-                >
-                  Simular rebalanceo
-                </Button>
-              </div>
-
-              <p className="text-body text-secondary leading-relaxed pl-base">
-                La tasa de demanda de esta semana es de 1.8 unidades diarias. Se proyecta quiebre en 2 días si no se autoriza la compra o se traslada excedente desde CD Fontibón.
-              </p>
-            </Panel>
-
-            {/* Acción 3: Cuarentena de Calidad */}
-            <Panel className="space-y-compact hover:border-strong transition-colors">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-compact">
-                <div className="flex items-start gap-compact flex-1 min-w-0">
-                  <div className="w-8 h-8 rounded-control bg-raised flex items-center justify-center flex-shrink-0 mt-hairline text-state-error">
-                    <span className="text-body font-bold">■</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-compact">
-                      <span className="font-mono text-caption font-medium text-primary whitespace-nowrap">
-                        LOTE-GALV-04
-                      </span>
-                      <span className="text-muted">·</span>
-                      <span className="text-caption text-secondary font-medium whitespace-nowrap">
-                        Aceros del Oriente S.A.
-                      </span>
-                      <StatusIndicator status="error" label="Retenido en cuarentena" />
-                    </div>
-                    <h4 className="text-body-large font-semibold text-primary mt-hairline">
-                      Discrepancia técnica: Calibre 18 recibido vs. Calibre 16 ordenado
-                    </h4>
-                  </div>
-                </div>
-
-                <Button
-                  variant="secondary"
-                  size="table"
-                  onClick={() => onNavigateTo("inventario")}
-                >
-                  Ver ficha técnica
-                </Button>
-              </div>
-            </Panel>
+              <Button variant="secondary" size="table" showArrow onClick={() => setActiveSubTab("atencion")}>
+                Ver todo ({attentionItems.length})
+              </Button>
+            </div>
+            <div className="space-y-compact">
+              {attentionItems.slice(0, 3).map(renderAttentionCard)}
+            </div>
           </div>
-        </div>
+
+          {activityFeed}
+        </>
       )}
 
-      {/* 5. Actividad en Vivo del Agente (ActivityFeed Oficial con AgentEventChip) */}
-      {(activeSubTab === "resumen" || activeSubTab === "actividad") && (
-        <div className="space-y-compact pt-compact">
-          <div className="flex items-center justify-between pb-compact border-b border-border">
+      {/* ATENCIÓN: vista propia con filtros por tipo */}
+      {showAtencion && (
+        <div className="space-y-group">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact">
             <div>
-              <h3 className="text-section-title font-bold text-primary">
-                Actividad del agente en vivo
-              </h3>
+              <h2 className="text-section-title font-bold text-primary">Lo que requiere tu atención</h2>
               <p className="text-caption text-secondary mt-hairline">
-                Historial cronológico de vigilancia y conciliación autónoma
+                {attentionItems.length} {attentionItems.length === 1 ? "acción pendiente" : "acciones pendientes"}, ordenadas por urgencia.
               </p>
             </div>
-            <StatusIndicator status="ok" label="Transmisión activa" />
+            <SegmentedTabs
+              tabs={KIND_FILTERS.map((f) => ({
+                id: f.id,
+                label: f.label,
+                badge:
+                  f.id === "todas"
+                    ? attentionItems.length
+                    : attentionItems.filter((i) => i.kind === f.id).length,
+              }))}
+              activeTab={kindFilter}
+              onChange={(id) => setKindFilter(id as "todas" | AttentionKind)}
+            />
           </div>
 
-          <Panel className="p-0 divide-y divide-border overflow-hidden">
-            {liveEvents.map((evt, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between px-group py-compact hover:bg-raised/30 transition-colors"
-              >
-                <div className="flex items-center gap-group">
-                  <span className="text-caption font-mono text-muted whitespace-nowrap w-12">
-                    {evt.time}
-                  </span>
-                  <AgentEventChip
-                    action={evt.action}
-                    reference={evt.reference}
-                    timeAgo={evt.timeAgo}
-                  />
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-muted" />
-              </div>
-            ))}
-          </Panel>
+          {visibleItems.length === 0 ? (
+            <EmptyState
+              title="Nada pendiente aquí"
+              description="No hay acciones de este tipo por ahora. El agente te avisará cuando aparezca alguna."
+              actionLabel={kindFilter === "todas" ? undefined : "Ver todas"}
+              onAction={() => setKindFilter("todas")}
+            />
+          ) : (
+            <div className="space-y-compact">{visibleItems.map(renderAttentionCard)}</div>
+          )}
         </div>
       )}
+
+      {/* ACTIVIDAD: solo el feed del agente */}
+      {showActividad && activityFeed}
     </div>
   );
 };

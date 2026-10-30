@@ -1,24 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { lazy, Suspense, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AppShell } from "./components/layout/AppShell";
-import { DashboardOverviewView } from "./components/views/DashboardOverviewView";
-import { StockInventoryView } from "./components/views/StockInventoryView";
-import { LogisticsRoutesView } from "./components/views/LogisticsRoutesView";
-import { SuppliersView } from "./components/views/SuppliersView";
-import { PurchaseOrdersView } from "./components/views/PurchaseOrdersView";
-import { ProductsCatalogView } from "./components/views/ProductsCatalogView";
-import { HitlApprovalsView } from "./components/views/HitlApprovalsView";
-import { HistoryView } from "./components/views/HistoryView";
-import { PoliciesRulesView } from "./components/views/PoliciesRulesView";
-import { WorkflowCanvas } from "./components/canvas/WorkflowCanvas";
-import { KnowledgeGraphView } from "./components/views/KnowledgeGraphView";
-import { MemoryVaultView } from "./components/views/MemoryVaultView";
-import { AnalyticsReportsView } from "./components/views/AnalyticsReportsView";
-import { SettingsView } from "./components/views/SettingsView";
-import { ComponentShowcaseView } from "./components/views/ComponentShowcaseView";
-import { ModelsView } from "./components/views/ModelsView";
-import { NodeLibraryView } from "./components/views/NodeLibraryView";
-import { ObjectivesView } from "./components/views/ObjectivesView";
 import { ApprovalDialog } from "./components/ui/ApprovalDialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AgentSubNav, AGENT_TABS_WITHOUT_OWN_NAV } from "./components/layout/AgentSubNav";
@@ -28,6 +10,124 @@ import { getUserSettings, useUserSettings } from "./hooks/useUserSettings";
 import type { AppNotification } from "./components/layout/NotificationsPopover";
 import type { SearchableRecord } from "./components/layout/CommandSearch";
 import { INITIAL_HITL_DECISIONS } from "./data/mockData";
+
+const DashboardOverviewView = lazy(() =>
+  import("./components/views/DashboardOverviewView").then((module) => ({
+    default: module.DashboardOverviewView,
+  }))
+);
+const StockInventoryView = lazy(() =>
+  import("./components/views/StockInventoryView").then((module) => ({
+    default: module.StockInventoryView,
+  }))
+);
+const LogisticsRoutesView = lazy(() =>
+  import("./components/views/LogisticsRoutesView").then((module) => ({
+    default: module.LogisticsRoutesView,
+  }))
+);
+const SuppliersView = lazy(() =>
+  import("./components/views/SuppliersView").then((module) => ({
+    default: module.SuppliersView,
+  }))
+);
+const PurchaseOrdersView = lazy(() =>
+  import("./components/views/PurchaseOrdersView").then((module) => ({
+    default: module.PurchaseOrdersView,
+  }))
+);
+const ProductsCatalogView = lazy(() =>
+  import("./components/views/ProductsCatalogView").then((module) => ({
+    default: module.ProductsCatalogView,
+  }))
+);
+const HitlApprovalsView = lazy(() =>
+  import("./components/views/HitlApprovalsView").then((module) => ({
+    default: module.HitlApprovalsView,
+  }))
+);
+const HistoryView = lazy(() =>
+  import("./components/views/HistoryView").then((module) => ({
+    default: module.HistoryView,
+  }))
+);
+const PoliciesRulesView = lazy(() =>
+  import("./components/views/PoliciesRulesView").then((module) => ({
+    default: module.PoliciesRulesView,
+  }))
+);
+const WorkflowCanvas = lazy(() =>
+  import("./components/canvas/WorkflowCanvas").then((module) => ({
+    default: module.WorkflowCanvas,
+  }))
+);
+const KnowledgeGraphView = lazy(() =>
+  import("./components/views/KnowledgeGraphView").then((module) => ({
+    default: module.KnowledgeGraphView,
+  }))
+);
+const MemoryVaultView = lazy(() =>
+  import("./components/views/MemoryVaultView").then((module) => ({
+    default: module.MemoryVaultView,
+  }))
+);
+const AnalyticsReportsView = lazy(() =>
+  import("./components/views/AnalyticsReportsView").then((module) => ({
+    default: module.AnalyticsReportsView,
+  }))
+);
+const SettingsView = lazy(() =>
+  import("./components/views/SettingsView").then((module) => ({
+    default: module.SettingsView,
+  }))
+);
+const ComponentShowcaseView = lazy(() =>
+  import("./components/views/ComponentShowcaseView").then((module) => ({
+    default: module.ComponentShowcaseView,
+  }))
+);
+const ModelsView = lazy(() =>
+  import("./components/views/ModelsView").then((module) => ({
+    default: module.ModelsView,
+  }))
+);
+const NodeLibraryView = lazy(() =>
+  import("./components/views/NodeLibraryView").then((module) => ({
+    default: module.NodeLibraryView,
+  }))
+);
+const ObjectivesView = lazy(() =>
+  import("./components/views/ObjectivesView").then((module) => ({
+    default: module.ObjectivesView,
+  }))
+);
+
+const TabLoadingScreen: React.FC = () => (
+  <div
+    className="flex flex-1 min-h-0 items-center justify-center bg-canvas"
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+  >
+    <div className="flex flex-col items-center gap-3 text-center">
+      <div
+        className="h-8 w-8 rounded-full border-2 border-border border-t-brand animate-spin"
+        aria-hidden="true"
+      />
+      <div>
+        <p className="text-caption font-medium text-primary">Preparando vista</p>
+        <p className="mt-1 text-caption text-muted">Cargando contenido…</p>
+      </div>
+      <div
+        className="h-1 w-32 overflow-hidden rounded-full bg-raised"
+        role="progressbar"
+        aria-label="Carga de la vista"
+      >
+        <div className="h-full w-1/3 animate-pulse rounded-full bg-brand" />
+      </div>
+    </div>
+  </div>
+);
 
 /**
  * Mapa canónico de rutas → vista.
@@ -92,6 +192,7 @@ const readTabFromLocation = (): string => {
 export const App: React.FC = () => {
   // Pestaña inicial sincrónica con URL hash (e.g. #inventario)
   const [currentTab, setCurrentTab] = useState<string>(readTabFromLocation);
+  const [isTabLoading, setIsTabLoading] = useState(false);
   const [decisions, setDecisions] = useState<HitlDecision[]>(INITIAL_HITL_DECISIONS);
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState<boolean>(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("#OC-402");
@@ -100,7 +201,11 @@ export const App: React.FC = () => {
   // Se usa un único listener y se limpia al desmontar para no filtrar memoria.
   useEffect(() => {
     const syncFromHash = () => {
-      setCurrentTab(readTabFromLocation());
+      const nextTab = readTabFromLocation();
+      if (nextTab !== currentTab) {
+        setIsTabLoading(true);
+        setCurrentTab(nextTab);
+      }
     };
     window.addEventListener("hashchange", syncFromHash);
     window.addEventListener("popstate", syncFromHash);
@@ -108,7 +213,21 @@ export const App: React.FC = () => {
       window.removeEventListener("hashchange", syncFromHash);
       window.removeEventListener("popstate", syncFromHash);
     };
-  }, []);
+  }, [currentTab]);
+
+  useEffect(() => {
+    if (!isTabLoading) return;
+
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => setIsTabLoading(false));
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [currentTab, isTabLoading]);
 
   /**
    * Cambio de vista controlado.
@@ -121,7 +240,10 @@ export const App: React.FC = () => {
   const handleTabChange = (tab: string) => {
     const nextTab = normalizeTab(tab);
     setIsApprovalDialogOpen(false);
-    setCurrentTab(nextTab);
+    if (nextTab !== currentTab) {
+      setIsTabLoading(true);
+      setCurrentTab(nextTab);
+    }
 
     if (typeof window !== "undefined") {
       const nextHash = `#${nextTab}`;
@@ -134,6 +256,7 @@ export const App: React.FC = () => {
   /** Escape global: vuelve al Dashboard desde cualquier punto de la app. */
   const handleResetToDashboard = () => {
     setIsApprovalDialogOpen(false);
+    setIsTabLoading(true);
     setCurrentTab(DEFAULT_TAB);
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", `#${DEFAULT_TAB}`);
@@ -225,7 +348,8 @@ export const App: React.FC = () => {
       case "inicio":
         return (
           <DashboardOverviewView
-            onNavigateTo={setCurrentTab}
+            decisions={decisions}
+            onNavigateTo={handleTabChange}
             onOpenApproval={() => setIsApprovalDialogOpen(true)}
           />
         );
@@ -269,7 +393,7 @@ export const App: React.FC = () => {
         return (
           <StockInventoryView
             onNavigateTo={handleTabChange}
-            onNavigateToInbox={() => setCurrentTab("aprobaciones")}
+            onNavigateToInbox={() => handleTabChange("aprobaciones")}
           />
         );
 
@@ -389,6 +513,7 @@ export const App: React.FC = () => {
       default:
         return (
           <DashboardOverviewView
+            decisions={decisions}
             onNavigateTo={handleTabChange}
             onOpenApproval={() => setIsApprovalDialogOpen(true)}
           />
@@ -416,13 +541,17 @@ export const App: React.FC = () => {
           className="w-full flex-1 flex flex-col h-full min-h-0"
         >
           <ErrorBoundary viewKey={currentTab} onReset={handleResetToDashboard}>
-            {AGENT_TABS_WITHOUT_OWN_NAV.has(currentTab) ? (
-              <AgentSubNav activeTab={currentTab} onNavigateTo={handleTabChange}>
-                {renderContent()}
-              </AgentSubNav>
-            ) : (
-              renderContent()
-            )}
+            <Suspense fallback={<TabLoadingScreen />}>
+              {isTabLoading ? (
+                <TabLoadingScreen />
+              ) : AGENT_TABS_WITHOUT_OWN_NAV.has(currentTab) ? (
+                <AgentSubNav activeTab={currentTab} onNavigateTo={handleTabChange}>
+                  {renderContent()}
+                </AgentSubNav>
+              ) : (
+                renderContent()
+              )}
+            </Suspense>
           </ErrorBoundary>
         </motion.div>
       </AnimatePresence>
