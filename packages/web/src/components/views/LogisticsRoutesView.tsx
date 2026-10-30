@@ -25,16 +25,54 @@ import {
   Compass,
   ArrowUpRight,
   Check,
+  X,
+  Eye,
+  FileText,
+  Activity,
+  ArrowRight,
 } from "lucide-react";
 
-interface Milestone {
+export interface Milestone {
   label: string;
   location: string;
   time: string;
   status: "completed" | "current" | "pending";
 }
 
-interface ShipmentRoute {
+export interface TimelineEvent {
+  id: string;
+  title: string;
+  time: string;
+  location: string;
+  description: string;
+  impact?: string;
+  source: "telemetria" | "operativo" | "inferencia_agente";
+  isCritical?: boolean;
+  completed: boolean;
+}
+
+export interface AiRerouteRecommendation {
+  detectedIssue: {
+    title: string;
+    description: string;
+    location: string;
+    speedReductionKmh: number;
+    delayMinutes: number;
+    sensorSource: string;
+  };
+  proposedAlternative: {
+    routeName: string;
+    via: string;
+    timeDelta: string;
+    netSavingsMinutes: number;
+    extraKm: number;
+    fuelCostCop: number;
+    confidenceScore: number;
+    policyNote: string;
+  };
+}
+
+export interface ShipmentRoute {
   id: string;
   shipmentCode: string;
   orderId: string;
@@ -68,18 +106,15 @@ interface ShipmentRoute {
     title: string;
     description: string;
     severity: "alta" | "media";
+    delayMinutes: number;
     isRerouted?: boolean;
     alternateRouteName?: string;
   };
+  aiRecommendation?: AiRerouteRecommendation;
   milestones: Milestone[];
-  timelineEvents: {
-    title: string;
-    time: string;
-    description: string;
-    location: string;
-    completed: boolean;
-  }[];
-  curvePath: string;
+  timelineEvents: TimelineEvent[];
+  curvePathCompleted: string;
+  curvePathPending: string;
   reroutedCurvePath?: string;
   vehicleCoord: { x: number; y: number };
 }
@@ -103,7 +138,7 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
     vehicleType: "Camión Hino 5T",
     speedKmh: 68,
     distanceKm: 398,
-    eta: "3h 42m restantes (14:15 p. m.)",
+    eta: "14:15 p. m. (3h 42m restantes)",
     costPerKmCop: 3850,
     totalFreightCop: 1532300,
     savingsVsIndividualCop: 840000,
@@ -118,11 +153,35 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
       type: "clima",
       title: "Lluvia torrencial en Pescadero / Cañón del Chicamocha",
       description:
-        "Reducción de velocidad a 24 km/h en km 42 por pavimento húmedo. Retraso proyectado de +38 min sobre la hora estimada de entrega.",
+        "Pavimento húmedo y reducción de velocidad a 24 km/h en km 42. Retraso proyectado de +38 min sobre la ventana acordada.",
       severity: "alta",
+      delayMinutes: 38,
     },
-    curvePath: "M 520 110 C 490 200, 440 310, 390 440",
-    reroutedCurvePath: "M 520 110 C 450 180, 370 300, 390 440",
+    aiRecommendation: {
+      detectedIssue: {
+        title: "Pavimento Húmedo & Curvas de Montaña (Km 42)",
+        description:
+          "La velocidad nominal cayó de 68 km/h a 24 km/h en el descenso de Pescadero debido a fuertes precipitaciones.",
+        location: "Cañón del Chicamocha Km 42 (Pescadero - Aratoca)",
+        speedReductionKmh: 44,
+        delayMinutes: 38,
+        sensorSource: "Telemetría CAN-bus GPS + Estación meteorológica IDEAM",
+      },
+      proposedAlternative: {
+        routeName: "Variante San Gil → Tunja → Chiquinquirá → Bogotá",
+        via: "Corredor Troncal San Gil - Barbosa",
+        timeDelta: "-24 min",
+        netSavingsMinutes: 24,
+        extraKm: 18,
+        fuelCostCop: 69300,
+        confidenceScore: 0.94,
+        policyNote:
+          "Permitido por política POL-LOG-02 (Costo adicional < $100.000 COP sin requerir escalamiento a junta).",
+      },
+    },
+    curvePathCompleted: "M 520 110 Q 485 180, 455 250",
+    curvePathPending: "M 455 250 Q 425 345, 390 440",
+    reroutedCurvePath: "M 455 250 C 400 240, 340 330, 390 440",
     vehicleCoord: { x: 455, y: 250 },
     milestones: [
       {
@@ -152,31 +211,47 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
     ],
     timelineEvents: [
       {
+        id: "evt-01",
         title: "Despacho de Mercancía Confirmado",
-        time: "29 Oct 2026 · 06:30 a. m.",
-        description: "14 órdenes de compra consolidadas y precinto digital auditado.",
+        time: "06:30 a. m.",
         location: "Bodega Matriz Bucaramanga, Santander",
+        description: "14 órdenes de compra consolidadas y precinto digital auditado.",
+        impact: "Salida puntual en ventana de despacho",
+        source: "operativo",
+        isCritical: false,
         completed: true,
       },
       {
+        id: "evt-02",
         title: "Paso por Peaje Río Negro / Curití",
-        time: "29 Oct 2026 · 07:45 a. m.",
-        description: "Telemetría satelital nominal a 68 km/h. Peso verificado en báscula: 3.450 kg.",
+        time: "07:45 a. m.",
         location: "Corredor Santander - Boyacá",
+        description: "Telemetría satelital nominal a 68 km/h. Peso verificado en báscula: 3.450 kg.",
+        impact: "Carga dentro de tolerancia reglamentaria",
+        source: "telemetria",
+        isCritical: false,
         completed: true,
       },
       {
-        title: "Checkpoint Pescadero • Alerta de Clima",
-        time: "29 Oct 2026 · 10:14 a. m.",
-        description: "Reducción de velocidad a 24 km/h por pavimento húmedo en curva de montaña.",
+        id: "evt-03",
+        title: "Alerta Climática en Pescadero (Km 42)",
+        time: "10:14 a. m.",
         location: "Cañón del Chicamocha Km 42",
+        description: "Lluvia torrencial. Reducción de velocidad a 24 km/h en curvas descendentes.",
+        impact: "Retraso proyectado de +38 min respecto a ETA original",
+        source: "inferencia_agente",
+        isCritical: true,
         completed: true,
       },
       {
-        title: "Recepción Programada en Muelle Fontibón",
-        time: "29 Oct 2026 · 14:15 p. m. (Estimado)",
-        description: "Equipo de descarga y validación de inventario asignado en bodega central.",
+        id: "evt-04",
+        title: "Arribo Estimado a Muelle Fontibón",
+        time: "14:15 p. m. (Estimado)",
         location: "CD Bogotá D.C., Cundinamarca",
+        description: "Equipo de descarga y validación de inventario asignado en bodega central.",
+        impact: "Sujeto a resolución de alerta vial en Pescadero",
+        source: "operativo",
+        isCritical: true,
         completed: false,
       },
     ],
@@ -199,7 +274,7 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
     vehicleType: "Furgón Chevrolet 3.5T",
     speedKmh: 74,
     distanceKm: 415,
-    eta: "4h 20m restantes (13:45 p. m.)",
+    eta: "13:45 p. m. (4h 20m restantes)",
     costPerKmCop: 4120,
     totalFreightCop: 1709800,
     savingsVsIndividualCop: 580000,
@@ -210,8 +285,9 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
     status: "en_transito",
     departureTime: "Hoy, 07:15 a. m.",
     progressPct: 62,
-    curvePath: "M 390 440 C 320 420, 240 380, 210 310",
-    vehicleCoord: { x: 295, y: 375 },
+    curvePathCompleted: "M 390 440 C 330 425, 290 380, 275 360",
+    curvePathPending: "M 275 360 C 255 340, 230 325, 210 310",
+    vehicleCoord: { x: 275, y: 360 },
     milestones: [
       {
         label: "Origen",
@@ -240,24 +316,36 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
     ],
     timelineEvents: [
       {
+        id: "evt-201",
         title: "Salida de Muelle Bogotá Central",
-        time: "29 Oct 2026 · 07:15 a. m.",
-        description: "Carga consolidada de herramientas industriales y fijaciones.",
+        time: "07:15 a. m.",
         location: "CD Bogotá D.C.",
+        description: "Carga consolidada de herramientas industriales y fijaciones.",
+        impact: "Despacho en horario previsto",
+        source: "operativo",
+        isCritical: false,
         completed: true,
       },
       {
-        title: "Cruce Alto del Trigo",
-        time: "29 Oct 2026 · 09:50 a. m.",
-        description: "Condiciones de tránsito normales. Telemetría GPS a 74 km/h.",
+        id: "evt-202",
+        title: "Paso por Cruce Alto del Trigo",
+        time: "09:50 a. m.",
         location: "Vía Bogotá - Honda - Medellín",
+        description: "Condiciones de tránsito normales. Telemetría GPS a 74 km/h.",
+        impact: "Velocidad constante y clima seco",
+        source: "telemetria",
+        isCritical: false,
         completed: true,
       },
       {
+        id: "evt-203",
         title: "Arribo Estimado a Itagüí",
-        time: "29 Oct 2026 · 13:45 p. m. (Estimado)",
-        description: "Descarga prioritaria para reabastecer stock de seguridad.",
+        time: "13:45 p. m. (Estimado)",
         location: "CD Medellín Industrial",
+        description: "Descarga prioritaria para reabastecer stock de seguridad.",
+        impact: "Sin incidencias detectadas",
+        source: "operativo",
+        isCritical: false,
         completed: false,
       },
     ],
@@ -291,7 +379,8 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
     status: "completado",
     departureTime: "Hoy, 08:00 a. m.",
     progressPct: 100,
-    curvePath: "M 520 110 C 530 115, 540 120, 545 125",
+    curvePathCompleted: "M 520 110 Q 535 118, 545 125",
+    curvePathPending: "M 545 125 Q 545 125, 545 125",
     vehicleCoord: { x: 545, y: 125 },
     milestones: [
       {
@@ -321,17 +410,25 @@ const INITIAL_SHIPMENTS: ShipmentRoute[] = [
     ],
     timelineEvents: [
       {
+        id: "evt-301",
         title: "Salida de Bodega Chimitá",
-        time: "29 Oct 2026 · 08:00 a. m.",
-        description: "Despacho de pernos de anclaje de alta resistencia y discos diamantados.",
+        time: "08:00 a. m.",
         location: "Bucaramanga Matriz",
+        description: "Despacho de pernos de anclaje de alta resistencia y discos diamantados.",
+        impact: "Despacho local completado",
+        source: "operativo",
+        isCritical: false,
         completed: true,
       },
       {
+        id: "evt-302",
         title: "Recepción y Conciliación Física en Obra",
-        time: "29 Oct 2026 · 09:40 a. m.",
-        description: "Firma digital del residente de obra y remisión sellada.",
+        time: "09:40 a. m.",
         location: "Obra Girón - Santander",
+        description: "Firma digital del residente de obra y remisión sellada con precinto.",
+        impact: "Orden cerrada exitosamente",
+        source: "operativo",
+        isCritical: false,
         completed: true,
       },
     ],
@@ -342,79 +439,114 @@ export const LogisticsRoutesView: React.FC = () => {
   const [shipments, setShipments] = useState<ShipmentRoute[]>(INITIAL_SHIPMENTS);
   const [selectedShipmentId, setSelectedShipmentId] = useState<string>("ship_01");
 
-  // Map view & layer toggles
-  const [mapMode, setMapMode] = useState<"map" | "satellite">("map");
+  // Map layers
   const [layerFleet, setLayerFleet] = useState(true);
   const [layerRisk, setLayerRisk] = useState(true);
-  const [layerCoverage, setLayerCoverage] = useState(true);
+  const [layerCoverage, setLayerCoverage] = useState(false);
+  const [mapMode, setMapMode] = useState<"vector" | "satelite">("vector");
 
-  // Re-route processing state
-  const [isRerouting, setIsRerouting] = useState(false);
+  // Reroute & AI explanation modal state
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [previewAlternativeRoute, setPreviewAlternativeRoute] = useState(false);
+  const [isReroutingAction, setIsReroutingAction] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Selected shipment object
+  // Timeline filter state
+  const [timelineFilter, setTimelineFilter] = useState<"all" | "critical">("all");
+
   const currentIndex = shipments.findIndex((s) => s.id === selectedShipmentId);
   const selectedShipment = shipments[currentIndex] || shipments[0];
 
   const handlePrevShipment = () => {
     const prevIdx = (currentIndex - 1 + shipments.length) % shipments.length;
     setSelectedShipmentId(shipments[prevIdx].id);
+    setPreviewAlternativeRoute(false);
   };
 
   const handleNextShipment = () => {
     const nextIdx = (currentIndex + 1) % shipments.length;
     setSelectedShipmentId(shipments[nextIdx].id);
+    setPreviewAlternativeRoute(false);
   };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 5000);
+    setTimeout(() => setToastMessage(null), 4500);
   };
 
-  const handleRerouteAI = (shipmentId: string) => {
-    setIsRerouting(true);
+  const handleApproveReroute = () => {
+    setIsReroutingAction(true);
     setTimeout(() => {
       setShipments((prev) =>
         prev.map((s) => {
-          if (s.id === shipmentId) {
+          if (s.id === selectedShipment.id) {
+            const updatedAlert = s.riskAlert
+              ? {
+                  ...s.riskAlert,
+                  isRerouted: true,
+                  title: "Ruta alterna con IA confirmada",
+                  description:
+                    "Desvío activo por Variante San Gil. Se recuperan 24 min y se elude el tramo lento de Pescadero km 42.",
+                  alternateRouteName: "Variante San Gil → Tunja → Bogotá",
+                }
+              : undefined;
+
+            const updatedMilestones: Milestone[] = [
+              s.milestones[0],
+              s.milestones[1],
+              {
+                label: "Desvío IA Activo",
+                location: "Variante San Gil • Tramo Alterno",
+                time: "10:28 a. m.",
+                status: "current",
+              },
+              {
+                ...s.milestones[3],
+                time: "14:29 p. m. (Recuperado)",
+              },
+            ];
+
+            const newEvent: TimelineEvent = {
+              id: "evt-reroute-approved",
+              title: "Re-enrutamiento Autónomo Aprobado",
+              time: "10:24 a. m.",
+              location: "Pescadero • Conexión San Gil",
+              description:
+                "Operador autorizó desvío sugerido por Mint. Coordenadas telemáticas enviadas a cabina del vehículo.",
+              impact: "Ahorro neto de 24 min · Costo combustible +$69.300 COP",
+              source: "inferencia_agente",
+              isCritical: true,
+              completed: true,
+            };
+
             return {
               ...s,
-              eta: "3h 18m restantes (Ahorro de 24m vía variante San Gil)",
+              eta: "14:29 p. m. (Ahorro de 24 min)",
               speedKmh: 76,
-              curvePath: s.reroutedCurvePath || s.curvePath,
-              vehicleCoord: { x: 420, y: 240 },
-              riskAlert: s.riskAlert
-                ? {
-                    ...s.riskAlert,
-                    isRerouted: true,
-                    title: "Ruta alternativa activada con IA",
-                    description:
-                      "Desvío exitoso por variante San Gil - Tunja. Se elude el tramo con reducción de velocidad de Pescadero km 42.",
-                    alternateRouteName: "Corredor Troncal San Gil - Barbosa",
-                  }
-                : undefined,
-              milestones: [
-                s.milestones[0],
-                s.milestones[1],
-                {
-                  label: "Desvío IA Activo",
-                  location: "Variante San Gil • Corredor Alterno",
-                  time: "10:28 a. m. (Re-enrutado)",
-                  status: "current",
-                },
-                s.milestones[3],
-              ],
+              curvePathPending: s.reroutedCurvePath || s.curvePathPending,
+              riskAlert: updatedAlert,
+              milestones: updatedMilestones,
+              timelineEvents: [newEvent, ...s.timelineEvents],
             };
           }
           return s;
         })
       );
-      setIsRerouting(false);
+      setIsReroutingAction(false);
+      setIsAiModalOpen(false);
+      setPreviewAlternativeRoute(false);
       showToast(
-        "Ruta alternativa calculada con éxito: Desvío transmitido al camión WFL-892 vía telemetría."
+        "Ruta alternativa activada: Instrucción telemática enviada al conductor WFL-892."
       );
-    }, 1200);
+    }, 900);
   };
+
+  const filteredTimelineEvents = useMemo(() => {
+    if (timelineFilter === "critical") {
+      return selectedShipment.timelineEvents.filter((e) => e.isCritical);
+    }
+    return selectedShipment.timelineEvents;
+  }, [selectedShipment, timelineFilter]);
 
   return (
     <div className="flex-1 h-full flex flex-col bg-canvas text-[#F9FAFB] font-sans select-none overflow-hidden relative">
@@ -425,15 +557,13 @@ export const LogisticsRoutesView: React.FC = () => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E]/95 border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)] backdrop-blur-xl"
+            className="fixed top-5 right-8 z-50 px-4 py-2.5 rounded-xl flex items-center gap-3 bg-[#0A160E] border border-emerald-500/40 text-emerald-300 shadow-[0_8px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl"
           >
-            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span className="text-xs font-mono font-medium tracking-tight">
-              {toastMessage}
-            </span>
+            <div className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="text-xs font-mono font-medium">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
+              className="text-zinc-500 hover:text-white text-xs ml-1"
             >
               ✕
             </button>
@@ -442,123 +572,112 @@ export const LogisticsRoutesView: React.FC = () => {
       </AnimatePresence>
 
       {/* ========================================================= */}
-      {/* HEADER SUPERIOR EJECUTIVO                                 */}
+      {/* HEADER SUPERIOR EJECUTIVO Y COMPACTO                      */}
       {/* ========================================================= */}
-      <header className="px-6 py-4 bg-canvas border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-20 shrink-0">
+      <header className="px-6 py-3 bg-[#090D0B] border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-20 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono uppercase text-zinc-400">
+            <span className="text-xs font-mono uppercase text-zinc-500">
               Operaciones
             </span>
             <span className="text-white/20">/</span>
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Rutas y Logística
+            <h1 className="text-lg font-bold text-white tracking-tight">
+              Control de Rutas & Despachos
             </h1>
           </div>
           <span className="text-zinc-500 font-mono text-xs hidden md:inline">
-            · Telemetría Satelital & Despacho Autónomo
+            · Monitoreo Telemático en Vivo
           </span>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Buscador de despachos */}
-          <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3.5 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Buscar envío, placa o conductor..."
-              className="h-9 w-60 sm:w-72 bg-surface-1 border border-white/[0.08] hover:border-white/20 focus:border-emerald-500/50 rounded-xl pl-9 pr-9 text-xs text-white placeholder:text-zinc-500 focus:outline-none transition-all"
-            />
-            <span className="absolute right-2.5 text-[10px] font-mono text-zinc-500 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] pointer-events-none">
-              ⌘F
+          {/* Selector de Envíos Integrado y Explícito */}
+          <div className="flex items-center bg-surface-1 rounded-xl border border-white/[0.08] px-2 py-1 gap-2">
+            <button
+              onClick={handlePrevShipment}
+              className="p-1 hover:bg-white/[0.08] rounded-lg text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              title="Envío anterior"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-xs font-mono text-zinc-300 px-1 whitespace-nowrap">
+              Envío <strong>{currentIndex + 1}</strong> de {shipments.length}
             </span>
+            <button
+              onClick={handleNextShipment}
+              className="p-1 hover:bg-white/[0.08] rounded-lg text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              title="Envío siguiente"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          {/* Estado de conexión satelital */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-1 border border-white/[0.06] text-xs font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          {/* Estado de GPS Activo */}
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-surface-1 border border-white/[0.06] text-xs font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <span className="text-zinc-300">
-              3 Unidades en Línea · GPS Activo
+              3 Unidades Conectadas
             </span>
           </div>
         </div>
       </header>
 
       {/* ========================================================= */}
-      {/* SPLIT-SCREEN 50 / 50 (ESTILO FIKRI LOGISTICS SHP-5567)    */}
+      {/* SPLIT SCREEN 50 / 50: OPERACIÓN (IZQ) vs MAPA (DER)        */}
       {/* ========================================================= */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative min-h-0">
         {/* ------------------------------------------------------- */}
-        {/* PANEL IZQUIERDO (50%): DOSSIER DE ENVÍO & HITOS          */}
+        {/* PANEL IZQUIERDO: OPERACIÓN Y DOSSIER DE ENVÍO           */}
         {/* ------------------------------------------------------- */}
-        <div className="w-full lg:w-1/2 h-full bg-canvas overflow-y-auto p-6 flex flex-col gap-5 border-b lg:border-b-0 lg:border-r border-white/[0.06]">
-          {/* Fila 1: Selector de Envío, Badges y Acciones Superiores */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
+        <div className="w-full lg:w-1/2 h-full bg-canvas overflow-y-auto p-6 flex flex-col gap-4 border-b lg:border-b-0 lg:border-r border-white/[0.06]">
+          {/* Fila 1: Encabezado Compacto y Jerarquizado */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/[0.06]">
             <div>
-              <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
-                <span className="text-xl sm:text-2xl font-bold tracking-tight text-white font-mono whitespace-nowrap">
+              <div className="flex flex-wrap items-center gap-2.5 mb-1">
+                <span className="text-xl font-bold tracking-tight text-white font-mono">
                   {selectedShipment.shipmentCode}
                 </span>
 
                 {/* Badge de Estado */}
                 {selectedShipment.status === "en_transito" ? (
-                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 whitespace-nowrap">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     En Tránsito
                   </span>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30 whitespace-nowrap">
+                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-medium bg-blue-500/15 text-blue-300 border border-blue-500/30">
                     Completado
                   </span>
                 )}
 
-                {/* Badge de Alerta Vial si existe */}
+                {/* Badge de Retraso si aplica */}
                 {selectedShipment.riskAlert && !selectedShipment.riskAlert.isRerouted && (
-                  <span className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1 whitespace-nowrap">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    Alerta Retraso
+                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-amber-400" />
+                    +{selectedShipment.riskAlert.delayMinutes} min retraso
                   </span>
                 )}
 
-                {/* Controles de Paginación < > estilo Fikri */}
-                <div className="flex items-center bg-surface-1 rounded-lg border border-white/[0.08] p-0.5">
-                  <button
-                    onClick={handlePrevShipment}
-                    className="p-1 hover:bg-white/[0.06] rounded text-zinc-400 hover:text-white transition-colors"
-                    title="Envío anterior"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-[11px] font-mono px-1.5 text-zinc-400">
-                    {currentIndex + 1}/{shipments.length}
+                {selectedShipment.riskAlert?.isRerouted && (
+                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    Ruta Alterna Activa
                   </span>
-                  <button
-                    onClick={handleNextShipment}
-                    className="p-1 hover:bg-white/[0.06] rounded text-zinc-400 hover:text-white transition-colors"
-                    title="Envío siguiente"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                )}
               </div>
 
-              <p className="text-xs text-zinc-400">
-                Fecha de Despacho:{" "}
-                <span className="text-zinc-300 font-medium">
-                  {selectedShipment.orderDate}
-                </span>{" "}
-                · ID de Orden:{" "}
-                <span className="text-emerald-400 font-mono">
-                  {selectedShipment.orderId}
-                </span>
+              {/* Línea Secundaria Discreta */}
+              <p className="text-xs text-zinc-500">
+                Despachado: <span className="text-zinc-400 font-medium">{selectedShipment.orderDate}</span> · Orden:{" "}
+                <span className="text-zinc-300 font-mono">{selectedShipment.orderId}</span>
               </p>
             </div>
 
-            {/* Botones de Acción */}
+            {/* Acciones Jerarquizadas */}
             <div className="flex items-center gap-2">
               <a
                 href={`tel:${selectedShipment.phone}`}
-                className="px-3 py-2 rounded-xl bg-surface-1 hover:bg-white/[0.08] text-xs font-medium text-zinc-300 hover:text-white border border-white/[0.08] flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                className="px-3 py-1.5 rounded-xl bg-surface-well hover:bg-white/[0.08] text-xs font-medium text-zinc-300 hover:text-white border border-white/[0.06] flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <PhoneCall className="w-3.5 h-3.5 text-zinc-400" />
                 <span>Contactar Conductor</span>
@@ -566,554 +685,610 @@ export const LogisticsRoutesView: React.FC = () => {
 
               {selectedShipment.riskAlert && !selectedShipment.riskAlert.isRerouted && (
                 <button
-                  onClick={() => handleRerouteAI(selectedShipment.id)}
-                  disabled={isRerouting}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                  onClick={() => setIsAiModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isRerouting ? "Calculando..." : "✦ Re-enrutar con IA"}</span>
+                  <span>✦ Re-enrutar con IA</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Fila 2: Tarjeta de Despacho con Origen, Destino y Stepper Horizontal (Fikri SHP-5567) */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">
-            {/* Origen y Destino con línea de conexión */}
+          {/* Fila 2: Tarjeta de Seguimiento Simplificada y Unificada */}
+          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-lg">
+            {/* Origen y Destino */}
             <div className="flex items-start justify-between gap-4 pb-4 border-b border-white/[0.06]">
-              <div className="flex flex-col gap-2.5">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-zinc-400" />
-                  <span className="text-xs text-zinc-300 font-medium">
+                  <span className="w-2.5 h-2.5 rounded-full bg-zinc-500" />
+                  <span className="text-xs text-zinc-300">
                     {selectedShipment.originAddress}
                   </span>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400" />
                   <span className="text-xs text-white font-medium">
                     {selectedShipment.destinationAddress}
                   </span>
                 </div>
               </div>
 
-              {/* Transportadora / Placa Badge */}
-              <div className="flex flex-col items-end">
-                <span className="px-2.5 py-1 rounded-lg bg-surface-well border border-white/[0.06] text-xs font-mono text-zinc-300 flex items-center gap-1.5">
+              {/* Placa y Vehículo */}
+              <div className="text-right">
+                <span className="px-2.5 py-1 rounded-lg bg-surface-well border border-white/[0.06] text-xs font-mono text-zinc-200 inline-flex items-center gap-1.5">
                   <Truck className="w-3.5 h-3.5 text-emerald-400" />
                   {selectedShipment.vehiclePlate}
                 </span>
-                <span className="text-[11px] text-zinc-500 mt-1">
-                  {selectedShipment.carrier}
+                <span className="text-[11px] text-zinc-500 block mt-1">
+                  {selectedShipment.vehicleType}
                 </span>
               </div>
             </div>
 
-            {/* Sub-caja "Well" con Stepper Horizontal de 4 Iconos */}
-            <div className="bg-surface-well rounded-xl p-4 mt-4 border border-white/[0.04]">
+            {/* Stepper Horizontal Limpio */}
+            <div className="py-4 border-b border-white/[0.06]">
               <div className="relative flex items-center justify-between">
-                {/* Línea base de progreso horizontal */}
-                <div className="absolute top-1/2 left-4 right-4 h-1 bg-white/[0.08] -translate-y-1/2 z-0" />
+                {/* Línea Base */}
+                <div className="absolute top-1/2 left-3 right-3 h-1 bg-white/[0.08] -translate-y-1/2 z-0" />
                 <div
-                  className="absolute top-1/2 left-4 h-1 bg-emerald-500 -translate-y-1/2 z-0 transition-all duration-700"
-                  style={{ width: `${selectedShipment.progressPct * 0.88}%` }}
+                  className="absolute top-1/2 left-3 h-1 bg-emerald-500 -translate-y-1/2 z-0 transition-all duration-500"
+                  style={{ width: `${selectedShipment.progressPct * 0.9}%` }}
                 />
 
-                {/* 4 Nodos con Iconos a Color (Estilo Fikri SHP-5567) */}
                 {selectedShipment.milestones.map((m, idx) => {
                   const isDone = m.status === "completed";
                   const isCur = m.status === "current";
 
                   return (
-                    <div
-                      key={idx}
-                      className="relative z-10 flex flex-col items-center group cursor-pointer"
-                    >
+                    <div key={idx} className="relative z-10 flex flex-col items-center">
                       <div
-                        className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all ${
                           isDone
-                            ? "bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                            ? "bg-emerald-500 text-black font-bold"
                             : isCur
-                            ? "bg-surface-1 text-emerald-400 border-2 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse"
-                            : "bg-surface-1 text-zinc-500 border border-white/10"
+                            ? "bg-[#111915] text-emerald-400 border-2 border-emerald-400 font-bold"
+                            : "bg-surface-well text-zinc-500 border border-white/10"
                         }`}
                       >
-                        {idx === 0 && <Package className="w-4 h-4" />}
-                        {idx === 1 && <Clock className="w-4 h-4" />}
-                        {idx === 2 && <Truck className="w-4 h-4" />}
-                        {idx === 3 && <MapPin className="w-4 h-4" />}
+                        {isDone ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : idx + 1}
                       </div>
-
-                      <div className="text-center mt-2">
-                        <span className="block text-[11px] font-semibold text-zinc-300 whitespace-nowrap">
-                          {m.label}
-                        </span>
-                        <span className="block text-[10px] font-mono text-zinc-500">
-                          {m.time}
-                        </span>
-                      </div>
+                      <span className="text-[10px] font-semibold text-zinc-300 mt-1.5 text-center">
+                        {m.label}
+                      </span>
+                      <span className="text-[9px] font-mono text-zinc-500">
+                        {m.time}
+                      </span>
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Fila de 3 Métricas Clave (Estilo Fikri) */}
-            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-white/[0.06]">
+            {/* Métricas Clave en 3 Columnas (Sin Relleno Innecesario) */}
+            <div className="grid grid-cols-3 gap-3 pt-4 text-xs">
               <div>
-                <span className="text-[11px] uppercase tracking-wider text-zinc-500 block mb-1">
-                  Tiempo en Ruta
-                </span>
-                <span className="text-sm font-semibold text-white">
-                  {selectedShipment.eta.split(" ")[0]} restantes
+                <span className="text-[10px] uppercase font-mono text-zinc-500 block">Distancia & Velocidad</span>
+                <span className="text-zinc-200 font-semibold">{selectedShipment.distanceKm} km · {selectedShipment.speedKmh} km/h</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-mono text-zinc-500 block">ETA Programada</span>
+                <span className={`font-semibold ${selectedShipment.riskAlert && !selectedShipment.riskAlert.isRerouted ? "text-amber-400" : "text-emerald-400"}`}>
+                  {selectedShipment.eta}
                 </span>
               </div>
               <div>
-                <span className="text-[11px] uppercase tracking-wider text-zinc-500 block mb-1">
-                  Hora de Salida
-                </span>
-                <span className="text-sm font-semibold text-zinc-300">
-                  {selectedShipment.departureTime}
-                </span>
-              </div>
-              <div>
-                <span className="text-[11px] uppercase tracking-wider text-zinc-500 block mb-1">
-                  Llegada Proyectada
-                </span>
-                <span className="text-sm font-semibold text-emerald-400">
-                  {selectedShipment.milestones[3].time}
-                </span>
+                <span className="text-[10px] uppercase font-mono text-zinc-500 block">Carga & Capacidad</span>
+                <span className="text-zinc-200 font-semibold">{selectedShipment.payloadKg} kg ({selectedShipment.volumePct}%)</span>
               </div>
             </div>
           </div>
 
-          {/* Fila 3: Callout Banner Contextual (Ámbar suave / Esmeralda re-enrutado) */}
+          {/* Fila 3: Banner de Alerta con CTA para abrir Explicación de IA */}
           {selectedShipment.riskAlert && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`rounded-2xl p-4 flex items-start gap-3 border ${
+            <div
+              onClick={() => setIsAiModalOpen(true)}
+              className={`rounded-2xl p-4 border transition-all cursor-pointer flex items-start gap-3 ${
                 selectedShipment.riskAlert.isRerouted
-                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                  : "bg-amber-500/10 border-amber-500/30 text-amber-200"
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/15"
+                  : "bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/15"
               }`}
             >
               {selectedShipment.riskAlert.isRerouted ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               ) : (
-                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               )}
-              <div className="text-xs leading-relaxed">
-                <span className="font-bold block mb-0.5">
-                  {selectedShipment.riskAlert.title}
-                </span>
-                <p className="text-zinc-300">
+              <div className="flex-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold">{selectedShipment.riskAlert.title}</span>
+                  <span className="text-[10px] font-mono text-zinc-400 flex items-center gap-1">
+                    Ver análisis <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
+                <p className="text-zinc-400 mt-1 leading-relaxed">
                   {selectedShipment.riskAlert.description}
                 </p>
-                {selectedShipment.riskAlert.alternateRouteName && (
-                  <span className="inline-block mt-2 font-mono text-[11px] text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded border border-emerald-500/30">
-                    Vía activa: {selectedShipment.riskAlert.alternateRouteName}
-                  </span>
-                )}
               </div>
-            </motion.div>
+            </div>
           )}
 
-          {/* Fila 4: Bitácora Vertical de Estados (Shipment Status estilo Fikri) */}
-          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">
-            <h3 className="text-sm font-bold text-white tracking-tight mb-4 flex items-center justify-between">
-              <span>Historial del Envío (Trazabilidad)</span>
-              <span className="text-xs font-mono font-normal text-zinc-500">
-                {selectedShipment.ordersCount} Órdenes de Compra
-              </span>
-            </h3>
+          {/* Fila 4: Trazabilidad Compacta con Filtros y Origen de Datos */}
+          <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-lg flex-1 flex flex-col">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/[0.06]">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                Trazabilidad Cronológica ({filteredTimelineEvents.length})
+              </h3>
 
-            <div className="relative pl-6 space-y-6">
-              {/* Línea vertical de la bitácora */}
-              <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-white/[0.08]" />
+              {/* Filtro de Eventos */}
+              <div className="flex items-center bg-surface-well p-0.5 rounded-lg border border-white/[0.04] text-[10px]">
+                <button
+                  onClick={() => setTimelineFilter("all")}
+                  className={`px-2 py-0.5 rounded transition-colors ${
+                    timelineFilter === "all"
+                      ? "bg-emerald-500/20 text-emerald-300 font-semibold"
+                      : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  Todos
+                </button>
+                <button
+                  onClick={() => setTimelineFilter("critical")}
+                  className={`px-2 py-0.5 rounded transition-colors ${
+                    timelineFilter === "critical"
+                      ? "bg-amber-500/20 text-amber-300 font-semibold"
+                      : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  Alertas
+                </button>
+              </div>
+            </div>
 
-              {selectedShipment.timelineEvents.map((evt, idx) => (
-                <div key={idx} className="relative">
-                  {/* Punto del evento */}
-                  <div
-                    className={`absolute -left-6 top-1 w-3.5 h-3.5 rounded-full border-2 transition-all ${
-                      evt.completed
-                        ? "bg-emerald-500 border-canvas shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                        : "bg-surface-well border-zinc-600"
-                    }`}
-                  />
+            {/* Lista Cronológica Compacta */}
+            <div className="relative pl-5 space-y-4 overflow-y-auto pr-1">
+              {/* Línea vertical tenue */}
+              <div className="absolute left-2 top-2 bottom-2 w-px bg-white/[0.08]" />
 
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <h4
-                        className={`text-xs font-bold ${
-                          evt.completed ? "text-white" : "text-zinc-500"
-                        }`}
-                      >
-                        {evt.title}
-                      </h4>
-                      <span className="text-[11px] font-mono text-zinc-500">
-                        {evt.time}
-                      </span>
+              {filteredTimelineEvents.map((evt) => {
+                const isAgentInference = evt.source === "inferencia_agente";
+                const isTelemetry = evt.source === "telemetria";
+
+                return (
+                  <div key={evt.id} className="relative">
+                    {/* Punto del evento */}
+                    <div
+                      className={`absolute -left-5 top-1 w-2.5 h-2.5 rounded-full border ${
+                        evt.completed
+                          ? isAgentInference
+                            ? "bg-amber-400 border-amber-300"
+                            : "bg-emerald-400 border-emerald-300"
+                          : "bg-surface-well border-zinc-600"
+                      }`}
+                    />
+
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-white">{evt.title}</h4>
+                          {/* Badge de Origen */}
+                          <span
+                            className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${
+                              isAgentInference
+                                ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                                : isTelemetry
+                                ? "bg-blue-500/10 text-blue-300 border-blue-500/30"
+                                : "bg-white/[0.04] text-zinc-400 border-white/[0.06]"
+                            }`}
+                          >
+                            {isAgentInference
+                              ? "Inferencia IA"
+                              : isTelemetry
+                              ? "Telemetría GPS"
+                              : "Registro Operativo"}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-zinc-500">
+                          {evt.time}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-zinc-300 mt-0.5">{evt.description}</p>
+
+                      <div className="flex items-center justify-between text-[11px] text-zinc-500 mt-1">
+                        <span className="flex items-center gap-1 font-mono">
+                          <MapPin className="w-3 h-3 text-zinc-500" />
+                          {evt.location}
+                        </span>
+                        {evt.impact && (
+                          <span className="text-zinc-400 italic text-[10px]">
+                            {evt.impact}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-zinc-400 mt-0.5">
-                      {evt.description}
-                    </p>
-                    <span className="text-[11px] text-zinc-500 flex items-center gap-1 mt-1 font-mono">
-                      <MapPin className="w-3 h-3 text-zinc-500" />
-                      {evt.location}
-                    </span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* ------------------------------------------------------- */}
-        {/* PANEL DERECHO (50%): MAPA CARTOGRÁFICO & POPOVER FIKRI  */}
+        {/* PANEL DERECHO: CONTEXTO GEOGRÁFICO Y MAPA PROTAGONISTA  */}
         {/* ------------------------------------------------------- */}
-        <div className="w-full lg:w-1/2 h-full bg-[#070C09] relative overflow-hidden flex flex-col justify-between">
-          {/* Subtle Dot Matrix Micro-Grid */}
+        <div className="w-full lg:w-1/2 h-full bg-[#080D0A] relative overflow-hidden flex flex-col justify-between">
+          {/* Micro-cuadrícula sutil de fondo */}
           <div
-            className="pointer-events-none absolute inset-0 z-0 opacity-25"
+            className="pointer-events-none absolute inset-0 z-0 opacity-15"
             style={{
               backgroundImage:
-                "radial-gradient(rgba(16, 185, 129, 0.2) 1px, transparent 1px)",
-              backgroundSize: "24px 24px",
+                "radial-gradient(rgba(16, 185, 129, 0.25) 1px, transparent 1px)",
+              backgroundSize: "28px 28px",
             }}
           />
 
-          {/* Geographical Coordinates Overlay */}
-          <div className="pointer-events-none absolute inset-0 z-1 flex flex-col justify-between p-6 opacity-30 font-mono text-[10px] text-zinc-400">
+          {/* Coordenadas Geográficas Discretas */}
+          <div className="pointer-events-none absolute inset-0 z-1 flex flex-col justify-between p-6 opacity-20 font-mono text-[9px] text-zinc-500">
             <div className="flex justify-between">
-              <span>LAT: 07°07'14"N • BUCARAMANGA HUB</span>
+              <span>LAT: 07°07'14"N • BUCARAMANGA</span>
               <span>LON: 73°07'22"W</span>
             </div>
             <div className="flex justify-between">
-              <span>LAT: 06°15'07"N • MEDELLÍN CORREDOR</span>
-              <span>LON: 75°34'49"W</span>
-            </div>
-            <div className="flex justify-between">
-              <span>LAT: 04°36'35"N • BOGOTÁ D.C. CD CENTRAL</span>
+              <span>LAT: 04°36'35"N • BOGOTÁ D.C.</span>
               <span>LON: 74°04'54"W</span>
             </div>
           </div>
 
-          {/* SVG Vectorial Topography & Logistics Curves */}
+          {/* SVG Cartográfico con Jerarquía Nítida */}
           <svg
             className="absolute inset-0 w-full h-full z-2 select-none"
             viewBox="0 0 720 540"
             preserveAspectRatio="xMidYMid meet"
           >
-            <defs>
-              <filter id="emerald-glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="4" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
-              <filter id="cyan-glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
-              <filter id="amber-glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="5" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
-
-              <linearGradient id="grad-bga-bog" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#10B981" stopOpacity="0.95" />
-                <stop offset="50%" stopColor="#34D399" stopOpacity="0.85" />
-                <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.95" />
-              </linearGradient>
-
-              <linearGradient id="grad-reroute" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#10B981" stopOpacity="0.95" />
-                <stop offset="50%" stopColor="#F59E0B" stopOpacity="0.95" />
-                <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.95" />
-              </linearGradient>
-            </defs>
-
-            {/* Topography Contour Lines */}
-            <g stroke="rgba(16, 185, 129, 0.08)" fill="none" strokeWidth="1.2">
+            {/* Curvas topográficas muy tenues para no competir con la ruta */}
+            <g stroke="rgba(255, 255, 255, 0.025)" fill="none" strokeWidth="0.8">
               <path d="M 100 160 C 180 140, 290 200, 380 150 C 440 110, 540 140, 640 100" />
               <path d="M 90 220 C 190 200, 270 260, 390 220 C 470 180, 560 210, 670 170" />
               <path d="M 120 290 C 210 270, 310 330, 420 280 C 490 240, 580 290, 680 240" />
               <path d="M 140 370 C 240 340, 330 410, 450 360 C 520 310, 610 370, 700 320" />
-              <path d="M 160 450 C 260 420, 350 480, 480 430 C 550 390, 630 440, 710 400" />
             </g>
 
-            {/* Warehouse Coverage Rings */}
+            {/* Cobertura de Bodegas (Opcional por capa) */}
             {layerCoverage && (
               <g fill="none">
-                <circle
-                  cx="520"
-                  cy="110"
-                  r="65"
-                  stroke="rgba(16, 185, 129, 0.15)"
-                  strokeWidth="1"
-                  strokeDasharray="4 4"
-                />
-                <circle
-                  cx="390"
-                  cy="440"
-                  r="75"
-                  stroke="rgba(59, 130, 246, 0.15)"
-                  strokeWidth="1"
-                  strokeDasharray="4 4"
-                />
+                <circle cx="520" cy="110" r="50" stroke="rgba(16, 185, 129, 0.15)" strokeWidth="1" strokeDasharray="3 3" />
+                <circle cx="390" cy="440" r="60" stroke="rgba(59, 130, 246, 0.15)" strokeWidth="1" strokeDasharray="3 3" />
               </g>
             )}
 
-            {/* Rutas Principales */}
+            {/* Rutas Primarias */}
             <g fill="none">
-              {/* Bucaramanga -> Bogotá */}
+              {/* Ruta Principal: Tramo Recorrido (Esmeralda Sólido) */}
               <path
-                d={shipments[0].curvePath}
-                stroke="url(#grad-bga-bog)"
-                strokeWidth={selectedShipmentId === "ship_01" ? "4.5" : "2"}
+                d={selectedShipment.curvePathCompleted}
+                stroke="#10B981"
+                strokeWidth="3.5"
                 strokeLinecap="round"
-                className="transition-all duration-700"
               />
 
-              {/* Bogotá -> Medellín */}
+              {/* Ruta Principal: Tramo Pendiente (Azul Frío Tenue) */}
               <path
-                d={shipments[1].curvePath}
+                d={selectedShipment.curvePathPending}
                 stroke="#3B82F6"
-                strokeWidth={selectedShipmentId === "ship_02" ? "4" : "1.8"}
-                strokeDasharray="6 4"
+                strokeWidth="2.5"
+                strokeDasharray={selectedShipment.riskAlert?.isRerouted ? "none" : "5 4"}
                 strokeLinecap="round"
-                opacity={0.8}
+                opacity={0.65}
+              />
+
+              {/* Ruta Alternativa Sugerida por IA (Línea Punteada Ámbar al Previsualizar) */}
+              {(previewAlternativeRoute || selectedShipment.riskAlert?.isRerouted) && selectedShipment.reroutedCurvePath && (
+                <path
+                  d={selectedShipment.reroutedCurvePath}
+                  stroke="#F59E0B"
+                  strokeWidth="2.5"
+                  strokeDasharray="6 4"
+                  strokeLinecap="round"
+                  className="transition-all duration-500"
+                />
+              )}
+
+              {/* Ruta Secundaria Bogotá -> Medellín */}
+              <path
+                d="M 390 440 C 330 425, 290 380, 210 310"
+                stroke="rgba(255, 255, 255, 0.1)"
+                strokeWidth="1.5"
+                strokeDasharray="4 4"
               />
             </g>
 
-            {/* Warehouse Nodes */}
+            {/* Nodos de Ciudades y Bodegas */}
             <g>
-              {/* Bucaramanga Matriz */}
-              <circle
-                cx="520"
-                cy="110"
-                r="7"
-                fill="#10B981"
-                stroke="#FFFFFF"
-                strokeWidth="2"
-                filter="url(#emerald-glow)"
-              />
-              <text
-                x="535"
-                y="114"
-                fill="#FFFFFF"
-                fontSize="11"
-                fontWeight="700"
-                fontFamily="sans-serif"
-              >
+              {/* Bucaramanga (Matriz) */}
+              <circle cx="520" cy="110" r="6" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+              <text x="532" y="114" fill="#FFFFFF" fontSize="11" fontWeight="700" fontFamily="sans-serif">
                 Bucaramanga (Matriz)
               </text>
 
-              {/* Bogotá D.C. */}
-              <circle
-                cx="390"
-                cy="440"
-                r="7"
-                fill="#3B82F6"
-                stroke="#FFFFFF"
-                strokeWidth="2"
-                filter="url(#cyan-glow)"
-              />
-              <text
-                x="405"
-                y="444"
-                fill="#FFFFFF"
-                fontSize="11"
-                fontWeight="700"
-                fontFamily="sans-serif"
-              >
+              {/* Bogotá D.C. (Destino) */}
+              <circle cx="390" cy="440" r="7" fill="#3B82F6" stroke="#FFFFFF" strokeWidth="2" />
+              <text x="404" y="444" fill="#FFFFFF" fontSize="11" fontWeight="700" fontFamily="sans-serif">
                 Bogotá D.C. (CD Central)
               </text>
 
               {/* Medellín */}
-              <circle
-                cx="210"
-                cy="310"
-                r="6"
-                fill="#10B981"
-                stroke="#FFFFFF"
-                strokeWidth="2"
-              />
-              <text
-                x="225"
-                y="314"
-                fill="#FFFFFF"
-                fontSize="11"
-                fontWeight="700"
-                fontFamily="sans-serif"
-              >
+              <circle cx="210" cy="310" r="5" fill="#52525B" stroke="#FFFFFF" strokeWidth="1.5" />
+              <text x="222" y="314" fill="#A1A1AA" fontSize="10" fontFamily="sans-serif">
                 Medellín (CD Itagüí)
               </text>
+
+              {/* Punto de Incidencia Clima: Pescadero */}
+              {layerRisk && selectedShipment.riskAlert && !selectedShipment.riskAlert.isRerouted && (
+                <g>
+                  <circle cx="455" cy="250" r="18" fill="rgba(245, 158, 11, 0.12)" stroke="#F59E0B" strokeWidth="1" strokeDasharray="3 3" />
+                  <circle cx="455" cy="250" r="4" fill="#F59E0B" />
+                  <text x="466" y="246" fill="#F59E0B" fontSize="9" fontWeight="600" fontFamily="monospace">
+                    Lluvia km 42
+                  </text>
+                </g>
+              )}
             </g>
 
-            {/* Vehículos en Tránsito */}
+            {/* Marcador del Vehículo Seleccionado (Limpio, con halo estático sobrio) */}
             {layerFleet && (
               <g>
                 <circle
-                  cx={shipments[0].vehicleCoord.x}
-                  cy={shipments[0].vehicleCoord.y}
+                  cx={selectedShipment.vehicleCoord.x}
+                  cy={selectedShipment.vehicleCoord.y}
                   r="12"
-                  fill="rgba(16, 185, 129, 0.25)"
-                  className="animate-ping"
+                  fill="rgba(16, 185, 129, 0.18)"
+                  stroke="rgba(16, 185, 129, 0.4)"
+                  strokeWidth="1"
                 />
                 <circle
-                  cx={shipments[0].vehicleCoord.x}
-                  cy={shipments[0].vehicleCoord.y}
-                  r="7"
+                  cx={selectedShipment.vehicleCoord.x}
+                  cy={selectedShipment.vehicleCoord.y}
+                  r="5"
                   fill="#10B981"
                   stroke="#FFFFFF"
                   strokeWidth="2"
-                  filter="url(#emerald-glow)"
                 />
               </g>
             )}
           </svg>
 
-          {/* ========================================================= */}
-          {/* POPOVER FLOTANTE DE ALTO CONTRASTE (ESTILO MSW WAREHOUSE) */}
-          {/* ========================================================= */}
+          {/* Tarjeta Flotante del Vehículo (Compacta y sin ruido) */}
           <div
             className="absolute z-20 pointer-events-auto"
             style={{
-              left: `${selectedShipment.vehicleCoord.x * 0.85}px`,
-              top: `${selectedShipment.vehicleCoord.y * 0.72}px`,
+              left: `${Math.min(selectedShipment.vehicleCoord.x * 0.82, 380)}px`,
+              top: `${Math.min(selectedShipment.vehicleCoord.y * 0.72, 300)}px`,
             }}
           >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="p-4 rounded-2xl bg-[#0B100E]/95 border border-emerald-500/40 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.85)] w-72 text-white"
-            >
+            <div className="p-3.5 rounded-xl bg-[#090D0B]/95 border border-white/[0.1] backdrop-blur-xl shadow-xl w-64 text-white">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[0.08]">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-emerald-400" />
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
                   <span className="text-xs font-bold font-mono">
                     {selectedShipment.milestones[2].location}
                   </span>
                 </div>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                   {selectedShipment.speedKmh} km/h
                 </span>
               </div>
 
-              <p className="text-xs text-zinc-300 mb-2">
-                Conductor: <strong className="text-white">{selectedShipment.driver}</strong> · {selectedShipment.vehiclePlate}
-              </p>
-
-              <div className="grid grid-cols-2 gap-2 text-[10px] font-mono bg-surface-well p-2 rounded-xl border border-white/[0.04]">
-                <div>
-                  <span className="text-zinc-500 block uppercase">Carga Útil</span>
-                  <span className="text-white font-bold">{selectedShipment.payloadKg} kg ({selectedShipment.volumePct}%)</span>
+              <div className="text-xs text-zinc-300 space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Conductor:</span>
+                  <span className="font-medium text-white">{selectedShipment.driver} ({selectedShipment.vehiclePlate})</span>
                 </div>
-                <div>
-                  <span className="text-zinc-500 block uppercase">Flete Total</span>
-                  <span className="text-emerald-400 font-bold">${selectedShipment.totalFreightCop.toLocaleString("es-CO")} COP</span>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Carga útil:</span>
+                  <span className="font-mono text-zinc-200">{selectedShipment.payloadKg} kg ({selectedShipment.volumePct}%)</span>
                 </div>
               </div>
-            </motion.div>
-          </div>
-
-          {/* Controles de Mapa Flotantes (Esquina Superior Derecha) */}
-          <div className="absolute top-5 right-5 z-20 flex flex-col gap-2">
-            <div className="bg-surface-1/90 backdrop-blur-xl rounded-xl border border-white/[0.08] p-1 flex flex-col shadow-xl">
-              <button
-                onClick={() => setMapMode(mapMode === "map" ? "satellite" : "map")}
-                className="p-2 hover:bg-white/[0.08] rounded-lg text-zinc-300 hover:text-white transition-colors"
-                title="Cambiar vista de mapa"
-              >
-                {mapMode === "map" ? <Globe className="w-4 h-4" /> : <MapIcon className="w-4 h-4" />}
-              </button>
-              <div className="h-px w-full bg-white/[0.08] my-0.5" />
-              <button
-                className="p-2 hover:bg-white/[0.08] rounded-lg text-zinc-300 hover:text-white transition-colors"
-                title="Acercar mapa"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-              <button
-                className="p-2 hover:bg-white/[0.08] rounded-lg text-zinc-300 hover:text-white transition-colors"
-                title="Alejar mapa"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
             </div>
           </div>
 
-          {/* Barra Inferior de Capas y Leyenda (Esquinas Inferiores) */}
-          <div className="p-5 z-20 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-t from-[#070C09] to-transparent">
+          {/* Barra Inferior de Capas y Selector de Modo */}
+          <div className="p-4 z-20 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-t from-[#080D0A] to-transparent">
             {/* Toggles de Capas */}
-            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-surface-1/90 border border-white/[0.08] backdrop-blur-xl shadow-xl">
-              <span className="text-[10px] font-mono uppercase text-zinc-400 px-2 flex items-center gap-1">
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-1/90 border border-white/[0.08] backdrop-blur-xl">
+              <span className="text-[10px] font-mono uppercase text-zinc-500 px-2 flex items-center gap-1">
                 <Layers className="w-3 h-3 text-emerald-400" /> Capas:
               </span>
 
               <button
                 onClick={() => setLayerFleet(!layerFleet)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-mono font-medium flex items-center gap-1.5 transition-all ${
+                className={`px-2 py-1 rounded-lg text-xs font-mono transition-all ${
                   layerFleet
-                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                    : "bg-white/[0.03] text-zinc-400 border border-transparent hover:text-white"
+                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold"
+                    : "text-zinc-400 hover:text-white"
                 }`}
               >
-                <Truck className="w-3 h-3" />
-                <span>Tráfico Flota</span>
+                Flota Activa
               </button>
 
               <button
                 onClick={() => setLayerRisk(!layerRisk)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-mono font-medium flex items-center gap-1.5 transition-all ${
+                className={`px-2 py-1 rounded-lg text-xs font-mono transition-all ${
                   layerRisk
-                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                    : "bg-white/[0.03] text-zinc-400 border border-transparent hover:text-white"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold"
+                    : "text-zinc-400 hover:text-white"
                 }`}
               >
-                <AlertTriangle className="w-3 h-3" />
-                <span>Riesgo en Ruta</span>
+                Riesgo Vial
               </button>
 
               <button
                 onClick={() => setLayerCoverage(!layerCoverage)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-mono font-medium flex items-center gap-1.5 transition-all ${
+                className={`px-2 py-1 rounded-lg text-xs font-mono transition-all ${
                   layerCoverage
-                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
-                    : "bg-white/[0.03] text-zinc-400 border border-transparent hover:text-white"
+                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold"
+                    : "text-zinc-400 hover:text-white"
                 }`}
               >
-                <Radio className="w-3 h-3" />
-                <span>Cobertura Bodegas</span>
+                Bodegas
               </button>
             </div>
 
-            {/* Selector de modo Satélite / Mapa (Estilo Fikri inferior derecho) */}
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-1/90 border border-white/[0.08] backdrop-blur-xl">
+            {/* Alternar Previsualización de Ruta IA si hay alerta */}
+            {selectedShipment.riskAlert && !selectedShipment.riskAlert.isRerouted && (
               <button
-                onClick={() => setMapMode("satellite")}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                  mapMode === "satellite"
-                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold"
-                    : "text-zinc-400 hover:text-white"
+                onClick={() => setPreviewAlternativeRoute(!previewAlternativeRoute)}
+                className={`px-3 py-1 rounded-xl text-xs font-mono transition-all border flex items-center gap-1.5 ${
+                  previewAlternativeRoute
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold"
+                    : "bg-surface-1/90 text-zinc-400 border-white/[0.08] hover:text-white"
                 }`}
               >
-                Vista Satelital
+                <Eye className="w-3.5 h-3.5" />
+                <span>{previewAlternativeRoute ? "Ocultar Alternativa" : "Comparar Alternativa"}</span>
               </button>
-              <button
-                onClick={() => setMapMode("map")}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                  mapMode === "map"
-                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                Vista Vectorial
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* ========================================================= */}
+      {/* MODAL / DRAWER DE DECISIÓN EXPLICABLE CON IA (MINT AGENT) */}
+      {/* ========================================================= */}
+      <AnimatePresence>
+        {isAiModalOpen && selectedShipment.aiRecommendation && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-2xl bg-[#0B110E] border border-white/[0.1] rounded-2xl p-6 shadow-2xl flex flex-col gap-5 text-white"
+            >
+              {/* Header del Modal */}
+              <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white tracking-tight">
+                      Evaluación de Re-enrutamiento Autónomo
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Análisis explicable del Agente Mint para el envío {selectedShipment.shipmentCode} ({selectedShipment.vehiclePlate})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAiModalOpen(false)}
+                  className="p-1 rounded-lg hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Sección 1: Situación Detectada */}
+              <div className="bg-surface-well rounded-xl p-4 border border-white/[0.04] space-y-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold block">
+                  1. Situación Observada en Ruta
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                  <div>
+                    <span className="text-zinc-500 block">Incidente:</span>
+                    <span className="text-white font-medium">{selectedShipment.aiRecommendation.detectedIssue.title}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block">Ubicación:</span>
+                    <span className="text-zinc-300 font-mono">{selectedShipment.aiRecommendation.detectedIssue.location}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block">Impacto en Velocidad:</span>
+                    <span className="text-amber-400 font-bold font-mono">
+                      Caída de -{selectedShipment.aiRecommendation.detectedIssue.speedReductionKmh} km/h (actual: 24 km/h)
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block">Retraso Proyectado:</span>
+                    <span className="text-amber-400 font-bold font-mono">
+                      +{selectedShipment.aiRecommendation.detectedIssue.delayMinutes} minutos sobre ventana pactada
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-zinc-400 pt-1 border-t border-white/[0.04]">
+                  Fuente: {selectedShipment.aiRecommendation.detectedIssue.sensorSource}
+                </p>
+              </div>
+
+              {/* Sección 2: Recomendación de Mint */}
+              <div className="bg-surface-well rounded-xl p-4 border border-white/[0.04] space-y-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold block">
+                  2. Recomendación Algorítmica de Mint
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                  <div>
+                    <span className="text-zinc-500 block">Ruta Alterna Sugerida:</span>
+                    <span className="text-white font-semibold">{selectedShipment.aiRecommendation.proposedAlternative.routeName}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block">Tiempo Recuperado:</span>
+                    <span className="text-emerald-400 font-bold font-mono">
+                      {selectedShipment.aiRecommendation.proposedAlternative.timeDelta} ({selectedShipment.aiRecommendation.proposedAlternative.netSavingsMinutes} min de ahorro)
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block">Costo / Distancia:</span>
+                    <span className="text-zinc-300 font-mono">
+                      +{selectedShipment.aiRecommendation.proposedAlternative.extraKm} km · ${selectedShipment.aiRecommendation.proposedAlternative.fuelCostCop.toLocaleString("es-CO")} COP
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-2 border-t border-white/[0.04]">
+                  <span className="text-zinc-400">
+                    Nivel de Confianza: <strong className="text-emerald-400">{(selectedShipment.aiRecommendation.proposedAlternative.confidenceScore * 100).toFixed(0)}%</strong> (basado en historial OSRM)
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-500">
+                    {selectedShipment.aiRecommendation.proposedAlternative.policyNote}
+                  </span>
+                </div>
+              </div>
+
+              {/* Sección 3: Acciones Disponibles */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setPreviewAlternativeRoute(!previewAlternativeRoute);
+                    setIsAiModalOpen(false);
+                    showToast(previewAlternativeRoute ? "Ruta alterna oculta en mapa." : "Ruta alterna visualizada en mapa en línea discontinua ámbar.");
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-surface-well hover:bg-white/[0.08] text-xs font-medium text-zinc-300 hover:text-white border border-white/[0.08] transition-colors cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5 inline mr-1.5" />
+                  Previsualizar en Mapa
+                </button>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => setIsAiModalOpen(false)}
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl hover:bg-white/[0.06] text-xs font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Mantener Ruta Actual
+                  </button>
+
+                  <button
+                    onClick={handleApproveReroute}
+                    disabled={isReroutingAction}
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-lg disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{isReroutingAction ? "Transmitiendo..." : "Aprobar y Transmitir Desvío"}</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
