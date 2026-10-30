@@ -82,25 +82,39 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Fila 1: KPI Strip de 4 Tarjetas con Hero Card Esmeralda (Donezo & CheckinOs) */}
+      {/* 2. Fila 1: KPI Strip de 4 Tarjetas con Hero Card Mint (Donezo & CheckinOs) */}
       <KpiStrip
-        metrics={[
+        items={[
           {
-            value: "$482.5M",
-            context: "Valorización de Inventario · +6.4% vs mes anterior",
-            isHighlight: true,
+            title: "Valorización de Inventario",
+            value: "$482.5M COP",
+            context: "Capital activo en 3 sedes físicas",
+            trend: { direction: "up", label: "+6.4% mes" },
+            isHero: true,
+            onActionClick: () => onNavigateTo("inventario"),
           },
           {
-            value: "342",
-            context: "Productos en Catálogo · 3 almacenes sincronizados",
+            title: "Catálogo de SKUs",
+            value: "338",
+            context: "Referencias activas sincronizadas",
+            trend: { direction: "neutral", label: "Nominal" },
+            icon: Boxes,
           },
           {
-            value: "8",
-            context: "Stock Bajo ROP · Requiere atención de reposición",
+            title: "Bajo Punto de Reorden",
+            value: "8 SKUs",
+            context: "Riesgo de rotura < 4 días",
+            trend: { direction: "down", label: "Atención" },
+            trendType: "warning",
+            icon: AlertTriangle,
           },
           {
-            value: "2",
-            context: "Aprobaciones Pendientes · Superan umbral $5M COP",
+            title: "Aprobaciones Pendientes",
+            value: "2 Órdenes",
+            context: "Superan umbral de $5.000.000 COP",
+            trend: { direction: "neutral", label: "Requiere firma" },
+            icon: UserCheck,
+            onActionClick: onOpenApproval,
           },
         ]}
       />
@@ -332,43 +346,43 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
             </svg>
 
             <div className="absolute top-[48px] text-center">
-              <span className="text-3xl font-extrabold font-mono text-white tracking-tight">
+              <span className="text-3xl font-extrabold font-sans text-white tracking-tight">
                 98%
               </span>
-              <span className="block text-[11px] font-medium text-zinc-400 -mt-0.5">
+              <span className="block text-[11px] font-medium text-zinc-400 -mt-0.5 font-sans">
                 Operativo
               </span>
             </div>
           </div>
 
           {/* Desglose en Contenedor Well */}
-          <div className="bg-surface-well rounded-xl p-3 border border-white/[0.04] space-y-1.5 text-xs font-mono text-zinc-400">
+          <div className="bg-surface-well rounded-xl p-3 border border-white/[0.04] space-y-1.5 text-xs font-sans text-zinc-400">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
                 <span>Tareas completadas:</span>
               </span>
-              <strong className="text-white font-bold">44</strong>
+              <strong className="text-white font-bold tabular-nums">44</strong>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-amber-400" />
-                <span>En curso / HITL:</span>
+                <span>En revisión ejecutiva:</span>
               </span>
-              <strong className="text-white font-bold">4</strong>
+              <strong className="text-white font-bold tabular-nums">4</strong>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-zinc-600" />
                 <span>Tareas fallidas:</span>
               </span>
-              <strong className="text-zinc-500">0</strong>
+              <strong className="text-zinc-500 tabular-nums">0</strong>
             </div>
           </div>
 
-          <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-zinc-500">
-            <span>Latencia: 1.2s</span>
-            <span className="text-emerald-400">PostgreSQL persistido</span>
+          <div className="pt-1 flex items-center justify-between text-[11px] font-sans text-zinc-400">
+            <span>Respuesta: 1.2s</span>
+            <span className="text-emerald-400 font-medium">Sincronizado en tiempo real</span>
           </div>
         </div>
       </div>

@@ -492,24 +492,35 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
       {/* 2. FILA 1: KPI STRIP DE 4 TARJETAS CON HERO (DONEZO)       */}
       {/* ========================================================= */}
       <KpiStrip
-        metrics={[
+        items={[
           {
+            title: "Salud del Catálogo",
             value: "98.4%",
-            context: "Salud del Catálogo · 338 SKUs activos verificados",
-            isHighlight: true,
+            context: "338 SKUs activos verificados sin anomalías",
+            trend: { direction: "up", label: "+2.1% mes" },
+            isHero: true,
           },
           {
-            value: "8",
-            context: "SKUs Bajo Punto de Reorden · Riesgo de quiebre < 4 días",
+            title: "Bajo Punto de Reorden",
+            value: "8 SKUs",
+            context: "Riesgo de agotamiento en < 4 días",
+            trend: { direction: "down", label: "8 críticos" },
+            trendType: "warning",
+            icon: AlertTriangle,
           },
           {
-            value: "4",
-            context: "Registros en Cuarentena · Retenidos en Vault para revisión",
+            title: "Registros en Cuarentena",
+            value: "4 Lotes",
+            context: "Retenidos en almacén para validación técnica",
+            trend: { direction: "neutral", label: "En revisión" },
+            icon: ShieldAlert,
           },
           {
-            value: "$482.5M",
-            context: "Valorización de Inventario · +6.4% vs mes anterior",
-            isHighlight: true,
+            title: "Valorización de Inventario",
+            value: "$482.5M COP",
+            context: "Capital total activo en 3 sedes físicas",
+            trend: { direction: "up", label: "+6.4% mes" },
+            icon: Boxes,
           },
         ]}
       />

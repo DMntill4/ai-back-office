@@ -49,13 +49,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="space-y-6">
         {/* Brand Header */}
         <div className="flex items-center gap-3 px-2 py-1">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.35)]">
-            <Sparkles className="w-4 h-4 text-black font-black" />
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#A3E635] via-[#10B981] to-[#047857] flex items-center justify-center shadow-[0_0_20px_rgba(163,230,53,0.3)] border border-lime-300/30">
+            <Sparkles className="w-4 h-4 text-[#051F14] stroke-[2.5]" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-base font-bold tracking-tight text-white">Mint</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="text-[10px] font-sans font-semibold px-1.5 py-0.5 rounded-full bg-lime-400/15 text-lime-300 border border-lime-400/30">
                 PRO
               </span>
             </div>
@@ -117,14 +117,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <ChevronDown className="w-4 h-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
         </div>
 
-        {/* New Action Button */}
+        {/* New Action Button: Donezo White Tactile Pill */}
         {onNewWorkflow && (
           <button
             onClick={onNewWorkflow}
-            className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.25)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all active:scale-[0.98]"
+            className="w-full pl-4 pr-1.5 py-2 rounded-full bg-white hover:bg-zinc-100 text-black font-semibold text-xs flex items-center justify-between shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all cursor-pointer group"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Nueva Operación</span>
+            <span className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center transition-transform group-hover:rotate-90">
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            </span>
           </button>
         )}
       </div>

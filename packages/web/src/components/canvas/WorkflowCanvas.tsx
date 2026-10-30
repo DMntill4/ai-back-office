@@ -58,11 +58,11 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
     {
       id: "trigger",
       stageNum: "01",
-      category: "INGESTA & CDC",
+      category: "CAPTURA EN ALMACÉN",
       name: "Disparadores Telemetría",
-      subname: "PostgreSQL 16 · OSRM GPS · WMS",
+      subname: "Sincronización en vivo · WMS",
       status: "active",
-      statusLabel: "Escuchando CDC",
+      statusLabel: "Escucha activa",
       metrics: "14 eventos / min",
       execTime: "12 ms",
     },
@@ -85,13 +85,13 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
       subname: "xAI Grok-2 · RAG Memoria Activa",
       status: isSimulating ? "running" : "active",
       statusLabel: isAgentRunning ? "Ciclo en Vigilancia" : "En Pausa",
-      metrics: "142 ms P95 · Temp 0.1",
+      metrics: "142 ms respuesta · Alta precisión",
       execTime: "1.24 s",
     },
     {
       id: "governance",
       stageNum: "04",
-      category: "GUARDRAIL HITL",
+      category: "SUPERVISIÓN EJECUTIVA",
       name: "Filtro de Políticas & Firma",
       subname: "Regla POL-01 · Límite $5.000.000",
       status: "waiting",
@@ -102,9 +102,9 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
     {
       id: "dispatch",
       stageNum: "05",
-      category: "ACCIÓN & DESPACHO",
+      category: "DESPACHO & NOTIFICACIONES",
       name: "Despacho & Notificaciones",
-      subname: "DIAN Factura · Telegram · WMS",
+      subname: "Facturación DIAN · Telegram · WMS",
       status: "ready",
       statusLabel: "En cola transaccional",
       metrics: "3 canales destino",
@@ -145,41 +145,41 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
       {/* 1. Header con estilo Obsidian Emerald */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-white/[0.06]">
         <div>
-          <div className="flex items-center gap-2 mb-2 font-mono text-[11px] text-emerald-400/80">
-            <span>INTELIGENCIA</span>
+          <div className="flex items-center gap-2 mb-2 text-xs text-zinc-400 font-sans">
+            <span>Inteligencia</span>
             <span className="text-zinc-600">/</span>
-            <span>autonomousWorkflowService.ts & pipelineDAG.ts</span>
+            <span className="text-zinc-300">Cadena de Abastecimiento Autónomo</span>
             <span className="text-zinc-600">/</span>
-            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px]">
-              MOTOR COGNITIVO V2 · CICLO CONTINUO
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-semibold">
+              Supervisión en Tiempo Real
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-white">
-              Flujo del agente
+            <h1 className="text-2xl font-bold tracking-tight text-white font-sans">
+              Flujo del Agente
             </h1>
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-medium text-emerald-400">
+            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-medium text-emerald-400">
               <span className={`w-1.5 h-1.5 rounded-full ${isAgentRunning ? "bg-emerald-400 animate-pulse" : "bg-zinc-500"}`} />
-              {isAgentRunning ? "Daemon en Ejecución" : "Ciclo en Pausa"}
+              {isAgentRunning ? "Motor en Ejecución" : "Ciclo en Pausa"}
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
-            Trazabilidad del DAG autónomo de adquisiciones: ingesta CDC en tiempo real, auditoría de existencias físicas, cálculo dinámico de ROP, arbitraje de proveedores y guardrails de aprobación HITL.
+          <p className="text-xs text-zinc-400 mt-1 max-w-2xl font-sans">
+            Trazabilidad del flujo continuo de adquisiciones: sincronización de existencias físicas en tiempo real, cálculo dinámico de punto de reorden (ROP), arbitraje de proveedores y supervisión ejecutiva.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           {/* Selector de Ejecución / Run */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0A0F0C] border border-white/[0.08] text-xs font-mono">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0A0F0C] border border-white/[0.08] text-xs">
             <Clock className="w-3.5 h-3.5 text-zinc-400" />
             <select
               value={selectedRun}
               onChange={(e) => setSelectedRun(e.target.value)}
-              className="bg-transparent text-zinc-200 border-none outline-none cursor-pointer text-xs"
+              className="bg-transparent text-zinc-200 border-none outline-none cursor-pointer text-xs font-sans"
             >
-              <option value="RUN-8849" className="bg-[#0A0F0C] text-white">Run #RUN-8849 (Hace 3m - Activo)</option>
-              <option value="RUN-8848" className="bg-[#0A0F0C] text-white">Run #RUN-8848 (Hace 33m - HITL Retenido)</option>
-              <option value="RUN-8847" className="bg-[#0A0F0C] text-white">Run #RUN-8847 (Hace 1h 3m - Completado)</option>
+              <option value="RUN-8849" className="bg-[#0A0F0C] text-white">Ciclo #RUN-8849 (Hace 3m - Activo)</option>
+              <option value="RUN-8848" className="bg-[#0A0F0C] text-white">Ciclo #RUN-8848 (Hace 33m - Requiere Firma)</option>
+              <option value="RUN-8847" className="bg-[#0A0F0C] text-white">Ciclo #RUN-8847 (Hace 1h - Completado)</option>
             </select>
           </div>
 
@@ -200,7 +200,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
             className="shadow-sm shadow-emerald-500/20"
           >
             <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${isSimulating ? "animate-spin" : ""}`} />
-            {isSimulating ? "Simulando DAG..." : "Simular nuevo evento ROP"}
+            {isSimulating ? "Simulando evento..." : "Simular nuevo evento"}
           </Button>
         </div>
       </div>
@@ -209,65 +209,65 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-white/[0.06] backdrop-blur-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">SKUs Vigilados</span>
+            <span className="text-xs text-zinc-400 font-sans">SKUs Vigilados</span>
             <Database className="w-3.5 h-3.5 text-emerald-400/70" />
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">74</span>
-            <span className="text-xs text-zinc-400">SKUs</span>
+            <span className="text-2xl font-bold text-white tabular-nums font-sans">74</span>
+            <span className="text-xs text-zinc-400 font-sans">SKUs</span>
           </div>
-          <span className="text-[11px] text-zinc-500 block mt-0.5">3 bodegas (Chimitá, BOG, MED)</span>
+          <span className="text-xs text-zinc-500 block mt-0.5 font-sans">3 bodegas sincronizadas</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-white/[0.06] backdrop-blur-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Cadencia Barrido</span>
+            <span className="text-xs text-zinc-400 font-sans">Frecuencia de Barrido</span>
             <Clock className="w-3.5 h-3.5 text-emerald-400/70" />
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">30</span>
-            <span className="text-xs text-zinc-400">min</span>
+            <span className="text-2xl font-bold text-white tabular-nums font-sans">30</span>
+            <span className="text-xs text-zinc-400 font-sans">minutos</span>
           </div>
-          <span className="text-[11px] text-emerald-400/90 font-mono block mt-0.5">Próximo en 14m 22s</span>
+          <span className="text-xs text-emerald-400/90 font-sans block mt-0.5">Próximo en 14m 22s</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-white/[0.06] backdrop-blur-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Latencia Cognitiva</span>
+            <span className="text-xs text-zinc-400 font-sans">Respuesta del Agente</span>
             <Zap className="w-3.5 h-3.5 text-emerald-400/70" />
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold font-mono text-emerald-400 tabular-nums">142</span>
-            <span className="text-xs text-zinc-400">ms P95</span>
+            <span className="text-2xl font-bold text-emerald-400 tabular-nums font-sans">142</span>
+            <span className="text-xs text-zinc-400 font-sans">ms respuesta</span>
           </div>
-          <span className="text-[11px] text-zinc-500 block mt-0.5">Inferencia xAI Grok-2</span>
+          <span className="text-xs text-zinc-500 block mt-0.5 font-sans">Modelo de decisión activo</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-amber-500/20 bg-amber-500/[0.02] backdrop-blur-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono text-amber-400/90 uppercase tracking-wider">Retenciones HITL</span>
+            <span className="text-xs text-amber-300 font-sans">Aprobaciones Ejecutivas</span>
             <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold font-mono text-amber-400 tabular-nums">2</span>
-            <span className="text-xs text-zinc-400">órdenes</span>
+            <span className="text-2xl font-bold text-amber-400 tabular-nums font-sans">2</span>
+            <span className="text-xs text-zinc-400 font-sans">órdenes</span>
           </div>
-          <span className="text-[11px] text-zinc-400 block mt-0.5">&gt; $5.000.000 COP (POL-01)</span>
+          <span className="text-xs text-zinc-400 block mt-0.5 font-sans">&gt; $5.000.000 COP</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-[#0A0F0C] border border-white/[0.06] backdrop-blur-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Precisión ROP</span>
+            <span className="text-xs text-zinc-400 font-sans">Precisión de Reorden</span>
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70" />
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">99.8%</span>
+            <span className="text-2xl font-bold text-white tabular-nums font-sans">99.8%</span>
           </div>
-          <span className="text-[11px] text-emerald-400/90 block mt-0.5">0 quiebres no alertados</span>
+          <span className="text-xs text-emerald-400/90 block mt-0.5 font-sans">Cero roturas imprevistas</span>
         </div>
       </div>
 
-      {/* 3. Escenario Central: Canvas Interactivo del DAG de Ejecución */}
+      {/* 3. Escenario Central: Cadena Operativa de Abastecimiento */}
       <div className="relative rounded-2xl bg-[#0A0F0C] border border-white/[0.08] p-6 overflow-hidden">
         {/* Sutil Grid de Fondo y Halo Esmeralda */}
         <div
@@ -282,12 +282,12 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         <div className="flex items-center justify-between mb-4 relative z-10">
           <div className="flex items-center gap-2">
             <Cpu className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs font-semibold text-white tracking-wide">
-              PIPELINE DIRECTED ACYCLIC GRAPH (DAG) · EJECUCIÓN AUTÓNOMA
+            <span className="text-xs font-semibold text-white tracking-wide font-sans">
+              Cadena Operativa de Abastecimiento · Ejecución Continua
             </span>
           </div>
-          <span className="text-[11px] font-mono text-zinc-400">
-            Haz clic en cualquier nodo para inspeccionar sus parámetros y traza forense
+          <span className="text-xs text-zinc-400 font-sans">
+            Haz clic en cualquier etapa para consultar sus parámetros y traza operativa
           </span>
         </div>
 
@@ -301,13 +301,12 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               <div
                 key={node.id}
                 onClick={() => setSelectedStage(node.id)}
-                className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between relative ${
-                  isSelected
-                    ? "bg-[#0d1611] border-emerald-500/50 shadow-lg shadow-emerald-950/40"
-                    : isCurrentSim
+                className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between relative ${isSelected
+                  ? "bg-[#0d1611] border-emerald-500/50 shadow-lg shadow-emerald-950/40"
+                  : isCurrentSim
                     ? "bg-emerald-950/30 border-emerald-400 animate-pulse"
                     : "bg-[#070b09] border-white/[0.06] hover:border-white/[0.15] hover:bg-[#0a0f0c]"
-                }`}
+                  }`}
               >
                 {/* Indicador superior de selección */}
                 {isSelected && (
@@ -320,13 +319,12 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
                       ETAPA {node.stageNum}
                     </span>
                     <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                        node.status === "warning"
-                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                          : node.status === "waiting"
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${node.status === "warning"
+                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        : node.status === "waiting"
                           ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
                           : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                      }`}
+                        }`}
                     >
                       {node.statusLabel}
                     </span>
@@ -406,31 +404,28 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
           <div className="flex items-center gap-1 bg-[#050806] p-1 rounded-lg border border-white/[0.06]">
             <button
               onClick={() => setActiveTab("trace")}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                activeTab === "trace"
-                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                  : "text-zinc-400 hover:text-white"
-              }`}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${activeTab === "trace"
+                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                : "text-zinc-400 hover:text-white"
+                }`}
             >
               Traza Forense
             </button>
             <button
               onClick={() => setActiveTab("config")}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                activeTab === "config"
-                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                  : "text-zinc-400 hover:text-white"
-              }`}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${activeTab === "config"
+                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                : "text-zinc-400 hover:text-white"
+                }`}
             >
               Parámetros
             </button>
             <button
               onClick={() => setActiveTab("json")}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                activeTab === "json"
-                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                  : "text-zinc-400 hover:text-white"
-              }`}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${activeTab === "json"
+                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                : "text-zinc-400 hover:text-white"
+                }`}
             >
               Payload JSON
             </button>
@@ -444,16 +439,16 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               {selectedStage === "trigger" && (
                 <div className="space-y-2">
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:01.014] Evento CDC PostgreSQL: UPDATE en tabla `inventory` (Chimitá)</span>
-                    <span className="text-emerald-400">OK · 4ms</span>
+                    <span className="text-zinc-400">[10:21:01.014] Actualización en almacén: Registro de movimiento en inventario (Chimitá)</span>
+                    <span className="text-emerald-400">Sincronizado · 4ms</span>
                   </div>
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:01.018] Ingesta de geoposición OSRM: Camión BGA-902 en Ruta 45A</span>
-                    <span className="text-emerald-400">OK · 8ms</span>
+                    <span className="text-zinc-400">[10:21:01.018] Telemetría satelital: Camión WFL-892 en Ruta 45A</span>
+                    <span className="text-emerald-400">En ruta · 8ms</span>
                   </div>
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:01.026] Emisión de señal reactiva a DAG runner</span>
-                    <span className="text-emerald-400">TRIGGER EMITTED</span>
+                    <span className="text-zinc-400">[10:21:01.026] Señal de verificación enviada al orquestador</span>
+                    <span className="text-emerald-400">VERIFICACIÓN OK</span>
                   </div>
                 </div>
               )}
@@ -461,16 +456,16 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               {selectedStage === "inventory" && (
                 <div className="space-y-2">
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:02.100] SKU-ROT-001 (Rotomartillo SDS Plus): Stock = 4, ROP = 12</span>
-                    <span className="text-amber-400">QUIEBRE DETECTADO</span>
+                    <span className="text-zinc-400">[10:21:02.100] SKU-ROT-001 (Rotomartillo SDS Plus): Stock actual = 4, Punto de Reorden = 12</span>
+                    <span className="text-amber-400">BAJO PUNTO DE REORDEN</span>
                   </div>
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:02.115] Cálculo de consumo histórico: 1.8 uds/día · Lead time proveedor: 3 días</span>
-                    <span className="text-emerald-400">Burn Rate OK</span>
+                    <span className="text-zinc-400">[10:21:02.115] Consumo proyectado: 1.8 uds/día · Tiempo de entrega del proveedor: 3 días</span>
+                    <span className="text-emerald-400">Tasa de Consumo OK</span>
                   </div>
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:02.145] Cantidad económica de pedido (EOQ) recomendada: 15 unidades</span>
-                    <span className="text-emerald-400">EOQ Calculado</span>
+                    <span className="text-zinc-400">[10:21:02.145] Lote óptimo de reposición recomendado: 15 unidades</span>
+                    <span className="text-emerald-400">Lote Calculado</span>
                   </div>
                 </div>
               )}
@@ -478,16 +473,16 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               {selectedStage === "agent" && (
                 <div className="space-y-2">
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:03.200] Carga de memoria RAG: `~/.mint/vaults/santander/politicas/stock-buc.md`</span>
-                    <span className="text-emerald-400">12 chunks inyectados</span>
+                    <span className="text-zinc-400">[10:21:03.200] Consulta de precedentes en boveda: Política de abastecimiento regional</span>
+                    <span className="text-emerald-400">Contexto Cargado</span>
                   </div>
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:03.450] Arbitraje proveedores: DeWalt ($425k COP) vs. Bosch ($440k COP)</span>
-                    <span className="text-emerald-400">Ganador: DeWalt (Ahorro $225k)</span>
+                    <span className="text-zinc-400">[10:21:03.450] Cotización comparada: DeWalt ($425k COP) vs. Bosch ($440k COP)</span>
+                    <span className="text-emerald-400">Mejor oferta: DeWalt (Ahorro $225.000 COP)</span>
                   </div>
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:04.440] Generación de propuesta de Orden de Compra: Total $6.375.000 COP</span>
-                    <span className="text-emerald-400">Propuesta Creada</span>
+                    <span className="text-zinc-400">[10:21:04.440] Formulación de Orden de Compra: Total $6.375.000 COP</span>
+                    <span className="text-emerald-400">Propuesta Generada</span>
                   </div>
                 </div>
               )}
@@ -499,20 +494,20 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
                       <ShieldAlert className="w-4 h-4 text-amber-400" />
                       <span className="text-amber-300">[10:21:04.500] Alerta Regla POL-01: El monto ($6.375.000 COP) supera el umbral autónomo de $5.000.000 COP.</span>
                     </div>
-                    <span className="text-amber-400 font-bold">HITL HOLD</span>
+                    <span className="text-amber-400 font-bold">RETENCIÓN EJECUTIVA</span>
                   </div>
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:04.520] Creación de caso de aprobación: #AP-8842 para Director de Compras</span>
-                    <span className="text-emerald-400">Creado</span>
+                    <span className="text-zinc-400">[10:21:04.520] Creación de solicitud de aprobación: #AP-8842 para Dirección de Operaciones</span>
+                    <span className="text-emerald-400">Registrado</span>
                   </div>
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:04.550] Generación de hash de integridad HMAC-SHA256 con clave secreta</span>
+                    <span className="text-zinc-400">[10:21:04.550] Firma criptográfica HMAC-SHA256 generada y auditada</span>
                     <span className="text-emerald-400 font-mono text-[10px]">7f3a...b912</span>
                   </div>
 
                   {/* Botón interactivo para abrir aprobación directa */}
                   <div className="pt-2 flex items-center justify-between">
-                    <span className="text-xs text-zinc-400">Requiere firma humana calificada para proceder al despacho.</span>
+                    <span className="text-xs text-zinc-400">Requiere firma ejecutiva para proceder al despacho al proveedor.</span>
                     <Button
                       variant="primary"
                       size="sm"
@@ -520,7 +515,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
                       className="shadow-sm shadow-emerald-500/30"
                     >
                       <FileCheck className="w-3.5 h-3.5 mr-1.5" />
-                      Revisar y Firmar Orden #OC-402 en Auditoría HITL
+                      Revisar y Firmar Orden #OC-402
                     </Button>
                   </div>
                 </div>
@@ -529,11 +524,11 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               {selectedStage === "dispatch" && (
                 <div className="space-y-2">
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:05.100] Plantilla XML DIAN Factura Electrónica de Compra preparada</span>
+                    <span className="text-zinc-400">[10:21:05.100] Remisión digital DIAN preparada</span>
                     <span className="text-zinc-500">EN ESPERA</span>
                   </div>
                   <div className="p-3 rounded-lg bg-[#050806] border border-white/[0.04] flex items-center justify-between">
-                    <span className="text-zinc-400">[10:21:05.120] Webhook outboxQueueService listo para envío a Telegram Bot</span>
+                    <span className="text-zinc-400">[10:21:05.120] Notificación telemática lista para canal móvil</span>
                     <span className="text-zinc-500">EN ESPERA</span>
                   </div>
                 </div>
@@ -544,19 +539,19 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
           {activeTab === "config" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
               <div className="p-3.5 rounded-xl bg-[#050806] border border-white/[0.06]">
-                <span className="text-[10px] font-mono text-zinc-500 uppercase block mb-1">Motor de Inferencia</span>
-                <span className="text-white font-mono font-medium">xAI Grok-2 (Vision & Reasoning)</span>
-                <span className="text-[11px] text-zinc-400 block mt-1">Temperatura: 0.1 · Max Tokens: 2,048</span>
+                <span className="text-xs text-zinc-400 block mb-1">Motor de Inferencia</span>
+                <span className="text-white font-medium">Modelo Cognitivo Mint (Razonamiento & Supervisión)</span>
+                <span className="text-xs text-zinc-500 block mt-1">Modo: Alta consistencia y rigor</span>
               </div>
               <div className="p-3.5 rounded-xl bg-[#050806] border border-white/[0.06]">
-                <span className="text-[10px] font-mono text-zinc-500 uppercase block mb-1">Directiva de Gobernanza</span>
-                <span className="text-emerald-400 font-mono font-medium">POL-01 (Tope $5.000.000 COP)</span>
-                <span className="text-[11px] text-zinc-400 block mt-1">Cualquier orden superior pasa a HITL</span>
+                <span className="text-xs text-zinc-400 block mb-1">Directiva de Gobernanza</span>
+                <span className="text-emerald-400 font-sans font-semibold">POL-01 (Tope $5.000.000 COP)</span>
+                <span className="text-[11px] text-zinc-400 block mt-1">Cualquier orden superior requiere firma ejecutiva</span>
               </div>
               <div className="p-3.5 rounded-xl bg-[#050806] border border-white/[0.06]">
-                <span className="text-[10px] font-mono text-zinc-500 uppercase block mb-1">Base de Datos Conectada</span>
-                <span className="text-white font-mono font-medium">PostgreSQL 16 (Drizzle ORM)</span>
-                <span className="text-[11px] text-zinc-400 block mt-1">Latencia: 2 ms · Tablas: 14 activas</span>
+                <span className="text-xs text-zinc-400 block mb-1">Base de Datos Conectada</span>
+                <span className="text-white font-sans font-medium">Base de Datos Maestra (PostgreSQL Cifrado)</span>
+                <span className="text-[11px] text-zinc-400 block mt-1">Tiempo de respuesta: 2 ms · Sincronización continua</span>
               </div>
             </div>
           )}
@@ -573,36 +568,36 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
                 </button>
               </div>
               <pre className="p-4 rounded-xl bg-[#050806] border border-white/[0.06] text-[11px] font-mono text-emerald-400/90 overflow-x-auto leading-relaxed">
-{JSON.stringify(
-  {
-    runId: selectedRun,
-    stage: selectedStage,
-    timestamp: "2026-10-29T10:21:04.440Z",
-    sku: "SKU-ROT-001",
-    product: "Rotomartillo SDS Plus 800W",
-    warehouse: "BOD-BGA-01 (Chimitá)",
-    currentStock: 4,
-    ropThreshold: 12,
-    suggestedQuantity: 15,
-    selectedSupplier: {
-      id: "SUP-DEWALT-COL",
-      name: "DeWalt Colombia Mayorista",
-      unitPriceCop: 425000,
-      totalCop: 6375000,
-      leadTimeDays: 3,
-    },
-    governanceCheck: {
-      policy: "POL-01",
-      thresholdCop: 5000000,
-      exceeded: true,
-      action: "REQUIRE_HUMAN_SIGNATURE",
-      assignedRole: "DIRECTOR_COMPRAS",
-    },
-    hmacSignature: "7f3a8b29c01d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f",
-  },
-  null,
-  2
-)}
+                {JSON.stringify(
+                  {
+                    runId: selectedRun,
+                    stage: selectedStage,
+                    timestamp: "2026-10-29T10:21:04.440Z",
+                    sku: "SKU-ROT-001",
+                    product: "Rotomartillo SDS Plus 800W",
+                    warehouse: "BOD-BGA-01 (Chimitá)",
+                    currentStock: 4,
+                    ropThreshold: 12,
+                    suggestedQuantity: 15,
+                    selectedSupplier: {
+                      id: "SUP-DEWALT-COL",
+                      name: "DeWalt Colombia Mayorista",
+                      unitPriceCop: 425000,
+                      totalCop: 6375000,
+                      leadTimeDays: 3,
+                    },
+                    governanceCheck: {
+                      policy: "POL-01",
+                      thresholdCop: 5000000,
+                      exceeded: true,
+                      action: "REQUIRE_HUMAN_SIGNATURE",
+                      assignedRole: "DIRECTOR_COMPRAS",
+                    },
+                    hmacSignature: "7f3a8b29c01d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f",
+                  },
+                  null,
+                  2
+                )}
               </pre>
             </div>
           )}

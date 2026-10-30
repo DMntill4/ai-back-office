@@ -279,17 +279,17 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
         ctx.lineTo(edge.target.x, edge.target.y);
 
         if (isHighlighted) {
-          ctx.strokeStyle = "rgba(16, 185, 129, 0.45)"; // Enlace activo de precisión
-          ctx.lineWidth = 1.5;
-          ctx.globalAlpha = 0.95;
+          ctx.strokeStyle = "rgba(163, 230, 53, 0.85)"; // Enlace activo destacado en lima/esmeralda Mint
+          ctx.lineWidth = 2.0;
+          ctx.globalAlpha = 1.0;
         } else if (hasSelection) {
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
-          ctx.lineWidth = 0.8;
-          ctx.globalAlpha = 0.15;
-        } else {
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.07)"; // Enlaces en reposo
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
           ctx.lineWidth = 1.0;
-          ctx.globalAlpha = 0.85;
+          ctx.globalAlpha = 0.55;
+        } else {
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.20)"; // Enlaces en reposo nítidos
+          ctx.lineWidth = 1.2;
+          ctx.globalAlpha = 0.90;
         }
         ctx.stroke();
 
@@ -298,9 +298,9 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           const midX = (edge.source.x + edge.target.x) / 2;
           const midY = (edge.source.y + edge.target.y) / 2;
           const angle = Math.atan2(edge.target.y - edge.source.y, edge.target.x - edge.source.x);
-          const arrowSize = 4.5;
+          const arrowSize = 5;
 
-          ctx.fillStyle = "#10B981";
+          ctx.fillStyle = "#A3E635";
           ctx.beginPath();
           ctx.moveTo(midX, midY);
           ctx.lineTo(
@@ -316,17 +316,17 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
         }
       });
 
-      // --- 2. Dibujar Nodos Sobrios ---
+      // --- 2. Dibujar Nodos Sobrios y Luminosos ---
       nodes.forEach((node) => {
         const isSelected = node.id === selectedNodeId;
         const isHovered = node.id === hoveredNodeId;
         const isConnected = highlightedNodeIds.has(node.id);
         const hasSelection = Boolean(activeHighlightId);
 
-        // Nodos inactivos: 30% de opacidad limpia
+        // Nodos inactivos: 65% de opacidad para mantener el grafo encendido y legible
         let opacity = 1;
         if (hasSelection && !isConnected) {
-          opacity = 0.3;
+          opacity = 0.65;
         }
         ctx.globalAlpha = opacity;
 

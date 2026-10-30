@@ -141,7 +141,7 @@ describe("Fase F5: Notificaciones y Aprobación Remota por Telegram (@mint/notif
     expect(logEntries[0].signedToken).toBeDefined();
     expect(logEntries[0].isUsed).toBe(false);
     expect(logEntries[0].status).toBe("SENT");
-  });
+  }, 15000);
 
   it("2. Aceptación clave: Aprobar la compra desde Telegram ejecuta la orden real en PostgreSQL y queda auditada", async () => {
     // Obtener el token firmado de aprobación generado

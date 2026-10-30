@@ -38,14 +38,13 @@ const ENTITY_NODES: MintGraphNode[] = [
   {
     id: "db_postgres",
     type: "database",
-    label: "PostgreSQL: ai_back_office",
-    sublabel: "Esquema Relacional Drizzle ORM",
+    label: "Repositorio Central de Datos",
+    sublabel: "ERP & Base Transaccional ACID",
     status: "active",
     degree: 8,
     metadata: {
-      table: "public.*",
-      host: "localhost:5432",
-      engine: "PostgreSQL 16 Alpine",
+      source: "Base de Datos Corporativa",
+      engine: "PostgreSQL Transaccional (Cifrado)",
       lastHeartbeat: "Hace 18ms",
       discoveredTables: 15,
       activeConnections: 6,
@@ -76,7 +75,7 @@ const ENTITY_NODES: MintGraphNode[] = [
     status: "active",
     degree: 6,
     metadata: {
-      table: "public.warehouses",
+      source: "Almacén Central Bucaramanga",
       city: "Bucaramanga, Santander",
       address: "Km 4 Vía Palenque",
       capacityM3: 1200,
@@ -92,7 +91,7 @@ const ENTITY_NODES: MintGraphNode[] = [
     status: "active",
     degree: 4,
     metadata: {
-      table: "public.warehouses",
+      source: "Centro de Distribución Fontibón",
       city: "Bogotá D.C.",
       capacityM3: 3500,
       stockUtilization: "64%",
@@ -107,7 +106,7 @@ const ENTITY_NODES: MintGraphNode[] = [
     status: "active",
     degree: 3,
     metadata: {
-      table: "public.warehouses",
+      source: "Hub Logístico Itagüí",
       city: "Itagüí, Antioquia",
       capacityM3: 2200,
       stockUtilization: "82%",
@@ -122,7 +121,7 @@ const ENTITY_NODES: MintGraphNode[] = [
     status: "active",
     degree: 5,
     metadata: {
-      table: "public.suppliers",
+      source: "Proveedor Homologado Categoría A+",
       nit: "890.201.334-1",
       city: "Bucaramanga",
       ratingScore: "98/100",
@@ -138,7 +137,7 @@ const ENTITY_NODES: MintGraphNode[] = [
     status: "active",
     degree: 5,
     metadata: {
-      table: "public.suppliers",
+      source: "Proveedor Mayorista Homologado",
       nit: "900.452.118-4",
       city: "Bogotá",
       ratingScore: "94/100",
@@ -155,13 +154,13 @@ const ENTITY_NODES: MintGraphNode[] = [
     status: "warning",
     degree: 5,
     metadata: {
-      table: "public.products",
+      source: "Catálogo Maestro de SKUs",
       currentStock: 5,
       ropThreshold: 20,
       safetyStock: 8,
       unitPriceCop: "$145.000 COP",
       category: "Herramientas Eléctricas",
-      alertStatus: "QUIEBRE_INMINENTE_84H",
+      alertStatus: "Riesgo de quiebre (< 84 horas)",
     },
   },
   {
@@ -172,13 +171,13 @@ const ENTITY_NODES: MintGraphNode[] = [
     status: "warning",
     degree: 5,
     metadata: {
-      table: "public.products",
+      source: "Catálogo Maestro de SKUs",
       currentStock: 1,
       ropThreshold: 10,
       safetyStock: 5,
       unitPriceCop: "$420.000 COP",
       category: "Maquinaria Pesada",
-      alertStatus: "QUIEBRE_INMINENTE_30H",
+      alertStatus: "Riesgo de quiebre (< 30 horas)",
     },
   },
   {
@@ -189,7 +188,7 @@ const ENTITY_NODES: MintGraphNode[] = [
     status: "active",
     degree: 4,
     metadata: {
-      table: "public.products",
+      source: "Catálogo Maestro de SKUs",
       currentStock: 45,
       ropThreshold: 30,
       safetyStock: 15,
@@ -201,16 +200,16 @@ const ENTITY_NODES: MintGraphNode[] = [
   {
     id: "po_0402",
     type: "purchase_order",
-    label: "#OC-402 (Borrador HITL)",
+    label: "#OC-402 (Pendiente Firma)",
     sublabel: "Sierra Circular 50u • $7.250.000 COP",
     status: "warning",
     degree: 4,
     metadata: {
-      table: "public.purchase_orders",
+      source: "Sistema de Adquisiciones",
       totalCop: "$7.250.000 COP",
       quantity: 50,
-      supplierId: "supp_dist_san",
-      complianceGuardrail: "EXCEDE_UMBRAL_5M_COP",
+      supplierId: "Distribuciones Santander",
+      complianceGuardrail: "Supera umbral de $5.000.000 COP",
       hmacSignature: "hmac_sha256_31a89c02ff1e92",
     },
   },
@@ -222,39 +221,39 @@ const ENTITY_NODES: MintGraphNode[] = [
     status: "active",
     degree: 3,
     metadata: {
-      table: "public.purchase_orders",
+      source: "Sistema de Adquisiciones",
       totalCop: "$1.450.000 COP",
-      status: "AUTONOMOUS_APPROVED",
-      supplierId: "supp_mundial_tor",
+      status: "Aprobada Autónomamente",
+      supplierId: "Mundial de Tornillos",
     },
   },
   // 7. Decisiones de Gobernanza
   {
     id: "dec_004190f7",
     type: "decision",
-    label: "DEC-004190f7",
-    sublabel: "Retención HITL Compra Extraordinaria",
+    label: "DEC-2026-0041",
+    sublabel: "Retención para Firma Ejecutiva",
     status: "warning",
     degree: 4,
     metadata: {
-      table: "public.decisions",
+      source: "Gobernanza Corporativa",
       ruleId: "POL-01",
       reason: "Monto excede umbral de autonomía de $5.000.000 COP",
-      proposingAgent: "Compras Specialist",
+      proposingAgent: "Especialista en Compras",
     },
   },
   {
     id: "dec_004185e2",
     type: "decision",
-    label: "DEC-004185e2",
-    sublabel: "Retención HITL Proveedor Sin Addendum",
+    label: "DEC-2026-0038",
+    sublabel: "Retención para Validación Contractual",
     status: "warning",
     degree: 3,
     metadata: {
-      table: "public.decisions",
+      source: "Gobernanza Corporativa",
       ruleId: "POL-02",
-      reason: "Proveedor sin addendum contractual 2026",
-      proposingAgent: "Riesgo Specialist",
+      reason: "Proveedor sin addendum contractual vigente",
+      proposingAgent: "Especialista en Riesgo",
     },
   },
   // 8. Clientes Principales
@@ -266,7 +265,7 @@ const ENTITY_NODES: MintGraphNode[] = [
     status: "active",
     degree: 3,
     metadata: {
-      table: "public.clients",
+      source: "Gestión Comercial de Clientes",
       nit: "800.123.456-7",
       activeContractsCount: 3,
       slaTarget: "98.5%",
@@ -276,12 +275,12 @@ const ENTITY_NODES: MintGraphNode[] = [
   {
     id: "route_osrm_pescadero",
     type: "tool",
-    label: "Ruta OSRM Bogotá → Bucaramanga",
+    label: "Ruta Bogotá → Bucaramanga",
     sublabel: "Corredor Pescadero • 398 km",
     status: "active",
     degree: 4,
     metadata: {
-      table: "osrm.telemetry_routes",
+      source: "Monitoreo Satelital de Rutas",
       distanceKm: 398,
       durationHours: 8.5,
       freightOptimizationRate: "14.8% ahorro consolidado",
@@ -476,62 +475,64 @@ export const KnowledgeGraphView: React.FC = () => {
             PANEL IZQUIERDO: 70% GRAFO INTERACTIVO FORCE-DIRECTED
            ======================================================== */}
         <div className="flex-1 lg:w-[70%] flex flex-col min-h-0 relative bg-[#050806] border-r border-white/[0.06] overflow-hidden">
-          {/* Barra Flotante Superior: Consultas en Lenguaje Natural (naturalIntentEngine) */}
-          <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2 pointer-events-auto">
-            {/* Input de Búsqueda Flotante */}
-            <div className="relative w-64 shadow-2xl">
-              <Search className="w-3.5 h-3.5 text-[#8E9893] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filtrar entidad o NLP..."
-                className="w-full bg-[#0A0F0C]/95 backdrop-blur-md border border-white/15 hover:border-[#10B981]/50 focus:border-[#10B981] rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-[#8E9893]/70 focus:outline-none transition-all font-mono"
-              />
-              {searchQuery && (
+          {/* Barra Flotante Superior: Buscador y Chips Integrados sin superposición */}
+          <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+            <div className="flex items-center gap-2 pointer-events-auto">
+              {/* Input de Búsqueda Flotante */}
+              <div className="relative w-56 sm:w-64 shadow-2xl">
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filtrar entidad, SKU o almacén..."
+                  className="w-full bg-[#0A0F0C]/95 backdrop-blur-md border border-white/15 hover:border-emerald-500/50 focus:border-emerald-400 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-zinc-500 focus:outline-none transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Chips Rápidos de Lenguaje Natural */}
+              <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                  onClick={() => handleRunNlpQuery("quiebre")}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-[#0A0F0C]/90 backdrop-blur-md border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all flex items-center gap-1 shadow-lg cursor-pointer"
                 >
-                  <X className="w-3 h-3" />
+                  <AlertTriangle className="w-3 h-3" />
+                  Alerta ROP
                 </button>
-              )}
-            </div>
 
-            {/* Chips Rápidos de Lenguaje Natural */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                onClick={() => handleRunNlpQuery("quiebre")}
-                className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-[#0A0F0C]/90 backdrop-blur-md border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all flex items-center gap-1 shadow-lg"
-              >
-                <AlertTriangle className="w-2.5 h-2.5" />
-                Alerta ROP
-              </button>
-
-              <button
-                onClick={() => handleRunNlpQuery("pescadero")}
-                className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-[#0A0F0C]/90 backdrop-blur-md border border-blue-500/30 text-blue-300 hover:bg-blue-500/20 transition-all flex items-center gap-1 shadow-lg"
-              >
-                <Truck className="w-2.5 h-2.5" />
-                Ruta OSRM
-              </button>
-
-              <button
-                onClick={() => handleRunNlpQuery("oc-402")}
-                className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-[#0A0F0C]/90 backdrop-blur-md border border-[#10B981]/30 text-[#34D399] hover:bg-[#10B981]/20 transition-all flex items-center gap-1 shadow-lg"
-              >
-                <Sparkles className="w-2.5 h-2.5" />
-                #OC-402
-              </button>
-
-              {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery("")}
-                  className="px-2 py-1 rounded-lg text-[10px] font-mono text-[#8E9893] hover:text-white bg-[#0A0F0C]/90 border border-white/10"
+                  onClick={() => handleRunNlpQuery("pescadero")}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-[#0A0F0C]/90 backdrop-blur-md border border-blue-500/30 text-blue-300 hover:bg-blue-500/20 transition-all flex items-center gap-1 shadow-lg cursor-pointer"
                 >
-                  Restablecer
+                  <Truck className="w-3 h-3" />
+                  Rutas
                 </button>
-              )}
+
+                <button
+                  onClick={() => handleRunNlpQuery("oc-402")}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-[#0A0F0C]/90 backdrop-blur-md border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 transition-all flex items-center gap-1 shadow-lg cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3 text-lime-400" />
+                  #OC-402
+                </button>
+
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="px-2 py-1 rounded-lg text-xs text-zinc-400 hover:text-white bg-[#0A0F0C]/90 border border-white/10 cursor-pointer"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -551,29 +552,29 @@ export const KnowledgeGraphView: React.FC = () => {
             />
           </div>
 
-          {/* Leyenda Flotante Inferior */}
-          <div className="absolute bottom-4 left-4 z-20 flex items-center gap-3 px-3 py-1.5 rounded-xl bg-[#0A0F0C]/90 backdrop-blur-md border border-white/[0.08] text-[10px] font-mono text-[#8E9893]">
+          {/* Leyenda Flotante Inferior en 1 Sola Línea Continua */}
+          <div className="absolute bottom-4 left-4 z-20 flex items-center gap-4 px-3.5 py-1.5 rounded-xl bg-[#0A0F0C]/95 backdrop-blur-md border border-white/[0.08] text-xs text-zinc-400 whitespace-nowrap shadow-xl overflow-x-auto max-w-[calc(100%-2rem)]">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#10B981]" />
-              Activo / Saludable
+              Operación Nominal
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-400" />
-              Alerta ROP / Retenido
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-purple-400" />
-              PostgreSQL Schema
+              Riesgo ROP / Alerta
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-blue-400" />
-              Ruta OSRM / Telemetría
+              Rutas & Telemetría
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-purple-400" />
+              Datos Maestros ERP
             </span>
           </div>
         </div>
 
         {/* ========================================================
-            PANEL DERECHO: 30% INSPECTOR DE NODO Y MAPEO DE ESQUEMA
+            PANEL DERECHO: 30% INSPECTOR DE NODO Y MAPEO DE NEGOCIO
            ======================================================== */}
         <div className="flex-1 lg:w-[30%] flex flex-col min-h-0 bg-surface-1 overflow-y-auto p-5 space-y-4 border-l border-white/[0.06]">
           {selectedNode ? (
@@ -593,14 +594,14 @@ export const KnowledgeGraphView: React.FC = () => {
                       </span>
                       {selectedNode.status === "warning" && (
                         <span className="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                          ALERTA
+                          ATENCIÓN
                         </span>
                       )}
                     </div>
-                    <h2 className="text-sm font-bold text-white mt-1.5 truncate">
+                    <h2 className="text-sm font-bold text-white mt-1.5 truncate font-sans">
                       {selectedNode.label}
                     </h2>
-                    <p className="text-[11px] text-[#8E9893] truncate mt-0.5">
+                    <p className="text-xs text-zinc-400 truncate mt-0.5">
                       {selectedNode.sublabel}
                     </p>
                   </div>
@@ -609,61 +610,61 @@ export const KnowledgeGraphView: React.FC = () => {
                 <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between">
                   <button
                     onClick={() => handleCenterNode(selectedNode.id)}
-                    className="text-[11px] font-mono text-[#34D399] hover:underline flex items-center gap-1"
+                    className="text-xs text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer font-medium"
                   >
-                    <Target className="w-3 h-3" />
+                    <Target className="w-3.5 h-3.5" />
                     <span>Centrar en Lienzo</span>
                   </button>
-                  <span className="text-[10px] font-mono text-white/40">
-                    ID: {selectedNode.id}
+                  <span className="text-xs text-zinc-500">
+                    Ref: {selectedNode.id}
                   </span>
                 </div>
               </div>
 
-              {/* 1. Mapeo de Esquema de Base de Datos (mapping.ts) */}
+              {/* 1. Mapeo de Datos de Negocio */}
               <div className="flex-none p-4 rounded-2xl bg-[#0A0F0C] border border-white/[0.08] space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
+                  <span className="text-xs font-semibold text-white flex items-center gap-2">
                     <Database className="w-3.5 h-3.5 text-purple-400" />
-                    Mapeo de Base de Datos
+                    Conector de Datos Maestros
                   </span>
-                  <span className="text-[9px] font-mono text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/25">
-                    Drizzle ORM
+                  <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                    Sincronizado
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-[#0E1511] border border-white/[0.04] space-y-1.5 text-xs font-mono">
-                  <div className="flex justify-between text-[#8E9893]">
-                    <span>Tabla de Origen:</span>
-                    <span className="text-[#34D399] font-bold">
-                      {selectedNode.metadata?.table || `public.${selectedNode.type}s`}
+                <div className="p-3 rounded-xl bg-[#0E1511] border border-white/[0.04] space-y-1.5 text-xs">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Modelo de Datos:</span>
+                    <span className="text-white font-medium">
+                      {selectedNode.metadata?.source || "Catálogo Central de SKUs"}
                     </span>
                   </div>
-                  <div className="flex justify-between text-[#8E9893]">
-                    <span>Frescura del Dato:</span>
-                    <span className="text-white font-semibold">Sincronizado hace 4 min</span>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Frescura del Registro:</span>
+                    <span className="text-zinc-200">Sincronizado en tiempo real</span>
                   </div>
-                  <div className="flex justify-between text-[#8E9893]">
-                    <span>Integridad Relacional:</span>
-                    <span className="text-[#10B981] font-bold">100% Verificada</span>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Integridad Operativa:</span>
+                    <span className="text-emerald-400 font-semibold">100% Verificada</span>
                   </div>
                 </div>
               </div>
 
-              {/* 2. Propiedades Clave-Valor (JetBrains Mono) */}
+              {/* 2. Parámetros Operativos */}
               <div className="flex-none p-4 rounded-2xl bg-[#0A0F0C] border border-white/[0.08] space-y-2.5">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
-                  <Code2 className="w-3.5 h-3.5 text-[#34D399]" />
-                  Propiedades Ontológicas (Schema Properties)
+                <span className="text-xs font-semibold text-white flex items-center gap-2">
+                  <Code2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Ficha Técnica & Parámetros Operativos
                 </span>
 
-                <div className="p-3 rounded-xl bg-[#0E1511] border border-white/[0.04] space-y-2 text-xs font-mono divide-y divide-white/[0.04]">
+                <div className="p-3 rounded-xl bg-[#0E1511] border border-white/[0.04] space-y-2 text-xs divide-y divide-white/[0.04]">
                   {Object.entries(selectedNode.metadata || {}).map(([key, value]) => {
-                    if (key === "table") return null;
+                    if (key === "source" || key === "table") return null;
                     return (
                       <div key={key} className="pt-1.5 first:pt-0 flex items-start justify-between gap-2">
-                        <span className="text-[#8E9893] text-[11px] truncate">{key}:</span>
-                        <span className="text-white text-right font-bold text-[11px] truncate max-w-[160px]">
+                        <span className="text-zinc-400 text-xs truncate capitalize">{key.replace(/([A-Z])/g, " $1")}:</span>
+                        <span className="text-white text-right font-medium text-xs truncate max-w-[180px]">
                           {typeof value === "object" ? JSON.stringify(value) : String(value)}
                         </span>
                       </div>
@@ -672,48 +673,48 @@ export const KnowledgeGraphView: React.FC = () => {
                 </div>
               </div>
 
-              {/* 3. Decisiones Históricas Conectadas */}
+              {/* 3. Decisiones del Agente Vinculadas */}
               <div className="flex-none p-4 rounded-2xl bg-[#0A0F0C] border border-white/[0.08] space-y-2.5">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
-                  <FileCheck2 className="w-3.5 h-3.5 text-orange-400" />
-                  Decisiones del Agente Vinculadas
+                <span className="text-xs font-semibold text-white flex items-center gap-2">
+                  <FileCheck2 className="w-3.5 h-3.5 text-amber-400" />
+                  Decisiones Ejecutivas Vinculadas
                 </span>
 
                 <div className="space-y-2">
                   <div className="p-2.5 rounded-xl bg-[#0E1511] border border-white/[0.04] flex items-center justify-between text-xs">
                     <div>
-                      <span className="font-mono text-white font-bold block">
-                        DEC-004190f7
+                      <span className="font-mono text-white font-semibold block">
+                        DEC-2026-0041
                       </span>
-                      <span className="text-[10px] text-[#8E9893] block">
-                        Retención HITL Compra Extraordinaria
+                      <span className="text-[11px] text-zinc-400 block">
+                        Retención para Firma Ejecutiva
                       </span>
                     </div>
-                    <span className="text-[10px] font-mono text-amber-300 font-bold">
+                    <span className="text-xs text-amber-300 font-semibold">
                       $7.250.000 COP
                     </span>
                   </div>
 
                   <div className="p-2.5 rounded-xl bg-[#0E1511] border border-white/[0.04] flex items-center justify-between text-xs">
                     <div>
-                      <span className="font-mono text-white font-bold block">
-                        PO-2026-0089
+                      <span className="font-mono text-white font-semibold block">
+                        PO-24A190
                       </span>
-                      <span className="text-[10px] text-[#8E9893] block">
-                        Orden Borrador Preventiva
+                      <span className="text-[11px] text-zinc-400 block">
+                        Orden de Compra Autorizada
                       </span>
                     </div>
-                    <span className="text-[10px] font-mono text-[#34D399] font-bold">
-                      Autorizada
+                    <span className="text-xs text-emerald-400 font-semibold">
+                      En Despacho
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* 4. Relaciones Ontológicas Directas */}
+              {/* 4. Relaciones Directas */}
               <div className="flex-none p-4 rounded-2xl bg-[#0A0F0C] border border-white/[0.08] space-y-2.5">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
-                  <Network className="w-3.5 h-3.5 text-[#34D399]" />
+                <span className="text-xs font-semibold text-white flex items-center gap-2">
+                  <Network className="w-3.5 h-3.5 text-emerald-400" />
                   Relaciones Directas ({connectedEdges.incoming.length + connectedEdges.outgoing.length})
                 </span>
 

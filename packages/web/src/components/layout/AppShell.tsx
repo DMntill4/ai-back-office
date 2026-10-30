@@ -149,7 +149,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               alt="Mint Logo"
               className="w-5 h-5 object-contain transition-transform group-hover:scale-105"
             />
-            <span className="text-sm font-extrabold tracking-tight text-white group-hover:text-emerald-400 transition-colors">
+            <span className="text-sm font-extrabold tracking-tight text-white group-hover:text-lime-400 transition-colors">
               MINT
             </span>
           </motion.div>

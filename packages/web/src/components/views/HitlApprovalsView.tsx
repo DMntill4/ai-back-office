@@ -247,23 +247,24 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
       {/* ========================================================= */}
       <header className="px-6 py-4 bg-canvas border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-20 shrink-0">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono uppercase text-zinc-400">Gobernanza</span>
+          <div className="flex items-center gap-2 text-xs text-zinc-400">
+            <span>Gobernanza</span>
             <span className="text-white/20">/</span>
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Aprobaciones Ejecutivas
-            </h1>
+            <span className="text-zinc-200">Supervisión Ejecutiva</span>
           </div>
+          <h1 className="text-xl font-bold text-white tracking-tight mt-0.5 font-sans">
+            Aprobaciones
+          </h1>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Supervisión explícita de órdenes de compra extraordinarias y excepciones operativas
+            Supervisión y firma ejecutiva de decisiones y órdenes de compra del agente autónomo
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-1 border border-white/[0.06] text-xs font-mono">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-1 border border-white/[0.06] text-xs">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-zinc-300">
-              {proposals.filter((p) => p.status === "pendiente").length} Decisiones Pendientes de Firma
+            <span className="text-zinc-300 font-sans">
+              {proposals.filter((p) => p.status === "pendiente").length} decisiones pendientes de firma
             </span>
           </div>
         </div>
@@ -335,20 +336,24 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
 
             {/* Acciones de Firma y Aprobación */}
             {selectedProposal.status === "pendiente" && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <button
                   onClick={() => handleReject(selectedProposal.id)}
-                  className="px-3 py-2 rounded-xl bg-surface-1 hover:bg-rose-500/15 text-xs font-medium text-zinc-300 hover:text-rose-400 border border-white/[0.08] hover:border-rose-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full bg-surface-well hover:bg-rose-500/15 text-xs font-medium text-zinc-300 hover:text-rose-400 border border-white/[0.08] hover:border-rose-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <XCircle className="w-3.5 h-3.5" />
                   <span>Rechazar</span>
                 </button>
+
+                {/* Botón Principal: Píldora Blanca con Círculo y Flecha (Estilo Donezo) */}
                 <button
                   onClick={() => handleApprove(selectedProposal.id)}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
+                  className="pl-4 pr-1.5 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-black font-semibold text-xs flex items-center gap-2 shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all cursor-pointer group"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>✓ Aprobar Ejecución</span>
+                  <span>Aprobar Ejecución</span>
+                  <span className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+                    <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                  </span>
                 </button>
               </div>
             )}
@@ -356,7 +361,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
 
           {/* Fila 2: Tarjeta con Stepper de 4 Fases y 3 Métricas */}
           <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">
-            <h3 className="text-sm font-bold text-white mb-2">
+            <h3 className="text-sm font-bold text-white mb-2 font-sans">
               {selectedProposal.title}
             </h3>
 
@@ -374,17 +379,17 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
                 ].map((step, idx) => (
                   <div key={idx} className="relative z-10 flex flex-col items-center">
                     <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
                         step.status === "completed"
                           ? "bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]"
                           : step.status === "current"
-                          ? "bg-surface-1 text-amber-400 border-2 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)] animate-pulse"
+                          ? "bg-surface-1 text-amber-400 border-2 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
                           : "bg-surface-1 text-zinc-500 border border-white/10"
                       }`}
                     >
-                      <step.icon className="w-4 h-4" />
+                      <step.icon className="w-3.5 h-3.5" />
                     </div>
-                    <span className="text-[11px] font-semibold text-zinc-300 mt-2 whitespace-nowrap">
+                    <span className="text-xs font-medium text-zinc-300 mt-1.5 whitespace-nowrap font-sans">
                       {step.label}
                     </span>
                   </div>
@@ -392,29 +397,29 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
               </div>
             </div>
 
-            {/* Fila de 3 Métricas Clave */}
+            {/* Fila de 3 Métricas Clave (Sin tracking exagerado ni font-mono innecesario) */}
             <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-white/[0.06]">
               <div>
-                <span className="text-[11px] uppercase tracking-wider text-zinc-500 block mb-1">
+                <span className="text-xs text-zinc-400 block mb-1 font-sans">
                   Monto a Autorizar
                 </span>
-                <span className="text-sm font-bold text-white font-mono">
+                <span className="text-sm font-bold text-white font-sans tabular-nums">
                   {selectedProposal.amountFormatted}
                 </span>
               </div>
               <div>
-                <span className="text-[11px] uppercase tracking-wider text-zinc-500 block mb-1">
-                  Ahorro por Consolidación
+                <span className="text-xs text-zinc-400 block mb-1 font-sans">
+                  Ahorro Negociado
                 </span>
-                <span className="text-sm font-semibold text-emerald-400 font-mono">
+                <span className="text-sm font-bold text-emerald-400 font-sans tabular-nums">
                   +$1.450.000 COP
                 </span>
               </div>
               <div>
-                <span className="text-[11px] uppercase tracking-wider text-zinc-500 block mb-1">
+                <span className="text-xs text-zinc-400 block mb-1 font-sans">
                   Confianza Algorítmica
                 </span>
-                <span className="text-sm font-semibold text-white font-mono">
+                <span className="text-sm font-bold text-white font-sans tabular-nums">
                   99.2%
                 </span>
               </div>
@@ -480,7 +485,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
                 <Layers className="w-4 h-4 text-emerald-400" />
                 <span>Simulación de Impacto Operativo</span>
               </h3>
-              <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
                 Sin Riesgo de Quiebre
               </span>
             </div>
@@ -490,7 +495,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
               <div>
                 <div className="flex justify-between text-zinc-400 mb-1">
                   <span>Presupuesto Mensual</span>
-                  <span className="font-mono text-white">
+                  <span className="font-sans font-semibold text-white">
                     {selectedProposal.diffImpact.budgetBefore} ➔ {selectedProposal.diffImpact.budgetAfter}
                   </span>
                 </div>
@@ -504,7 +509,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
               <div>
                 <div className="flex justify-between text-zinc-400 mb-1">
                   <span>Stock y Cobertura de Días</span>
-                  <span className="font-mono text-white">
+                  <span className="font-sans font-semibold text-white">
                     {selectedProposal.diffImpact.stockBefore} ➔ {selectedProposal.diffImpact.stockAfter}
                   </span>
                 </div>
@@ -518,7 +523,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
               <div>
                 <div className="flex justify-between text-zinc-400 mb-1">
                   <span>Cumplimiento de SLA a Clientes</span>
-                  <span className="font-mono text-white">
+                  <span className="font-sans font-semibold text-white">
                     {selectedProposal.diffImpact.slaBefore} ➔ {selectedProposal.diffImpact.slaAfter}
                   </span>
                 </div>
