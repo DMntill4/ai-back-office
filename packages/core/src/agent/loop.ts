@@ -247,6 +247,81 @@ export async function runAgentLoop(
     };
   }
 
+  // 1.3 Guardrail de Comunicación y Mensajería Saliente (Anti-Bromas / Anti-Abuso)
+  if (isChatCase) {
+    const { evaluateCommunicationIntent } = await import("../security/communicationPolicyGuard");
+    const commEval = evaluateCommunicationIntent({
+      userInput: String(caseDesc),
+      companyId,
+      language: botLanguage === "en" ? "en" : "es",
+    });
+
+    if (!commEval.isAllowed && commEval.isOutboundAction) {
+      const refusalMsg = commEval.suggestedResponse || "[AVISO] Solicitud de envío no autorizada por políticas de comunicación corporativa.";
+      try {
+        await closeCase({
+          caseId,
+          status: "resuelto",
+          summary: refusalMsg,
+          reason: commEval.rejectionReason || "Rechazado por política de comunicación.",
+          hasUnverifiedWrites: false,
+        });
+      } catch {}
+
+      return {
+        caseId,
+        status: "resuelto",
+        totalSteps: 0,
+        totalTokens: 0,
+        totalCost: "0.000000",
+        promptTokens: 0,
+        completionTokens: 0,
+        llmMs: 0,
+        totalMs: 5,
+        model: "communication-guardrail",
+        summary: refusalMsg,
+        reason: commEval.rejectionReason || "Rechazado por política de comunicación.",
+        multiAgentEvents: [],
+      };
+    }
+
+    // 1.4 Guardrail contra Prompt Injection en Chat
+    const { analyzePromptInjection } = await import("../security/promptInjectionGuard");
+    const injection = analyzePromptInjection(String(caseDesc));
+    if (injection.isSuspicious) {
+      const refusalMsg =
+        botLanguage === "en"
+          ? "I detected an attempt to override system rules, claim unverified admin privileges, or disable guardrails. As MINT, I operate under strict immutable enterprise policies and supervised governance. How can I assist you with legitimate inventory, order, or logistics operations?"
+          : "Identifiqué un intento de reescribir instrucciones, solicitar privilegios no verificados o eludir controles de seguridad. Como agente operativo MINT, mantengo mis políticas empresariales de gobernanza y supervisión intactas. ¿En qué tarea operativa legítima de inventario, compras o logística te puedo colaborar?";
+
+      try {
+        await closeCase({
+          caseId,
+          status: "resuelto",
+          summary: refusalMsg,
+          reason: injection.explanation || "Intento de prompt injection detectado.",
+          hasUnverifiedWrites: false,
+        });
+      } catch {}
+
+      return {
+        caseId,
+        status: "resuelto",
+        totalSteps: 0,
+        totalTokens: 0,
+        totalCost: "0.000000",
+        promptTokens: 0,
+        completionTokens: 0,
+        llmMs: 0,
+        totalMs: 5,
+        model: "injection-guardrail",
+        summary: refusalMsg,
+        reason: injection.explanation || "Intento de prompt injection detectado.",
+        multiAgentEvents: [],
+      };
+    }
+  }
+
   // 2. Registrar inicio del ciclo en segundo plano (no bloquea la respuesta)
   const startLog = (async () => {
     try {
@@ -618,10 +693,11 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
     }
   }
 
-  // 5. Aplicar filtro de salida estricto de emojis (segunda barrera de contención)
+  // 5. Aplicar filtro de salida estricto de emojis y redacción de secretos (defensa en profundidad)
   const EMOJI_FILTER_REGEX = /(?:[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F700}-\u{1F77F}]|[\u{1F780}-\u{1F7FF}]|[\u{1F800}-\u{1F8FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{2600}-\u{2693}\u{2695}-\u{26FF}]|[\u{2700}-\u{2793}\u{2795}-\u{27BF}]|[\u{1F1E6}-\u{1F1FF}]|[\u{1F3FB}-\u{1F3FF}]|[\u{231A}\u{231B}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}\u{24C2}\u{25AA}\u{25AB}\u{25FB}-\u{25FE}\u{2934}\u{2935}\u{2B05}-\u{2B07}\u{2B1B}\u{2B1C}\u{2B50}\u{2B55}\u{3030}\u{303D}\u{3297}\u{3299}]|[\u{FE0E}\u{FE0F}]|\u{200D})+/gu;
-  finalSummary = (finalSummary || "").replace(EMOJI_FILTER_REGEX, "").trim();
-  finalReason = (finalReason || "").replace(EMOJI_FILTER_REGEX, "").trim();
+  const { redactSensitiveSecrets } = await import("../security/promptInjectionGuard");
+  finalSummary = redactSensitiveSecrets((finalSummary || "").replace(EMOJI_FILTER_REGEX, "").trim());
+  finalReason = redactSensitiveSecrets((finalReason || "").replace(EMOJI_FILTER_REGEX, "").trim());
 
   await startLog;
   await closeCase({

@@ -15,6 +15,8 @@ import { getInventoryIntelligence } from "../services/inventoryIntelService";
 import { listCompanyFleet } from "../services/fleetAndOrdersService";
 import { generateDailyOperationalReport } from "../services/reportService";
 import { analyzeWeeklyProfitVariation } from "../services/businessAnalyticsService";
+import { evaluateCommunicationIntent } from "../security/communicationPolicyGuard";
+import { analyzePromptInjection } from "../security/promptInjectionGuard";
 
 export type DetectedIntentType =
   | "SMALLTALK"
@@ -61,7 +63,40 @@ export async function resolveNaturalLanguageIntent(
   const config = await getCompanyConfig(companyId).catch(() => null);
   const isEn = config?.botLanguage === "en";
 
-  // 0. CONSULTAS ESPECÍFICAS DE RENTABILIDAD Y VARIACIÓN DE GANANCIA (E6.4)
+  // 0. GUARDRAIL DE SEGURIDAD OPERATIVA Y COMUNICACIÓN EXTERNA (Adversarial Security Guard)
+  // Evalúa solicitudes salientes de mensajes al administrador o canales.
+  // Rechaza bromas, contenido absurdo ("pene pusaja"), groserías, spam y solicitudes sin propósito empresarial legítimo.
+  const commEval = evaluateCommunicationIntent({
+    userInput: rawInput,
+    companyId,
+    language: isEn ? "en" : "es",
+  });
+
+  if (!commEval.isAllowed && commEval.isOutboundAction) {
+    return {
+      intent: "GENERAL_ASSISTANCE",
+      handledDeterministically: true,
+      response: commEval.suggestedResponse || "No puedo transmitir ese mensaje.",
+      suggestedAction: isEn ? "State legitimate operational report" : "Indicar reporte operativo legítimo",
+    };
+  }
+
+  // 0.0 GUARDRAIL CONTRA PROMPT INJECTION Y MANIPULACIÓN DIRECTA
+  const injectionAnalysis = analyzePromptInjection(rawInput);
+  if (injectionAnalysis.isSuspicious) {
+    const politeInjectionMsg = isEn
+      ? "I detected an attempt to override system rules, claim unverified admin privileges, or disable guardrails. As MINT, I operate under strict immutable enterprise policies and supervised governance. How can I assist you with legitimate inventory, order, or logistics operations?"
+      : "Identifiqué un intento de reescribir instrucciones, solicitar privilegios no verificados o eludir controles de seguridad. Como agente operativo MINT, mantengo mis políticas empresariales de gobernanza y supervisión intactas. ¿En qué tarea operativa legítima de inventario, compras o logística te puedo colaborar?";
+
+    return {
+      intent: "GENERAL_ASSISTANCE",
+      handledDeterministically: true,
+      response: politeInjectionMsg,
+      suggestedAction: isEn ? "Use standard operational commands" : "Consultar operaciones legítimas",
+    };
+  }
+
+  // 0.1 CONSULTAS ESPECÍFICAS DE RENTABILIDAD Y VARIACIÓN DE GANANCIA (E6.4)
   const isProfitQuery =
     /(ganancia|margen|utilidad|rentabilidad|profit|margin)/i.test(norm) &&
     /(semana|bajo|cayo|disminuyo|variacion|por que|porque|explicame|como va|resumen|datos|facturacion|week|dropped|why)/i.test(norm);

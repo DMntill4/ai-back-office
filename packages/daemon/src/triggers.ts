@@ -45,8 +45,8 @@ export async function scanStockDeficits(companyId: string = "comp_default"): Pro
     }))
     .filter((r) => r.stock <= r.minStock && !blocked.has(r.productId));
 
-  // Limitar a maximo 5 por ciclo para evitar tormentas de peticiones fantasma
-  const batch = deficits.slice(0, 5);
+  // Limitar a maximo 3 por ciclo para evitar tormentas de peticiones fantasma
+  const batch = deficits.slice(0, 3);
   let triggeredCount = 0;
 
   for (const item of batch) {
@@ -101,7 +101,7 @@ export async function scanDelayedShipments(companyId: string = "comp_default"): 
 
   let triggeredCount = 0;
 
-  for (const shp of delayed) {
+  for (const shp of delayed.slice(0, 3)) {
     try {
       let productId: string | undefined;
       if (shp.purchaseOrderId) {

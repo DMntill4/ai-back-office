@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { type NotifierAdapter, type NotificationPayload, type SendResult } from "../types";
+import { validateOutboundUrl } from "@mint/core";
 
 export class WebhookAdapter implements NotifierAdapter {
   type = "webhook" as const;
@@ -18,6 +19,21 @@ export class WebhookAdapter implements NotifierAdapter {
         messageId,
         error: "No se encontro Webhook URL configurada para el canal.",
         details: { realDelivery: false },
+      };
+    }
+
+    // Validación Anti-SSRF para prevenir ataques a metadatos Cloud o red interna
+    const isTestEnv = process.env.NODE_ENV === "test" || process.env.VITEST === "true";
+    const ssrfCheck = validateOutboundUrl(webhookUrl, {
+      allowLocalInTest: isTestEnv || Boolean(effectiveConfig.allowLocal || effectiveConfig.isTestMock),
+    });
+    if (!ssrfCheck.isSafe) {
+      return {
+        success: false,
+        channelType: this.type,
+        messageId,
+        error: `URL de Webhook bloqueada por seguridad (SSRF): ${ssrfCheck.reason}`,
+        details: { realDelivery: false, blockedBySsrf: true },
       };
     }
 

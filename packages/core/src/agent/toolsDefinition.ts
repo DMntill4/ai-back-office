@@ -577,10 +577,18 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   },
 ];
 
+import { checkToolAuthorization, type SecurityRole } from "../security/agentPermissionsMatrix";
+
 export async function dispatchToolCall(
   name: string,
-  rawArgs: string,
-  context?: { companyId?: string; caseId?: string },
+  rawArgs: any,
+  context?: {
+    companyId?: string;
+    caseId?: string;
+    agentRole?: SecurityRole;
+    isHumanCaller?: boolean;
+    targetCompanyId?: string;
+  },
 ): Promise<{
   result: any;
   isClosingAction: boolean;
@@ -588,7 +596,7 @@ export async function dispatchToolCall(
 }> {
   let parsedArgs: any = {};
   try {
-    parsedArgs = JSON.parse(rawArgs);
+    parsedArgs = typeof rawArgs === "object" && rawArgs !== null ? rawArgs : JSON.parse(rawArgs || "{}");
   } catch {
     return {
       result: {
@@ -600,6 +608,29 @@ export async function dispatchToolCall(
   }
 
   const effectiveCompanyId = context?.companyId || "comp_default";
+
+  // Validación estricta en el backend: Principio de Mínimo Privilegio por Agente
+  const callerRole: SecurityRole = context?.agentRole || (context?.isHumanCaller ? "human_user" : "orchestrator");
+  const auth = await checkToolAuthorization(callerRole, name, {
+    companyId: effectiveCompanyId,
+    targetCompanyId: context?.targetCompanyId || parsedArgs.companyId || parsedArgs.empresa_id,
+    caseId: context?.caseId,
+    toolName: name,
+    isHumanCaller: context?.isHumanCaller,
+  });
+
+  if (!auth.allowed) {
+    return {
+      result: {
+        isSuccess: false,
+        verified: false,
+        permissionDenied: true,
+        code: auth.code,
+        message: `ACCESO DENEGADO [Matriz de Permisos]: ${auth.reason}`,
+      },
+      isClosingAction: false,
+    };
+  }
 
   switch (name) {
     case "consultar_stock":
@@ -773,6 +804,26 @@ export async function dispatchToolCall(
     }
 
     case "enviar_notificacion_operativa": {
+      const { evaluateOutboundNotificationPayload } = await import("../security/communicationPolicyGuard");
+      const guardCheck = evaluateOutboundNotificationPayload({
+        title: parsedArgs.titulo,
+        message: parsedArgs.mensaje,
+        severity: parsedArgs.severidad,
+        companyId: effectiveCompanyId,
+      });
+
+      if (!guardCheck.isAllowed) {
+        return {
+          result: {
+            isSuccess: false,
+            verified: false,
+            blockedBySecurityPolicy: true,
+            mensaje: `[BLOQUEADO POR SEGURIDAD] ${guardCheck.rejectionReason}`,
+          },
+          isClosingAction: false,
+        };
+      }
+
       const { dispatchDecisionNotification, listNotificationChannels } = await import("@mint/notifiers");
       const chans = await listNotificationChannels(effectiveCompanyId);
       const activeChans = chans.filter((c) => c.isActive);

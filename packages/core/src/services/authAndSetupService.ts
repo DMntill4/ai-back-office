@@ -28,7 +28,16 @@ export function verifyPassword(password: string, storedHash?: string | null): bo
   return crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(password));
 }
 
-export type UserRole = "owner" | "admin" | "operator" | "driver" | "viewer" | "auditor" | "finance";
+export type UserRole =
+  | "owner"
+  | "admin"
+  | "supervisor"
+  | "operator"
+  | "driver"
+  | "viewer"
+  | "auditor"
+  | "finance"
+  | "client";
 export type ActionPermission =
   | "approve"
   | "approve_purchase"
@@ -74,6 +83,8 @@ export interface SqlUploadInput {
 
 /**
  * Permisos por Rol en el sistema:
+ * Todos los roles son estrictamente locales dentro de la base de datos de cada empresa cargada.
+ * No existe ningun administrador global en MINT.
  */
 export const ROLE_PERMISSIONS: Record<
   UserRole,
@@ -94,7 +105,7 @@ export const ROLE_PERMISSIONS: Record<
 > = {
   owner: {
     label: "Dueño / Propietario (Owner)",
-    description: "Control absoluto: configuración del bot, equipo, canales, umbrales, aprobaciones y pagos.",
+    description: "Control absoluto del negocio: configuración del bot, equipo, canales, umbrales, aprobaciones y pagos.",
     canConfigureBot: true,
     canUploadSql: true,
     canApprovePurchases: true,
@@ -107,8 +118,8 @@ export const ROLE_PERMISSIONS: Record<
     canViewDashboard: true,
   },
   admin: {
-    label: "Administrador General",
-    description: "Gestión operativa total: aprobación HITL, despachos, recepción, equipo, canales y pagos.",
+    label: "Administrador de Negocio (Empresa)",
+    description: "Administrador local de la empresa en la base de datos cargada. Gestión operativa del negocio (HITL, despachos, recepción, equipo y canales). No existe un admin global.",
     canConfigureBot: true,
     canUploadSql: true,
     canApprovePurchases: true,
@@ -118,6 +129,20 @@ export const ROLE_PERMISSIONS: Record<
     canReceive: true,
     canManageTeam: true,
     canManageChannels: true,
+    canViewDashboard: true,
+  },
+  supervisor: {
+    label: "Supervisor de Operaciones (Empresa)",
+    description: "Supervisión operativa de la empresa en la base de datos cargada. Aprobación HITL, despachos, recepción y supervisión de operadores locales.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: true,
+    canExecutePurchases: true,
+    canProcessPayments: false,
+    canDispatch: true,
+    canReceive: true,
+    canManageTeam: true,
+    canManageChannels: false,
     canViewDashboard: true,
   },
   finance: {
@@ -189,6 +214,20 @@ export const ROLE_PERMISSIONS: Record<
     canManageTeam: false,
     canManageChannels: false,
     canViewDashboard: true,
+  },
+  client: {
+    label: "Cliente / Destinatario (Empresa)",
+    description: "Cliente final de la empresa en la base de datos cargada. Consulta de sus propios pedidos y seguimiento de despachos.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: false,
+    canDispatch: false,
+    canReceive: false,
+    canManageTeam: false,
+    canManageChannels: false,
+    canViewDashboard: false,
   },
 };
 
@@ -360,6 +399,16 @@ export async function loginUser(input: LoginInput) {
 
 export async function saveBotSetupConfig(input: SetupConfigInput) {
   try {
+    if (input.userId) {
+      const [u] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1);
+      if (u && !hasPermission(u.role, "configure_bot")) {
+        return {
+          success: false,
+          error: `ACCESO DENEGADO: El usuario con rol '${u.role}' no tiene permiso para modificar la configuración del asistente. Requiere rol 'owner' o 'admin'.`,
+        };
+      }
+    }
+
     const resolvedLanguage = input.botLanguage ? normalizeBotLanguage(input.botLanguage) : null;
     if (input.botLanguage && !resolvedLanguage) {
       return {

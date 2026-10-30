@@ -11,11 +11,32 @@
 const ANSI_REGEX = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
 
 export const KNOWN_INJECTION_PATTERNS: Array<{ name: string; regex: RegExp }> = [
-  { name: "IGNORE_INSTRUCTIONS", regex: /(ignore|disregard)\s+(all\s+)?(previous|prior)\s+instructions/i },
-  { name: "ROLE_OVERRIDE", regex: /you\s+are\s+now\s+(a|the)\s+/i },
+  { name: "IGNORE_INSTRUCTIONS", regex: /(ignore|ignora|disregard|olvida)\s+(all\s+)?(previous|todas\s+las|tus)\s+(instructions|instrucciones|reglas)/i },
+  { name: "ROLE_OVERRIDE", regex: /(you\s+are\s+now|ahora\s+eres)\s+(a|the|el)\s+/i },
   { name: "SYSTEM_DELIMITER", regex: /(<\|im_start\|>|<\|im_end\|>|\[INST\]|\[\/INST\]|<<SYS>>|<\/s>)/i },
   { name: "EXPLICIT_SYSTEM_PROMPT", regex: /system\s*:\s*(you|act|execute)/i },
+  { name: "INDIRECT_PROMPT_INJECTION", regex: /(instrucci[oó]n\s+para\s+mint|mint\s+instruction|exporta\s+(toda\s+)?la\s+base\s+de\s+datos|env[ií]ala\s+a\s+este\s+webhook)/i },
+  { name: "FORMULA_INJECTION", regex: /^'?[=+\-@\t\r](cmd|hyperlink|dde|exec|powershell|calc|certutil)/i },
 ];
+
+/**
+ * Sanitiza rutas de archivos para prevenir ataques de Path Traversal
+ */
+export function sanitizeFilePath(filePath: string, allowedExtensions: string[] = [".csv", ".tsv", ".txt", ".xlsx", ".xls", ".json"]): string {
+  if (!filePath || typeof filePath !== "string") {
+    throw new Error("Ruta de archivo inválida.");
+  }
+
+  const clean = filePath.trim();
+  // Validar extensión permitida
+  const lower = clean.toLowerCase();
+  const hasValidExt = allowedExtensions.some((ext) => lower.endsWith(ext));
+  if (!hasValidExt) {
+    throw new Error(`Extensión de archivo no permitida: "${filePath}". Formatos soportados: ${allowedExtensions.join(", ")}`);
+  }
+
+  return clean;
+}
 
 /**
  * Sanitiza identificadores SQL (nombres de tabla o de columna).
@@ -78,6 +99,18 @@ export function sanitizeCell(value: unknown): string {
   // 4. Normalizar números con coma decimal si corresponde (ej: "12,50" -> "12.50")
   if (/^-?\d+,\d+$/.test(trimmed)) {
     return trimmed.replace(",", ".");
+  }
+
+  // 5. Neutralizar inyección de fórmulas CSV / Excel (DDE Formula Injection)
+  if (
+    trimmed.startsWith("=") ||
+    trimmed.startsWith("@") ||
+    trimmed.startsWith("\t") ||
+    trimmed.startsWith("\r") ||
+    (trimmed.startsWith("+") && !/^\+\d/.test(trimmed)) ||
+    (trimmed.startsWith("-") && !/^-\d/.test(trimmed))
+  ) {
+    return "'" + trimmed;
   }
 
   return trimmed;

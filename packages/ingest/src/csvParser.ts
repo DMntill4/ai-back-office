@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { sanitizeFilePath } from "./sanitizer";
 
 export interface ParsedCsv {
   headers: string[];
@@ -91,9 +92,10 @@ export function parseCsvContent(content: string): ParsedCsv {
  * Parsea un archivo CSV desde su ruta en disco
  */
 export function parseCsvFile(filePath: string): ParsedCsv {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Archivo no encontrado: ${filePath}`);
+  const safePath = sanitizeFilePath(filePath, [".csv", ".tsv", ".txt"]);
+  if (!fs.existsSync(safePath)) {
+    throw new Error(`Archivo no encontrado: ${safePath}`);
   }
-  const content = fs.readFileSync(filePath, "utf-8");
+  const content = fs.readFileSync(safePath, "utf-8");
   return parseCsvContent(content);
 }

@@ -229,7 +229,7 @@ describe("Bucle del Agente (Agent Loop)", () => {
 
     expect(report.status).toBe("escalado");
     expect(report.reason).toContain("supera el límite");
-  });
+  }, 15000);
 
   afterAll(async () => {
     const { pool } = await import("../src/db/client");

@@ -557,6 +557,13 @@ export async function searchObsidianMemory(
         scanDir(fullPath);
       } else if (entry.name.endsWith(".md")) {
         const content = fs.readFileSync(fullPath, "utf8");
+        // Aislamiento Multi-Tenant: Si se especifica companyId, ignorar notas pertenecientes a otras empresas
+        if (companyId) {
+          const matchCompany = content.match(/empresa:\s*["']?([^"'\r\n]+)["']?/i);
+          if (matchCompany && matchCompany[1] && matchCompany[1] !== companyId) {
+            continue;
+          }
+        }
         if (content.toLowerCase().includes(lowerQuery)) {
           const lines = content.split("\n");
           const titleLine = lines.find((l) => l.startsWith("# ")) || entry.name;

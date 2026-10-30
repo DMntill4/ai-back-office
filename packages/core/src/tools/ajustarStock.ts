@@ -25,6 +25,31 @@ export async function executeAjustarStock(
 ) {
   const effectiveCompanyId = context?.companyId || "comp_default";
 
+  // Validación de límites numéricos y valores anómalos / infinitos
+  if (!Number.isFinite(args.cantidad_delta) || isNaN(args.cantidad_delta)) {
+    return {
+      isSuccess: false,
+      verified: false,
+      message: "La cantidad a ajustar debe ser un número finito válido.",
+    };
+  }
+
+  if (args.cantidad_delta === 0) {
+    return {
+      isSuccess: false,
+      verified: false,
+      message: "La cantidad a ajustar no puede ser cero.",
+    };
+  }
+
+  if (Math.abs(args.cantidad_delta) > 1_000_000) {
+    return {
+      isSuccess: false,
+      verified: false,
+      message: "Cantidad de ajuste excede el rango operativo seguro permitido (máximo 1,000,000 unidades por movimiento).",
+    };
+  }
+
   try {
     // 1. Validar que el producto existe en el tenant (soporta ID, SKU insensible a mayúsculas o nombre parcial)
     const prodList = await db

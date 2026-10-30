@@ -1,7 +1,16 @@
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
-import { db, products, suppliers, warehouses, decisions, runFullOperationalEventScan } from "@mint/core";
+import {
+  db,
+  products,
+  suppliers,
+  warehouses,
+  decisions,
+  runFullOperationalEventScan,
+  agentRegistry,
+  mintOrchestrator,
+} from "@mint/core";
 import { eq, sql } from "drizzle-orm";
 
 export async function agentsCommand(subAction?: string) {
@@ -9,21 +18,29 @@ export async function agentsCommand(subAction?: string) {
   const companyId = session?.companyId || "comp_default";
 
   if (subAction === "run" || subAction === "scan" || subAction === "orchestrate") {
-    console.log(`\n${theme.mintBold("[ORQUESTADOR]")} Iniciando ciclo de deliberación multi-agente en vivo para '${theme.bold(companyId)}'...\n`);
-    
-    console.log(`  ${theme.cyanBold("[1/4 SUB-AGENTE INVENTARIO]")} Inspeccionando existencias, burn rate y puntos de reorden en PostgreSQL...`);
+    console.log(`\n${theme.mintBold("[ORQUESTADOR]")} Iniciando ciclo de deliberación multi-agente autónomo para '${theme.bold(companyId)}'...\n`);
+
+    // Recuperar primero eventos operativos pendientes en cola
+    const recoveredCount = await mintOrchestrator.processPendingOperationalEvents(companyId).catch(() => 0);
+    if (recoveredCount > 0) {
+      console.log(`  ${theme.mint("[RECUPERACIÓN]")} ${recoveredCount} evento(s) operativo(s) pendiente(s) recuperado(s) y procesado(s).`);
+    }
+
+    console.log(`  ${theme.cyanBold("[1/6 INVENTARIO]")} Inspeccionando existencias, burn rate y puntos de reorden en PostgreSQL...`);
     const [prodRows] = await db.select({ n: sql<number>`count(*)::int` }).from(products).where(eq(products.companyId, companyId));
     console.log(`      Catálogo activo: ${prodRows?.n ?? 0} SKUs bajo vigilancia continua.`);
 
-    console.log(`  ${theme.cyanBold("[2/4 SUB-AGENTE TRANSPORTE]")} Comprobando envíos en tránsito y tiempos de entrega viales (OSRM)...`);
+    console.log(`  ${theme.cyanBold("[2/6 LOGÍSTICA]")} Comprobando envíos en tránsito y tiempos de entrega viales...`);
     const [whRows] = await db.select({ n: sql<number>`count(*)::int` }).from(warehouses).where(eq(warehouses.companyId, companyId));
-    console.log(`      Nodos logísticos: ${whRows?.n ?? 0} almacenes geocodificados.`);
+    console.log(`      Nodos logísticos: ${whRows?.n ?? 0} almacenes registrados.`);
 
-    console.log(`  ${theme.cyanBold("[3/4 SUB-AGENTE COMPRAS]")} Consultando listas de precios y MOQs con proveedores homologados...`);
+    console.log(`  ${theme.cyanBold("[3/6 COMPRAS]")} Consultando listas de precios y MOQs con proveedores homologados...`);
     const [suppRows] = await db.select({ n: sql<number>`count(*)::int` }).from(suppliers).where(eq(suppliers.companyId, companyId));
     console.log(`      Proveedores activos: ${suppRows?.n ?? 0} suplidores disponibles.`);
 
-    console.log(`  ${theme.cyanBold("[4/4 AUDITOR DE RIESGO]")} Evaluando márgenes, detección de duplicados y reglas de gobernanza...`);
+    console.log(`  ${theme.cyanBold("[4/6 AUDITORÍA]")} Evaluando márgenes, detección de duplicados (72h) y reglas de gobernanza...`);
+    console.log(`  ${theme.cyanBold("[5/6 NOTIFICACIONES]")} Verificando canales de alerta (Discord/Telegram/Slack/Webhooks)...`);
+    console.log(`  ${theme.cyanBold("[6/6 DATOS]")} Verificando frescura de datos y salud de orígenes de sincronización...`);
 
     const scanResult = await runFullOperationalEventScan(companyId);
 
@@ -35,39 +52,39 @@ export async function agentsCommand(subAction?: string) {
     return;
   }
 
-  // Vista del Panel de Agentes
+  // Vista del Panel de Agentes basada en el registro dinámico real
+  const enabledAgents = await agentRegistry.getEnabledAgentsForCompany(companyId);
+
+  const cardLines: string[] = [
+    `${theme.mintBold("[DIRECTOR GENERAL]")} MINT Orchestrator — Coordinador Central`,
+    `  ${theme.dim("Función:")} Recibe eventos, descompone tareas con Correlation ID, arbitra y genera decisiones.`,
+    `  ${theme.dim("Estado:")}  ${theme.mintBold("ONLINE 24/7")} │ Gobernanza HITL activa (Cero compras no autorizadas)`,
+    "",
+  ];
+
+  for (let i = 0; i < enabledAgents.length; i++) {
+    const { agent, isEnabled, reason } = enabledAgents[i];
+    const statusLabel = isEnabled
+      ? theme.mintBold("ACTIVO")
+      : theme.dim(`DESACTIVADO (${reason || "Por configuración"})`);
+
+    cardLines.push(`${theme.cyanBold(`[AGENTE ${i + 1}/6]`)} ${agent.contract.name}`);
+    cardLines.push(`  ${theme.dim("Rol:")}     ${agent.contract.role} │ ${theme.dim("Timeout:")} ${agent.contract.maxExecutionMs}ms`);
+    cardLines.push(`  ${theme.dim("Función:")} ${agent.contract.description}`);
+    cardLines.push(`  ${theme.dim("Tareas:")}  ${agent.contract.acceptedTasks.join(", ")}`);
+    cardLines.push(`  ${theme.dim("Estado:")}  ${statusLabel}`);
+    if (i < enabledAgents.length - 1) cardLines.push("");
+  }
+
   console.log("");
   console.log(
-    drawCard(
-      [
-        `${theme.mintBold("[DIRECTOR ORQUESTADOR]")}  MINT Brain — Coordinador General`,
-        `  ${theme.dim("Función:")} Recibe eventos, delega a subagentes, arbitra y genera decisiones ejecutables.`,
-        `  ${theme.dim("Estado:")}  ${theme.mintBold("ONLINE")} │ Modo Supervisado (Cero compras unilaterales)`,
-        "",
-        `${theme.cyanBold("[SUB-AGENTE 1]")}          Especialista en Inventario (Existencias & ROP)`,
-        `  ${theme.dim("Función:")} Monitorea stock real, consumo diario, cobertura y rebalanceo entre bodegas.`,
-        `  ${theme.dim("Estado:")}  ${theme.mint("ACTIVO")}`,
-        "",
-        `${theme.cyanBold("[SUB-AGENTE 2]")}          Especialista en Compras & Abastecimiento`,
-        `  ${theme.dim("Función:")} Compara cotizaciones con proveedores, pedidos mínimos (MOQ) y lead times.`,
-        `  ${theme.dim("Estado:")}  ${theme.mint("ACTIVO")}`,
-        "",
-        `${theme.cyanBold("[SUB-AGENTE 3]")}          Especialista en Logística & Transporte`,
-        `  ${theme.dim("Función:")} Calcula fletes viales y distancias OSRM, y vigila envíos en tránsito.`,
-        `  ${theme.dim("Estado:")}  ${theme.mint("ACTIVO")}`,
-        "",
-        `${theme.cyanBold("[SUB-AGENTE 4]")}          Auditor Adversarial de Riesgo (Abogado del Diablo)`,
-        `  ${theme.dim("Función:")} Valida márgenes de ganancia, evita sobrecostos y filtra compras duplicadas.`,
-        `  ${theme.dim("Estado:")}  ${theme.mint("ACTIVO")}`,
-      ],
-      {
-        title: `PANEL DE AGENTES Y ORQUESTACIÓN MULTI-AGENTE [${companyId}]`,
-        borderColor: theme.mint,
-      },
-    ),
+    drawCard(cardLines, {
+      title: `ARQUITECTURA DE AGENTES ESPECIALIZADOS [${companyId}]`,
+      borderColor: theme.mint,
+    }),
   );
 
   console.log(
-    `  ${theme.dim("Para forzar una deliberación completa de los 4 subagentes ahora:")} ${theme.mintBold("/agents run")}\n`
+    `  ${theme.dim("Para forzar una deliberación completa de todos los agentes ahora:")} ${theme.mintBold("mint agents run")}\n`,
   );
 }

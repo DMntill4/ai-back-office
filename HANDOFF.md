@@ -1,153 +1,142 @@
 # MINT CLI & AUTONOMOUS AI BACK OFFICE — TECHNICAL HANDOFF DOCUMENT
 
-**Fecha de Entrega:** 27 de Octubre de 2026  
-**Rama de Trabajo:** `feat/mint-reverification-and-hardening` (integrada en `developDiego`)  
-**Estado:** 100% de Hallazgos de Auditoría Resueltos. Verificado en vivo: 23/23 suites aprobadas (85/85 tests), 10/10 pruebas de `/selftest` en verde sobre base de datos PostgreSQL/Supabase, 0 errores de TypeScript y 0 emojis en todo el código.
+**Fecha de Entrega:** 29 de Octubre de 2026  
+**Rama de Trabajo:** `developDiego`  
+**Estado:** Arquitectura Multi-Agente Autónoma 24/7 y Matriz de Permisos por Agente (Principio de Mínimo Privilegio) 100% implementada y verificada. 30/30 suites de prueba aprobadas (179/179 tests), 0 errores de TypeScript (`tsc --noEmit`), 0 emojis y cero conceptos de administrador global (todos los roles residen estrictamente dentro de la base de datos de cada empresa cargada).
 
 ---
 
 ## 1. RESUMEN EJECUTIVO Y ESTADO ACTUAL
 
-MINT es un **Coordinador Logistico Autonomo y Back Office Empresarial** operado exclusivamente por linea de comandos (CLI), disenado para integrarse con bases de datos relacionales existentes (PostgreSQL / Supabase), APIs de mensajeria y archivos de negocio sin alterar esquemas del cliente ni inventar datos ficticios.
+MINT es un **Back Office Autónomo 24/7 y Coordinador Operacional Multi-Agente** operado exclusivamente por línea de comandos (CLI) y daemons en segundo plano. Está diseñado para integrarse con bases de datos relacionales existentes (PostgreSQL / Supabase) sin alterar esquemas del cliente ni inventar datos ficticios.
 
 ### Principios Fundamentales Cumplidos
-1. **Solo el CLI**: El sistema inicia de forma autonoma con `npm start` (`tsx packages/cli/src/index.ts start`). Cero dependencias de UI web ni frameworks HTTP externos para operar.
-2. **Cero Emojis**: Todo el codigo, bitacoras y salidas de terminal utilizan exclusivamente texto ASCII e indicadores estandarizados `[OK]`, `[ERROR]`, `[ADVERTENCIA]`, `[CRITICA]`.
-3. **Cero Secretos en Logs**: Tokens, claves HMAC y URLs de webhooks son ofuscados en bitacoras y consola (ej. `https://discord.com/api/webhooks/12345/******`).
-4. **Verdad en los Datos (Cero Invencion)**: Cuando un dato no existe en las fuentes reales (costos, suplidores, fletes o historial de ventas menor a 3 periodos), MINT explicita *"No tengo este dato"* y formula una pregunta en `mint_pending_questions` sin alucinar ni estimar numeros falsos.
-5. **Aislamiento Multi-Tenant**: Toda consulta y evento esta estrictamente particionado por `companyId`. Las tablas propias de MINT utilizan el prefijo reservado `mint_*` para no colisionar con esquemas del cliente.
-6. **Proteccion de `packages/app`**: El paquete de frontend de terceros jamas fue modificado (0 archivos alterados).
+1. **Solo el CLI y Daemon**: Operación desatendida mediante `mint daemon start --interval 30` y comandos CLI. Cero dependencias de UI web externa.
+2. **Arquitectura Multi-Agente Especializada**: El Orquestador (`mintOrchestrator`) delega a 6 especialistas con contratos estrictos (`inventario`, `compras`, `logistica`, `notificaciones`, `datos_integraciones`, `auditoria`).
+3. **Principio de Mínimo Privilegio (PoLP)**: Ningún agente tiene acceso ilimitado. Cero auto-aprobación, cero eliminación destructiva y cero modificación de directivas de la empresa por parte de la IA.
+4. **Roles Estrictamente Locales a la Base de Datos Cargada**: **No existe ningún "admin global"**. Todos los roles (`owner`, `admin de negocio`, `supervisor`, `client`, `operator`, `auditor`, `finance`, `driver`, `viewer`) residen y se gestionan exclusivamente dentro de la tabla `users` vinculada a `company_id`.
+5. **Cero Emojis y Cero Secretos en Logs**: Todo el código, bitácoras y salidas de terminal utilizan exclusivamente texto ASCII e indicadores estandarizados `[OK]`, `[ERROR]`, `[AVISO]`. Las credenciales y tokens se sanitizan antes de registrar en auditoría.
+6. **Aislamiento Multi-Tenant**: Toda consulta, tarea y validación de permisos comprueba el aislamiento entre empresas (`DENIED_CROSS_TENANT_VIOLATION`).
 
 ---
 
-## 2. RESULTADOS DE LA RONDA DE RE-VERIFICACION Y ENDURECIMIENTO
-
-Durante esta sesion se llevo a cabo una auditoria empirica de 51 puntos funcionales (E1 a E13) y pruebas de estres adversarial en vivo contra PostgreSQL en Supabase. Se descubrieron 5 fallos/discrepancias reales, los cuales fueron reabiertos formalmente en `CHECKLIST.md`, corregidos desde su causa raiz y verificados inmediatamente:
-
-| ID | Modulo / Historia | Riesgo | Causa Raiz | Solucion Implementada | Evidencia Ejecutada |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **F-01** | E6.1 (Ventas / Concurrencia) | **ALTO** | Rafagas simultaneas con la misma clave de idempotencia cruzaban la verificacion en memoria y disparaban doble descuento de stock y error de clave unica en PostgreSQL. | Se anadio `inFlightSalesStore` en `salesChannelListener.ts` para compartir promesas en vuelo dentro del mismo proceso Node, y captura de error `23505` con reversion automatica de inventario (`executeAjustarStock`) ante colisiones concurrentes distribuidas. | `scratch/stress_phase2.ts`: Rafaga de 5 ventas simultaneas resulto en exactamente 1 venta procesada y 4 duplicados rechazados con `isDuplicate: true`. |
-| **F-02** | E1.2 (Onboarding / Integridad) | **ALTO** | En el asistente interactivo (`onboarding.ts:259`), `sendEmailVerificationCode` se ejecutaba antes de persistir la empresa en `companies`, causando excepcion de FK `23503` en `business_config`. | Se pre-persiste la entidad `companies` en PostgreSQL antes de emitir el codigo OTP. | `scratch/test_onboarding_fix.ts`: Generacion, envio y validacion de codigo de 6 digitos verificado con exito. |
-| **F-03** | E6.4 (Inteligencia Financiera) | **MEDIO** | El clasificador NLP derivaba preguntas de rentabilidad (*"por que bajo la ganancia"*) a preguntas abiertas genericas, devolviendo respuesta vacia. | Se creo `analyzeWeeklyProfitVariation` en `businessAnalyticsService.ts` y se conecto en `naturalIntentEngine.ts` para calcular variaciones matematicas exactas (ventas, ingresos, costos y margen) de los ultimos 7 dias vs 7 dias previos. | `scratch/verify_e6.ts`: Respuesta detallada con ingresos de la semana, utilidad, productos causantes y notas de costos faltantes. |
-| **F-04** | Selftest (Chequeos 1.8 y 1.10) | **MEDIO** | Los cheques 1.8 y 1.10 en `selftest.ts` eran mocks estaticos que no ejecutaban ninguna consulta ni asercion. | Se reemplazaron por aserciones vivas: Check 1.8 evalua que `analyzePurchasingOptions` con SKU sin suplidor retorne `null` y que no existan desembolsos automaticos; Check 1.10 valida deduplicacion real y calculo vial OSRM. | `npm run mint -- selftest`: 10/10 pruebas superadas con latencias y conexiones reales. |
-| **F-05** | E12.3 (Consistencia de Respaldos) | **BAJO** | `backupCommand` escribia en `./backups/` mientras que `safeQueryEngine` lo hacia en `./vault/backups/`. | Se unifico la constante de ruta a `./vault/backups/`. | `scratch/verify_e12.ts`: Archivo JSON de respaldo verificado fisicamente en `vault/backups/`. |
-| **F-06** | E7.2 (Alias de Logistica) | **BAJO** | El daemon implementaba `scanDelayedShipments` pero `@mint/core` no exponia el alias `detectShipmentDelays`. | Se exporto `detectShipmentDelays` en `logisticsCoordinatorService.ts` y en el indice de `@mint/core`. | `scratch/verify_e7.ts`: Deteccion de 5 envios vencidos en base de datos confirmada. |
-
----
-
-## 3. ARQUITECTURA DE PAQUETES (NPM WORKSPACES)
+## 2. ARQUITECTURA DE AGENTES AUTÓNOMOS 24/7 IMPLEMENTADA
 
 ```
-ai-back-office/
-├── packages/
-│   ├── core/           # Dominio central: Drizzle ORM, agentes, logistica OSRM, politicas y analitica
-│   ├── cli/            # Interfaz de terminal profesional (TUI, Keychain AES-256-GCM, REPL, Comandos)
-│   ├── daemon/         # Vigilante en segundo plano (triggers, escaneo de stock y retrasos)
-│   ├── ingest/         # Conectores multi-fuente (JSON, CSV, SQLite, SQL Server TCP ping)
-│   └── notifiers/      # Canales remotos (Discord, Slack, Telegram, Outbox queue con reintentos)
-├── vault/              # Almacenamiento persistente en disco (Markdown, Auditoria, Backups, Outbox)
-│   ├── Auditoria/      # Logs inmutables de eventos operacionales
-│   ├── Cuarentena/     # Registros anómalos aislados con tipologia de fallo
-│   ├── Preguntas/      # Banco de dudas operacionales no resueltas (cero invencion)
-│   ├── backups/        # Respaldos de configuracion y snapshots previos a mutaciones SQL
-│   └── outbox_queue.json # Cola persistente de salida ante caidas de red
-├── scratch/            # Scripts de verificacion empirica automatizada (E1 a E12, estres y E2E)
-├── reports/            # Exportaciones fisicas de inventario ROP y salud de datos en CSV
-└── CHECKLIST.md        # Matriz auditada de 51 puntos de produccion (100% CERRADA)
+                               ┌────────────────────────────────┐
+                               │   Orquestador Central MINT     │
+                               │     (mintOrchestrator.ts)      │
+                               └───────────────┬────────────────┘
+                                               │
+               ┌───────────────┬───────────────┼───────────────┬───────────────┐
+               ▼               ▼               ▼               ▼               ▼
+        ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+        │ Inventario  │ │   Compras   │ │  Logística  │ │Notificacione│ │    Datos    │
+        │    Agent    │ │    Agent    │ │    Agent    │ │    Agent    │ │    Agent    │
+        └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+                                               │
+                                               ▼
+                                        ┌─────────────┐
+                                        │  Auditoría  │
+                                        │    Agent    │
+                                        └─────────────┘
 ```
 
----
-
-## 4. MATRIZ DE COMANDOS CLI Y OPERACIONES
-
-Todos los comandos se pueden ejecutar directamente con `npm run mint -- <comando>` o dentro de la consola interactiva (`npm start` o `npm run mint -- console`):
-
-### Diagnostico y Salud
-- `npm run mint -- selftest`: Ejecuta la suite de 10 pruebas de asercion viva (BD Supabase, Vault, parsers, cuarentena, outbox, RBAC, compras, conciliacion y OSRM).
-- `npm run mint -- doctor`: Auditoria de 7 subsistemas (Node, SQLite, Postgres, LLM, OSRM, Canales, RBAC).
-
-### Operaciones de Negocio
-- `npm run mint -- briefing`: Resumen diario ejecutivo con ventas del dia, ganancia estimada, quiebres inminentes de stock y despachos retrasados.
-- `npm run mint -- stock`: Consulta existencias y punto de reorden (ROP) dinamico.
-- `npm run mint -- customers`: Analisis de cartera de clientes, LTV y deteccion de clientes en riesgo de abandono (>30 dias).
-- `npm run mint -- reconcile`: Conciliacion tripartita de ventas vs pagos vs despachos.
-- `npm run mint -- fleet`: Control de flota, transportistas y guias activas.
-- `npm run mint -- audit --limit 10`: Historial unificado de eventos operacionales y decisiones tomadas.
-- `npm run mint -- backup`: Exportacion de volcado completo de configuracion y memoria a `vault/backups/`.
-- `npm run mint -- reports stock csv`: Exportacion de inventario ROP compatible con Excel.
-- `npm run mint -- reports health csv`: Exportacion del informe de salud de datos y cuarentena.
-
-### Modo Demo y Seguridad
-- `npm run mint -- demo enter`: Conmuta la sesion al sandbox aislado `comp_demo_isolated`.
-- `npm run mint -- demo exit`: Restaura la sesion a la empresa de produccion.
-- `npm run mint -- logout`: Invalida y elimina el token de sesion cifrado en el keychain.
+### Roles y Responsabilidades de los Especialistas
+1. **Orquestador (`orchestrator`)**: Análisis global, coordinación entre agentes, delegación con verificación de permisos y escalación de decisiones a humanos (HITL). No modifica datos directamente.
+2. **Inventario (`inventario`)**: Detección de roturas de stock, puntos de reorden (ROP), sugerencias de compra y reconciliaciones rutinarias autorizadas.
+3. **Compras (`compras`)**: Evaluación de proveedores reales, análisis de MOQ y costo total, generación de propuestas de compra en estado borrador. CERO dispersión de pagos ni compras automáticas no autorizadas.
+4. **Logística (`logistica`)**: Cálculo de rutas OSRM, consolidación de cargas, monitoreo de envíos en tránsito y detección de demoras operativas.
+5. **Notificaciones (`notificaciones`)**: Preparación y despacho de alertas estructuradas a canales verificados (Telegram, Discord, Slack, Webhook), con cortafuegos anti-spam.
+6. **Datos e Integraciones (`datos_integraciones`)**: Verificación de frescura de fuentes, detección de schema drift y reconciliación de catálogos sin modificar esquemas del cliente.
+7. **Auditoría (`auditoria`)**: Auditoría independiente de propuestas, cálculo de risk scores, detección de anomalías y registro inmutable en `case_events` y Obsidian Vault.
 
 ---
 
-## 5. ESCENARIO E2E DE VALIDACION COMPLETA
+## 3. MATRIZ DE PERMISOS POR AGENTE (PRINCIPIO DE MÍNIMO PRIVILEGIO)
 
-El script [scratch/e2e_final_scenario.ts](file:///c:/Users/dalej/OneDrive/Documents/ai-back-office/scratch/e2e_final_scenario.ts) valida el ciclo de vida integro de forma desatendida:
-1. **Onboarding & OTP**: Creacion de empresa aislada y verificacion de correo mediante codigo de 6 digitos sin errores referenciales.
-2. **Catálogo & Almacen**: Insercion de almacen principal y producto con stock inicial (10 u) y stock minimo (5 u).
-3. **Venta & Stock**: Descuento de 7 unidades. Stock actualizado de 10 a 3 unidades con registro en `mint_sales_orders`.
-4. **Idempotencia**: Reintento con la misma clave detectado como duplicado (`duplicate=true`), stock preservado en 3 u.
-5. **Logistica OSRM**: Creacion de guia de envio y calculo vial real (410.7 km entre Bogota y Medellin).
-6. **Retrasos**: Escaneo de envios detecta la guia con fecha vencida (60 min retrasada).
-7. **Outbox**: Encolamiento en `vault/outbox_queue.json` con retencion para reintentos.
-8. **Bandeja HITL**: Decision generada por quiebre de stock cancelada bajo reglas de gobernanza.
-9. **Lenguaje Natural**: Consulta *"¿Por que bajo la ganancia esta semana?"* responde con calculo matematico exacto sobre ingresos y costos.
-10. **Aislamiento**: Eliminacion limpia de la empresa de prueba sin residuos colaterales.
+Implementada en `packages/core/src/security/agentPermissionsMatrix.ts`:
+
+| Agente | Consultar (`read`) | Analizar (`analyze`) | Proponer (`propose`) | Crear Solicitud (`create_request`) | Ejecutar (`execute`) | Modificar (`update`) | Notificar (`notify`) | Aprobar (`approve`) | Configurar Negocio (`configure_business`) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: |
+| **Orquestador** | Dominios necesarios | Todos | Todos | Compras y decisiones | Coordinación autorizada | No | Alertas autorizadas | **PROHIBIDO** | **PROHIBIDO** |
+| **Inventario** | Stock y fuentes | Inventario | Reorden y existencias | Solicitud stock | Reconciliaciones | Ajustes permitidos | Alertas stock crítico | **PROHIBIDO** | **PROHIBIDO** |
+| **Compras** | Suplidores y catálogo | Proveedores | Propuestas compra | Solicitud reposición | Borradores (0 pagos) | Borradores de compra | Alertas cotización | **PROHIBIDO** | **PROHIBIDO** |
+| **Logística** | Envíos y rutas | Logística | Rebalanceo y rutas | Solicitud logística | Actualizaciones ruta | Solo campos envío | Alertas demora | **PROHIBIDO** | **PROHIBIDO** |
+| **Notificaciones** | Eventos aprobados | Mensajería | Plantillas | No | Envío validado | No | Sí, canales válidos | **PROHIBIDO** | **PROHIBIDO** |
+| **Datos** | Fuentes y esquemas | Calidad datos | Mapeos propuestos | Tarea sync | Ingestas autorizadas | Operaciones sync | Alertas conexión | **PROHIBIDO** | **PROHIBIDO** |
+| **Auditoría** | Auditoría y compras | Riesgos y margen | Medidas correctivas | Tarea auditoría | Comprobaciones | No | Alertas seguridad | **PROHIBIDO** | **PROHIBIDO** |
+| **Humano en BD** | Su empresa | Su empresa | Todas | Todas | Por rol en BD | Por rol en BD | Canales empresa | **SÍ (HITL)** | **SÍ (owner/admin/supervisor local)** |
+
+### Reglas Inmutables Aplicadas en Backend
+- **Anti-Self-Approval**: Ningún agente ni usuario puede aprobar una solicitud que él mismo creó o propuso.
+- **Cero Auto-Aprobación para IA**: `approve` está reservado exclusivamente a personal humano autenticado (`owner`, `admin de negocio`, `supervisor`, `auditor`).
+- **Cero Eliminación Destructiva**: `delete` está prohibido para agentes de IA.
+- **Bloqueo de Elevación del Orquestador**: Si el orquestador intenta asignar una tarea fuera de la matriz a un especialista, la operación es abortada con `DENIED_ORCHESTRATOR_ELEVATION_ATTEMPT`.
+- **Aislamiento Multitenant**: El cruce de empresas es rechazado en tiempo de ejecución con `DENIED_CROSS_TENANT_VIOLATION`.
 
 ---
 
-## 6. COMANDOS DE VALIDACION Y COMPROBACION LOCAL
+## 4. ROLES LOCALES EN LA BASE DE DATOS CARGADA
 
-Para comprobar el estado del repositorio:
+Todos los roles están definidos en `packages/core/src/db/schema/users.ts` y gobernados por `authAndSetupService.ts`. Pertenecen estrictamente a cada `company_id`:
+
+1. **`owner` (Dueño de la Empresa)**: Control total de la empresa en BD: configuración, umbrales, carga SQL, invitaciones, aprobaciones y pagos.
+2. **`admin` (Administrador de Negocio)**: Administrador local de la empresa en la BD. Gestión operativa total (HITL, despachos, recepción, equipo y canales). No existe admin global.
+3. **`supervisor` (Supervisor de Operaciones)**: Supervisión operativa del negocio en BD. Aprobación HITL, despachos, recepción y supervisión de operadores.
+4. **`operator` (Operador de Logística y Almacén)**: Despacho de pedidos, recepción de inventario y consultas operativas.
+5. **`client` (Cliente / Destinatario)**: Consulta exclusiva del estado de sus propios pedidos. CERO acceso operativo ni de almacén.
+6. **`driver` (Conductor / Transportista)**: Recepción en ruta y consulta de manifiestos asignados.
+7. **`auditor` (Auditor HITL)**: Autorización de compras mayores a umbral y auditoría de eventos inmutables.
+8. **`finance` (Tesorería / Pagos)**: Dispersión de pagos a proveedores de órdenes aprobadas y conciliación.
+9. **`viewer` (Consultor / Solo Lectura)**: Consulta de dashboards y métricas sin permisos de escritura.
+
+---
+
+## 5. RESULTADOS DE LA SUITE DE PRUEBAS AUTOMATIZADAS
+
+Resultado de la ejecución completa con `npx vitest run`:
+
+```
+Test Files  30 passed (30)
+     Tests  179 passed (179)
+  Duration  85.16s
+```
+
+### Suites Clave Añadidas y Verificadas:
+1. `tests/agent_permissions_matrix.test.ts` (10 tests, 100% éxito):
+   - Ejecución autorizada por rol.
+   - Rechazo de operaciones prohibidas y de `configure_business` para agentes.
+   - Bloqueo de elevación de privilegios del coordinador.
+   - Prohibición de auto-aprobación en IA.
+   - Revocación dinámica de permisos en caliente sobre tareas pendientes.
+   - Aislamiento multitenant de datos.
+   - Resistencia a Prompt Injections con bypass simulado.
+   - Auditoría segura sin fuga de credenciales.
+   - Políticas personalizadas por empresa.
+   - Flujo legítimo con aprobación de `owner` y `supervisor`, y rechazo de `client`.
+2. `tests/autonomous_multiagent_architecture.test.ts` (7 tests, 100% éxito).
+3. `tests/adversarial_security_and_guardrails.test.ts` (5 tests, 100% éxito).
+4. `tests/daemon_watcher.test.ts` (3 tests, 100% éxito).
+5. `tests/sales_channel_execution.test.ts` (4 tests, 100% éxito).
+
+---
+
+## 6. COMANDOS DE VALIDACIÓN RÁPIDA
 
 ```bash
-# 1. Verificacion de linter de emojis (debe arrojar 0 emojis)
-npm run lint:emojis
-
-# 2. Verificacion de compilacion TypeScript estricta (debe arrojar 0 errores)
+# 1. Comprobación de tipos estricta (0 errores)
 npm run typecheck
 
-# 3. Sincronizacion previa obligatoria de la BD (crea tablas mint_* y esquemas requeridos)
-# Nota: Asegurarse de que drizzle.config.ts apunte a ./packages/core/src/db/schema/index.ts
-npx drizzle-kit push
+# 2. Comprobación de Cero Emojis (0 detectados)
+npm run lint:emojis
 
-# 4. Suite interna de autodiagnostico (10/10 pruebas superadas con BD sincronizada)
-npm run mint -- selftest
+# 3. Ejecución de la matriz de permisos
+npx vitest run tests/agent_permissions_matrix.test.ts
 
-# 5. Resumen diario ejecutivo
-npm run mint -- briefing
+# 4. Ejecución de la suite completa (179 tests)
+npx vitest run
 
-# 6. Escenario E2E integral
-npx tsx scratch/e2e_final_scenario.ts
+# 5. Inicio del Daemon Autónomo
+npm run mint -- daemon start --interval 30
 ```
-
----
-
-## 7. VARIABLES DE ENTORNO REQUERIDAS (`.env`)
-
-```ini
-# Base de datos PostgreSQL Cloud (Supabase)
-DATABASE_URL=postgresql://postgres.xxx:xxx@aws-0-us-west-1.pooler.supabase.com:6543/postgres
-
-# Seguridad de Webhooks y Criptografia
-WEBHOOK_SECRET=mint_default_webhook_secret
-AUTHORIZED_SALES_SENDERS=pos_e2e,test_sender_01,web_checkout
-
-# Proveedores de IA (Opcional, fallback determinista habilitado)
-OPENAI_API_KEY=sk-...
-
-# Canales de Notificacion (Opcional)
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-TELEGRAM_BOT_TOKEN=...
-SLACK_BOT_TOKEN=...
-```
-
----
-
-## 8. INTEGRACION CON RAMA developDiego
-
-Los cambios estan listos y comprometidos localmente en la rama `feat/mint-reverification-and-hardening` (commit `2784ce9`). Al incorporarse en `developDiego`, se transfieren todas las correcciones de concurrencia, integridad referencial de onboarding, motor de ganancia semanal, aserciones reales en selftest y la suite completa de scripts de verificacion.

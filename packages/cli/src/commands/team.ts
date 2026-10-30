@@ -111,16 +111,20 @@ export async function teamCommand(
         m.role === "owner"
           ? theme.badge("OWNER", "mint")
           : m.role === "admin"
-            ? theme.badge("ADMIN", "cyan")
-            : m.role === "finance"
-              ? theme.badge("FINANCE/PAGOS", "mint")
-              : m.role === "operator"
-                ? theme.badge("OPERATOR", "cyan")
-                : m.role === "driver"
-                  ? theme.badge("DRIVER", "violet")
-                  : m.role === "auditor"
-                    ? theme.badge("AUDITOR", "amber")
-                    : theme.badge("VIEWER", "gray");
+            ? theme.badge("ADMIN_NEGOCIO", "cyan")
+            : m.role === "supervisor"
+              ? theme.badge("SUPERVISOR", "cyan")
+              : m.role === "client"
+                ? theme.badge("CLIENTE", "gray")
+                : m.role === "finance"
+                  ? theme.badge("FINANCE/PAGOS", "mint")
+                  : m.role === "operator"
+                    ? theme.badge("OPERATOR", "cyan")
+                    : m.role === "driver"
+                      ? theme.badge("DRIVER", "violet")
+                      : m.role === "auditor"
+                        ? theme.badge("AUDITOR", "amber")
+                        : theme.badge("VIEWER", "gray");
 
       const dateStr = m.createdAt ? new Date(m.createdAt).toLocaleDateString("es-MX") : "N/A";
 

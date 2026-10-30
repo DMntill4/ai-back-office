@@ -31,6 +31,15 @@ export async function executeCrearOrdenCompra(
 ) {
   const effectiveCompanyId = context?.companyId || "comp_default";
 
+  if (!Number.isFinite(args.cantidad) || args.cantidad <= 0 || args.cantidad > 10_000_000) {
+    return {
+      isSuccess: false,
+      verified: false,
+      requiresApproval: false,
+      message: "La cantidad de compra debe ser un número entero positivo razonable (máximo 10,000,000 unidades).",
+    };
+  }
+
   try {
     // 1. Resolver producto si pasaron SKU o nombre parcial
     let resolvedProductId = args.producto_id;

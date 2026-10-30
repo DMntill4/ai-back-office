@@ -14,6 +14,15 @@ export * from "./agent/especialistas/inventarioSpecialist";
 export * from "./agent/especialistas/comprasSpecialist";
 export * from "./agent/especialistas/transporteSpecialist";
 export * from "./agent/especialistas/riesgoSpecialist";
+export * from "./agent/contracts/agentContract";
+export * from "./agent/orchestrator/mintOrchestrator";
+export * from "./agent/specialists/inventarioAgent";
+export * from "./agent/specialists/comprasAgent";
+export * from "./agent/specialists/logisticaAgent";
+export * from "./agent/specialists/notificacionesAgent";
+export * from "./agent/specialists/datosIntegracionesAgent";
+export * from "./agent/specialists/auditoriaAgent";
+export * from "./agent/registry/agentRegistry";
 export * from "./agent/harness";
 export * from "./agent/naturalIntentEngine";
 
@@ -83,4 +92,7 @@ export * from "./graph/graph.service";
 // 10. Telemetría Desacoplada en Tiempo Real (Event Emitter / WebSockets)
 export * from "./telemetry/telemetry.types";
 export * from "./telemetry/telemetryPublisher";
+
+// 11. Seguridad, Detección de Prompt Injection, Anti-SSRF y Guardrails
+export * from "./security/index";
 

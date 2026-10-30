@@ -37,14 +37,18 @@ export async function whoamiCommand(options: { json?: boolean } = {}) {
     role === "owner"
       ? theme.badge("OWNER", "mint")
       : role === "admin"
-        ? theme.badge("ADMIN", "cyan")
-        : role === "operator"
-          ? theme.badge("OPERATOR", "cyan")
-          : role === "driver"
-            ? theme.badge("DRIVER", "violet")
-            : role === "auditor"
-              ? theme.badge("AUDITOR", "amber")
-              : theme.badge("VIEWER", "gray");
+        ? theme.badge("ADMIN_NEGOCIO", "cyan")
+        : role === "supervisor"
+          ? theme.badge("SUPERVISOR", "cyan")
+          : role === "client"
+            ? theme.badge("CLIENTE", "gray")
+            : role === "operator"
+              ? theme.badge("OPERATOR", "cyan")
+              : role === "driver"
+                ? theme.badge("DRIVER", "violet")
+                : role === "auditor"
+                  ? theme.badge("AUDITOR", "amber")
+                  : theme.badge("VIEWER", "gray");
 
   if (options.json) {
     console.log(JSON.stringify({

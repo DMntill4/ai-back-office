@@ -94,7 +94,7 @@ export interface ExecutionResult {
  */
 export async function executeAndVerifyDecision(
   decisionId: string,
-  approvedBy: string = "HUMANO_ADMIN",
+  approvedBy: string = "HUMANO_AUTORIZADO",
   feedback?: string,
   approverUserId?: string,
   approverRole?: string,
@@ -117,6 +117,23 @@ export async function executeAndVerifyDecision(
   const dec = found[0];
   const evidence = (dec.evidencePayload as any) || {};
 
+  // 1.0 Idempotencia Estricta de Decisión: Rechazar doble ejecución
+  if (dec.policyDecision === "approved") {
+    return {
+      success: false,
+      verified: true,
+      message: `La decisión "${decisionId}" ya fue APROBADA y ejecutada previamente. No se permite doble ejecución.`,
+    };
+  }
+
+  if (dec.policyDecision === "rejected") {
+    return {
+      success: false,
+      verified: false,
+      message: `La decisión "${decisionId}" ya fue RECHAZADA previamente y no puede ser ejecutada.`,
+    };
+  }
+
   // 1.1 Verificación de caducidad (Vencimiento)
   if (dec.expiresAt && new Date() > new Date(dec.expiresAt)) {
     await db
@@ -131,22 +148,49 @@ export async function executeAndVerifyDecision(
     };
   }
 
+  // 1.1.5 Principio de Mínimo Privilegio: Ningún agente de IA puede aprobar decisiones
+  const isAgentApprover = [
+    "orchestrator",
+    "coordinador",
+    "inventario",
+    "compras",
+    "logistica",
+    "notificaciones",
+    "datos_integraciones",
+    "auditoria",
+  ].includes((approverRole || approvedBy || "").toLowerCase());
+
+  if (isAgentApprover) {
+    return {
+      success: false,
+      verified: false,
+      message: `AUTO-APROBACIÓN PROHIBIDA: El agente de IA '${approverRole || approvedBy}' tiene prohibido aprobar operaciones. La aprobación requiere exclusivamente autorización de un operador humano autenticado (HITL).`,
+    };
+  }
+
   // 1.2 Regla estricta: NUNCA quien la solicitó (Anti-Self-Approval)
-  const requester = dec.requesterUserId || (evidence as any).requesterUserId;
+  const requester = dec.requesterUserId || (evidence as any).requesterUserId || dec.proposingAgent;
   if (requester && approverUserId && requester === approverUserId) {
     return {
       success: false,
       verified: false,
-      message: `AUTO-APROBACIÓN PROHIBIDA: El usuario '${approverUserId}' solicitó esta compra y no puede autorizarse a sí mismo. Requiere un admin o rol superior distinto.`,
+      message: `AUTO-APROBACIÓN PROHIBIDA: El usuario o agente '${approverUserId}' solicitó esta acción y no puede autorizarse a sí mismo. Requiere un supervisor, owner o rol de aprobación distinto dentro de la empresa.`,
+    };
+  }
+  if (dec.proposingAgent && (approvedBy === dec.proposingAgent || approverRole === dec.proposingAgent)) {
+    return {
+      success: false,
+      verified: false,
+      message: `AUTO-APROBACIÓN PROHIBIDA: El agente proponente '${dec.proposingAgent}' no puede aprobar su propia propuesta.`,
     };
   }
 
-  // 1.3 Regla de Roles: Solo roles con permiso de autorización de compras (owner, admin, auditor)
+  // 1.3 Regla de Roles: Solo roles con permiso de autorización de compras (owner, admin de negocio, supervisor, auditor)
   if (approverRole && !hasPermission(approverRole, "approve_purchase")) {
     return {
       success: false,
       verified: false,
-      message: `ACCESO DENEGADO: El rol '${approverRole}' no tiene permisos para autorizar compras a proveedores. Requiere rol 'owner', 'admin' o 'auditor'.`,
+      message: `ACCESO DENEGADO: El rol '${approverRole}' no tiene permisos para autorizar compras a proveedores. Requiere un rol con autorización en la empresa (owner, admin de negocio, supervisor o auditor).`,
     };
   }
 

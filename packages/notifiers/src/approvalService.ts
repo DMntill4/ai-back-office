@@ -49,6 +49,11 @@ export async function processRemoteApproval(params: {
   }
 
   const decision = decList[0];
+  if (decision.policyDecision === "approved" || decision.policyDecision === "rejected") {
+    throw new Error(
+      `La decisión "${decisionId}" ya se encuentra en estado "${decision.policyDecision}". No se puede procesar una segunda vez (idempotente).`,
+    );
+  }
 
   // 4. Si la acción es RECHAZO
   if (action === "reject") {
