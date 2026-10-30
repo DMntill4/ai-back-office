@@ -1,7 +1,6 @@
 import React from "react";
-import { NodeData, WorkflowObjective } from "../../types/workflow";
-import { PREDEFINED_OBJECTIVES } from "../../data/mockData";
-import { X, Sparkles, Database, Shield, Target, Sliders } from "lucide-react";
+import { NodeData } from "../../types/workflow";
+import { X, Database, Shield, Target } from "lucide-react";
 
 interface PropertiesPanelProps {
   selectedNode: NodeData;
@@ -9,6 +8,16 @@ interface PropertiesPanelProps {
   onUpdateProperties: (nodeId: string, updates: Partial<NodeData["properties"]>) => void;
   onOpenObjectives?: () => void;
 }
+
+const OBJECTIVE_OPTIONS = [
+  { id: "obj-stock", badge: "Stock", title: "Reposición de stock crítico", description: "Mantener el nivel de servicio por encima del 95% en las referencias de mayor rotación." },
+  { id: "obj-margin", badge: "Margen", title: "Protección de margen bruto", description: "Evitar compras que reduzcan el margen bruto por debajo del objetivo mensual." },
+  { id: "obj-delivery", badge: "Entrega", title: "Cumplimiento de tiempos de entrega", description: "Priorizar proveedores con tiempos de entrega verificados y sin retrasos." },
+];
+
+const labelClass = "text-caption font-semibold text-secondary block mb-hairline";
+const inputClass =
+  "w-full px-compact py-hairline rounded-control bg-raised border border-border text-label text-primary focus:outline-none focus:border-brand";
 
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   selectedNode,
@@ -21,23 +30,22 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const props = selectedNode.properties || {};
 
   const currentObjective =
-    PREDEFINED_OBJECTIVES.find((o) => o.id === props.objectiveId) ||
-    PREDEFINED_OBJECTIVES[0];
+    OBJECTIVE_OPTIONS.find((o) => o.id === props.objectiveId) || OBJECTIVE_OPTIONS[0];
 
   return (
-    <aside className="w-80 border-l border-[#1a2e22] bg-[#090f0c] p-5 flex flex-col justify-between overflow-y-auto z-10 flex-shrink-0">
-      <div className="space-y-5">
+    <aside className="w-80 border-l border-border bg-panel p-base flex flex-col justify-between overflow-y-auto z-10 flex-shrink-0">
+      <div className="space-y-group">
         {/* Header: Title, ID badge, Close button */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#17281f]">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-gray-100">Properties</h3>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#102217] text-mint-400 border border-[#1b3a27]">
+        <div className="flex items-center justify-between pb-compact border-b border-border">
+          <div className="flex items-center gap-compact">
+            <h3 className="text-label font-semibold text-primary">Propiedades</h3>
+            <span className="text-caption font-mono px-compact py-hairline rounded-control bg-brand-surface text-brand border border-brand/40">
               ID: {selectedNode.id.slice(0, 12)}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#122118] transition-colors"
+            className="p-hairline rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -45,53 +53,49 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
         {/* TRIGGER NODE PROPERTIES (Base de Datos) */}
         {isTrigger && (
-          <div className="space-y-4">
-            <div className="p-3.5 rounded-xl bg-[#0e1813] border border-[#1b3425] space-y-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-mint-300">
-                <Database className="w-4 h-4 text-mint-400" />
+          <div className="space-y-base">
+            <div className="p-compact rounded-control bg-raised border border-border space-y-compact">
+              <div className="flex items-center gap-compact text-label font-semibold text-brand">
+                <Database className="w-4 h-4 text-brand" />
                 <span>Conexión PostgreSQL</span>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-label text-secondary">
                 Conectado a la base de datos principal de Ferretería Industrial Santandereana.
               </p>
             </div>
 
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
-                HOST / BASE DE DATOS
-              </label>
+              <label className={labelClass}>HOST / BASE DE DATOS</label>
               <input
                 type="text"
                 value={props.dbHost || "localhost:5432 / ai_back_office"}
                 disabled
-                className="w-full px-3 py-2 rounded-xl bg-[#0c1410] border border-[#1c3326] text-xs font-mono text-gray-300"
+                className={`${inputClass} font-mono text-secondary`}
               />
             </div>
 
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
-                TABLAS CONECTADAS
-              </label>
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                <div className="px-3 py-2 rounded-lg bg-[#0e1813] border border-[#1a3023] text-gray-300">
+              <label className={labelClass}>TABLAS CONECTADAS</label>
+              <div className="grid grid-cols-2 gap-compact text-label font-mono">
+                <div className="px-compact py-hairline rounded-control bg-raised border border-border text-secondary">
                   products (154)
                 </div>
-                <div className="px-3 py-2 rounded-lg bg-[#0e1813] border border-[#1a3023] text-gray-300">
+                <div className="px-compact py-hairline rounded-control bg-raised border border-border text-secondary">
                   suppliers (6)
                 </div>
-                <div className="px-3 py-2 rounded-lg bg-[#0e1813] border border-[#1a3023] text-gray-300">
+                <div className="px-compact py-hairline rounded-control bg-raised border border-border text-secondary">
                   warehouses (3)
                 </div>
-                <div className="px-3 py-2 rounded-lg bg-[#0e1813] border border-[#1a3023] text-gray-300">
+                <div className="px-compact py-hairline rounded-control bg-raised border border-border text-secondary">
                   orders (28)
                 </div>
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-compact">
               <button
                 type="button"
-                className="w-full py-2 px-3 rounded-xl bg-[#112318] hover:bg-[#183523] border border-[#214730] text-xs font-semibold text-mint-300 transition-colors"
+                className="w-full py-hairline px-compact rounded-control bg-raised hover:bg-brand-surface border border-border text-label font-semibold text-brand transition-colors"
               >
                 Recargar esquema de PostgreSQL
               </button>
@@ -101,44 +105,42 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
         {/* AGENT NODE PROPERTIES */}
         {isAgent && (
-          <div className="space-y-4">
+          <div className="space-y-base">
             {/* NODE NAME */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
-                NODE NAME
-              </label>
+              <label className={labelClass}>NOMBRE DEL NODO</label>
               <input
                 type="text"
                 value={props.nodeName || "AI Agent"}
                 onChange={(e) =>
                   onUpdateProperties(selectedNode.id, { nodeName: e.target.value })
                 }
-                className="w-full px-3 py-2 rounded-xl bg-[#0c1410] border border-[#1e3828] focus:border-mint-500 focus:outline-none text-xs text-white"
+                className={inputClass}
               />
             </div>
 
             {/* OBJETIVO OPERATIVO ASIGNADO */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-mint-400 flex items-center gap-1">
+              <div className="flex items-center justify-between mb-hairline">
+                <label className="text-caption font-semibold text-brand flex items-center gap-hairline">
                   <Target className="w-3.5 h-3.5" />
                   <span>OBJETIVO OPERATIVO</span>
                 </label>
-                <span className="text-[10px] font-mono text-gray-500 uppercase">{currentObjective.badge}</span>
+                <span className="text-caption font-mono text-muted">{currentObjective.badge}</span>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0c1511] border border-[#1b3626] space-y-2">
+              <div className="p-compact rounded-control bg-raised border border-border space-y-compact">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-100">{currentObjective.title}</span>
-                  <span className="w-2 h-2 rounded-full bg-mint-400"></span>
+                  <span className="text-label font-semibold text-primary">{currentObjective.title}</span>
+                  <span className="w-2 h-2 rounded-pill bg-brand"></span>
                 </div>
-                <p className="text-[11px] text-gray-400 leading-relaxed">
+                <p className="text-caption text-secondary leading-relaxed">
                   {currentObjective.description}
                 </p>
                 <button
                   type="button"
                   onClick={onOpenObjectives}
-                  className="w-full mt-1 py-1.5 px-2.5 rounded-lg bg-[#112318] hover:bg-[#193624] border border-[#1f422e] text-[11px] font-semibold text-mint-300 transition-colors flex items-center justify-center gap-1.5"
+                  className="w-full mt-hairline py-hairline px-compact rounded-control bg-raised hover:bg-brand-surface border border-border text-caption font-semibold text-brand transition-colors flex items-center justify-center gap-hairline"
                 >
                   <span>Cambiar objetivo o directivas...</span>
                 </button>
@@ -147,30 +149,26 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
             {/* DESCRIPTION */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
-                DESCRIPTION / DIRECTIVA
-              </label>
+              <label className={labelClass}>DESCRIPCIÓN / DIRECTIVA</label>
               <textarea
                 rows={3}
                 value={props.description || ""}
                 onChange={(e) =>
                   onUpdateProperties(selectedNode.id, { description: e.target.value })
                 }
-                className="w-full px-3 py-2 rounded-xl bg-[#0c1410] border border-[#1e3828] focus:border-mint-500 focus:outline-none text-xs text-gray-300 resize-none leading-relaxed"
+                className={`${inputClass} text-secondary resize-none leading-relaxed`}
               />
             </div>
 
             {/* CHAT MODEL */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
-                CHAT MODEL
-              </label>
+              <label className={labelClass}>MODELO DE CHAT</label>
               <select
                 value={props.model || "grok-4.6"}
                 onChange={(e) =>
                   onUpdateProperties(selectedNode.id, { model: e.target.value })
                 }
-                className="w-full px-3 py-2 rounded-xl bg-[#0c1410] border border-[#1e3828] text-xs text-white focus:outline-none focus:border-mint-500"
+                className={inputClass}
               >
                 <option value="grok-4.6">Grok-4.6 (Recomendado)</option>
                 <option value="grok-beta">Grok-Beta (Baja Latencia)</option>
@@ -180,11 +178,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             </div>
 
             {/* MAX ITERATIONS & MEMORY LIMIT */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-compact">
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
-                  Max Iterations
-                </label>
+                <label className={labelClass}>Iteraciones máximas</label>
                 <input
                   type="number"
                   min={1}
@@ -195,37 +191,35 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       maxIterations: parseInt(e.target.value) || 10,
                     })
                   }
-                  className="w-full px-3 py-2 rounded-xl bg-[#0c1410] border border-[#1e3828] text-xs text-white focus:outline-none focus:border-mint-500 font-mono"
+                  className={`${inputClass} font-mono`}
                 />
               </div>
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
-                  Memory limit
-                </label>
+                <label className={labelClass}>Límite de memoria</label>
                 <input
                   type="text"
                   value={props.memoryLimit || "50k tokens"}
                   disabled
-                  className="w-full px-3 py-2 rounded-xl bg-[#0c1410] border border-[#1e3828] text-xs text-gray-400 font-mono"
+                  className={`${inputClass} text-muted font-mono`}
                 />
               </div>
             </div>
 
-            {/* UMBRAL DE GOBERNANZA HITL */}
-            <div className="p-3 rounded-xl bg-[#0f1d15] border border-[#1f422e] space-y-1.5">
+            {/* UMBRAL DE GOBERNANZA */}
+            <div className="p-compact rounded-control bg-raised border border-border space-y-hairline">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-mint-300 flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-mint-400" />
-                  <span>Umbral HITL</span>
+                <span className="text-caption font-semibold text-brand flex items-center gap-hairline">
+                  <Shield className="w-3.5 h-3.5 text-brand" />
+                  <span>Umbral de aprobación</span>
                 </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-mint-950 text-mint-400 border border-mint-500/40">
+                <span className="text-caption font-mono px-hairline py-hairline rounded-control bg-brand-surface text-brand border border-brand/40">
                   GOBERNANZA
                 </span>
               </div>
-              <p className="text-xs font-mono font-bold text-white">
+              <p className="text-label font-mono font-semibold text-primary">
                 $5,000,000 COP
               </p>
-              <p className="text-[10px] text-gray-400">
+              <p className="text-caption text-secondary">
                 Toda compra mayor es derivada automáticamente a la bandeja de decisiones para aprobación humana.
               </p>
             </div>
@@ -234,23 +228,19 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
         {/* ACTION NODE PROPERTIES */}
         {!isAgent && !isTrigger && (
-          <div className="space-y-4">
+          <div className="space-y-base">
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
-                ACCIÓN SELECCIONADA
-              </label>
+              <label className={labelClass}>ACCIÓN SELECCIONADA</label>
               <input
                 type="text"
                 value={selectedNode.label}
                 disabled
-                className="w-full px-3 py-2 rounded-xl bg-[#0c1410] border border-[#1e3828] text-xs font-bold text-white"
+                className={`${inputClass} font-semibold`}
               />
             </div>
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
-                DESCRIPCIÓN DE IMPACTO
-              </label>
-              <p className="text-xs text-gray-300 leading-relaxed bg-[#0c1410] p-3 rounded-xl border border-[#1e3828]">
+              <label className={labelClass}>DESCRIPCIÓN DE IMPACTO</label>
+              <p className="text-label text-secondary leading-relaxed bg-raised p-compact rounded-control border border-border">
                 {props.description || "Acción operativa conectada al flujo del agente."}
               </p>
             </div>
@@ -259,9 +249,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       </div>
 
       {/* Footer Info */}
-      <div className="pt-4 border-t border-[#17281f] text-[11px] text-gray-500 font-mono flex items-center justify-between">
+      <div className="pt-base border-t border-border text-caption text-muted font-mono flex items-center justify-between">
         <span>Mint Studio v2.4</span>
-        <span className="text-mint-400">Ready</span>
+        <span className="text-brand">Listo</span>
       </div>
     </aside>
   );

@@ -20,6 +20,47 @@ export interface DaemonTickSummary {
   stockDeficitsTriggered: number;
   shipmentDelaysTriggered: number;
   recoveredEventsCount: number;
+  /** Filas sincronizadas desde la fuente real en este tick (0 si no aplica) */
+  syncedRows?: number;
+  /** Estado del motor de sync si se ejecutó */
+  syncStatus?: string;
+}
+
+/**
+ * Ejecuta una sincronización activa contra la fuente real configurada en .env.
+ * Es best-effort: si no hay fuente configurada o falla, el daemon continúa.
+ */
+async function runActiveSync(companyId: string): Promise<{ rows: number; status: string } | null> {
+  const connectionString = process.env.INGEST_POSTGRES_URL || process.env.DATABASE_URL;
+  const table = process.env.INGEST_SYNC_TABLE;
+  if (!connectionString || !table) return null;
+
+  try {
+    const { listPostgresTables, queryReadOnlyPostgres, syncDataSource } = await import("@mint/ingest");
+    // Validar que la tabla exista antes de consultar
+    const tables = await listPostgresTables(connectionString);
+    if (!tables.includes(table)) {
+      return { rows: 0, status: "TABLE_NOT_FOUND" };
+    }
+    const { rows, headers } = await queryReadOnlyPostgres({
+      connectionString,
+      tableName: table,
+      limit: Number(process.env.INGEST_SYNC_LIMIT) || 5000,
+    });
+    const result = await syncDataSource({
+      companyId,
+      sourceName: `daemon:${table}`,
+      sourceType: "postgres_readonly",
+      uriOrPath: `postgres://${table}`,
+      currentHeaders: headers,
+      rows,
+      originMtime: new Date(),
+    });
+    return { rows: result.importedRows, status: result.status };
+  } catch (err: any) {
+    console.error(`[DAEMON] Error en sincronización activa: ${err.message}`);
+    return { rows: 0, status: "ERROR" };
+  }
 }
 
 /**
@@ -40,10 +81,11 @@ export async function tickOnce(companyId: string = "comp_default"): Promise<Daem
   }
 
   // 1. Escanear desabastos, retrasos viales y recuperar eventos operativos pendientes en PostgreSQL
-  const [stockCount, shipmentCount, recoveredCount] = await Promise.all([
+  const [stockCount, shipmentCount, recoveredCount, syncResult] = await Promise.all([
     scanStockDeficits(companyId),
     scanDelayedShipments(companyId),
     mintOrchestrator.processPendingOperationalEvents(companyId).catch(() => 0),
+    runActiveSync(companyId).catch(() => null),
   ]);
 
   state.lastTickAt = timestamp;
@@ -57,6 +99,8 @@ export async function tickOnce(companyId: string = "comp_default"): Promise<Daem
     stockDeficitsTriggered: stockCount,
     shipmentDelaysTriggered: shipmentCount,
     recoveredEventsCount: recoveredCount,
+    syncedRows: syncResult?.rows ?? 0,
+    syncStatus: syncResult?.status,
   };
 }
 

@@ -3,6 +3,7 @@ import { env, getLlmApiKey } from "../config/env";
 import { db } from "../db/client";
 import { llmCalls } from "../db/schema";
 import { randomUUID } from "node:crypto";
+import { calculateCallCost } from "./pricing";
 
 export interface LLMCallOptions {
   caseId?: string;
@@ -33,8 +34,6 @@ export interface LLMCallResult {
   finishReason: string;
 }
 
-const PRICE_PER_1M_PROMPT = 2.0;
-const PRICE_PER_1M_COMPLETION = 10.0;
 const MAX_RETRIES = 3;
 
 export class GrokClient {
@@ -95,12 +94,13 @@ export class GrokClient {
       (usage as any)?.prompt_tokens_details?.cached_tokens ?? 0;
     const totalTokens = usage?.total_tokens ?? 0;
 
-    const uncachedPromptTokens = Math.max(0, promptTokens - cachedTokens);
-    // Tokens en caché tienen costo con descuento del 50%
-    const promptCost = ((uncachedPromptTokens + cachedTokens * 0.5) / 1_000_000) * PRICE_PER_1M_PROMPT;
-    const completionCost =
-      (completionTokens / 1_000_000) * PRICE_PER_1M_COMPLETION;
-    const totalCostUsd = (promptCost + completionCost).toFixed(6);
+    // Costo exacto calculado con la tabla de tarifas centralizada (pricing.ts)
+    const totalCostUsd = calculateCallCost(
+      response.model,
+      promptTokens,
+      completionTokens,
+      cachedTokens,
+    );
 
     const result: LLMCallResult = {
       content: choice.message.content,
@@ -119,7 +119,7 @@ export class GrokClient {
     };
 
     if (options.caseId) {
-      this.logCallToDatabase(options.caseId, result).catch(() => {});
+      this.logCallToDatabase(options.caseId, result).catch(() => { });
     }
 
     return result;

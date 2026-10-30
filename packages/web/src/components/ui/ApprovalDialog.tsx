@@ -62,12 +62,12 @@ export const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
             {/* Header */}
             <div className="px-5 py-4 border-b border-forest-border flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#6366F1]/10 border border-[#6366F1]/30 flex items-center justify-center text-[#818CF8]">
+                <div className="w-8 h-8 rounded-control bg-state-pending-surface border border-state-pending/30 flex items-center justify-center text-state-pending">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-txt-primary">{title}</h3>
-                  <p className="text-[11px] text-txt-tertiary">
+                  <p className="text-caption text-muted">
                     Supera el umbral autónomo de $5.000.000 COP
                   </p>
                 </div>
@@ -120,7 +120,7 @@ export const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
               </div>
 
               {/* Criptografía */}
-              <div className="p-3 rounded-xl bg-forest-card/50 border border-forest-border/80 flex items-center gap-2.5 text-[11px] text-txt-secondary">
+              <div className="p-compact rounded-control bg-raised border border-border flex items-center gap-compact text-caption text-secondary">
                 <Lock className="w-3.5 h-3.5 text-brand flex-shrink-0" />
                 <span>
                   La autorización generará una firma inmutable <strong className="font-mono text-txt-primary">HMAC-SHA256</strong> asociada a la sesión de Fernando S.

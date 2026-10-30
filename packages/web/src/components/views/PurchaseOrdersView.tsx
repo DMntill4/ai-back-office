@@ -1,43 +1,28 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  FileText,
   Search,
-  ShoppingCart,
   CheckCircle2,
-  Clock,
   AlertTriangle,
-  Building,
-  DollarSign,
-  ArrowUpRight,
-  Filter,
   Plus,
-  Copy,
-  Check,
   Download,
   ShieldCheck,
   RefreshCw,
   Sparkles,
-  ExternalLink,
   ChevronRight,
   X,
-  Code,
-  FileCheck,
-  Layers,
-  ArrowRight,
-  Percent,
   LayoutGrid,
   List,
   RotateCcw,
   MoreHorizontal,
   MapPin,
   Truck,
-  Package,
-  ShoppingBag,
-  UserCheck,
+  ArrowUpRight,
 } from "lucide-react";
 import { MilestoneStepper, MilestoneStep } from "../ui/MilestoneStepper";
 import { StatusBadge } from "../ui/StatusBadge";
+import { EmptyState } from "../ui/EmptyState";
+import { api } from "../../services/apiClient";
 
 interface OrderLineItem {
   sku: string;
@@ -77,236 +62,78 @@ interface PurchaseOrder {
   };
 }
 
-const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
-  {
-    id: "po_24a1902e",
-    orderNumber: "PO-24A190",
-    receiptFile: "receipts/po_24a190.json",
-    origin: "agente",
+const IVA_RATE = 0.19;
+const HITL_THRESHOLD_COP = 5000000;
+
+/** Traduce el estado crudo del backend a la máquina de estados de la vista. */
+function toOrderStatus(raw: any, humanApproved: boolean): PurchaseOrder["status"] {
+  const value = String(raw ?? "").toLowerCase();
+  if (value.includes("recib") || value.includes("deliver") || value.includes("complet")) return "recibida_bodega";
+  if (value.includes("transit") || value.includes("shipped") || value.includes("emit") || value.includes("approv")) {
+    return humanApproved ? "emitida" : "pendiente_gobernanza";
+  }
+  if (value.includes("pend") || value.includes("review") || value.includes("approval")) return "pendiente_gobernanza";
+  return "borrador_ia";
+}
+
+/** Construye una orden de compra a partir del payload de `/api/orders`. */
+function mapOrder(row: any, idx: number): PurchaseOrder {
+  const quantity = Number(row?.quantity ?? 1) || 1;
+  const totalCop = Number(row?.amountMXN ?? 0) || 0;
+  const subtotalCop = Math.round(totalCop / (1 + IVA_RATE));
+  const ivaCop = totalCop - subtotalCop;
+  const unitPriceCop = Math.round(subtotalCop / quantity);
+  const humanApproved = Boolean(row?.humanApproved);
+  const status = toOrderStatus(row?.status, humanApproved);
+  const orderNumber = String(row?.orderId ?? `PO-${idx + 1}`).toUpperCase();
+  const supplier = String(row?.provider ?? "Proveedor sin asignar");
+  const productName = String(row?.productName ?? row?.sku ?? "Ítem sin descripción");
+  const sku = String(row?.sku ?? "SKU-SIN-ASIGNAR");
+  const destination = row?.carrier ? `Despacho ${row.carrier}` : "Bodega principal";
+  const isHitlEscalated = status === "pendiente_gobernanza" || totalCop > HITL_THRESHOLD_COP;
+
+  return {
+    id: String(row?.orderId ?? `po_${idx}`),
+    orderNumber,
+    receiptFile: `receipts/${orderNumber.toLowerCase()}.json`,
+    origin: humanApproved ? "manual" : "agente",
     specialist: "comprasSpecialist",
-    supplier: "Ferreterías Unidas Bogotá S.A.S.",
-    supplierCity: "Bogotá D.C.",
-    destination: "Bodega Matriz Bucaramanga",
-    category: "Consumibles de Corte",
+    supplier,
+    supplierCity: String(row?.carrier ?? "—"),
+    destination,
+    category: "Abastecimiento",
     lineItems: [
       {
-        sku: "SKU-COR-DISC7",
-        description: "Disco Diamantado 7' Concreto Industrial",
-        quantity: 30,
-        unitPriceCop: 45000,
-        subtotalCop: 1350000,
+        sku,
+        description: productName,
+        quantity,
+        unitPriceCop,
+        subtotalCop,
       },
     ],
-    subtotalCop: 1350000,
-    ivaCop: 256500,
-    aiDiscountCop: 56700,
-    totalCop: 1549800,
-    date: "Hoy, 10:18 a. m.",
-    status: "emitida",
-    policyApplied: "Autonomía < $5M COP",
-    isHitlEscalated: false,
-    hmacSignature: "hmac_sha256_9f81a7b640192e",
-    mathJustification: {
-      currentStock: 8,
-      ropThreshold: 25,
-      dailyBurnRate: 2.1,
-      coverageDays: 3.8,
-      projectedStockoutHours: 91,
-      recommendationText:
-        "Inventario en 8 un. frente a ROP de 25 un. Burn rate histórico de 2.1 un/día. Lote propuesto de 30 un. cubre 14.2 días de operación. Monto bajo umbral de $5M COP: ejecución autónoma aprobada.",
-    },
-  },
-  {
-    id: "po_40bfb88c",
-    orderNumber: "PO-40BFB8",
-    receiptFile: "receipts/po_40bfb8.json",
-    origin: "agente",
-    specialist: "financial_maestro",
-    supplier: "DeWalt Colombia (Mayorista Homologado)",
-    supplierCity: "Bogotá D.C.",
-    destination: "Bodega Matriz Bucaramanga",
-    category: "Herramientas Eléctricas",
-    lineItems: [
-      {
-        sku: "SKU-MAN-SM400",
-        description: "Martillo Demoledor SDS-Max 1500W Industrial",
-        quantity: 15,
-        unitPriceCop: 425000,
-        subtotalCop: 6375000,
-      },
-    ],
-    subtotalCop: 6375000,
-    ivaCop: 1211250,
-    aiDiscountCop: 267750,
-    totalCop: 7318500,
-    date: "Hoy, 09:30 a. m.",
-    status: "pendiente_gobernanza",
-    policyApplied: "Escalada a firma ejecutiva > $5M COP",
-    isHitlEscalated: true,
-    hmacSignature: "hmac_sha256_31a89c02ff1e92",
-    mathJustification: {
-      currentStock: 3,
-      ropThreshold: 12,
-      dailyBurnRate: 0.8,
-      coverageDays: 3.7,
-      projectedStockoutHours: 88,
-      recommendationText:
-        "Stock crítico de 3 un. en Bodega Matriz. El monto total ($7.318.500 COP con IVA) supera el umbral autónomo de $5.000.000 COP. Escalada obligatoria a bandeja /inbox para aprobación de Fernando S.",
-    },
-  },
-  {
-    id: "po_89cc412d",
-    orderNumber: "PO-89CC41",
-    receiptFile: "receipts/po_89cc41.json",
-    origin: "agente",
-    specialist: "comprasSpecialist",
-    supplier: "Mundial de Tornillos S.A.S.",
-    supplierCity: "Bucaramanga",
-    destination: "CD Bogotá D.C.",
-    category: "Fijación y Tornillería",
-    lineItems: [
-      {
-        sku: "SKU-PER-HEXG8",
-        description: "Pernos Hexagonales Grado 8 1/2' x 3'",
-        quantity: 1200,
-        unitPriceCop: 3200,
-        subtotalCop: 3840000,
-      },
-    ],
-    subtotalCop: 3840000,
-    ivaCop: 729600,
-    aiDiscountCop: 161280,
-    totalCop: 4408320,
-    date: "Ayer, 16:45 p. m.",
-    status: "recibida_bodega",
-    policyApplied: "Autonomía < $5M COP",
-    isHitlEscalated: false,
-    hmacSignature: "hmac_sha256_77c12faa9011",
-    mathJustification: {
-      currentStock: 120,
-      ropThreshold: 500,
-      dailyBurnRate: 57.1,
-      coverageDays: 2.1,
-      projectedStockoutHours: 50,
-      recommendationText:
-        "Desabasto proyectado en 2.1 días por demanda de obra civil. Pedido recibido y auditado en bodega con 0 discrepancias.",
-    },
-  },
-  {
-    id: "po_19ea78b1",
-    orderNumber: "PO-19EA78",
-    receiptFile: "receipts/po_19ea78.json",
-    origin: "manual",
-    specialist: "comprasSpecialist",
-    supplier: "Distribuidora del Centro S.A.S.",
-    supplierCity: "Bucaramanga",
-    destination: "Bodega Matriz Bucaramanga",
-    category: "Soldadura y Ensamble",
-    lineItems: [
-      {
-        sku: "SKU-SOL-E6013",
-        description: "Soldadura E6013 1/8' Caja 20kg",
-        quantity: 25,
-        unitPriceCop: 210000,
-        subtotalCop: 5250000,
-      },
-    ],
-    subtotalCop: 5250000,
-    ivaCop: 997500,
+    subtotalCop,
+    ivaCop,
     aiDiscountCop: 0,
-    totalCop: 6247500,
-    date: "27 Oct 2026",
-    status: "emitida",
-    policyApplied: "HITL Aprobada ($5M+) por Fernando S.",
-    isHitlEscalated: true,
-    hmacSignature: "hmac_sha256_44b9d033f810",
+    totalCop,
+    date: row?.createdAt ? new Date(row.createdAt).toLocaleString("es-CO") : "Sin fecha",
+    status,
+    policyApplied: isHitlEscalated
+      ? `Escalada a firma ejecutiva > $${HITL_THRESHOLD_COP.toLocaleString("es-CO")} COP`
+      : `Autonomía < $${HITL_THRESHOLD_COP.toLocaleString("es-CO")} COP`,
+    isHitlEscalated,
+    hmacSignature: String(row?.trackingNumber ?? `hmac_sha256_${orderNumber.toLowerCase()}`),
     mathJustification: {
-      currentStock: 14,
-      ropThreshold: 40,
-      dailyBurnRate: 4.1,
-      coverageDays: 3.4,
-      projectedStockoutHours: 81,
-      recommendationText:
-        "Solicitud manual creada por operador. Justificación técnica: Lote de refuerzo para contrato Anillo Vial Girón.",
+      currentStock: 0,
+      ropThreshold: 0,
+      dailyBurnRate: 0,
+      coverageDays: 0,
+      projectedStockoutHours: 0,
+      recommendationText: humanApproved
+        ? "Orden aprobada por un operador humano y despachada al proveedor."
+        : "Orden formulada por el agente de compras a partir de la alerta de reposición.",
     },
-  },
-  {
-    id: "po_99fa120e",
-    orderNumber: "PO-99FA12",
-    receiptFile: "receipts/po_99fa12.json",
-    origin: "agente",
-    specialist: "financial_maestro",
-    supplier: "Bosch Sistemas Industriales Colombia",
-    supplierCity: "Medellín",
-    destination: "CD Medellín",
-    category: "Herramientas Eléctricas",
-    lineItems: [
-      {
-        sku: "SKU-TAL-IMP20",
-        description: "Taladro de Impacto Inalámbrico 20V Industrial",
-        quantity: 45,
-        unitPriceCop: 420000,
-        subtotalCop: 18900000,
-      },
-    ],
-    subtotalCop: 18900000,
-    ivaCop: 3591000,
-    aiDiscountCop: 945000,
-    totalCop: 21546000,
-    date: "26 Oct 2026",
-    status: "pendiente_gobernanza",
-    policyApplied: "Escalada a firma ejecutiva > $5M COP",
-    isHitlEscalated: true,
-    hmacSignature: "hmac_sha256_dd410a88de44",
-    mathJustification: {
-      currentStock: 12,
-      ropThreshold: 35,
-      dailyBurnRate: 1.8,
-      coverageDays: 6.6,
-      projectedStockoutHours: 158,
-      recommendationText:
-        "Compra consolidada semestral para capturar el 5.0% de descuento por volumen ofrecido en playbook de negociación.",
-    },
-  },
-  {
-    id: "po_22ba8110",
-    orderNumber: "PO-22BA81",
-    receiptFile: "receipts/po_22ba81.json",
-    origin: "agente",
-    specialist: "comprasSpecialist",
-    supplier: "Siderúrgica de Santander S.A.S.",
-    supplierCity: "Piedecuesta",
-    destination: "Bodega Matriz Bucaramanga",
-    category: "Perfiles de Acero",
-    lineItems: [
-      {
-        sku: "SKU-ACE-MALLA6",
-        description: "Mallas Electrosoldadas 6mm 2.4x6m",
-        quantity: 100,
-        unitPriceCop: 124000,
-        subtotalCop: 12400000,
-      },
-    ],
-    subtotalCop: 12400000,
-    ivaCop: 2356000,
-    aiDiscountCop: 620000,
-    totalCop: 14136000,
-    date: "28 Oct 2026",
-    status: "borrador_ia",
-    policyApplied: "Borrador de Cotización Evaluado por Agente",
-    isHitlEscalated: true,
-    hmacSignature: "hmac_sha256_draft_01",
-    mathJustification: {
-      currentStock: 20,
-      ropThreshold: 60,
-      dailyBurnRate: 6.2,
-      coverageDays: 3.2,
-      projectedStockoutHours: 76,
-      recommendationText:
-        "Borrador en formulación. Landed Cost calculado en $14.136.000 COP incluyendo flete de camión doble troque.",
-    },
-  },
-];
+  };
+}
 
 interface PurchaseOrdersViewProps {
   onOpenApprovalModal?: () => void;
@@ -315,8 +142,8 @@ interface PurchaseOrdersViewProps {
 export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
   onOpenApprovalModal,
 }) => {
-  const [orders, setOrders] = useState<PurchaseOrder[]>(INITIAL_PURCHASE_ORDERS);
-  const [selectedOrderId, setSelectedOrderId] = useState<string>("po_24a1902e");
+  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "borrador_ia" | "emitida" | "recibida_bodega">("all");
   const [warehouseFilter, setWarehouseFilter] = useState<string>("all");
@@ -326,6 +153,10 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
   const [minAmount, setMinAmount] = useState<string>("");
   const [maxAmount, setMaxAmount] = useState<string>("");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
 
   // Receipt Drawer Mode
   const [isReceiptDrawerOpen, setIsReceiptDrawerOpen] = useState(false);
@@ -341,6 +172,31 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
   // Reconcile processing state
   const [isReconciling, setIsReconciling] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.orders.list();
+      const rows = Array.isArray(res.data) ? res.data : [];
+      const mapped = rows.map(mapOrder);
+      setOrders(mapped);
+      setIsFallback(Boolean(res.isFallback));
+      if (!res.success) setError(res.message ?? "No fue posible leer las órdenes de compra.");
+      setSelectedOrderId((prev) =>
+        mapped.some((o) => o.id === prev) ? prev : mapped[0]?.id ?? ""
+      );
+    } catch (err: any) {
+      setError(err?.message ?? "Error de red al consultar las órdenes de compra.");
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const selectedOrder = useMemo(
     () => orders.find((o) => o.id === selectedOrderId) || orders[0],
@@ -366,7 +222,6 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
-      // 1. Search Query
       const matchesSearch =
         searchQuery === "" ||
         o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -377,37 +232,26 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
             item.sku.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
-      // 2. Estado (2x2 Buttons)
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "borrador_ia" && o.status === "borrador_ia") ||
         (statusFilter === "emitida" && (o.status === "emitida" || o.status === "pendiente_gobernanza")) ||
         (statusFilter === "recibida_bodega" && o.status === "recibida_bodega");
 
-      // 3. Sede / Bodega
       const matchesWarehouse =
         warehouseFilter === "all" ||
         (warehouseFilter === "bga" && o.destination.includes("Bucaramanga")) ||
         (warehouseFilter === "bog" && o.destination.includes("Bogotá")) ||
         (warehouseFilter === "med" && o.destination.includes("Medellín"));
 
-      // 4. Proveedor
       const matchesSupplier =
-        supplierFilter === "all" ||
-        (supplierFilter === "ferreterias_unidas" && o.supplier.includes("Ferreterías Unidas")) ||
-        (supplierFilter === "dewalt" && o.supplier.includes("DeWalt")) ||
-        (supplierFilter === "mundial" && o.supplier.includes("Mundial de Tornillos")) ||
-        (supplierFilter === "distribuidora" && o.supplier.includes("Distribuidora del Centro")) ||
-        (supplierFilter === "bosch" && o.supplier.includes("Bosch")) ||
-        (supplierFilter === "siderurgica" && o.supplier.includes("Siderúrgica"));
+        supplierFilter === "all" || o.supplier.toLowerCase().includes(supplierFilter.toLowerCase());
 
-      // 5. Nivel de Aprobación
       const matchesApproval =
         approvalFilter === "all" ||
         (approvalFilter === "autonoma" && !o.isHitlEscalated) ||
-        (approvalFilter === "hitl" && o.isHitlEscalated);
+        (approvalFilter === "approval" && o.isHitlEscalated);
 
-      // 6. Rango de Monto
       const minVal = minAmount ? parseFloat(minAmount) : 0;
       const maxVal = maxAmount ? parseFloat(maxAmount) : Infinity;
       const matchesAmount = o.totalCop >= minVal && o.totalCop <= maxVal;
@@ -434,9 +278,9 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
 
   const handleCreateOrder = () => {
     const subtotal = newOrderQuantity * newOrderUnitPrice;
-    const iva = subtotal * 0.19;
+    const iva = subtotal * IVA_RATE;
     const total = subtotal + iva;
-    const isOverThreshold = total > 5000000;
+    const isOverThreshold = total > HITL_THRESHOLD_COP;
 
     const newPO: PurchaseOrder = {
       id: `po_${Date.now()}`,
@@ -461,22 +305,22 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
       ivaCop: iva,
       aiDiscountCop: 0,
       totalCop: total,
-      date: "Hoy, Justo ahora",
+      date: "Hoy, justo ahora",
       status: isOverThreshold ? "pendiente_gobernanza" : "emitida",
       policyApplied: isOverThreshold
-        ? "Escalada a firma ejecutiva > $5M COP"
-        : "Autonomía < $5M COP",
+        ? `Escalada a firma ejecutiva > $${HITL_THRESHOLD_COP.toLocaleString("es-CO")} COP`
+        : `Autonomía < $${HITL_THRESHOLD_COP.toLocaleString("es-CO")} COP`,
       isHitlEscalated: isOverThreshold,
       hmacSignature: `hmac_sha256_${Math.random().toString(16).substring(2, 10)}`,
       mathJustification: {
-        currentStock: 5,
-        ropThreshold: 20,
-        dailyBurnRate: 1.5,
-        coverageDays: 3.3,
-        projectedStockoutHours: 80,
+        currentStock: 0,
+        ropThreshold: 0,
+        dailyBurnRate: 0,
+        coverageDays: 0,
+        projectedStockoutHours: 0,
         recommendationText: `Orden manual ingresada por operador. ${isOverThreshold
-          ? "Monto sobre $5.000.000 COP: Enviada a bandeja de aprobaciones."
-          : "Monto bajo umbral de gobernanza: Autorización inmediata."
+          ? "Monto sobre el umbral de gobernanza: enviada a la bandeja de aprobaciones."
+          : "Monto bajo el umbral de gobernanza: autorización inmediata."
           }`,
       },
     };
@@ -485,8 +329,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
     setSelectedOrderId(newPO.id);
     setIsNewOrderModalOpen(false);
     showToast(
-      `Orden ${newPO.orderNumber} creada con éxito (${isOverThreshold ? "Escalada a /inbox" : "Emitida al proveedor"
-      }).`
+      `Orden ${newPO.orderNumber} creada (${isOverThreshold ? "escalada a aprobaciones" : "emitida al proveedor"}).`
     );
   };
 
@@ -494,47 +337,55 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
     setIsReconciling(true);
     setTimeout(() => {
       setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId
-            ? { ...o, status: "recibida_bodega" as const }
-            : o
-        )
+        prev.map((o) => (o.id === orderId ? { ...o, status: "recibida_bodega" as const } : o))
       );
       setIsReconciling(false);
       showToast(
-        "reconciliarFactura: Factura y remisión de proveedor cotejadas contra existencias físicas. 0 discrepancias."
+        "Factura y remisión del proveedor cotejadas contra existencias físicas. 0 discrepancias."
       );
     }, 900);
   };
 
-  // 2x2 Filter Buttons definition matching user specification
   const statusButtons: {
     id: "all" | "borrador_ia" | "emitida" | "recibida_bodega";
     label: string;
     count: number;
   }[] = [
-      { id: "all", label: "Todas", count: 32 },
-      { id: "borrador_ia", label: "Borrador IA", count: 8 },
-      { id: "emitida", label: "En Tránsito", count: 14 },
-      { id: "recibida_bodega", label: "Recibidas", count: 10 },
+      { id: "all", label: "Todas", count: orders.length },
+      { id: "borrador_ia", label: "Borrador IA", count: orders.filter((o) => o.status === "borrador_ia").length },
+      {
+        id: "emitida",
+        label: "En Tránsito",
+        count: orders.filter((o) => o.status === "emitida" || o.status === "pendiente_gobernanza").length,
+      },
+      { id: "recibida_bodega", label: "Recibidas", count: orders.filter((o) => o.status === "recibida_bodega").length },
     ];
 
+  const supplierOptions = useMemo(
+    () => Array.from(new Set(orders.map((o) => o.supplier))).sort(),
+    [orders]
+  );
+
+  const selectClass =
+    "w-full h-8 bg-raised border border-border rounded-control px-2.5 text-caption text-primary font-sans focus:outline-none focus:border-brand/50 cursor-pointer";
+
   return (
-    <div className="flex-1 h-full overflow-hidden flex flex-col bg-canvas text-[#F9FAFB] font-sans select-none relative">
-      {/* Toast Notification */}
+    <div className="flex-1 h-full overflow-hidden flex flex-col bg-canvas text-primary font-sans relative">
       <AnimatePresence>
         {toastMessage && (
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E] border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
+            role="status"
+            className="fixed top-6 right-8 z-50 px-element py-compact rounded-pill flex items-center gap-element bg-raised border border-brand/40 text-body text-primary shadow-dialog"
           >
-            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span className="text-xs font-mono font-medium">{toastMessage}</span>
+            <span className="w-2 h-2 rounded-pill bg-state-ok" />
+            <span className="text-caption font-mono font-medium">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
+              className="text-secondary hover:text-primary text-caption ml-hairline cursor-pointer"
+              title="Cerrar aviso"
             >
               ✕
             </button>
@@ -542,63 +393,57 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
         )}
       </AnimatePresence>
 
-      {/* ========================================================= */}
-      {/* 1. HEADER SUPERIOR EJECUTIVO (INVENTAR STYLE)             */}
-      {/* ========================================================= */}
-      <header className="px-6 py-4 bg-canvas border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-20 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Purchase Order
-          </h1>
-          <span className="text-zinc-500 font-mono text-xs hidden md:inline">
-            · Flujo de Abastecimiento & Gobernanza
+      <header className="px-group py-base bg-canvas border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-base z-20 shrink-0">
+        <div className="flex items-center gap-element">
+          <h1 className="text-page-title font-bold text-primary tracking-tight">Órdenes de compra</h1>
+          <span className="text-muted font-mono text-caption hidden md:inline">
+            · Flujo de abastecimiento y gobernanza
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Buscador de productos y órdenes */}
+        <div className="flex items-center gap-element">
           <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3.5 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-muted absolute left-3.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar producto, PO o proveedor..."
-              className="h-9 w-60 sm:w-72 bg-surface-1 border border-white/[0.08] hover:border-white/20 focus:border-emerald-500/50 rounded-xl pl-9 pr-9 text-xs text-white placeholder:text-zinc-500 focus:outline-none transition-all font-sans"
+              className="h-9 w-60 sm:w-72 bg-raised border border-border hover:border-border-strong focus:border-brand/50 rounded-control pl-9 pr-9 text-caption text-primary placeholder:text-muted focus:outline-none transition-colors font-sans"
             />
-            <span className="absolute right-2.5 text-[10px] font-mono text-zinc-500 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] pointer-events-none">
-              ⌘F
-            </span>
           </div>
 
-          {/* Switcher de Vista (Tarjetas Inventar vs Tabla) */}
-          <div className="flex items-center p-1 rounded-xl bg-surface-1 border border-white/[0.08]">
+          <div className="flex items-center p-1 rounded-control bg-raised border border-border">
             <button
               onClick={() => setViewMode("cards")}
-              className={`p-1.5 rounded-lg transition-colors ${viewMode === "cards"
-                ? "bg-emerald-500/20 text-emerald-300"
-                : "text-zinc-500 hover:text-white"
+              className={`p-1.5 rounded-control transition-colors cursor-pointer ${viewMode === "cards" ? "bg-brand-surface text-brand" : "text-muted hover:text-primary"
                 }`}
-              title="Vista de Tarjetas con Stepper (Inventar)"
+              title="Vista de tarjetas con stepper"
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`p-1.5 rounded-lg transition-colors ${viewMode === "table"
-                ? "bg-emerald-500/20 text-emerald-300"
-                : "text-zinc-500 hover:text-white"
+              className={`p-1.5 rounded-control transition-colors cursor-pointer ${viewMode === "table" ? "bg-brand-surface text-brand" : "text-muted hover:text-primary"
                 }`}
-              title="Vista de Tabla"
+              title="Vista de tabla"
             >
               <List className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Botón Primario: Nueva Orden de Compra */}
+          <button
+            onClick={() => void load()}
+            className="h-9 px-element rounded-control bg-raised border border-border hover:border-border-strong text-secondary hover:text-primary text-caption font-medium flex items-center gap-compact transition-colors cursor-pointer"
+            title="Actualizar órdenes"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Actualizar</span>
+          </button>
+
           <button
             onClick={() => setIsNewOrderModalOpen(true)}
-            className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.45)]"
+            className="h-9 px-element rounded-control bg-brand hover:bg-brand/90 text-canvas font-semibold text-caption flex items-center gap-compact transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Nueva Orden</span>
@@ -606,35 +451,44 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
         </div>
       </header>
 
-      {/* ========================================================= */}
-      {/* 2. ÁREA PRINCIPAL: MASTER-FILTER LATERAL (260px) + LISTA  */}
-      {/* ========================================================= */}
-      <div className="flex-1 overflow-hidden flex flex-col md:flex-row p-6 gap-6 min-h-0">
-        {/* ------------------------------------------------------- */}
-        {/* PANEL IZQUIERDO DE FILTROS (260px)                      */}
-        {/* ------------------------------------------------------- */}
-        <aside className="w-full md:w-[260px] flex-shrink-0 bg-surface-1 rounded-2xl p-4 border border-white/[0.06] shadow-card flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-5">
-          <div className="space-y-5">
-            {/* Sección: ESTADO DE ORDEN (Grid 2x2) */}
-            <div className="space-y-2.5">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
-                ESTADO DE ORDEN
+      {isFallback && (
+        <div className="mx-group mt-base rounded-container border border-border bg-state-attention-surface px-element py-compact text-caption text-state-attention">
+          Mostrando órdenes de referencia: el servicio de compras no respondió. Los montos pueden no reflejar el estado real.
+        </div>
+      )}
+
+      {error && (
+        <div className="mx-group mt-base rounded-container border border-border bg-state-error-surface px-element py-compact text-caption text-state-error flex flex-wrap items-center justify-between gap-compact">
+          <span>{error}</span>
+          <button
+            onClick={() => void load()}
+            className="px-compact py-hairline rounded-control border border-border text-caption text-primary hover:bg-raised transition-colors cursor-pointer"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-hidden flex flex-col md:flex-row p-group gap-group min-h-0">
+        <aside className="w-full md:w-[260px] shrink-0 bg-panel rounded-container p-base border border-border flex flex-col justify-between overflow-y-auto space-y-group">
+          <div className="space-y-group">
+            <div className="space-y-compact">
+              <span className="text-caption font-mono text-muted font-bold block">
+                Estado de orden
               </span>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-compact">
                 {statusButtons.map((st) => (
                   <button
                     key={st.id}
                     onClick={() => setStatusFilter(st.id)}
-                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all ${statusFilter === st.id
-                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)] font-bold"
-                      : "bg-surface-well border-white/[0.04] text-zinc-400 hover:text-white hover:border-white/10"
+                    className={`p-compact rounded-control border text-left flex flex-col justify-between transition-colors cursor-pointer ${statusFilter === st.id
+                      ? "bg-brand-surface border-brand/40 text-brand font-bold"
+                      : "bg-raised border-border text-secondary hover:text-primary hover:border-border-strong"
                       }`}
                   >
-                    <span className="text-[11px] leading-tight block">{st.label}</span>
+                    <span className="text-caption leading-tight block">{st.label}</span>
                     <span
-                      className={`text-[10px] font-mono mt-1 px-1.5 py-0.2 rounded w-fit ${statusFilter === st.id
-                        ? "bg-emerald-500/20 text-emerald-300 font-bold"
-                        : "bg-white/[0.04] text-zinc-500"
+                      className={`text-caption font-mono mt-hairline px-1.5 rounded-pill w-fit tabular-nums ${statusFilter === st.id ? "bg-brand/20 text-brand font-bold" : "bg-canvas text-muted"
                         }`}
                     >
                       {st.count}
@@ -644,20 +498,14 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
               </div>
             </div>
 
-            {/* Sección: FILTRAR POR (Selectores Desplegables en Well) */}
-            <div className="space-y-3">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
-                FILTRAR POR
+            <div className="space-y-compact">
+              <span className="text-caption font-mono text-muted font-bold block">
+                Filtrar por
               </span>
 
-              {/* Sede / Bodega */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-zinc-500 block">Sede / Bodega</label>
-                <select
-                  value={warehouseFilter}
-                  onChange={(e) => setWarehouseFilter(e.target.value)}
-                  className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl px-2.5 text-xs text-zinc-300 font-sans focus:outline-none focus:border-emerald-500/50 cursor-pointer"
-                >
+              <div className="space-y-hairline">
+                <label className="text-caption font-mono text-muted block">Sede / Bodega</label>
+                <select value={warehouseFilter} onChange={(e) => setWarehouseFilter(e.target.value)} className={selectClass}>
                   <option value="all">Todas las sedes</option>
                   <option value="bga">Bodega Matriz Bucaramanga</option>
                   <option value="bog">CD Bogotá D.C.</option>
@@ -665,112 +513,104 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                 </select>
               </div>
 
-              {/* Fecha de Orden */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-zinc-500 block">Fecha de Orden</label>
-                <select
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl px-2.5 text-xs text-zinc-300 font-sans focus:outline-none focus:border-emerald-500/50 cursor-pointer"
-                >
+              <div className="space-y-hairline">
+                <label className="text-caption font-mono text-muted block">Fecha de orden</label>
+                <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className={selectClass}>
                   <option value="all">Todas las fechas</option>
-                  <option value="hoy">Hoy (29 Oct)</option>
+                  <option value="hoy">Hoy</option>
                   <option value="semana">Últimos 7 días</option>
-                  <option value="mes">Mes de Octubre</option>
+                  <option value="mes">Este mes</option>
                 </select>
               </div>
 
-              {/* Proveedor */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-zinc-500 block">Proveedor</label>
-                <select
-                  value={supplierFilter}
-                  onChange={(e) => setSupplierFilter(e.target.value)}
-                  className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl px-2.5 text-xs text-zinc-300 font-sans focus:outline-none focus:border-emerald-500/50 cursor-pointer"
-                >
+              <div className="space-y-hairline">
+                <label className="text-caption font-mono text-muted block">Proveedor</label>
+                <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className={selectClass}>
                   <option value="all">Todos los proveedores</option>
-                  <option value="ferreterias_unidas">Ferreterías Unidas Bogotá</option>
-                  <option value="dewalt">DeWalt Colombia</option>
-                  <option value="mundial">Mundial de Tornillos</option>
-                  <option value="distribuidora">Distribuidora del Centro</option>
-                  <option value="bosch">Bosch Sistemas Industriales</option>
-                  <option value="siderurgica">Siderúrgica de Santander</option>
+                  {supplierOptions.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* Nivel de Aprobación */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-zinc-500 block">Nivel de Aprobación</label>
-                <select
-                  value={approvalFilter}
-                  onChange={(e) => setApprovalFilter(e.target.value)}
-                  className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl px-2.5 text-xs text-zinc-300 font-sans focus:outline-none focus:border-emerald-500/50 cursor-pointer"
-                >
+              <div className="space-y-hairline">
+                <label className="text-caption font-mono text-muted block">Nivel de aprobación</label>
+                <select value={approvalFilter} onChange={(e) => setApprovalFilter(e.target.value)} className={selectClass}>
                   <option value="all">Todos los niveles</option>
-                  <option value="autonoma">Autonomía &lt; $5M COP</option>
-                  <option value="hitl">Requiere Firma Ejecutiva &gt; $5M COP</option>
+                  <option value="autonoma">Autonomía bajo umbral</option>
+                  <option value="approval">Requiere firma ejecutiva</option>
                 </select>
               </div>
             </div>
 
-            {/* Sección: RANGO DE MONTO ($) */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
-                RANGO DE MONTO ($)
+            <div className="space-y-compact">
+              <span className="text-caption font-mono text-muted font-bold block">
+                Rango de monto
               </span>
-              <div className="space-y-2">
+              <div className="space-y-compact">
                 <div className="relative flex items-center">
-                  <span className="absolute left-2.5 text-xs font-mono text-zinc-500">$</span>
+                  <span className="absolute left-2.5 text-caption font-mono text-muted">$</span>
                   <input
                     type="number"
                     placeholder="Monto mínimo"
                     value={minAmount}
                     onChange={(e) => setMinAmount(e.target.value)}
-                    className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl pl-6 pr-2.5 text-xs text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50"
+                    className="w-full h-8 bg-raised border border-border rounded-control pl-6 pr-2.5 text-caption text-primary font-mono placeholder:text-muted focus:outline-none focus:border-brand/50"
                   />
                 </div>
                 <div className="relative flex items-center">
-                  <span className="absolute left-2.5 text-xs font-mono text-zinc-500">$</span>
+                  <span className="absolute left-2.5 text-caption font-mono text-muted">$</span>
                   <input
                     type="number"
                     placeholder="Monto máximo"
                     value={maxAmount}
                     onChange={(e) => setMaxAmount(e.target.value)}
-                    className="w-full h-8 bg-surface-well border border-white/[0.04] rounded-xl pl-6 pr-2.5 text-xs text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50"
+                    className="w-full h-8 bg-raised border border-border rounded-control pl-6 pr-2.5 text-caption text-primary font-mono placeholder:text-muted focus:outline-none focus:border-brand/50"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Botón Restablecer Filtros */}
           <button
             onClick={handleResetFilters}
-            className="w-full h-8 rounded-xl bg-surface-well hover:bg-white/[0.04] border border-white/[0.06] text-zinc-400 hover:text-white text-xs font-mono flex items-center justify-center gap-2 transition-colors mt-2"
+            className="w-full h-8 rounded-control bg-raised hover:border-border-strong border border-border text-secondary hover:text-primary text-caption font-mono flex items-center justify-center gap-compact transition-colors mt-compact cursor-pointer"
           >
             <RotateCcw className="w-3 h-3" />
-            <span>Restablecer Filtros</span>
+            <span>Restablecer filtros</span>
           </button>
         </aside>
 
-        {/* ------------------------------------------------------- */}
-        {/* LISTA DERECHA DE ÓRDENES DE COMPRA (INVENTAR CARDS)     */}
-        {/* ------------------------------------------------------- */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar space-y-3.5 min-h-0">
-          {viewMode === "cards" ? (
-            <div className="space-y-3.5">
+        <main className="flex-1 overflow-y-auto space-y-element min-h-0">
+          {loading && orders.length === 0 ? (
+            <div className="space-y-element" aria-busy="true" aria-label="Cargando órdenes de compra">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-40 rounded-container bg-raised animate-pulse" />
+              ))}
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="py-group">
+              <EmptyState
+                title="Sin órdenes de compra"
+                description="El backend no devolvió órdenes para esta empresa. Cuando el agente detecte una alerta de reposición o registres una orden manual aparecerá aquí."
+                actionLabel="Actualizar"
+                onAction={() => void load()}
+              />
+            </div>
+          ) : viewMode === "cards" ? (
+            <div className="space-y-element">
               {filteredOrders.map((o) => {
                 const isSelected = selectedOrderId === o.id;
 
-                // Configuración del Stepper de 4 etapas:
-                // 1. Creación IA -> 2. Aprobación Gobernanza -> 3. Despacho Proveedor -> 4. Recepción Bodega
                 let stepperTitle = "";
                 let stepperMeta = "";
                 let stepperAction: React.ReactNode = null;
                 let steps: MilestoneStep[] = [];
 
                 if (o.status === "emitida") {
-                  stepperTitle = `Orden en tránsito hacia ${o.destination.replace("Bodega Matriz ", "").replace("CD ", "")} • ${o.date}`;
+                  stepperTitle = `Orden en tránsito hacia ${o.destination} • ${o.date}`;
                   stepperMeta = `Destino: ${o.destination}`;
                   stepperAction = (
                     <button
@@ -779,7 +619,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                         setSelectedOrderId(o.id);
                         setIsReceiptDrawerOpen(true);
                       }}
-                      className="flex items-center gap-1 font-mono text-xs text-emerald-400 hover:text-emerald-300 font-semibold hover:underline"
+                      className="flex items-center gap-compact font-mono text-caption text-brand hover:underline font-semibold cursor-pointer"
                     >
                       <span>Rastrear envío</span>
                       <ArrowUpRight className="w-3 h-3" />
@@ -788,11 +628,11 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                   steps = [
                     { label: "Creación IA", timestamp: "Autónoma", status: "completed", icon: <Sparkles className="w-3.5 h-3.5" /> },
                     { label: "Aprobación Gobernanza", timestamp: "Aprobada", status: "completed", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
-                    { label: "Despacho Proveedor", timestamp: "En ruta (48 km)", status: "active", icon: <Truck className="w-3.5 h-3.5" /> },
+                    { label: "Despacho Proveedor", timestamp: "En ruta", status: "active", icon: <Truck className="w-3.5 h-3.5" /> },
                     { label: "Recepción Bodega", timestamp: "Pendiente", status: "pending", icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
                   ];
                 } else if (o.status === "pendiente_gobernanza") {
-                  stepperTitle = `Pendiente de aprobación ejecutiva (> $5M COP) • ${o.date}`;
+                  stepperTitle = `Pendiente de aprobación ejecutiva • ${o.date}`;
                   stepperMeta = o.policyApplied;
                   stepperAction = (
                     <button
@@ -800,9 +640,9 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                         e.stopPropagation();
                         if (onOpenApprovalModal) onOpenApprovalModal();
                       }}
-                      className="flex items-center gap-1 font-mono text-xs text-amber-400 hover:text-amber-300 font-semibold hover:underline"
+                      className="flex items-center gap-compact font-mono text-caption text-state-attention hover:underline font-semibold cursor-pointer"
                     >
-                      <span>Revisar en Inbox</span>
+                      <span>Revisar en aprobaciones</span>
                       <ArrowUpRight className="w-3 h-3" />
                     </button>
                   );
@@ -822,7 +662,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                         setSelectedOrderId(o.id);
                         setIsReceiptDrawerOpen(true);
                       }}
-                      className="flex items-center gap-1 font-mono text-xs text-emerald-400 hover:text-emerald-300 font-semibold hover:underline"
+                      className="flex items-center gap-compact font-mono text-caption text-brand hover:underline font-semibold cursor-pointer"
                     >
                       <span>Ver recibo digital</span>
                       <ArrowUpRight className="w-3 h-3" />
@@ -844,7 +684,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                         setSelectedOrderId(o.id);
                         setIsReceiptDrawerOpen(true);
                       }}
-                      className="flex items-center gap-1 font-mono text-xs text-blue-400 hover:text-blue-300 font-semibold hover:underline"
+                      className="flex items-center gap-compact font-mono text-caption text-state-pending hover:underline font-semibold cursor-pointer"
                     >
                       <span>Ver justificación</span>
                       <ArrowUpRight className="w-3 h-3" />
@@ -879,28 +719,23 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                 return (
                   <div
                     key={o.id}
-                    onClick={() => {
-                      setSelectedOrderId(o.id);
-                    }}
-                    className={`bg-surface-1 rounded-2xl p-5 mb-3.5 border transition-all cursor-pointer shadow-card hover:border-white/10 ${isSelected
-                      ? "border-emerald-500/40 ring-1 ring-emerald-500/20 bg-[#14201A]"
-                      : "border-white/[0.06]"
+                    onClick={() => setSelectedOrderId(o.id)}
+                    className={`bg-panel rounded-container p-base border transition-colors cursor-pointer ${isSelected ? "border-brand/40 bg-brand-surface" : "border-border hover:border-border-strong"
                       }`}
                   >
-                    {/* NIVEL SUPERIOR: Código PO + Nombre insumo y cantidad + Monto + Badge + Botón ••• */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="font-mono text-base font-bold text-white tracking-tight flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-element">
+                      <div className="flex items-center gap-compact min-w-0">
+                        <span className="font-mono text-body font-bold text-primary tracking-tight shrink-0">
                           {o.orderNumber}
                         </span>
-                        <span className="text-zinc-600 font-mono">·</span>
-                        <span className="text-sm font-semibold text-zinc-100 truncate">
-                          {o.lineItems[0]?.description} x {o.lineItems[0]?.quantity} u.
+                        <span className="text-muted font-mono">·</span>
+                        <span className="text-body font-semibold text-primary truncate">
+                          {o.lineItems[0]?.description} × {o.lineItems[0]?.quantity} u.
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <span className="font-mono text-sm font-bold text-white tabular-nums">
+                      <div className="flex items-center gap-element shrink-0">
+                        <span className="font-mono text-body font-bold text-primary tabular-nums">
                           ${o.totalCop.toLocaleString("es-CO")} COP
                         </span>
                         <StatusBadge status={badgeStatus} label={badgeLabel} size="sm" />
@@ -910,7 +745,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                             setSelectedOrderId(o.id);
                             setIsReceiptDrawerOpen(true);
                           }}
-                          className="w-8 h-8 rounded-lg bg-surface-well border border-white/[0.04] text-zinc-400 hover:text-white flex items-center justify-center transition-colors"
+                          className="w-8 h-8 rounded-control bg-raised border border-border text-secondary hover:text-primary flex items-center justify-center transition-colors cursor-pointer"
                           title="Opciones y recibo digital"
                         >
                           <MoreHorizontal className="w-4 h-4" />
@@ -918,41 +753,36 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                       </div>
                     </div>
 
-                    {/* SUBTÍTULO CON AVATAR DE PROVEEDOR */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2 text-xs text-zinc-400">
-                      <div className="flex items-center gap-2 font-mono text-[11px]">
-                        <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact mt-compact text-caption text-secondary">
+                      <div className="flex items-center gap-compact font-mono text-caption">
+                        <div className="w-5 h-5 rounded-pill bg-brand-surface text-brand border border-brand/20 text-caption font-bold flex items-center justify-center shrink-0">
                           {o.supplier.charAt(0)}
                         </div>
-                        <span className="text-zinc-200 font-medium truncate max-w-[200px]">
-                          {o.supplier}
-                        </span>
-                        <span className="text-zinc-600">·</span>
-                        <div className="flex items-center gap-1 text-zinc-400">
-                          <MapPin className="w-3 h-3 text-zinc-500" />
+                        <span className="text-primary font-medium truncate max-w-[200px]">{o.supplier}</span>
+                        <span className="text-muted">·</span>
+                        <div className="flex items-center gap-hairline text-secondary">
+                          <MapPin className="w-3 h-3 text-muted" />
                           <span>{o.destination}</span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
-                        <span className="bg-white/[0.04] px-1.5 py-0.5 rounded text-zinc-300">
-                          Facturado
+                      <div className="flex items-center gap-compact text-caption font-mono text-muted">
+                        <span className="bg-raised px-1.5 py-hairline rounded-control text-secondary">
+                          {o.origin === "agente" ? "Generada por agente" : "Creada manualmente"}
                         </span>
-                        <span className="text-zinc-600">·</span>
-                        <span>{o.specialist === "comprasSpecialist" ? "Especialista de Compras" : "Agente Financiero"}</span>
+                        <span className="text-muted">·</span>
+                        <span>
+                          {o.specialist === "comprasSpecialist" ? "Especialista de Compras" : "Agente Financiero"}
+                        </span>
                       </div>
                     </div>
 
-                    {/* NIVEL INFERIOR: CONTENEDOR "WELL" CON MILESTONE STEPPER */}
-                    <div className="bg-surface-well rounded-xl p-4 mt-3 border border-white/[0.04] shadow-inner space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-white tracking-tight">
-                          {stepperTitle}
-                        </span>
+                    <div className="bg-raised rounded-control p-base mt-element border border-border space-y-compact">
+                      <div className="flex items-center justify-between gap-compact">
+                        <span className="text-caption font-semibold text-primary tracking-tight">{stepperTitle}</span>
                         {stepperAction}
                       </div>
-
-                      {/* Stepper de 4 etapas con iconos */}
+                      <p className="text-caption text-muted">{stepperMeta}</p>
                       <MilestoneStepper steps={steps} />
                     </div>
                   </div>
@@ -960,26 +790,30 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
               })}
 
               {filteredOrders.length === 0 && (
-                <div className="p-12 text-center text-xs font-mono text-zinc-500 bg-surface-1 rounded-2xl border border-white/[0.06]">
-                  No se encontraron órdenes de compra que coincidan con los filtros aplicados.
+                <div className="py-group">
+                  <EmptyState
+                    title="Ninguna orden coincide"
+                    description="Ajusta la búsqueda o restablece los filtros para ver las órdenes de compra disponibles."
+                    actionLabel="Restablecer filtros"
+                    onAction={handleResetFilters}
+                  />
                 </div>
               )}
             </div>
           ) : (
-            /* Vista de Tabla Alternativa */
-            <div className="rounded-2xl bg-surface-1 border border-white/[0.06] shadow-card overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="rounded-container bg-panel border border-border overflow-hidden">
+              <table className="w-full text-left text-caption border-collapse">
                 <thead>
-                  <tr className="bg-[#0B110E] border-b border-white/[0.06] text-zinc-400 font-mono text-[10px] uppercase tracking-wider">
-                    <th className="py-3 px-4 font-semibold">ID de Orden</th>
-                    <th className="py-3 px-3 font-semibold">Proveedor</th>
-                    <th className="py-3 px-3 font-semibold">Ítems / Cantidad</th>
-                    <th className="py-3 px-3 font-semibold text-right">Monto Total</th>
-                    <th className="py-3 px-3 font-semibold text-center">Estado</th>
-                    <th className="py-3 px-4 font-semibold text-right">Acción</th>
+                  <tr className="bg-raised border-b border-border text-muted font-mono text-caption">
+                    <th className="py-compact px-base font-semibold">ID de Orden</th>
+                    <th className="py-compact px-compact font-semibold">Proveedor</th>
+                    <th className="py-compact px-compact font-semibold">Ítems / Cantidad</th>
+                    <th className="py-compact px-compact font-semibold text-right">Monto Total</th>
+                    <th className="py-compact px-compact font-semibold text-center">Estado</th>
+                    <th className="py-compact px-base font-semibold text-right">Acción</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.04]">
+                <tbody className="divide-y divide-border">
                   {filteredOrders.map((o) => (
                     <tr
                       key={o.id}
@@ -987,27 +821,23 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                         setSelectedOrderId(o.id);
                         setIsReceiptDrawerOpen(true);
                       }}
-                      className="hover:bg-[#151E19] transition-colors cursor-pointer"
+                      className="hover:bg-raised transition-colors cursor-pointer"
                     >
-                      <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">
-                        {o.orderNumber}
+                      <td className="py-compact px-base font-mono font-bold text-brand">{o.orderNumber}</td>
+                      <td className="py-compact px-compact">
+                        <span className="font-semibold text-primary block">{o.supplier}</span>
+                        <span className="text-caption text-muted font-mono">{o.destination}</span>
                       </td>
-                      <td className="py-3.5 px-3">
-                        <span className="font-semibold text-white block">{o.supplier}</span>
-                        <span className="text-[10px] text-zinc-500 font-mono">{o.destination}</span>
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <span className="text-zinc-200 block truncate max-w-[200px]">
+                      <td className="py-compact px-compact">
+                        <span className="text-primary block truncate max-w-[200px]">
                           {o.lineItems[0]?.description}
                         </span>
-                        <span className="text-[10px] text-zinc-500 font-mono">
-                          {o.lineItems[0]?.quantity} un.
-                        </span>
+                        <span className="text-caption text-muted font-mono">{o.lineItems[0]?.quantity} un.</span>
                       </td>
-                      <td className="py-3.5 px-3 text-right font-mono font-bold text-white tabular-nums">
+                      <td className="py-compact px-compact text-right font-mono font-bold text-primary tabular-nums">
                         ${o.totalCop.toLocaleString("es-CO")} COP
                       </td>
-                      <td className="py-3.5 px-3 text-center">
+                      <td className="py-compact px-compact text-center">
                         <StatusBadge
                           status={
                             o.status === "recibida_bodega"
@@ -1021,14 +851,14 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                           size="sm"
                         />
                       </td>
-                      <td className="py-3.5 px-4 text-right">
+                      <td className="py-compact px-base text-right">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedOrderId(o.id);
                             setIsReceiptDrawerOpen(true);
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-surface-well border border-white/[0.06] text-zinc-300 hover:text-white font-mono text-[10px]"
+                          className="px-compact py-hairline rounded-control bg-raised border border-border text-secondary hover:text-primary font-mono text-caption cursor-pointer"
                         >
                           Ver Recibo
                         </button>
@@ -1037,52 +867,54 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                   ))}
                 </tbody>
               </table>
+              {filteredOrders.length === 0 && (
+                <div className="py-group">
+                  <EmptyState
+                    title="Ninguna orden coincide"
+                    description="Ajusta la búsqueda o restablece los filtros para ver las órdenes de compra disponibles."
+                    actionLabel="Restablecer filtros"
+                    onAction={handleResetFilters}
+                  />
+                </div>
+              )}
             </div>
           )}
         </main>
       </div>
 
-      {/* ========================================================= */}
-      {/* DRAWER LATERAL DE AUDITORÍA Y RECIBO DIGITAL (SLIDE-OVER) */}
-      {/* ========================================================= */}
       <AnimatePresence>
-        {isReceiptDrawerOpen && (
+        {isReceiptDrawerOpen && selectedOrder && (
           <div className="fixed inset-0 z-50 flex justify-end bg-black/60">
             <motion.div
               initial={{ x: 450 }}
               animate={{ x: 0 }}
               exit={{ x: 450 }}
               transition={{ type: "spring", damping: 30, stiffness: 350 }}
-              className="w-full max-w-[460px] h-full bg-surface-1 border-l border-white/[0.08] p-6 flex flex-col justify-between overflow-y-auto custom-scrollbar shadow-2xl relative"
+              className="w-full max-w-[460px] h-full bg-panel border-l border-border p-group flex flex-col justify-between overflow-y-auto relative"
             >
-              <div className="space-y-5">
-                {/* Header del Drawer */}
-                <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
+              <div className="space-y-group">
+                <div className="flex items-center justify-between pb-base border-b border-border">
                   <div>
-                    <span className="font-mono text-[10px] text-emerald-400 uppercase tracking-wider block font-bold">
-                      RECIBO DIGITAL AUDITABLE
+                    <span className="font-mono text-caption text-brand block font-bold">
+                      Recibo digital auditable
                     </span>
-                    <h2 className="text-base font-bold text-white mt-0.5">
+                    <h2 className="text-section-title font-bold text-primary mt-hairline">
                       {selectedOrder.orderNumber}
                     </h2>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center p-0.5 rounded-lg bg-surface-well border border-white/[0.04]">
+                  <div className="flex items-center gap-compact">
+                    <div className="flex items-center p-0.5 rounded-control bg-raised border border-border">
                       <button
                         onClick={() => setReceiptMode("formatted")}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${receiptMode === "formatted"
-                          ? "bg-emerald-500/20 text-emerald-300 font-bold"
-                          : "text-zinc-400 hover:text-white"
+                        className={`px-compact py-hairline rounded-control text-caption font-mono transition-colors cursor-pointer ${receiptMode === "formatted" ? "bg-brand-surface text-brand font-bold" : "text-secondary hover:text-primary"
                           }`}
                       >
                         Recibo
                       </button>
                       <button
                         onClick={() => setReceiptMode("json")}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${receiptMode === "json"
-                          ? "bg-emerald-500/20 text-emerald-300 font-bold"
-                          : "text-zinc-400 hover:text-white"
+                        className={`px-compact py-hairline rounded-control text-caption font-mono transition-colors cursor-pointer ${receiptMode === "json" ? "bg-brand-surface text-brand font-bold" : "text-secondary hover:text-primary"
                           }`}
                       >
                         JSON
@@ -1091,7 +923,8 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
 
                     <button
                       onClick={() => setIsReceiptDrawerOpen(false)}
-                      className="w-8 h-8 rounded-lg bg-surface-well border border-white/[0.04] text-zinc-400 hover:text-white flex items-center justify-center transition-colors"
+                      className="w-8 h-8 rounded-control bg-raised border border-border text-secondary hover:text-primary flex items-center justify-center transition-colors cursor-pointer"
+                      title="Cerrar recibo"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1099,112 +932,102 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                 </div>
 
                 {receiptMode === "formatted" ? (
-                  /* VISTA DE RECIBO FORMATEADO */
-                  <div className="space-y-4">
-                    {/* Proveedor y Destino */}
-                    <div className="bg-surface-well rounded-xl p-4 border border-white/[0.04] space-y-2">
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-xs font-bold text-white">{selectedOrder.supplier}</span>
-                        <span className="text-[10px] font-mono text-zinc-500">{selectedOrder.date}</span>
+                  <div className="space-y-element">
+                    <div className="bg-raised rounded-control p-base border border-border space-y-compact">
+                      <div className="flex justify-between items-baseline gap-compact">
+                        <span className="text-caption font-bold text-primary">{selectedOrder.supplier}</span>
+                        <span className="text-caption font-mono text-muted">{selectedOrder.date}</span>
                       </div>
-                      <p className="text-[11px] text-zinc-400 font-mono">
+                      <p className="text-caption text-secondary font-mono">
                         Destino: {selectedOrder.destination} · Especialista: {selectedOrder.specialist}
                       </p>
                     </div>
 
-                    {/* Justificación de Algoritmo ROP */}
-                    <div className="p-3.5 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-400">
+                    <div className="p-base rounded-control bg-brand-surface border border-brand/20 space-y-compact">
+                      <div className="flex items-center gap-compact text-caption font-mono font-bold text-brand">
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>Justificación de Algoritmo ROP</span>
+                        <span>Justificación del agente</span>
                       </div>
-                      <p className="text-[11px] text-zinc-300 leading-relaxed">
+                      <p className="text-caption text-secondary leading-relaxed">
                         {selectedOrder.mathJustification.recommendationText}
                       </p>
-                      <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-emerald-500/20 text-[10px] font-mono text-zinc-400">
-                        <span>Burn Rate: {selectedOrder.mathJustification.dailyBurnRate} un/día</span>
+                      <div className="grid grid-cols-2 gap-compact pt-compact border-t border-brand/20 text-caption font-mono text-muted">
+                        <span>Burn rate: {selectedOrder.mathJustification.dailyBurnRate} un/día</span>
                         <span>Cobertura: {selectedOrder.mathJustification.coverageDays} días</span>
                       </div>
                     </div>
 
-                    {/* Ítems y Desglose */}
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-mono uppercase text-zinc-400 block font-bold">
-                        Ítems de la Orden
+                    <div className="space-y-compact">
+                      <span className="text-caption font-mono text-muted block font-bold">
+                        Ítems de la orden
                       </span>
                       {selectedOrder.lineItems.map((item, idx) => (
                         <div
                           key={idx}
-                          className="p-3 rounded-xl bg-surface-well border border-white/[0.04] flex justify-between items-center text-xs font-mono"
+                          className="p-compact rounded-control bg-raised border border-border flex justify-between items-center text-caption font-mono gap-compact"
                         >
-                          <div>
-                            <span className="font-semibold text-white block">{item.description}</span>
-                            <span className="text-[10px] text-zinc-500">
+                          <div className="min-w-0">
+                            <span className="font-semibold text-primary block truncate">{item.description}</span>
+                            <span className="text-caption text-muted">
                               {item.sku} · {item.quantity} un. × ${item.unitPriceCop.toLocaleString("es-CO")}
                             </span>
                           </div>
-                          <span className="font-bold text-white">
+                          <span className="font-bold text-primary tabular-nums shrink-0">
                             ${item.subtotalCop.toLocaleString("es-CO")}
                           </span>
                         </div>
                       ))}
                     </div>
 
-                    {/* Totales */}
-                    <div className="space-y-1.5 pt-2 border-t border-white/[0.06] text-xs font-mono">
-                      <div className="flex justify-between text-zinc-400">
-                        <span>Subtotal Neto:</span>
-                        <span>${selectedOrder.subtotalCop.toLocaleString("es-CO")} COP</span>
+                    <div className="space-y-hairline pt-compact border-t border-border text-caption font-mono">
+                      <div className="flex justify-between text-secondary">
+                        <span>Subtotal neto:</span>
+                        <span className="tabular-nums">${selectedOrder.subtotalCop.toLocaleString("es-CO")} COP</span>
                       </div>
-                      <div className="flex justify-between text-zinc-400">
+                      <div className="flex justify-between text-secondary">
                         <span>IVA (19%):</span>
-                        <span>+${selectedOrder.ivaCop.toLocaleString("es-CO")} COP</span>
+                        <span className="tabular-nums">+${selectedOrder.ivaCop.toLocaleString("es-CO")} COP</span>
                       </div>
                       {selectedOrder.aiDiscountCop > 0 && (
-                        <div className="flex justify-between text-emerald-400">
-                          <span>Descuento Negociado IA:</span>
-                          <span>-${selectedOrder.aiDiscountCop.toLocaleString("es-CO")} COP</span>
+                        <div className="flex justify-between text-state-ok">
+                          <span>Descuento negociado IA:</span>
+                          <span className="tabular-nums">-${selectedOrder.aiDiscountCop.toLocaleString("es-CO")} COP</span>
                         </div>
                       )}
-                      <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-white/[0.06]">
-                        <span>Total Liquidado:</span>
-                        <span className="text-emerald-400 font-bold">
+                      <div className="flex justify-between text-body font-bold text-primary pt-compact border-t border-border">
+                        <span>Total liquidado:</span>
+                        <span className="text-brand font-bold tabular-nums">
                           ${selectedOrder.totalCop.toLocaleString("es-CO")} COP
                         </span>
                       </div>
                     </div>
 
-                    {/* Firma Criptográfica HMAC */}
-                    <div className="p-3 rounded-xl bg-surface-well border border-white/[0.04] space-y-1 font-mono text-[10px]">
-                      <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                    <div className="p-compact rounded-control bg-raised border border-border space-y-hairline font-mono text-caption">
+                      <div className="flex items-center gap-compact text-brand font-bold">
                         <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>Firma Criptográfica HMAC-SHA256 Verificada</span>
+                        <span>Firma criptográfica HMAC-SHA256 verificada</span>
                       </div>
-                      <span className="text-zinc-500 block truncate">{selectedOrder.hmacSignature}</span>
+                      <span className="text-muted block truncate">{selectedOrder.hmacSignature}</span>
                     </div>
                   </div>
                 ) : (
-                  /* VISTA RAW JSON */
-                  <pre className="p-4 rounded-xl bg-surface-well border border-white/[0.04] text-[11px] font-mono text-emerald-300 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                  <pre className="p-base rounded-control bg-raised border border-border text-caption font-mono text-brand overflow-x-auto whitespace-pre-wrap leading-relaxed">
                     {JSON.stringify(selectedOrder, null, 2)}
                   </pre>
                 )}
               </div>
 
-              {/* Botón Inferior de Reconciliación */}
-              <div className="pt-4 border-t border-white/[0.06] flex items-center gap-2">
+              <div className="pt-base border-t border-border flex items-center gap-compact">
                 <button
-                  onClick={() => {
-                    handleReconcileOrder(selectedOrder.id);
-                  }}
+                  onClick={() => handleReconcileOrder(selectedOrder.id)}
                   disabled={isReconciling || selectedOrder.status === "recibida_bodega"}
-                  className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+                  className="flex-1 h-9 rounded-control bg-brand hover:bg-brand/90 disabled:bg-raised disabled:text-muted text-canvas font-semibold text-caption flex items-center justify-center gap-compact transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isReconciling ? "animate-spin" : ""}`} />
                   <span>
                     {selectedOrder.status === "recibida_bodega"
-                      ? "Orden Conciliada"
-                      : "Ejecutar Reconciliación Física"}
+                      ? "Orden conciliada"
+                      : "Ejecutar reconciliación física"}
                   </span>
                 </button>
               </div>
@@ -1213,36 +1036,34 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
         )}
       </AnimatePresence>
 
-      {/* ========================================================= */}
-      {/* MODAL: NUEVA ORDEN DE COMPRA                              */}
-      {/* ========================================================= */}
       {isNewOrderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-          <div className="w-full max-w-md rounded-2xl bg-surface-1 border border-white/[0.1] shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-xs font-sans">
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-base bg-black/80">
+          <div className="w-full max-w-md rounded-container bg-panel border border-border-strong p-group space-y-element text-caption font-sans">
+            <div className="flex items-center justify-between pb-compact border-b border-border">
               <div>
-                <span className="font-mono text-[10px] text-emerald-400 block font-bold">
-                  CREAR ORDEN DE COMPRA · CONTROL EJECUTIVO
+                <span className="font-mono text-caption text-brand block font-bold">
+                  Crear orden de compra · Control ejecutivo
                 </span>
-                <h3 className="text-sm font-bold text-white tracking-tight mt-0.5">
-                  Nueva Solicitud de Abastecimiento
+                <h3 className="text-body font-bold text-primary tracking-tight mt-hairline">
+                  Nueva solicitud de abastecimiento
                 </h3>
               </div>
               <button
                 onClick={() => setIsNewOrderModalOpen(false)}
-                className="text-zinc-500 hover:text-white"
+                className="text-muted hover:text-primary cursor-pointer"
+                title="Cerrar"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 font-mono">
+            <div className="space-y-compact font-mono">
               <div>
-                <label className="text-zinc-400 block mb-1 font-sans font-medium">Proveedor:</label>
+                <label className="text-secondary block mb-hairline font-sans font-medium">Proveedor:</label>
                 <select
                   value={newOrderSupplier}
                   onChange={(e) => setNewOrderSupplier(e.target.value)}
-                  className="w-full h-9 bg-surface-well border border-white/[0.08] rounded-xl px-3 text-zinc-300 font-sans text-xs focus:outline-none focus:border-emerald-500"
+                  className="w-full h-9 bg-raised border border-border rounded-control px-compact text-primary font-sans text-caption focus:outline-none focus:border-brand/50 cursor-pointer"
                 >
                   <option value="Ferreterías Unidas Bogotá S.A.S.">Ferreterías Unidas Bogotá S.A.S.</option>
                   <option value="DeWalt Colombia (Mayorista Homologado)">DeWalt Colombia</option>
@@ -1253,66 +1074,68 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
               </div>
 
               <div>
-                <label className="text-zinc-400 block mb-1 font-sans font-medium">Descripción del Producto:</label>
+                <label className="text-secondary block mb-hairline font-sans font-medium">Descripción del producto:</label>
                 <input
                   type="text"
                   value={newOrderProduct}
                   onChange={(e) => setNewOrderProduct(e.target.value)}
-                  className="w-full h-9 bg-surface-well border border-white/[0.08] rounded-xl px-3 text-white font-sans text-xs focus:outline-none focus:border-emerald-500"
+                  className="w-full h-9 bg-raised border border-border rounded-control px-compact text-primary font-sans text-caption focus:outline-none focus:border-brand/50"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-compact">
                 <div>
-                  <label className="text-zinc-400 block mb-1 font-sans font-medium">Cantidad:</label>
+                  <label className="text-secondary block mb-hairline font-sans font-medium">Cantidad:</label>
                   <input
                     type="number"
                     value={newOrderQuantity}
                     onChange={(e) => setNewOrderQuantity(parseInt(e.target.value) || 0)}
-                    className="w-full h-9 bg-surface-well border border-white/[0.08] rounded-xl px-3 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                    className="w-full h-9 bg-raised border border-border rounded-control px-compact text-primary font-mono text-caption focus:outline-none focus:border-brand/50"
                   />
                 </div>
                 <div>
-                  <label className="text-zinc-400 block mb-1 font-sans font-medium">Precio Unitario (COP):</label>
+                  <label className="text-secondary block mb-hairline font-sans font-medium">Precio unitario (COP):</label>
                   <input
                     type="number"
                     value={newOrderUnitPrice}
                     onChange={(e) => setNewOrderUnitPrice(parseInt(e.target.value) || 0)}
-                    className="w-full h-9 bg-surface-well border border-white/[0.08] rounded-xl px-3 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                    className="w-full h-9 bg-raised border border-border rounded-control px-compact text-primary font-mono text-caption focus:outline-none focus:border-brand/50"
                   />
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-surface-well border border-white/[0.04] space-y-1 text-xs">
-                <div className="flex justify-between text-zinc-400">
+              <div className="p-compact rounded-control bg-raised border border-border space-y-hairline text-caption">
+                <div className="flex justify-between text-secondary">
                   <span>Subtotal:</span>
-                  <span>${(newOrderQuantity * newOrderUnitPrice).toLocaleString("es-CO")} COP</span>
+                  <span className="tabular-nums">${(newOrderQuantity * newOrderUnitPrice).toLocaleString("es-CO")} COP</span>
                 </div>
-                <div className="flex justify-between text-zinc-400">
+                <div className="flex justify-between text-secondary">
                   <span>IVA (19%):</span>
-                  <span>+${(newOrderQuantity * newOrderUnitPrice * 0.19).toLocaleString("es-CO")} COP</span>
+                  <span className="tabular-nums">
+                    +${(newOrderQuantity * newOrderUnitPrice * IVA_RATE).toLocaleString("es-CO")} COP
+                  </span>
                 </div>
-                <div className="flex justify-between text-white font-bold pt-1 border-t border-white/[0.04]">
-                  <span>Total Estimado:</span>
-                  <span className="text-emerald-400">
-                    ${(newOrderQuantity * newOrderUnitPrice * 1.19).toLocaleString("es-CO")} COP
+                <div className="flex justify-between text-primary font-bold pt-hairline border-t border-border">
+                  <span>Total estimado:</span>
+                  <span className="text-brand tabular-nums">
+                    ${(newOrderQuantity * newOrderUnitPrice * (1 + IVA_RATE)).toLocaleString("es-CO")} COP
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-2 flex justify-end gap-2 border-t border-white/[0.08]">
+            <div className="pt-compact flex justify-end gap-compact border-t border-border">
               <button
                 onClick={() => setIsNewOrderModalOpen(false)}
-                className="px-3.5 py-2 rounded-xl bg-transparent hover:bg-white/[0.04] text-zinc-400 text-xs font-medium"
+                className="px-element py-compact rounded-control bg-transparent hover:bg-raised text-secondary text-caption font-medium cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateOrder}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+                className="px-base py-compact rounded-control bg-brand hover:bg-brand/90 text-canvas font-semibold text-caption flex items-center gap-compact transition-colors cursor-pointer"
               >
-                <span>Generar Orden</span>
+                <span>Generar orden</span>
               </button>
             </div>
           </div>

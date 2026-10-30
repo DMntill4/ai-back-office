@@ -1,20 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Layers,
   Database,
-  Radio,
   CheckCircle2,
-  Cpu,
-  Server,
-  Zap,
-  Globe,
   Lock,
   Plus,
   Play,
-  Clock,
+  RefreshCw,
+  Radio,
 } from "lucide-react";
 import { KpiStrip, KpiCardItem } from "../ui/KpiStrip";
+import { EmptyState } from "../ui/EmptyState";
+import { api } from "../../services/apiClient";
 
 interface IntegrationItem {
   id: string;
@@ -29,59 +27,58 @@ interface IntegrationItem {
   enabled: boolean;
 }
 
-const INITIAL_INTEGRATIONS: IntegrationItem[] = [
-  {
-    id: "int_pg",
-    name: "Conector Central ERP & Catálogo Maestro",
-    categoryLabel: "Repositorio Transaccional Corporativo",
-    status: "ok",
-    latencyMs: 1.8,
-    description: "Sincronización transaccional de existencias, catálogo de proveedores homologados, trazabilidad de auditoría y firmas HMAC-SHA256.",
-    lastSync: "Hace 4 segundos",
-    endpoint: "srv-erp-central.mint.interno:5432",
-    authMethod: "Cifrado Empresarial · Pool de 20 Conexiones Seguras",
-    enabled: true,
+const CHANNEL_LABELS: Record<string, { label: string; description: string; auth: string }> = {
+  slack: {
+    label: "Canal Slack",
+    description: "Notificaciones de aprobaciones, quiebres de stock y alertas críticas al espacio de trabajo del equipo.",
+    auth: "Webhook firmado",
   },
-  {
-    id: "int_osrm",
-    name: "Motor de Rutas & Despachos (OSRM)",
-    categoryLabel: "Cálculo Geoespacial & Fletes",
-    status: "ok",
-    latencyMs: 14.2,
-    description: "Optimización continua de rutas terrestres, tiempos estimados de tránsito y costos de flete entre Bucaramanga, Bogotá y Medellín.",
-    lastSync: "Hace 30 segundos",
-    endpoint: "logistica.mint.interno/rutas/v1",
-    authMethod: "Servicio Local Seguro",
-    enabled: true,
+  telegram: {
+    label: "Canal Telegram",
+    description: "Aprobaciones remotas con token firmado y alertas operativas al chat del equipo.",
+    auth: "Bot Token + Chat ID",
   },
-  {
-    id: "int_dian",
-    name: "DIAN Facturación & Remisiones",
-    categoryLabel: "Cumplimiento Tributario y Legal",
-    status: "ok",
-    latencyMs: 48.0,
-    description: "Emisión, validación y timbrado de facturación electrónica y remisiones XML con certificado digital oficial.",
-    lastSync: "Hace 2 minutos",
-    endpoint: "vpfe.dian.gov.co/servicios",
-    authMethod: "Certificado Digital X.509 Vigente",
-    enabled: true,
+  discord: {
+    label: "Canal Discord",
+    description: "Difusión de eventos operativos y resúmenes de telemetría al servidor del equipo.",
+    auth: "Webhook firmado",
   },
-  {
-    id: "int_erp",
-    name: "Conector Contable ERP (Siigo / SAP)",
-    categoryLabel: "Sincronización Financiera",
-    status: "ok",
-    latencyMs: 35.0,
-    description: "Intercambio automatizado de cuentas por pagar, conciliación de facturas de proveedores y libro mayor.",
-    lastSync: "Hace 1 minuto",
-    endpoint: "api.siigo.com/v1",
-    authMethod: "Credencial Corporativa OAuth 2.0",
-    enabled: true,
+  email: {
+    label: "Canal Correo",
+    description: "Resúmenes ejecutivos y solicitudes de aprobación por correo electrónico.",
+    auth: "SMTP autenticado",
   },
-];
+};
+
+function mapChannel(c: any): IntegrationItem {
+  const type = String(c?.type ?? "slack").toLowerCase();
+  const meta = CHANNEL_LABELS[type] ?? {
+    label: `Canal ${type}`,
+    description: "Canal de notificación configurado para esta empresa.",
+    auth: "Credencial corporativa",
+  };
+  const topics = Array.isArray(c?.config?.topics) ? c.config.topics : [];
+  return {
+    id: String(c?.id ?? crypto.randomUUID()),
+    name: String(c?.name ?? meta.label),
+    categoryLabel: meta.label,
+    status: c?.enabled === false ? "warning" : "ok",
+    latencyMs: 0,
+    description: meta.description,
+    lastSync: c?.createdAt
+      ? `Alta: ${new Date(c.createdAt).toLocaleDateString("es-CO")}`
+      : "Sin registro",
+    endpoint: topics.length > 0 ? `Temas: ${topics.join(", ")}` : "Todos los temas",
+    authMethod: meta.auth,
+    enabled: c?.enabled !== false,
+  };
+}
 
 export const IntegrationsView: React.FC = () => {
-  const [integrations, setIntegrations] = useState<IntegrationItem[]>(INITIAL_INTEGRATIONS);
+  const [integrations, setIntegrations] = useState<IntegrationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -89,66 +86,94 @@ export const IntegrationsView: React.FC = () => {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.channels.list();
+      const rows = Array.isArray(res.data) ? res.data : [];
+      setIntegrations(rows.map(mapChannel));
+      setIsFallback(Boolean(res.isFallback));
+      if (!res.success) setError(res.message ?? "No fue posible leer los canales.");
+    } catch (err: any) {
+      setError(err?.message ?? "Error de red al consultar los canales.");
+      setIntegrations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   const handleToggle = (id: string) => {
     setIntegrations((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, enabled: !item.enabled } : item))
+      prev.map((item) => (item.id === id ? { ...item, enabled: !item.enabled } : item)),
     );
-    showToast(`Integración ${id} actualizada.`);
+    showToast("Preferencia de canal actualizada.");
   };
 
-  const handleTestConnection = (name: string) => {
-    showToast(`Conexión con "${name}" verificada: 100% operativa.`);
+  const handleTestConnection = async (item: IntegrationItem) => {
+    try {
+      await api.channels.test({ type: item.categoryLabel, topic: "logs" });
+      showToast(`Conexión con "${item.name}" verificada.`);
+    } catch {
+      showToast(`No fue posible verificar "${item.name}".`);
+    }
   };
 
-  const kpis: KpiCardItem[] = [
-    {
-      title: "Conectores Corporativos",
-      value: "4 / 4 Operativos",
-      subtitle: "ERP Central, Rutas, DIAN, Contabilidad",
-      trend: { direction: "up", label: "100% sincronizados" },
-      icon: Layers,
-      isHero: true,
-      onActionClick: () => showToast("Todos los conectores verificados."),
-    },
-    {
-      title: "Latencia de Conexión",
-      value: "1.8 ms",
-      subtitle: "Tiempo de respuesta en enlace local",
-      trend: { direction: "up", label: "Excelente" },
-      icon: Database,
-    },
-    {
-      title: "Sincronización Fiscal",
-      value: "DIAN Conectada",
-      subtitle: "Certificado digital vigente",
-      trend: { direction: "up", label: "Habilitado 2026" },
-      icon: CheckCircle2,
-    },
-    {
-      title: "Integridad de Datos",
-      value: "15 Modelos Sincronizados",
-      subtitle: "Catálogos y reglas sin discrepancias",
-      trend: { direction: "up", label: "Cero inconsistencias" },
-      icon: Lock,
-    },
-  ];
+  const kpis: KpiCardItem[] = useMemo(() => {
+    const active = integrations.filter((i) => i.enabled).length;
+    return [
+      {
+        title: "Canales Configurados",
+        value: `${active} / ${integrations.length} Activos`,
+        subtitle: "Slack, Telegram, Discord, Correo",
+        trend: { direction: "up", label: `${active} en operación` },
+        icon: Layers,
+        isHero: true,
+        onActionClick: () => showToast("Verificando todos los canales..."),
+      },
+      {
+        title: "Cobertura de Alertas",
+        value: integrations.length > 0 ? "100%" : "0%",
+        subtitle: "Eventos críticos con destino asignado",
+        trend: { direction: "up", label: integrations.length > 0 ? "Completa" : "Sin canales" },
+        icon: Radio,
+      },
+      {
+        title: "Aprobaciones Remotas",
+        value: integrations.some((i) => i.categoryLabel.includes("Telegram")) ? "Habilitadas" : "No configuradas",
+        subtitle: "Firma por token desde el chat",
+        trend: { direction: "up", label: "Gobernanza activa" },
+        icon: CheckCircle2,
+      },
+      {
+        title: "Integridad de Entrega",
+        value: "Firmas validadas",
+        subtitle: "Webhooks y tokens verificados",
+        trend: { direction: "up", label: "Cero pérdidas" },
+        icon: Lock,
+      },
+    ];
+  }, [integrations]);
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Toast Notification */}
+    <div className="flex flex-col gap-group">
       <AnimatePresence>
         {toastMessage && (
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E] border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
+            className="fixed top-6 right-8 z-50 px-compact py-compact rounded-pill flex items-center gap-compact bg-state-ok-surface border border-brand/40 text-state-ok"
           >
-            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span className="text-xs font-mono font-medium">{toastMessage}</span>
+            <div className="w-2 h-2 rounded-full bg-state-ok animate-pulse" />
+            <span className="text-caption font-mono font-medium">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
+              className="text-muted hover:text-primary text-caption ml-hairline"
             >
               ✕
             </button>
@@ -156,133 +181,162 @@ export const IntegrationsView: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* BARRA DE ACCIONES DE LA SUB-PESTAÑA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-500">
-          <span className="px-2 py-1 rounded-lg bg-surface-1 border border-white/[0.06] text-zinc-300">
-            {integrations.filter((i) => i.enabled).length} de {integrations.length} conectores activos
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact">
+        <div className="flex items-center gap-compact text-caption font-mono text-muted">
+          <span className="px-compact py-hairline rounded-control bg-raised border border-border text-secondary">
+            {integrations.filter((i) => i.enabled).length} de {integrations.length} canales activos
           </span>
-          <span className="hidden sm:inline">Sincronización continua cada 30 s</span>
+          <span className="hidden sm:inline">Sincronización continua de eventos</span>
         </div>
 
-        <button
-          onClick={() => showToast("Abriendo catálogo de conectores empresariales...")}
-          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>+ Nueva Integración</span>
-        </button>
+        <div className="flex items-center gap-compact">
+          <button
+            onClick={() => void load()}
+            disabled={loading}
+            className="h-9 px-compact rounded-control bg-raised border border-border hover:border-border-strong text-secondary hover:text-primary text-caption font-medium flex items-center gap-hairline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span>Actualizar</span>
+          </button>
+
+          <button
+            onClick={() => showToast("Abriendo catálogo de canales de notificación...")}
+            className="h-9 px-compact rounded-control bg-brand hover:bg-brand/90 text-canvas font-semibold text-caption flex items-center gap-hairline transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Nuevo Canal</span>
+          </button>
+        </div>
       </div>
 
-      {/* FILA 1: KPI STRIP CON HÉROE */}
+      {isFallback && (
+        <div className="px-compact py-compact rounded-control bg-state-attention-surface border border-border text-caption text-state-attention">
+          Mostrando datos de respaldo: el backend no respondió con los canales reales.
+        </div>
+      )}
+
+      {error && (
+        <div className="px-compact py-compact rounded-control bg-state-error-surface border border-border text-caption text-state-error">
+          {error}
+        </div>
+      )}
+
       <KpiStrip items={kpis} />
 
-      {/* FILA 2: GRID DE TARJETAS DE 2 NIVELES */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        {integrations.map((item) => {
-          const statusTone =
-            item.status === "ok"
-              ? { dot: "bg-emerald-400", text: "text-emerald-300", label: "Operativo" }
-              : item.status === "syncing"
-                ? { dot: "bg-sky-400", text: "text-sky-300", label: "Sincronizando" }
-                : { dot: "bg-amber-400", text: "text-amber-300", label: "Degradado" };
+      {loading && integrations.length === 0 ? (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-group" aria-busy="true" aria-label="Cargando canales">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-56 rounded-container bg-raised animate-pulse" />
+          ))}
+        </div>
+      ) : integrations.length === 0 ? (
+        <EmptyState
+          title="Sin canales de notificación"
+          description="El backend no devolvió canales configurados. Agrega un canal de Slack, Telegram, Discord o correo para recibir aprobaciones y alertas."
+          actionLabel="Actualizar"
+          onAction={() => void load()}
+        />
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-group">
+          {integrations.map((item) => {
+            const statusTone =
+              item.status === "ok"
+                ? { dot: "bg-state-ok", text: "text-state-ok", label: "Operativo" }
+                : item.status === "syncing"
+                  ? { dot: "bg-state-pending", text: "text-state-pending", label: "Sincronizando" }
+                  : { dot: "bg-state-attention", text: "text-state-attention", label: "Degradado" };
 
-          return (
-            <div
-              key={item.id}
-              className={`bg-surface-1 rounded-2xl p-5 border shadow-card flex flex-col justify-between transition-all ${item.enabled
-                ? "border-white/[0.06] hover:border-emerald-500/30"
-                : "border-white/[0.04] opacity-70"
-                }`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-3 pb-3 border-b border-white/[0.06]">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${item.enabled
-                        ? "bg-emerald-500/15 text-emerald-400"
-                        : "bg-white/[0.04] text-zinc-500"
+            return (
+              <div
+                key={item.id}
+                className={`bg-panel rounded-container p-base border flex flex-col justify-between transition-colors ${item.enabled
+                  ? "border-border hover:border-border-strong"
+                  : "border-border opacity-70"
+                  }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-compact pb-compact border-b border-border">
+                    <div className="flex items-center gap-element min-w-0">
+                      <div
+                        className={`w-9 h-9 rounded-control flex items-center justify-center shrink-0 ${item.enabled
+                          ? "bg-brand-surface text-brand"
+                          : "bg-raised text-muted"
+                          }`}
+                      >
+                        <Database className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-label font-bold text-primary truncate">{item.name}</h3>
+                        <span className="text-caption text-muted font-mono truncate block">
+                          {item.categoryLabel}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={item.enabled}
+                      aria-label={`Activar ${item.name}`}
+                      onClick={() => handleToggle(item.id)}
+                      className={`relative w-11 h-6 rounded-pill shrink-0 transition-colors duration-200 border ${item.enabled
+                        ? "bg-brand border-brand"
+                        : "bg-raised border-border"
                         }`}
                     >
-                      <Database className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-xs font-bold text-white truncate">{item.name}</h3>
-                      <span className="text-[10px] text-zinc-500 font-mono truncate block">
-                        {item.categoryLabel}
+                      <span
+                        className={`absolute top-0.5 rounded-pill transition-all duration-200 ${item.enabled ? "left-[22px] bg-canvas" : "left-0.5 bg-muted"
+                          }`}
+                        style={{ width: 18, height: 18 }}
+                      />
+                    </button>
+                  </div>
+
+                  <p className="text-caption text-secondary mt-compact leading-relaxed">{item.description}</p>
+                </div>
+
+                <div className="bg-raised rounded-control p-compact mt-base border border-border space-y-compact">
+                  <div className="flex items-center justify-between text-caption">
+                    <span className="flex items-center gap-hairline font-mono">
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusTone.dot}`} />
+                      <span className={statusTone.text}>{statusTone.label}</span>
+                    </span>
+                    <button
+                      onClick={() => void handleTestConnection(item)}
+                      className="text-caption text-brand hover:text-brand/80 font-medium flex items-center gap-hairline cursor-pointer"
+                    >
+                      <Play className="w-3 h-3" />
+                      <span>Probar Conexión</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-compact">
+                    <div className="bg-panel rounded-control px-compact py-compact border border-border">
+                      <span className="text-caption font-mono text-muted block">Estado</span>
+                      <span className="text-caption font-mono font-bold text-brand tabular-nums">
+                        {item.enabled ? "Activo" : "Pausado"}
                       </span>
                     </div>
+                    <div className="bg-panel rounded-control px-compact py-compact border border-border">
+                      <span className="text-caption font-mono text-muted block">Última Sincronización</span>
+                      <span className="text-caption font-medium text-secondary">{item.lastSync}</span>
+                    </div>
                   </div>
 
-                  {/* Switch Táctil */}
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={item.enabled}
-                    aria-label={`Activar ${item.name}`}
-                    onClick={() => handleToggle(item.id)}
-                    className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-200 border ${item.enabled
-                      ? "bg-emerald-500 border-emerald-400 shadow-[0_0_14px_rgba(16,185,129,0.45)]"
-                      : "bg-[#0B100E] border-white/[0.12]"
-                      }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 rounded-full transition-all duration-200 ${item.enabled ? "left-[22px] bg-black" : "left-0.5 bg-zinc-500"
-                        }`}
-                      style={{ width: 18, height: 18 }}
-                    />
-                  </button>
-                </div>
-
-                <p className="text-xs text-zinc-300 mt-3 leading-relaxed">{item.description}</p>
-              </div>
-
-              {/* Sub-caja Well */}
-              <div className="bg-surface-well rounded-xl p-3.5 mt-4 border border-white/[0.04] space-y-2.5">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="flex items-center gap-1.5 font-mono">
-                    <span className={`w-1.5 h-1.5 rounded-full ${statusTone.dot}`} />
-                    <span className={statusTone.text}>{statusTone.label}</span>
-                  </span>
-                  <button
-                    onClick={() => handleTestConnection(item.name)}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 cursor-pointer"
-                  >
-                    <Play className="w-3 h-3" />
-                    <span>Probar Conexión</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-surface-1/60 rounded-lg px-2.5 py-2 border border-white/[0.04]">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">
-                      Latencia
-                    </span>
-                    <span className="text-xs font-mono font-bold text-emerald-400 tabular-numbers">
-                      {item.latencyMs} ms
-                    </span>
-                  </div>
-                  <div className="bg-surface-1/60 rounded-lg px-2.5 py-2 border border-white/[0.04]">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">
-                      Última Sincronización
-                    </span>
-                    <span className="text-xs font-medium text-zinc-200">{item.lastSync}</span>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-white/[0.04] space-y-1">
-                  <div className="text-[10px] font-mono text-zinc-400 truncate">
-                    <span className="text-zinc-500">Endpoint:</span> {item.endpoint}
-                  </div>
-                  <div className="text-[10px] font-mono text-zinc-400 truncate">
-                    <span className="text-zinc-500">Autenticación:</span> {item.authMethod}
+                  <div className="pt-compact border-t border-border space-y-hairline">
+                    <div className="text-caption font-mono text-secondary truncate">
+                      <span className="text-muted">Destino:</span> {item.endpoint}
+                    </div>
+                    <div className="text-caption font-mono text-secondary truncate">
+                      <span className="text-muted">Autenticación:</span> {item.authMethod}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

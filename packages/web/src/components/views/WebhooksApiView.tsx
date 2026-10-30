@@ -46,7 +46,7 @@ const ENDPOINTS_DATA: EndpointItem[] = [
   {
     id: "ep-02",
     method: "POST",
-    path: "/api/v1/hitl/decision",
+    path: "/api/v1/approvals/decision",
     name: "Resolución de Aprobaciones Humanas",
     category: "Gobernanza",
     latencyMs: 32,
@@ -135,13 +135,13 @@ export const WebhooksApiView: React.FC = () => {
 
   const methodTone = (method: EndpointItem["method"]) =>
     method === "POST"
-      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+      ? "bg-brand-surface text-brand border-brand/30"
       : method === "GET"
-        ? "bg-sky-500/15 text-sky-400 border-sky-500/30"
-        : "bg-violet-500/15 text-violet-400 border-violet-500/30";
+        ? "bg-state-pending/15 text-state-pending border-state-pending/30"
+        : "bg-raised text-secondary border-border";
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-group">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -149,13 +149,13 @@ export const WebhooksApiView: React.FC = () => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E] border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
+            className="fixed top-6 right-8 z-50 px-compact py-hairline rounded-pill flex items-center gap-compact bg-brand-surface border border-brand/40 text-brand shadow-popover"
           >
-            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span className="text-xs font-mono font-medium">{toastMessage}</span>
+            <div className="w-2 h-2 rounded-pill bg-brand animate-ping" />
+            <span className="text-caption font-mono font-medium">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
+              className="text-muted hover:text-primary text-caption ml-hairline"
             >
               ✕
             </button>
@@ -164,9 +164,9 @@ export const WebhooksApiView: React.FC = () => {
       </AnimatePresence>
 
       {/* BARRA DE ACCIONES DE LA SUB-PESTAÑA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-500">
-          <span className="px-2 py-1 rounded-lg bg-surface-1 border border-white/[0.06] text-zinc-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact">
+        <div className="flex items-center gap-hairline text-caption font-mono text-muted">
+          <span className="px-hairline py-hairline rounded-control bg-panel border border-border text-secondary">
             {endpoints.length} endpoints publicados
           </span>
           <span className="hidden sm:inline">48.250 peticiones en 24 h · 0 errores 5xx</span>
@@ -174,7 +174,7 @@ export const WebhooksApiView: React.FC = () => {
 
         <button
           onClick={() => showToast("Abriendo asistente para registrar nuevo webhook...")}
-          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer self-start sm:self-auto"
+          className="px-base py-hairline rounded-control bg-brand hover:bg-brand text-canvas font-semibold text-caption flex items-center gap-hairline transition-colors cursor-pointer self-start sm:self-auto"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>+ Nuevo Endpoint</span>
@@ -185,61 +185,61 @@ export const WebhooksApiView: React.FC = () => {
       <KpiStrip items={kpis} />
 
       {/* FILA 2: GRID DE TARJETAS DE 2 NIVELES */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-group">
         {endpoints.map((ep) => {
           const total = Math.round((ep.rpm * 60 * 24) / 1000) * 1000;
           const errors = Math.round(total * (1 - ep.successRatePct / 100));
           return (
             <div
               key={ep.id}
-              className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card flex flex-col justify-between transition-all hover:border-emerald-500/30"
+              className="bg-panel rounded-container p-base border border-border flex flex-col justify-between transition-colors hover:border-brand/30"
             >
               <div>
-                <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/[0.06]">
-                  <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center justify-between gap-hairline pb-compact border-b border-border">
+                  <div className="flex items-center gap-compact min-w-0">
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border shrink-0 ${methodTone(
+                      className={`px-hairline py-hairline rounded-control text-caption font-mono font-bold border shrink-0 ${methodTone(
                         ep.method
                       )}`}
                     >
                       {ep.method}
                     </span>
-                    <h3 className="text-xs font-bold text-white font-mono truncate">
+                    <h3 className="text-caption font-semibold text-primary font-mono truncate">
                       {maskPath(ep.path)}
                     </h3>
                   </div>
-                  <span className="text-[10px] font-mono text-zinc-500 shrink-0">{ep.category}</span>
+                  <span className="text-caption font-mono text-muted shrink-0">{ep.category}</span>
                 </div>
 
-                <h4 className="text-xs font-bold text-white mt-3">{ep.name}</h4>
-                <p className="text-xs text-zinc-300 mt-1 leading-relaxed">{ep.description}</p>
+                <h4 className="text-caption font-semibold text-primary mt-compact">{ep.name}</h4>
+                <p className="text-caption text-secondary mt-hairline leading-relaxed">{ep.description}</p>
               </div>
 
-              {/* Sub-caja Well con métricas 2xx / 5xx */}
-              <div className="bg-surface-well rounded-xl p-3.5 mt-4 border border-white/[0.04] space-y-2.5">
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-surface-1/60 rounded-lg px-2.5 py-2 border border-white/[0.04]">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">
+              {/* Sub-caja con métricas 2xx / 5xx */}
+              <div className="bg-raised rounded-control p-compact mt-base border border-border space-y-hairline">
+                <div className="grid grid-cols-3 gap-hairline">
+                  <div className="bg-panel rounded-control px-hairline py-hairline border border-border">
+                    <span className="text-caption font-mono text-muted block">
                       Latencia
                     </span>
-                    <span className="text-xs font-mono font-bold text-white tabular-numbers">
+                    <span className="text-caption font-mono font-semibold text-primary tabular-numbers">
                       {ep.latencyMs} ms
                     </span>
                   </div>
-                  <div className="bg-surface-1/60 rounded-lg px-2.5 py-2 border border-emerald-500/15">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">
+                  <div className="bg-panel rounded-control px-hairline py-hairline border border-brand/20">
+                    <span className="text-caption font-mono text-muted block">
                       2xx Éxito
                     </span>
-                    <span className="text-xs font-mono font-bold text-emerald-400 tabular-numbers">
+                    <span className="text-caption font-mono font-semibold text-brand tabular-numbers">
                       {ep.successRatePct}%
                     </span>
                   </div>
-                  <div className="bg-surface-1/60 rounded-lg px-2.5 py-2 border border-white/[0.04]">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 block">
+                  <div className="bg-panel rounded-control px-hairline py-hairline border border-border">
+                    <span className="text-caption font-mono text-muted block">
                       5xx Errores
                     </span>
                     <span
-                      className={`text-xs font-mono font-bold tabular-numbers ${errors === 0 ? "text-zinc-400" : "text-rose-400"
+                      className={`text-caption font-mono font-semibold tabular-numbers ${errors === 0 ? "text-secondary" : "text-state-error"
                         }`}
                     >
                       {errors}
@@ -247,13 +247,13 @@ export const WebhooksApiView: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
-                  <span className="text-[10px] font-mono text-zinc-500">
+                <div className="flex items-center justify-between pt-hairline border-t border-border">
+                  <span className="text-caption font-mono text-muted">
                     {ep.rpm} req/min · {total.toLocaleString("es-CO")} req/día
                   </span>
                   <button
                     onClick={() => handleTestEndpoint(ep.name)}
-                    className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 cursor-pointer"
+                    className="text-caption text-brand hover:text-brand font-medium flex items-center gap-hairline cursor-pointer"
                   >
                     <Play className="w-3 h-3" />
                     <span>Probar</span>
@@ -266,49 +266,49 @@ export const WebhooksApiView: React.FC = () => {
       </div>
 
       {/* FILA 3: VISOR DE REGISTROS ESTRUCTURADOS */}
-      <div className="bg-surface-1 rounded-2xl border border-white/[0.06] shadow-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+      <div className="bg-panel rounded-container border border-border overflow-hidden">
+        <div className="flex items-center justify-between px-base py-compact border-b border-border">
+          <div className="flex items-center gap-compact">
+            <div className="w-8 h-8 rounded-control bg-brand-surface text-brand flex items-center justify-center">
               <Terminal className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-white">Registro de Tráfico en Vivo</h3>
-              <span className="text-[10px] text-zinc-500 font-mono">
+              <h3 className="text-caption font-semibold text-primary">Registro de Tráfico en Vivo</h3>
+              <span className="text-caption text-muted font-mono">
                 Últimas peticiones procesadas por el gateway
               </span>
             </div>
           </div>
-          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-mono text-emerald-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="inline-flex items-center gap-hairline px-hairline py-hairline rounded-control bg-brand-surface border border-brand/25 text-caption font-mono text-brand">
+            <span className="w-1.5 h-1.5 rounded-pill bg-brand animate-pulse" />
             Streaming
           </span>
         </div>
 
-        <div className="bg-[#070B09] p-4 font-mono text-[11px] leading-relaxed overflow-x-auto custom-scrollbar">
+        <div className="bg-canvas p-base font-mono text-caption leading-relaxed overflow-x-auto custom-scrollbar">
           {[
             { t: "06:14:02", code: 200, method: "POST", path: "/api/v1/ingest/webhook", ms: 18 },
             { t: "06:14:01", code: 200, method: "GET", path: "/api/v1/stock/health", ms: 14 },
-            { t: "06:13:58", code: 200, method: "POST", path: "/api/v1/hitl/decision", ms: 32 },
+            { t: "06:13:58", code: 200, method: "POST", path: "/api/v1/approvals/decision", ms: 32 },
             { t: "06:13:55", code: 200, method: "WS", path: "/api/v1/telemetry/stream", ms: 8 },
             { t: "06:13:51", code: 429, method: "POST", path: "/api/v1/ingest/webhook", ms: 4 },
             { t: "06:13:47", code: 200, method: "GET", path: "/api/v1/stock/health", ms: 12 },
           ].map((log, idx) => (
-            <div key={idx} className="flex items-center gap-3 whitespace-nowrap">
-              <span className="text-zinc-500">{log.t}</span>
+            <div key={idx} className="flex items-center gap-compact whitespace-nowrap">
+              <span className="text-muted">{log.t}</span>
               <span
-                className={`px-1.5 rounded ${log.code < 300
-                  ? "bg-emerald-500/15 text-emerald-400"
+                className={`px-hairline rounded-control ${log.code < 300
+                  ? "bg-brand-surface text-brand"
                   : log.code < 500
-                    ? "bg-amber-500/15 text-amber-400"
-                    : "bg-rose-500/15 text-rose-400"
+                    ? "bg-state-attention/15 text-state-attention"
+                    : "bg-state-error/15 text-state-error"
                   }`}
               >
                 {log.code}
               </span>
-              <span className="text-sky-400 w-10">{log.method}</span>
-              <span className="text-zinc-300 flex-1">{log.path}</span>
-              <span className="text-zinc-500 tabular-numbers">{log.ms} ms</span>
+              <span className="text-state-pending w-10">{log.method}</span>
+              <span className="text-secondary flex-1">{log.path}</span>
+              <span className="text-muted tabular-numbers">{log.ms} ms</span>
             </div>
           ))}
         </div>

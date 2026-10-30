@@ -21,35 +21,35 @@ export const GraphSettingsModal: React.FC<GraphSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-md rounded-2xl bg-[#08120e] border border-[#1d3b28] shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="w-full max-w-md rounded-container bg-panel border border-border shadow-dialog overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-[#162d1f] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#112419] border border-[#1e442d] flex items-center justify-center">
-              <Sliders className="w-4 h-4 text-mint-400" />
+        <div className="p-base border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-compact">
+            <div className="w-8 h-8 rounded-control bg-raised border border-border flex items-center justify-center">
+              <Sliders className="w-4 h-4 text-brand" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white">Ajustes del Grafo</h2>
-              <p className="text-[11px] text-gray-400">
+              <h2 className="text-label font-semibold text-primary">Ajustes del Grafo</h2>
+              <p className="text-caption text-secondary">
                 Calibración de fuerzas físicas y renderizado
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#122419] transition-colors"
+            className="p-hairline rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Sliders de Física */}
-        <div className="p-5 space-y-4 text-xs">
+        <div className="p-base space-y-base text-label">
           {/* 1. Repulsión */}
           <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label className="font-semibold text-gray-300">Repulsión entre Nodos</label>
-              <span className="font-mono text-mint-400 text-[11px]">{settings.repulsion}</span>
+            <div className="flex justify-between items-center mb-hairline">
+              <label className="font-semibold text-secondary">Repulsión entre Nodos</label>
+              <span className="font-mono text-brand text-caption">{settings.repulsion}</span>
             </div>
             <input
               type="range"
@@ -58,18 +58,18 @@ export const GraphSettingsModal: React.FC<GraphSettingsModalProps> = ({
               step="20"
               value={settings.repulsion}
               onChange={(e) => onUpdateSettings({ repulsion: Number(e.target.value) })}
-              className="w-full accent-mint-500 bg-[#122419] h-1.5 rounded-lg cursor-pointer"
+              className="w-full accent-brand bg-raised h-1.5 rounded-control cursor-pointer"
             />
-            <p className="text-[10px] text-gray-500 mt-1">
+            <p className="text-caption text-muted mt-hairline">
               Fuerza con la que los nodos se alejan unos de otros (Coulomb).
             </p>
           </div>
 
           {/* 2. Longitud de Enlace (Spring length) */}
           <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label className="font-semibold text-gray-300">Longitud de Conexiones</label>
-              <span className="font-mono text-mint-400 text-[11px]">{settings.springLength} px</span>
+            <div className="flex justify-between items-center mb-hairline">
+              <label className="font-semibold text-secondary">Longitud de Conexiones</label>
+              <span className="font-mono text-brand text-caption">{settings.springLength} px</span>
             </div>
             <input
               type="range"
@@ -78,18 +78,18 @@ export const GraphSettingsModal: React.FC<GraphSettingsModalProps> = ({
               step="10"
               value={settings.springLength}
               onChange={(e) => onUpdateSettings({ springLength: Number(e.target.value) })}
-              className="w-full accent-mint-500 bg-[#122419] h-1.5 rounded-lg cursor-pointer"
+              className="w-full accent-brand bg-raised h-1.5 rounded-control cursor-pointer"
             />
-            <p className="text-[10px] text-gray-500 mt-1">
+            <p className="text-caption text-muted mt-hairline">
               Distancia de reposo natural de las aristas conectadas (Hooke).
             </p>
           </div>
 
           {/* 3. Gravedad Central */}
           <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label className="font-semibold text-gray-300">Gravedad Central</label>
-              <span className="font-mono text-mint-400 text-[11px]">
+            <div className="flex justify-between items-center mb-hairline">
+              <label className="font-semibold text-secondary">Gravedad Central</label>
+              <span className="font-mono text-brand text-caption">
                 {Math.round(settings.gravity * 1000) / 1000}
               </span>
             </div>
@@ -100,21 +100,21 @@ export const GraphSettingsModal: React.FC<GraphSettingsModalProps> = ({
               step="0.005"
               value={settings.gravity}
               onChange={(e) => onUpdateSettings({ gravity: Number(e.target.value) })}
-              className="w-full accent-mint-500 bg-[#122419] h-1.5 rounded-lg cursor-pointer"
+              className="w-full accent-brand bg-raised h-1.5 rounded-control cursor-pointer"
             />
-            <p className="text-[10px] text-gray-500 mt-1">
+            <p className="text-caption text-muted mt-hairline">
               Atracción de los nodos hacia el centro de la pantalla.
             </p>
           </div>
 
           {/* Toggles de Visualización */}
-          <div className="pt-3 border-t border-[#162d1f] space-y-2.5">
-            <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#0c1812] border border-[#183122] cursor-pointer hover:border-[#21432e] transition-colors">
-              <div className="flex items-center gap-2.5">
-                <Eye className="w-4 h-4 text-mint-400" />
+          <div className="pt-compact border-t border-border space-y-compact">
+            <label className="flex items-center justify-between p-compact rounded-control bg-raised border border-border cursor-pointer hover:border-border-strong transition-colors">
+              <div className="flex items-center gap-compact">
+                <Eye className="w-4 h-4 text-brand" />
                 <div>
-                  <p className="font-semibold text-gray-200">Mostrar todas las etiquetas</p>
-                  <p className="text-[10px] text-gray-400">
+                  <p className="font-semibold text-primary">Mostrar todas las etiquetas</p>
+                  <p className="text-caption text-secondary">
                     Por defecto solo se muestran nodos relevantes y seleccionados
                   </p>
                 </div>
@@ -123,16 +123,16 @@ export const GraphSettingsModal: React.FC<GraphSettingsModalProps> = ({
                 type="checkbox"
                 checked={settings.showAllLabels}
                 onChange={(e) => onUpdateSettings({ showAllLabels: e.target.checked })}
-                className="w-4 h-4 rounded accent-mint-500 bg-[#122419]"
+                className="w-4 h-4 rounded accent-brand bg-raised"
               />
             </label>
 
-            <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#0c1812] border border-[#183122] cursor-pointer hover:border-[#21432e] transition-colors">
-              <div className="flex items-center gap-2.5">
-                <Grid className="w-4 h-4 text-mint-400" />
+            <label className="flex items-center justify-between p-compact rounded-control bg-raised border border-border cursor-pointer hover:border-border-strong transition-colors">
+              <div className="flex items-center gap-compact">
+                <Grid className="w-4 h-4 text-brand" />
                 <div>
-                  <p className="font-semibold text-gray-200">Cuadrícula sutil de fondo</p>
-                  <p className="text-[10px] text-gray-400">
+                  <p className="font-semibold text-primary">Cuadrícula sutil de fondo</p>
+                  <p className="text-caption text-secondary">
                     Líneas casi imperceptibles para orientar el desplazamiento
                   </p>
                 </div>
@@ -141,24 +141,24 @@ export const GraphSettingsModal: React.FC<GraphSettingsModalProps> = ({
                 type="checkbox"
                 checked={settings.showGrid}
                 onChange={(e) => onUpdateSettings({ showGrid: e.target.checked })}
-                className="w-4 h-4 rounded accent-mint-500 bg-[#122419]"
+                className="w-4 h-4 rounded accent-brand bg-raised"
               />
             </label>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[#162d1f] bg-[#060c08] flex items-center justify-between">
+        <div className="p-base border-t border-border bg-raised flex items-center justify-between">
           <button
             onClick={onResetDefaults}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white hover:bg-[#122419] transition-colors"
+            className="flex items-center gap-hairline px-compact py-hairline rounded-control text-label font-semibold text-secondary hover:text-primary hover:bg-panel transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Valores por defecto</span>
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg text-xs font-bold bg-mint-500 hover:bg-mint-400 text-black shadow-[0_0_12px_rgba(34,197,94,0.3)] transition-colors"
+            className="px-base py-hairline rounded-control text-label font-semibold bg-brand hover:bg-brand text-canvas shadow-card transition-colors"
           >
             Listo
           </button>

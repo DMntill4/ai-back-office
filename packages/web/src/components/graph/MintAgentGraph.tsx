@@ -398,7 +398,7 @@ export const MintAgentGraph: React.FC<MintAgentGraphProps> = ({
   };
 
   return (
-    <div className="w-full h-full relative bg-[#040806] select-none overflow-hidden">
+    <div className="w-full h-full relative bg-canvas select-none overflow-hidden">
       <ForceGraph2D
         ref={fgRef}
         graphData={graphData}

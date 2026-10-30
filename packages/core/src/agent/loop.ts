@@ -10,6 +10,11 @@ import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { enforceTokenBudget } from "./context/contextManager";
 import { normalizeBotLanguage, type BotLanguage } from "../services/configService";
+import { telemetryPublisher } from "../telemetry/telemetryPublisher";
+import {
+  evaluateBeforeClosing,
+  type SelfEvaluationResult,
+} from "./evaluation/selfEvaluator";
 
 export interface AgentLoopOptions {
   maxSteps?: number;
@@ -34,6 +39,8 @@ export interface AgentExecutionReport {
   summary: string;
   reason: string;
   multiAgentEvents?: Array<{ agent: string; action: string; details?: string }>;
+  /** Veredicto de la auto-evaluación previa al cierre (Reflection Loop) */
+  evaluation?: SelfEvaluationResult;
 }
 
 /**
@@ -228,7 +235,7 @@ export async function runAgentLoop(
         reason: "Entrada no válida filtrada por guardrail de input.",
         hasUnverifiedWrites: false,
       });
-    } catch {}
+    } catch { }
 
     return {
       caseId,
@@ -266,7 +273,7 @@ export async function runAgentLoop(
           reason: commEval.rejectionReason || "Rechazado por política de comunicación.",
           hasUnverifiedWrites: false,
         });
-      } catch {}
+      } catch { }
 
       return {
         caseId,
@@ -302,7 +309,7 @@ export async function runAgentLoop(
           reason: injection.explanation || "Intento de prompt injection detectado.",
           hasUnverifiedWrites: false,
         });
-      } catch {}
+      } catch { }
 
       return {
         caseId,
@@ -426,25 +433,25 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = isSmallTalk
     ? [
-        {
-          role: "system",
-          content:
-            systemPrompt +
-            (botLanguage === "en"
-              ? "\n\nReply in one or two sentences, strictly in ENGLISH, without calling tools or inventing data. If the user greets you, greet them back and ask how you can help."
-              : "\n\nResponde en una o dos frases, estrictamente en ESPAÑOL, sin usar herramientas ni inventar datos. Si saluda, saluda y pregunta en qué puedes ayudar."),
-        },
-        ...previousDialogues.slice(-4),
-        { role: "user", content: String(caseDesc) },
-      ]
+      {
+        role: "system",
+        content:
+          systemPrompt +
+          (botLanguage === "en"
+            ? "\n\nReply in one or two sentences, strictly in ENGLISH, without calling tools or inventing data. If the user greets you, greet them back and ask how you can help."
+            : "\n\nResponde en una o dos frases, estrictamente en ESPAÑOL, sin usar herramientas ni inventar datos. Si saluda, saluda y pregunta en qué puedes ayudar."),
+      },
+      ...previousDialogues.slice(-4),
+      { role: "user", content: String(caseDesc) },
+    ]
     : [
-        { role: "system", content: systemPrompt },
-        ...previousDialogues,
-        {
-          role: "user",
-          content: userMessageContent,
-        },
-      ];
+      { role: "system", content: systemPrompt },
+      ...previousDialogues,
+      {
+        role: "user",
+        content: userMessageContent,
+      },
+    ];
 
   let currentStep = 0;
   let totalTokensAccumulated = 0;
@@ -520,8 +527,8 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           payload: { paso: currentStep, pensamiento: response.content },
         })
         .then(
-          () => {},
-          () => {},
+          () => { },
+          () => { },
         );
     }
 
@@ -554,14 +561,46 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
             details: typeof toolArgs === "string" ? toolArgs : JSON.stringify(toolArgs),
           });
 
-          const { result, isClosingAction, closingType } = await dispatchToolCall(
-            toolName,
-            toolArgs,
-            {
+          // Intercepción de fallos de herramienta: si la tool falla, se captura
+          // el motivo, se inyecta en la memoria contextual y se permite al modelo
+          // reintentar con una estrategia alternativa sin colgar la ejecución.
+          let result: any;
+          let isClosingAction = false;
+          let closingType: "resuelto" | "escalado" | undefined;
+          try {
+            const dispatched = await dispatchToolCall(toolName, toolArgs, {
               companyId,
               caseId,
-            },
-          );
+            });
+            result = dispatched.result;
+            isClosingAction = dispatched.isClosingAction;
+            closingType = dispatched.closingType;
+          } catch (toolError: any) {
+            const failureReason =
+              toolError?.message || "Error desconocido al ejecutar la herramienta.";
+            result = {
+              isSuccess: false,
+              verified: false,
+              errorMessage: failureReason,
+              message: `La herramienta ${toolName} falló: ${failureReason}. Reintenta con una estrategia alternativa (por ejemplo, verifica IDs, stock disponible o usa otra herramienta).`,
+            };
+            // Registrar el fallo en la memoria contextual del caso
+            db.insert(caseEvents)
+              .values({
+                id: `evt_${randomUUID()}`,
+                caseId,
+                eventType: "herramienta_fallida",
+                payload: {
+                  herramienta: toolName,
+                  motivo: failureReason,
+                  argumentos: toolArgs,
+                },
+              })
+              .then(
+                () => { },
+                () => { },
+              );
+          }
 
           // Registrar ejecución en la tabla formal de herramientas tool_calls y en la bitácora
           try {
@@ -596,8 +635,8 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
               payload: { herramienta: toolName, resultado: result },
             })
             .then(
-              () => {},
-              () => {},
+              () => { },
+              () => { },
             );
 
           return { call, toolName, result, isClosingAction, closingType };
@@ -700,6 +739,62 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
   finalReason = redactSensitiveSecrets((finalReason || "").replace(EMOJI_FILTER_REGEX, "").trim());
 
   await startLog;
+
+  // 4.2 Auto-evaluación previa al cierre (Reflection & Verification Loop)
+  // Antes de marcar el objetivo como completo, el agente audita factibilidad,
+  // políticas y confianza. Si la confianza es baja, se escala para revisión.
+  let evaluation: SelfEvaluationResult | undefined;
+  try {
+    evaluation = await evaluateBeforeClosing({
+      taskId: caseId,
+      proposalSummary: finalSummary,
+      citedData: {
+        productId: inputData?.producto_id || inputData?.productId,
+        supplierId: inputData?.proveedor_id || inputData?.supplierId,
+        proposedQuantity: inputData?.cantidad || inputData?.quantity,
+        proposedUnitPrice: inputData?.precio_unitario || inputData?.unitPrice,
+        totalCostMxn: inputData?.costo_total || inputData?.totalCost,
+        companyId,
+      },
+      executedTools: multiAgentTimeline.map((t) => ({
+        toolName: t.action,
+        isSuccess: true,
+      })),
+      unverifiedWrites: unverifiedWritesCount,
+    });
+
+    // Si la evaluación exige regeneración y el caso iba a cerrarse como resuelto,
+    // se degrada a escalado para revisión humana (no se cierra a ciegas).
+    if (evaluation.requiresRegeneration && finalStatus === "resuelto") {
+      finalStatus = "escalado";
+      finalReason = `${finalReason} | Auto-evaluación: ${evaluation.reason}`;
+    } else if (evaluation.verdict !== "aprobado") {
+      finalReason = `${finalReason} | Auto-evaluación: ${evaluation.reason}`;
+    }
+
+    // Persistir el veredicto en la bitácora del caso
+    db.insert(caseEvents)
+      .values({
+        id: `evt_${randomUUID()}`,
+        caseId,
+        eventType: "auto_evaluacion",
+        payload: {
+          verdict: evaluation.verdict,
+          confidence: evaluation.confidence,
+          riskLevel: evaluation.riskLevel,
+          feasibility: evaluation.feasibility,
+          policy: evaluation.policy,
+          reason: evaluation.reason,
+        },
+      })
+      .then(
+        () => { },
+        () => { },
+      );
+  } catch {
+    // La auto-evaluación nunca debe romper el cierre del caso
+  }
+
   await closeCase({
     caseId,
     status: finalStatus,
@@ -710,17 +805,37 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
 
   const totalCost = totalCostNumber.toFixed(6);
 
-  // Actualizar costos finales del caso
+  // Actualizar costos finales del caso (FinOps por tarea)
   try {
     await db
       .update(cases)
       .set({
         totalTokens: totalTokensAccumulated,
         totalCost,
+        promptTokens: totalPromptTokens,
+        completionTokens: totalCompletionTokens,
+        modelUsed: lastModel || null,
       })
       .where(eq(cases.id, caseId));
   } catch {
     // Fallback
+  }
+
+  // Emitir evento FinOps de consumo de la tarea (tokens + costo USD + modelo)
+  try {
+    telemetryPublisher.emitCost(
+      { id: "mint-agent-loop", label: "Mint Agent Loop", group: "agent" },
+      {
+        taskId: caseId,
+        tokens: totalTokensAccumulated,
+        costUsd: totalCostNumber,
+        model: lastModel || "unknown",
+        promptTokens: totalPromptTokens,
+        completionTokens: totalCompletionTokens,
+      },
+    );
+  } catch {
+    // Telemetría best-effort
   }
 
   return {
@@ -737,5 +852,6 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
     summary: finalSummary,
     reason: finalReason,
     multiAgentEvents: multiAgentTimeline,
+    evaluation,
   };
 }

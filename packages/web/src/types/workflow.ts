@@ -147,6 +147,12 @@ export interface LogStep {
   status: "success" | "running" | "pending" | "failed";
   timestamp: string;
   payload: any;
+  /** Tokens consumidos por este paso (Agent FinOps). */
+  tokens?: number;
+  /** Costo en USD de este paso (Agent FinOps). */
+  costUsd?: number;
+  /** Modelo LLM usado en este paso. */
+  model?: string;
 }
 
 export interface CliHistoryItem {

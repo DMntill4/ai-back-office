@@ -152,7 +152,7 @@ export const CompaniesBranchesView: React.FC = () => {
   }, [locations, selectedStatus, selectedDept, searchQuery]);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-group">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -160,13 +160,13 @@ export const CompaniesBranchesView: React.FC = () => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E] border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
+            className="fixed top-6 right-8 z-50 px-compact py-compact rounded-pill flex items-center gap-compact bg-panel border border-brand/40 text-brand shadow-popover"
           >
-            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span className="text-xs font-mono font-medium">{toastMessage}</span>
+            <div className="w-2 h-2 rounded-pill bg-brand animate-ping" />
+            <span className="text-label font-mono font-medium">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
+              className="text-muted hover:text-primary text-label ml-hairline"
             >
               ✕
             </button>
@@ -175,32 +175,32 @@ export const CompaniesBranchesView: React.FC = () => {
       </AnimatePresence>
 
       {/* BARRA DE ACCIONES DE LA SUB-PESTAÑA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-500">
-          <span className="px-2 py-1 rounded-lg bg-surface-1 border border-white/[0.06] text-zinc-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact">
+        <div className="flex items-center gap-compact text-caption font-mono text-muted">
+          <span className="px-compact py-hairline rounded-control bg-panel border border-border text-secondary">
             {filteredLocations.length} de {locations.length} sedes
           </span>
           <span className="hidden sm:inline">Capacidad total: 2.870 m³</span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-compact">
           <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3.5 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-muted absolute left-3.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por sede, ciudad o código..."
-              className="h-9 w-60 sm:w-72 bg-surface-1 border border-white/[0.08] hover:border-white/20 focus:border-emerald-500/50 rounded-xl pl-9 pr-9 text-xs text-white placeholder:text-zinc-500 focus:outline-none transition-all"
+              className="h-9 w-60 sm:w-72 bg-panel border border-border hover:border-border-strong focus:border-brand rounded-control pl-9 pr-9 text-caption text-primary placeholder:text-muted focus:outline-none transition-colors"
             />
-            <span className="absolute right-2.5 text-[10px] font-mono text-zinc-500 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] pointer-events-none">
+            <span className="absolute right-2.5 text-caption font-mono text-muted bg-raised px-hairline py-hairline rounded border border-border pointer-events-none">
               ⌘F
             </span>
           </div>
 
           <button
             onClick={() => showToast("Abriendo asistente de registro de nueva sucursal...")}
-            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
+            className="px-base py-hairline rounded-control bg-brand hover:bg-brand text-canvas font-semibold text-caption flex items-center gap-hairline transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Nueva Sede</span>
@@ -211,16 +211,16 @@ export const CompaniesBranchesView: React.FC = () => {
       {/* ========================================================= */}
       {/* CUERPO PRINCIPAL: SIDEBAR DE FILTROS + LISTA INVENTAR      */}
       {/* ========================================================= */}
-      <div className="flex flex-col md:flex-row gap-6 min-h-0">
+      <div className="flex flex-col md:flex-row gap-group min-h-0">
         {/* PANEL IZQUIERDO DE FILTROS (260px) */}
-        <aside className="w-full md:w-[260px] bg-surface-1 rounded-2xl p-4 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] shrink-0 flex flex-col justify-between overflow-y-auto">
-          <div className="space-y-5">
+        <aside className="w-full md:w-[260px] bg-panel rounded-container p-base border border-border shrink-0 flex flex-col justify-between overflow-y-auto">
+          <div className="space-y-group">
             {/* Estado de Sede (Grid 2x2) */}
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block mb-2.5">
+              <span className="text-caption font-mono text-muted block mb-compact">
                 Estado Operativo
               </span>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-compact">
                 {[
                   { id: "todas", label: "Todas", count: 3 },
                   { id: "operativa", label: "Operativas", count: 2 },
@@ -230,16 +230,16 @@ export const CompaniesBranchesView: React.FC = () => {
                   <button
                     key={btn.id}
                     onClick={() => setSelectedStatus(btn.id)}
-                    className={`py-2 px-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-between border ${selectedStatus === btn.id
-                      ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)] font-semibold"
-                      : "bg-surface-well border-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+                    className={`py-hairline px-compact rounded-control text-caption font-medium transition-colors flex items-center justify-between border ${selectedStatus === btn.id
+                      ? "bg-brand-surface border-brand/40 text-brand font-semibold"
+                      : "bg-raised border-border text-secondary hover:text-primary hover:border-border-strong"
                       }`}
                   >
                     <span>{btn.label}</span>
                     <span
-                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${selectedStatus === btn.id
-                        ? "bg-emerald-500/25 text-emerald-300 font-bold"
-                        : "bg-white/[0.04] text-zinc-500"
+                      className={`text-caption font-mono px-hairline py-hairline rounded ${selectedStatus === btn.id
+                        ? "bg-brand-surface text-brand font-bold"
+                        : "bg-raised text-muted"
                         }`}
                     >
                       {btn.count}
@@ -250,14 +250,14 @@ export const CompaniesBranchesView: React.FC = () => {
             </div>
 
             {/* Departamento / Región */}
-            <div className="pt-4 border-t border-white/[0.06]">
-              <label className="text-[10px] font-mono text-zinc-500 block mb-1">
+            <div className="pt-base border-t border-border">
+              <label className="text-caption font-mono text-muted block mb-hairline">
                 Departamento / Región
               </label>
               <select
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="w-full h-9 bg-surface-well border border-white/[0.06] rounded-xl px-3 text-xs text-white focus:outline-none focus:border-emerald-500/50"
+                className="w-full h-9 bg-raised border border-border rounded-control px-compact text-caption text-primary focus:outline-none focus:border-brand"
               >
                 <option value="todos">Todos los departamentos</option>
                 <option value="Santander">Santander (Matriz)</option>
@@ -269,51 +269,51 @@ export const CompaniesBranchesView: React.FC = () => {
 
           <button
             onClick={handleResetFilters}
-            className="w-full mt-4 py-2 px-3 rounded-xl bg-surface-well hover:bg-white/[0.06] border border-white/[0.06] text-xs font-medium text-zinc-400 hover:text-white transition-all flex items-center justify-center gap-1.5"
+            className="w-full mt-base py-hairline px-compact rounded-control bg-raised hover:border-border-strong border border-border text-caption font-medium text-secondary hover:text-primary transition-colors flex items-center justify-center gap-hairline"
           >
             <span>Restablecer Filtros</span>
           </button>
         </aside>
 
         {/* ÁREA DERECHA: TARJETAS DE 2 NIVELES (ESTILO INVENTAR) */}
-        <main className="flex-1 overflow-y-auto space-y-3.5 pr-1">
+        <main className="flex-1 overflow-y-auto space-y-element pr-hairline">
           {filteredLocations.map((loc) => (
             <div
               key={loc.id}
-              className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] transition-all hover:border-emerald-500/30"
+              className="bg-panel rounded-container p-base border border-border transition-colors hover:border-brand/30"
             >
               {/* Nivel 1: Cabecera con Código, Nombre, Capacidad y Badges */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact pb-compact border-b border-border">
                 <div>
-                  <div className="flex items-center gap-2.5 mb-1">
-                    <span className="font-mono text-xs font-bold text-emerald-400">
+                  <div className="flex items-center gap-compact mb-hairline">
+                    <span className="font-mono text-caption font-bold text-brand">
                       {loc.code}
                     </span>
-                    <span className="text-white/20">·</span>
-                    <h3 className="text-sm font-bold text-white tracking-tight">
+                    <span className="text-muted">·</span>
+                    <h3 className="text-body font-semibold text-primary">
                       {loc.name}
                     </h3>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
-                    <span className="text-zinc-300 font-medium">
+                  <div className="flex flex-wrap items-center gap-compact text-caption text-secondary">
+                    <span className="text-primary font-medium">
                       {loc.city}, {loc.department}
                     </span>
                     <span>•</span>
-                    <span className="text-zinc-400">{loc.address}</span>
+                    <span className="text-secondary">{loc.address}</span>
                     <span>•</span>
-                    <span className="font-mono text-[11px] text-zinc-400">
+                    <span className="font-mono text-caption text-secondary">
                       Responsable: {loc.manager}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-compact shrink-0">
                   <div className="text-right">
-                    <span className="text-sm font-bold text-white font-mono block">
+                    <span className="text-body font-semibold text-primary font-mono block">
                       {loc.capacityPallets} pallets
                     </span>
-                    <span className="text-[10px] text-zinc-500">
+                    <span className="text-caption text-muted">
                       Capacidad: {loc.capacityM3} m³
                     </span>
                   </div>
@@ -324,52 +324,52 @@ export const CompaniesBranchesView: React.FC = () => {
                     <StatusBadge variant="warning" label="Alta Demanda" />
                   )}
 
-                  <button className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors">
+                  <button className="p-hairline rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors">
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
               {/* Nivel 2: Sub-contenedor "Well" con Capacidad y Módulos */}
-              <div className="bg-surface-well rounded-xl p-4 mt-3 border border-white/[0.04] space-y-3.5">
+              <div className="bg-raised rounded-control p-base mt-compact border border-border space-y-element">
                 {/* Barra de capacidad instalada */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
+                  <div className="flex items-center justify-between mb-hairline">
+                    <span className="text-caption font-mono text-muted">
                       Capacidad Instalada
                     </span>
-                    <span className="text-[11px] font-mono text-zinc-400">
-                      <strong className="text-white tabular-numbers">
+                    <span className="text-caption font-mono text-secondary">
+                      <strong className="text-primary tabular-numbers">
                         {Math.round((loc.capacityPallets * loc.currentOccupancyPct) / 100)}
                       </strong>{" "}
                       / {loc.capacityPallets} pallets ·{" "}
                       <strong
                         className={
                           loc.currentOccupancyPct >= 85
-                            ? "text-amber-400"
-                            : "text-emerald-400"
+                            ? "text-state-attention"
+                            : "text-brand"
                         }
                       >
                         {loc.currentOccupancyPct}%
                       </strong>
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-canvas rounded-pill overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${loc.currentOccupancyPct >= 85
-                        ? "bg-gradient-to-r from-amber-500 to-amber-400"
-                        : "bg-gradient-to-r from-emerald-600 to-emerald-400"
+                      className={`h-full rounded-pill transition-all ${loc.currentOccupancyPct >= 85
+                        ? "bg-state-attention"
+                        : "bg-brand"
                         }`}
                       style={{ width: `${loc.currentOccupancyPct}%` }}
                     />
                   </div>
-                  <div className="flex items-center justify-between mt-1.5 text-[10px] text-zinc-500">
+                  <div className="flex items-center justify-between mt-hairline text-caption text-muted">
                     <span>
                       {loc.activeSkusCount} SKUs activos · {loc.capacityM3} m³ totales
                     </span>
                     <button
                       onClick={() => showToast(`Consultando inventario de ${loc.name}...`)}
-                      className="text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
+                      className="text-brand hover:text-brand font-medium flex items-center gap-hairline"
                     >
                       <span>Ver Inventario de Sede</span>
                       <ArrowUpRight className="w-3 h-3" />
@@ -378,7 +378,7 @@ export const CompaniesBranchesView: React.FC = () => {
                 </div>
 
                 {/* Stepper de 4 Módulos Operativos */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs pt-3 border-t border-white/[0.04]">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-compact text-caption pt-compact border-t border-border">
                   {[
                     { label: "Recepción en Muelle", value: loc.modules.recepcionPct },
                     { label: "Almacenamiento", value: loc.modules.almacenamientoPct },
@@ -387,17 +387,17 @@ export const CompaniesBranchesView: React.FC = () => {
                   ].map((mod) => (
                     <div
                       key={mod.label}
-                      className="bg-surface-1/60 p-2.5 rounded-lg border border-white/[0.04]"
+                      className="bg-panel p-compact rounded-control border border-border"
                     >
-                      <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5">
+                      <div className="flex items-center justify-between text-caption text-secondary mb-hairline">
                         <span className="truncate">{mod.label}</span>
-                        <span className="font-mono font-bold text-white tabular-numbers">
+                        <span className="font-mono font-bold text-primary tabular-numbers">
                           {mod.value}%
                         </span>
                       </div>
-                      <div className="w-full h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-canvas rounded-pill overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${mod.value >= 95 ? "bg-emerald-400" : "bg-emerald-600"
+                          className={`h-full rounded-pill ${mod.value >= 95 ? "bg-brand" : "bg-brand/60"
                             }`}
                           style={{ width: `${mod.value}%` }}
                         />
@@ -410,12 +410,12 @@ export const CompaniesBranchesView: React.FC = () => {
           ))}
 
           {filteredLocations.length === 0 && (
-            <div className="bg-surface-1 rounded-2xl p-10 border border-white/[0.06] text-center">
-              <Building2 className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
-              <p className="text-sm text-zinc-400">No hay sedes que coincidan con los filtros.</p>
+            <div className="bg-panel rounded-container p-section border border-border text-center">
+              <Building2 className="w-8 h-8 text-muted mx-auto mb-compact" />
+              <p className="text-body text-secondary">No hay sedes que coincidan con los filtros.</p>
               <button
                 onClick={handleResetFilters}
-                className="mt-3 text-xs text-emerald-400 hover:text-emerald-300 font-medium"
+                className="mt-compact text-caption text-brand hover:text-brand font-medium"
               >
                 Restablecer filtros
               </button>

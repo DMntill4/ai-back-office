@@ -97,27 +97,27 @@ export const SettingsShell: React.FC<SettingsShellProps> = ({
     const active = SETTINGS_TABS.find((t) => t.id === activeTab) ?? SETTINGS_TABS[0];
 
     return (
-        <div className="flex-1 h-full overflow-hidden flex flex-col bg-canvas text-[#F9FAFB] font-sans select-none relative">
+        <div className="flex-1 h-full overflow-hidden flex flex-col bg-canvas text-primary font-sans relative">
             {/* ========================================================= */}
             {/* BARRA SUPERIOR DEL MÓDULO                                 */}
             {/* ========================================================= */}
-            <header className="px-6 pt-5 pb-0 bg-canvas border-b border-white/[0.06] shrink-0 z-20">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <header className="px-group pt-base pb-0 bg-canvas border-b border-border shrink-0 z-20">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-base">
                     <div className="min-w-0">
-                        <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-zinc-500 mb-1.5">
+                        <div className="flex items-center gap-hairline text-caption font-mono text-muted mb-hairline">
                             <span>Configuración</span>
                             <ChevronRight className="w-3 h-3" />
-                            <span className="text-emerald-400">{active.label}</span>
+                            <span className="text-brand">{active.label}</span>
                         </div>
-                        <h1 className="text-2xl font-bold text-white tracking-tight">
+                        <h1 className="text-page-title font-semibold text-primary">
                             Centro de Configuración del Sistema
                         </h1>
-                        <p className="text-xs text-zinc-400 mt-0.5">{active.description}</p>
+                        <p className="text-body text-secondary mt-hairline">{active.description}</p>
                     </div>
 
-                    <div className="flex items-center gap-2.5 shrink-0">
-                        <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono text-emerald-300">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <div className="flex items-center gap-compact shrink-0">
+                        <span className="hidden lg:inline-flex items-center gap-hairline px-compact py-hairline rounded-control bg-brand-surface border border-brand/30 text-caption font-mono text-brand">
+                            <span className="w-1.5 h-1.5 rounded-pill bg-brand animate-pulse" />
                             {statusLabel}
                         </span>
                         {actions}
@@ -141,13 +141,13 @@ export const SettingsShell: React.FC<SettingsShellProps> = ({
                                 role="tab"
                                 aria-selected={isActive}
                                 onClick={() => onTabChange(tab.id)}
-                                className={`relative group flex items-center gap-2 px-3.5 py-2.5 rounded-t-xl text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${isActive
-                                        ? "text-emerald-300 border-emerald-500 bg-surface-1"
-                                        : "text-zinc-400 border-transparent hover:text-white hover:bg-white/[0.03]"
+                                className={`relative group flex items-center gap-compact px-compact py-compact rounded-t-control text-label font-medium whitespace-nowrap transition-colors border-b-2 ${isActive
+                                    ? "text-brand border-brand bg-raised"
+                                    : "text-secondary border-transparent hover:text-primary hover:bg-raised"
                                     }`}
                             >
                                 <Icon
-                                    className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-emerald-400" : "text-zinc-500 group-hover:text-zinc-300"
+                                    className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-brand" : "text-muted group-hover:text-secondary"
                                         }`}
                                 />
                                 <span className="hidden md:inline">{tab.label}</span>
@@ -155,7 +155,7 @@ export const SettingsShell: React.FC<SettingsShellProps> = ({
                                 {isActive && (
                                     <motion.span
                                         layoutId="settings-tab-glow"
-                                        className="absolute inset-x-2 -bottom-px h-px bg-emerald-400/70"
+                                        className="absolute inset-x-2 -bottom-px h-px bg-brand/70"
                                         transition={{ type: "spring", stiffness: 420, damping: 34 }}
                                     />
                                 )}

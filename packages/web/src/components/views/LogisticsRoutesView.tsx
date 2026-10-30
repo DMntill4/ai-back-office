@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { api, type ShipmentListItem } from "../../services/apiClient";
 import { PageHeader } from "../ui/PageHeader";
 import { SegmentedTabs, TabItem } from "../ui/SegmentedTabs";
@@ -7,6 +7,7 @@ import { StatusIndicator, OperationalStatus } from "../ui/StatusIndicator";
 import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
 import { Dialog } from "../ui/Dialog";
+import { EmptyState } from "../ui/EmptyState";
 
 export interface LogisticsRoutesViewProps {
   onNavigateTo?: (tabId: string) => void;
@@ -489,37 +490,49 @@ const shipmentView = (s: ShipmentRoute): { status: OperationalStatus; label: str
 };
 
 export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavigateTo }) => {
-  const [shipments, setShipments] = useState<ShipmentRoute[]>(INITIAL_SHIPMENTS);
-  const [selectedShipmentId, setSelectedShipmentId] = useState<string>("ship_01");
+  const [shipments, setShipments] = useState<ShipmentRoute[]>([]);
+  const [selectedShipmentId, setSelectedShipmentId] = useState<string>("");
   const [isRerouteOpen, setIsRerouteOpen] = useState(false);
   const [isRerouting, setIsRerouting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [timelineFilter, setTimelineFilter] = useState<string>("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
 
   // Hidrata los despachos desde el backend real (`GET /api/shipments`).
-  // El API aporta estado, ETA y progreso reales; la semilla visual conserva
-  // la geometría del mapa, hitos y línea de tiempo. Si el backend no responde,
-  // `requestWithFallback` devuelve la semilla y la vista sigue operativa.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
+  // El API aporta estado, ETA y progreso reales; la semilla visual solo aporta
+  // la geometría del mapa, hitos y línea de tiempo cuando el API no los expone.
+  // Si el backend no devuelve envíos, la vista muestra su `EmptyState`.
+  const loadShipments = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
       const res = await api.shipments.list();
-      if (cancelled || !Array.isArray(res.data) || res.data.length === 0) return;
-      const merged = res.data.map((live) =>
+      const rows = Array.isArray(res.data) ? res.data : [];
+      const merged = rows.map((live) =>
         mergeShipment(
           INITIAL_SHIPMENTS.find((s) => s.id === live.id),
           live,
         ),
       );
       setShipments(merged);
+      setIsFallback(Boolean(res.isFallback));
+      if (!res.success) setError(res.message ?? "No fue posible leer los despachos.");
       setSelectedShipmentId((prev) =>
-        merged.some((s) => s.id === prev) ? prev : merged[0].id,
+        merged.some((s) => s.id === prev) ? prev : merged[0]?.id ?? "",
       );
-    })();
-    return () => {
-      cancelled = true;
-    };
+    } catch (err: any) {
+      setError(err?.message ?? "Error de red al consultar los despachos.");
+      setShipments([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadShipments();
+  }, [loadShipments]);
 
   const inventoryTabs: TabItem[] = [
     { id: "inventario", label: "Existencias" },
@@ -528,7 +541,7 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
   ];
 
   const selected = shipments.find((s) => s.id === selectedShipmentId) || shipments[0];
-  const view = shipmentView(selected);
+  const view = selected ? shipmentView(selected) : { status: "pending" as OperationalStatus, label: "Sin despachos" };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -536,11 +549,14 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
   };
 
   const handleApproveReroute = () => {
+    if (!selected) return;
+    const targetId = selected.id;
+    const targetPlate = selected.vehiclePlate;
     setIsRerouting(true);
     setTimeout(() => {
       setShipments((prev) =>
         prev.map((s) => {
-          if (s.id !== selected.id || !s.riskAlert) return s;
+          if (s.id !== targetId || !s.riskAlert) return s;
           const rec = s.aiRecommendation;
           const newEvent: TimelineEvent = {
             id: "evt-reroute-approved",
@@ -571,12 +587,17 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
       );
       setIsRerouting(false);
       setIsRerouteOpen(false);
-      showToast(`Desvío aprobado: nueva ruta enviada al conductor del vehículo ${selected.vehiclePlate}.`);
+      showToast(`Desvío aprobado: nueva ruta enviada al conductor del vehículo ${targetPlate}.`);
     }, 900);
   };
 
   const events = useMemo(
-    () => (timelineFilter === "critical" ? selected.timelineEvents.filter((e) => e.isCritical) : selected.timelineEvents),
+    () =>
+      selected
+        ? timelineFilter === "critical"
+          ? selected.timelineEvents.filter((e) => e.isCritical)
+          : selected.timelineEvents
+        : [],
     [selected, timelineFilter]
   );
 
@@ -597,22 +618,24 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
     { id: "flete", value: formatCop(totalFreight), context: "Flete de los despachos de hoy", highlightBrand: true },
   ];
 
-  const facts: { label: string; value: string }[] = [
-    { label: "Llegada estimada", value: selected.eta },
-    { label: "Distancia", value: `${selected.distanceKm} km` },
-    {
-      label: "Carga",
-      value: `${selected.payloadKg.toLocaleString("es-CO")} de ${selected.capacityKg.toLocaleString("es-CO")} kg (${selected.volumePct}% del volumen)`,
-    },
-    { label: "Flete", value: `${formatCop(selected.totalFreightCop)} · ${selected.ordersCount} órdenes` },
-    { label: "Ahorro frente a envíos separados", value: formatCop(selected.savingsVsIndividualCop) },
-    { label: "Conductor", value: `${selected.driver} · ${selected.phone}` },
-    { label: "Vehículo", value: `${selected.vehicleType} · ${selected.vehiclePlate}` },
-    { label: "Salida", value: selected.departureTime },
-  ];
+  const facts: { label: string; value: string }[] = selected
+    ? [
+      { label: "Llegada estimada", value: selected.eta },
+      { label: "Distancia", value: `${selected.distanceKm} km` },
+      {
+        label: "Carga",
+        value: `${selected.payloadKg.toLocaleString("es-CO")} de ${selected.capacityKg.toLocaleString("es-CO")} kg (${selected.volumePct}% del volumen)`,
+      },
+      { label: "Flete", value: `${formatCop(selected.totalFreightCop)} · ${selected.ordersCount} órdenes` },
+      { label: "Ahorro frente a envíos separados", value: formatCop(selected.savingsVsIndividualCop) },
+      { label: "Conductor", value: `${selected.driver} · ${selected.phone}` },
+      { label: "Vehículo", value: `${selected.vehicleType} · ${selected.vehiclePlate}` },
+      { label: "Salida", value: selected.departureTime },
+    ]
+    : [];
 
-  const rec = selected.aiRecommendation;
-  const alert = selected.riskAlert;
+  const rec = selected?.aiRecommendation;
+  const alert = selected?.riskAlert;
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans p-group space-y-group">
@@ -637,141 +660,175 @@ export const LogisticsRoutesView: React.FC<LogisticsRoutesViewProps> = ({ onNavi
 
       <MetricStrip items={metrics} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-group items-start">
-        <Panel className="p-0 overflow-hidden">
-          <h2 className="px-group py-element text-section-title font-bold border-b border-border">Despachos de hoy</h2>
-          <ul className="divide-y divide-border">
-            {shipments.map((s) => {
-              const v = shipmentView(s);
-              const isActive = s.id === selected.id;
-              return (
-                <li key={s.id}>
-                  <button
-                    onClick={() => setSelectedShipmentId(s.id)}
-                    aria-current={isActive}
-                    className={`w-full text-left px-group py-element space-y-compact cursor-pointer transition-colors ${isActive ? "bg-raised border-l-2 border-brand" : "hover:bg-raised/50 border-l-2 border-transparent"
-                      }`}
-                  >
-                    <div className="flex items-center justify-between gap-compact">
-                      <span className="font-mono text-caption text-primary">{s.shipmentCode}</span>
-                      <StatusIndicator status={v.status} label={v.label} />
-                    </div>
-                    <p className="text-body font-medium text-primary">
-                      {s.originCode} → {s.destinationCode}
-                    </p>
-                    <p className="text-caption text-secondary">{s.eta}</p>
-                    <div className="h-1.5 rounded-pill bg-canvas overflow-hidden" role="progressbar" aria-valuenow={s.progressPct} aria-valuemin={0} aria-valuemax={100} aria-label="Avance del recorrido">
-                      <div className="h-full rounded-pill bg-brand" style={{ width: `${s.progressPct}%` }} />
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </Panel>
+      {isFallback && (
+        <div className="rounded-container border border-border bg-state-attention-surface px-element py-compact text-caption text-state-attention">
+          Mostrando despachos de referencia: el servicio de rutas no respondió. Los datos pueden no reflejar el estado real de la flota.
+        </div>
+      )}
 
-        <div className="space-y-group min-w-0">
-          <Panel className="space-y-element">
-            <div className="flex flex-wrap items-start justify-between gap-element">
-              <div>
-                <h2 className="text-section-title font-bold">
-                  {selected.origin} → {selected.destination}
-                </h2>
-                <p className="text-caption text-secondary mt-hairline">
-                  <span className="font-mono">{selected.shipmentCode}</span> · {selected.carrier}
-                </p>
-              </div>
-              <StatusIndicator status={view.status} label={view.label} />
-            </div>
+      {error && (
+        <div className="rounded-container border border-border bg-state-error-surface px-element py-compact text-caption text-state-error flex flex-wrap items-center justify-between gap-compact">
+          <span>{error}</span>
+          <Button variant="secondary" onClick={() => void loadShipments()}>
+            Reintentar
+          </Button>
+        </div>
+      )}
 
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-group gap-y-element">
-              {facts.map((f) => (
-                <div key={f.label}>
-                  <dt className="text-label text-secondary">{f.label}</dt>
-                  <dd className="text-body text-primary tabular-nums">{f.value}</dd>
-                </div>
-              ))}
-            </dl>
+      {loading && shipments.length === 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-group items-start" aria-busy="true" aria-label="Cargando despachos">
+          <div className="h-96 rounded-container bg-raised animate-pulse" />
+          <div className="space-y-group">
+            <div className="h-40 rounded-container bg-raised animate-pulse" />
+            <div className="h-56 rounded-container bg-raised animate-pulse" />
+          </div>
+        </div>
+      ) : shipments.length === 0 ? (
+        <div className="py-group">
+          <EmptyState
+            title="Sin despachos registrados"
+            description="El backend no devolvió rutas activas para esta empresa. Cuando el agente planifique un despacho aparecerá aquí con su recorrido y alertas."
+            actionLabel="Actualizar"
+            onAction={() => void loadShipments()}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-group items-start">
+          <Panel className="p-0 overflow-hidden">
+            <h2 className="px-group py-element text-section-title font-bold border-b border-border">Despachos de hoy</h2>
+            <ul className="divide-y divide-border">
+              {shipments.map((s) => {
+                const v = shipmentView(s);
+                const isActive = s.id === selected?.id;
+                return (
+                  <li key={s.id}>
+                    <button
+                      onClick={() => setSelectedShipmentId(s.id)}
+                      aria-current={isActive}
+                      className={`w-full text-left px-group py-element space-y-compact cursor-pointer transition-colors ${isActive ? "bg-raised border-l-2 border-brand" : "hover:bg-raised/50 border-l-2 border-transparent"
+                        }`}
+                    >
+                      <div className="flex items-center justify-between gap-compact">
+                        <span className="font-mono text-caption text-primary">{s.shipmentCode}</span>
+                        <StatusIndicator status={v.status} label={v.label} />
+                      </div>
+                      <p className="text-body font-medium text-primary">
+                        {s.originCode} → {s.destinationCode}
+                      </p>
+                      <p className="text-caption text-secondary">{s.eta}</p>
+                      <div className="h-1.5 rounded-pill bg-canvas overflow-hidden" role="progressbar" aria-valuenow={s.progressPct} aria-valuemin={0} aria-valuemax={100} aria-label="Avance del recorrido">
+                        <div className="h-full rounded-pill bg-brand" style={{ width: `${s.progressPct}%` }} />
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </Panel>
 
-          {alert && (
+          <div className="space-y-group min-w-0">
             <Panel className="space-y-element">
               <div className="flex flex-wrap items-start justify-between gap-element">
-                <div className="max-w-[72ch]">
-                  <StatusIndicator
-                    status={alert.isRerouted ? "ok" : "attention"}
-                    label={alert.isRerouted ? "Resuelto" : alert.severity === "alta" ? "Alerta alta" : "Alerta media"}
-                  />
-                  <h3 className="text-body font-bold mt-compact">{alert.title}</h3>
-                  <p className="text-body text-secondary mt-hairline">{alert.description}</p>
+                <div>
+                  <h2 className="text-section-title font-bold">
+                    {selected?.origin} → {selected?.destination}
+                  </h2>
+                  <p className="text-caption text-secondary mt-hairline">
+                    <span className="font-mono">{selected?.shipmentCode}</span> · {selected?.carrier}
+                  </p>
+                </div>
+                <StatusIndicator status={view.status} label={view.label} />
+              </div>
+
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-group gap-y-element">
+                {facts.map((f) => (
+                  <div key={f.label}>
+                    <dt className="text-label text-secondary">{f.label}</dt>
+                    <dd className="text-body text-primary tabular-nums">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Panel>
+
+            {alert && (
+              <Panel className="space-y-element">
+                <div className="flex flex-wrap items-start justify-between gap-element">
+                  <div className="max-w-[72ch]">
+                    <StatusIndicator
+                      status={alert.isRerouted ? "ok" : "attention"}
+                      label={alert.isRerouted ? "Resuelto" : alert.severity === "alta" ? "Alerta alta" : "Alerta media"}
+                    />
+                    <h3 className="text-body font-bold mt-compact">{alert.title}</h3>
+                    <p className="text-body text-secondary mt-hairline">{alert.description}</p>
+                  </div>
+                  {!alert.isRerouted && rec && (
+                    <Button onClick={() => setIsRerouteOpen(true)}>Revisar desvío</Button>
+                  )}
                 </div>
                 {!alert.isRerouted && rec && (
-                  <Button onClick={() => setIsRerouteOpen(true)}>Revisar desvío</Button>
+                  <p className="text-caption text-secondary">
+                    El agente propone «{rec.proposedAlternative.routeName}»: ahorra {rec.proposedAlternative.netSavingsMinutes} min y cuesta {formatCop(rec.proposedAlternative.fuelCostCop)} más en combustible.
+                  </p>
                 )}
-              </div>
-              {!alert.isRerouted && rec && (
-                <p className="text-caption text-secondary">
-                  El agente propone «{rec.proposedAlternative.routeName}»: ahorra {rec.proposedAlternative.netSavingsMinutes} min y cuesta {formatCop(rec.proposedAlternative.fuelCostCop)} más en combustible.
-                </p>
-              )}
-            </Panel>
-          )}
+              </Panel>
+            )}
 
-          <Panel className="space-y-element">
-            <h3 className="text-section-title font-bold">Recorrido</h3>
-            <ol className="space-y-element">
-              {selected.milestones.map((m) => (
-                <li key={m.label + m.time} className="flex items-start gap-element">
-                  <span
-                    className={`mt-1 w-2.5 h-2.5 rounded-pill flex-shrink-0 ${m.status === "completed" ? "bg-state-ok" : m.status === "current" ? "bg-brand" : "border border-strong"
-                      }`}
-                  />
-                  <div className="flex-1 flex flex-wrap justify-between gap-compact">
-                    <div>
-                      <p className={`text-body ${m.status === "pending" ? "text-secondary" : "text-primary font-medium"}`}>{m.label}</p>
-                      <p className="text-caption text-secondary">{m.location}</p>
-                    </div>
-                    <span className="text-caption text-secondary tabular-nums">{m.time}</span>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </Panel>
-
-          <Panel className="space-y-element">
-            <div className="flex flex-wrap items-center justify-between gap-element">
-              <h3 className="text-section-title font-bold">Historial del despacho</h3>
-              <SegmentedTabs
-                tabs={[
-                  { id: "all", label: "Todo" },
-                  { id: "critical", label: "Solo críticos" },
-                ]}
-                activeTab={timelineFilter}
-                onChange={setTimelineFilter}
-              />
-            </div>
-            {events.length === 0 ? (
-              <p className="text-body text-secondary">Este despacho no tiene eventos críticos.</p>
-            ) : (
-              <ul className="divide-y divide-border">
-                {events.map((e) => (
-                  <li key={e.id} className="py-element flex gap-group">
-                    <span className="w-28 flex-shrink-0 text-caption text-secondary tabular-nums">{e.time}</span>
-                    <div className="min-w-0">
-                      <p className="text-body font-medium text-primary">{e.title}</p>
-                      <p className="text-body text-secondary max-w-[72ch]">{e.description}</p>
-                      {e.impact && <p className="text-caption text-secondary mt-hairline">{e.impact}</p>}
-                      <p className="text-caption text-muted mt-hairline">
-                        {SOURCE_LABEL[e.source]} · {e.location}
-                      </p>
+            <Panel className="space-y-element">
+              <h3 className="text-section-title font-bold">Recorrido</h3>
+              <ol className="space-y-element">
+                {(selected?.milestones ?? []).map((m) => (
+                  <li key={m.label + m.time} className="flex items-start gap-element">
+                    <span
+                      className={`mt-1 w-2.5 h-2.5 rounded-pill flex-shrink-0 ${m.status === "completed" ? "bg-state-ok" : m.status === "current" ? "bg-brand" : "border border-strong"
+                        }`}
+                    />
+                    <div className="flex-1 flex flex-wrap justify-between gap-compact">
+                      <div>
+                        <p className={`text-body ${m.status === "pending" ? "text-secondary" : "text-primary font-medium"}`}>{m.label}</p>
+                        <p className="text-caption text-secondary">{m.location}</p>
+                      </div>
+                      <span className="text-caption text-secondary tabular-nums">{m.time}</span>
                     </div>
                   </li>
                 ))}
-              </ul>
-            )}
-          </Panel>
+              </ol>
+            </Panel>
+
+            <Panel className="space-y-element">
+              <div className="flex flex-wrap items-center justify-between gap-element">
+                <h3 className="text-section-title font-bold">Historial del despacho</h3>
+                <SegmentedTabs
+                  tabs={[
+                    { id: "all", label: "Todo" },
+                    { id: "critical", label: "Solo críticos" },
+                  ]}
+                  activeTab={timelineFilter}
+                  onChange={setTimelineFilter}
+                />
+              </div>
+              {events.length === 0 ? (
+                <p className="text-body text-secondary">Este despacho no tiene eventos críticos.</p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {events.map((e) => (
+                    <li key={e.id} className="py-element flex gap-group">
+                      <span className="w-28 flex-shrink-0 text-caption text-secondary tabular-nums">{e.time}</span>
+                      <div className="min-w-0">
+                        <p className="text-body font-medium text-primary">{e.title}</p>
+                        <p className="text-body text-secondary max-w-[72ch]">{e.description}</p>
+                        {e.impact && <p className="text-caption text-secondary mt-hairline">{e.impact}</p>}
+                        <p className="text-caption text-muted mt-hairline">
+                          {SOURCE_LABEL[e.source]} · {e.location}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          </div>
         </div>
-      </div>
+      )}
 
       <Dialog
         isOpen={isRerouteOpen && !!rec}

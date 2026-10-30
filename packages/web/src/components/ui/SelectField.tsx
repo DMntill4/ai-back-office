@@ -40,11 +40,10 @@ export const SelectField: React.FC<SelectFieldProps> = ({
         <select
           id={selectId}
           disabled={disabled}
-          className={`w-full h-9 pl-3 pr-8 text-xs bg-forest-card text-txt-primary border rounded-md appearance-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-            error
+          className={`w-full h-9 pl-3 pr-8 text-xs bg-forest-card text-txt-primary border rounded-md appearance-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${error
               ? "border-state-error focus-visible:ring-state-error"
               : "border-forest-border hover:border-forest-borderBright"
-          } ${className}`}
+            } ${className}`}
           {...props}
         >
           {options.map((opt) => (
@@ -64,9 +63,9 @@ export const SelectField: React.FC<SelectFieldProps> = ({
       </div>
 
       {error ? (
-        <p className="text-[11px] text-state-error">{error}</p>
+        <p className="text-caption text-state-error">{error}</p>
       ) : helperText ? (
-        <p className="text-[11px] text-txt-tertiary">{helperText}</p>
+        <p className="text-caption text-muted">{helperText}</p>
       ) : null}
     </div>
   );

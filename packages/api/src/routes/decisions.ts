@@ -38,6 +38,16 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
         const risk = ((d as any).riskAnalysisPayload || (d as any).riskPayload) || {};
         const costNum = Number(d.costMxn || 0);
 
+        // Desglose FinOps de la tarea que originó la decisión (si está disponible)
+        const costBreakdown = {
+          tokens: Number(evidence.totalTokens ?? evidence.tokens ?? 0),
+          costUsd: Number(evidence.totalCostUsd ?? evidence.costUsd ?? 0),
+          model: evidence.modelUsed ?? evidence.model ?? null,
+        };
+
+        // Veredicto de auto-evaluación (Reflection Loop) adjunto a la evidencia
+        const evaluation = evidence.evaluation ?? null;
+
         return {
           id: d.id,
           caseId: d.caseId,
@@ -51,6 +61,8 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
           reversible: d.reversible ?? true,
           evidence,
           risk,
+          costBreakdown,
+          evaluation,
           policyReason: d.policyReason || "Supera el umbral de $5,000,000 COP y requiere confirmación del operador.",
           createdAt: d.createdAt,
         };

@@ -1,27 +1,19 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  BarChart3,
   TrendingUp,
   Download,
-  Calendar,
   Layers,
-  ArrowUpRight,
   ShieldCheck,
   Sparkles,
   FileText,
   FileSpreadsheet,
-  CheckCircle2,
-  Clock,
-  Zap,
-  Filter,
   DollarSign,
-  ChevronRight,
-  Search,
-  Check,
-  Percent,
+  RefreshCw,
 } from "lucide-react";
 import { KpiStrip, KpiCardItem } from "../ui/KpiStrip";
+import { EmptyState } from "../ui/EmptyState";
+import { api } from "../../services/apiClient";
 
 export interface ReportFile {
   id: string;
@@ -46,70 +38,65 @@ export interface MonthlyMetric {
   poCount: number;
 }
 
-const MONTHLY_METRICS: MonthlyMetric[] = [
-  { month: "Ene", fullMonth: "Enero 2026", revenueCop: 28500000, costCop: 22800000, anomalyCop: 1400000, marginPct: 20.0, savingsCop: 1400000, poCount: 18 },
-  { month: "Feb", fullMonth: "Febrero 2026", revenueCop: 31200000, costCop: 24500000, anomalyCop: 900000, marginPct: 21.5, savingsCop: 1850000, poCount: 22 },
-  { month: "Mar", fullMonth: "Marzo 2026", revenueCop: 34800000, costCop: 26200000, anomalyCop: 600000, marginPct: 24.7, savingsCop: 2400000, poCount: 26 },
-  { month: "Abr", fullMonth: "Abril 2026", revenueCop: 32400000, costCop: 24300000, anomalyCop: 1200000, marginPct: 25.0, savingsCop: 2600000, poCount: 24 },
-  { month: "May", fullMonth: "Mayo 2026", revenueCop: 36900000, costCop: 27100000, anomalyCop: 800000, marginPct: 26.5, savingsCop: 3200000, poCount: 28 },
-  { month: "Jun", fullMonth: "Junio 2026", revenueCop: 38500000, costCop: 27900000, anomalyCop: 700000, marginPct: 27.5, savingsCop: 3750000, poCount: 31 },
-  { month: "Jul", fullMonth: "Julio 2026", revenueCop: 40800000, costCop: 29100000, anomalyCop: 900000, marginPct: 28.7, savingsCop: 4100000, poCount: 34 },
-  { month: "Ago", fullMonth: "Agosto 2026", revenueCop: 43200000, costCop: 31400000, anomalyCop: 3400000, marginPct: 27.3, savingsCop: 4500000, poCount: 39 },
-  { month: "Sep", fullMonth: "Septiembre 2026", revenueCop: 41500000, costCop: 29300000, anomalyCop: 1100000, marginPct: 29.4, savingsCop: 4900000, poCount: 36 },
-  { month: "Oct", fullMonth: "Octubre 2026", revenueCop: 46800000, costCop: 32100000, anomalyCop: 2600000, marginPct: 31.4, savingsCop: 5400000, poCount: 42 },
-];
-
-const INITIAL_REPORTS: ReportFile[] = [
+const REPORT_KINDS: Array<{ kind: string; category: ReportFile["category"]; title: string; summary: string }> = [
   {
-    id: "rep-001",
-    filename: "informe_ejecutivo_q3_2026.pdf",
-    title: "Informe Ejecutivo de Ganancias, Costo Landed y Margen Neto",
+    kind: "financial",
     category: "Financiero",
-    format: "pdf",
-    size: "2.4 MB",
-    createdAt: "Hoy, 08:30 a. m.",
-    hmacSha256: "9f83c18b76e2d194852bf2c6e910248ad85f67b54d098e72e3a47d25e01f681a",
+    title: "Informe Ejecutivo de Ganancias, Costo Landed y Margen Neto",
     summary: "Consolidación de margen operativo, ahorro por compras automáticas e impacto de sobrecostos por fletes.",
   },
   {
-    id: "rep-002",
-    filename: "balanceo_multisede_octubre.csv",
-    title: "Matriz de Demanda y Salud de Inventario Multisede (ROP)",
+    kind: "inventory",
     category: "Inventario",
-    format: "csv",
-    size: "840 KB",
-    createdAt: "Ayer, 16:45 p. m.",
-    hmacSha256: "e4d909c290d0fb1ca068ffaddf22cbd0add8b365d886b1f26a9e8697acac299c",
-    summary: "338 SKUs auditados entre Bucaramanga, Bogotá y Medellín. Proyección de quiebres evitada al 98.4%.",
+    title: "Matriz de Demanda y Salud de Inventario Multisede (ROP)",
+    summary: "Auditoría de SKUs entre sedes con proyección de quiebres y cobertura de punto de reorden.",
   },
   {
-    id: "rep-003",
-    filename: "eficiencia_rutas_osrm.pdf",
-    title: "Rendimiento Logístico y Ahorro en Rutas Intermunicipales",
+    kind: "logistics",
     category: "Logística",
-    format: "pdf",
-    size: "1.8 MB",
-    createdAt: "27 Oct 2026",
-    hmacSha256: "3f82ab2e67c8a14b091f6d34e2c817290fa8b417c8091de992384610492817cc",
-    summary: "Consolidación de despachos y elusión de sobrecostos por cierres viales en Santander y Cundinamarca.",
+    title: "Rendimiento Logístico y Ahorro en Rutas Intermunicipales",
+    summary: "Consolidación de despachos y elusión de sobrecostos por cierres viales.",
   },
   {
-    id: "rep-004",
-    filename: "auditoria_recibos_criptograficos.json",
-    title: "Registro de Integridad y Firmas Digitales de Gobernanza",
+    kind: "governance",
     category: "Gobernanza",
-    format: "json",
-    size: "340 KB",
-    createdAt: "26 Oct 2026",
-    hmacSha256: "7b10283c914e6d234850fa192385bf1872635481092837461928374619283746",
-    summary: "Validación matemática de 142 órdenes de compra y conciliaciones físicas mediante HMAC-SHA256.",
+    title: "Registro de Integridad y Firmas Digitales de Gobernanza",
+    summary: "Validación matemática de órdenes de compra y conciliaciones físicas mediante HMAC-SHA256.",
   },
 ];
 
+function mapReport(kind: string, payload: any, idx: number): ReportFile {
+  const meta = REPORT_KINDS.find((r) => r.kind === kind) ?? REPORT_KINDS[0];
+  const rows = Array.isArray(payload) ? payload.length : payload ? 1 : 0;
+  return {
+    id: `rep-${kind}-${idx}`,
+    filename: `reporte_${kind}_${new Date().toISOString().slice(0, 10)}.csv`,
+    title: meta.title,
+    category: meta.category,
+    format: "csv",
+    size: `${rows} registros`,
+    createdAt: new Date().toLocaleDateString("es-CO"),
+    hmacSha256: "",
+    summary: meta.summary,
+  };
+}
+
+function monthLabel(date: Date): { month: string; fullMonth: string } {
+  const month = date.toLocaleDateString("es-CO", { month: "short" }).replace(".", "");
+  const fullMonth = date.toLocaleDateString("es-CO", { month: "long", year: "numeric" });
+  return {
+    month: month.charAt(0).toUpperCase() + month.slice(1),
+    fullMonth: fullMonth.charAt(0).toUpperCase() + fullMonth.slice(1),
+  };
+}
+
 export const AnalyticsReportsView: React.FC = () => {
-  const [reports, setReports] = useState<ReportFile[]>(INITIAL_REPORTS);
+  const [reports, setReports] = useState<ReportFile[]>([]);
+  const [monthlyMetrics, setMonthlyMetrics] = useState<MonthlyMetric[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
-  const [searchQuery, setSearchQuery] = useState("");
   const [timeRange, setTimeRange] = useState<"mes" | "trimestre" | "ano">("mes");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -118,67 +105,132 @@ export const AnalyticsReportsView: React.FC = () => {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const filteredReports = useMemo(() => {
-    return reports.filter((r) => {
-      const matchCat =
-        selectedCategory === "Todas" || r.category === selectedCategory;
-      const matchSearch =
-        r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.filename.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchCat && matchSearch;
-    });
-  }, [reports, selectedCategory, searchQuery]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [reportsRes, variationRes] = await Promise.all([
+        api.reports.list({ limit: 20 }),
+        api.analytics.profitVariation(),
+      ]);
 
-  // KPIs
-  const kpiItems: KpiCardItem[] = [
-    {
-      title: "Margen Operativo Neto",
-      value: "31.4%",
-      subtitle: "338 SKUs analizados",
-      trend: { direction: "up", label: "+4.1% vs trimestre anterior" },
-      icon: TrendingUp,
-      isHero: true,
-      onActionClick: () => showToast("Exportando informe ejecutivo de margen neto..."),
-    },
-    {
-      title: "Ingresos Brutos Consolidados",
-      value: "$46.8M COP",
-      subtitle: "42 órdenes procesadas",
-      trend: { direction: "up", label: "+12.8% vs mes previo" },
-      icon: DollarSign,
-    },
-    {
-      title: "Ahorro Negociado por IA",
-      value: "$5.4M COP",
-      subtitle: "Volumen y consolidación de fletes",
-      trend: { direction: "up", label: "$1.2M en logística" },
-      icon: Sparkles,
-    },
-    {
-      title: "Rotación de Inventario",
-      value: "98.4%",
-      subtitle: "Eficiencia de capital de trabajo",
-      trend: { direction: "up", label: "Quiebre reducido < 1%" },
-      icon: Layers,
-    },
-  ];
+      const reportRows = Array.isArray(reportsRes.data) ? reportsRes.data : [];
+      if (reportRows.length > 0) {
+        setReports(
+          reportRows.map((r: any, idx: number) =>
+            mapReport(String(r?.kind ?? r?.type ?? "financial"), r?.data ?? r, idx),
+          ),
+        );
+      } else {
+        // Sin dataset del backend: exponemos los tipos de reporte disponibles
+        // como entradas descargables reales (el endpoint /reports/:kind los genera).
+        setReports(REPORT_KINDS.map((r, idx) => mapReport(r.kind, null, idx)));
+      }
+
+      const variation = variationRes.data;
+      const series = Array.isArray(variation?.series)
+        ? variation.series
+        : Array.isArray(variation?.data)
+          ? variation.data
+          : Array.isArray(variation)
+            ? variation
+            : [];
+
+      const metrics: MonthlyMetric[] = series.slice(-10).map((point: any, idx: number) => {
+        const date = point?.date ? new Date(point.date) : new Date();
+        const { month, fullMonth } = monthLabel(date);
+        const revenue = Number(point?.revenue ?? point?.revenueCop ?? point?.sales ?? 0);
+        const cost = Number(point?.cost ?? point?.costCop ?? 0);
+        return {
+          month,
+          fullMonth,
+          revenueCop: revenue,
+          costCop: cost,
+          anomalyCop: Number(point?.anomaly ?? point?.anomalyCop ?? 0),
+          marginPct: revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0,
+          savingsCop: Number(point?.savings ?? point?.savingsCop ?? 0),
+          poCount: Number(point?.poCount ?? point?.orders ?? idx + 1),
+        };
+      });
+      setMonthlyMetrics(metrics);
+
+      setIsFallback(Boolean(reportsRes.isFallback || variationRes.isFallback));
+      if (!reportsRes.success && !variationRes.success) {
+        setError(reportsRes.message ?? "No fue posible leer los reportes.");
+      }
+    } catch (err: any) {
+      setError(err?.message ?? "Error de red al consultar los reportes.");
+      setReports([]);
+      setMonthlyMetrics([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const filteredReports = useMemo(() => {
+    return reports.filter((r) => selectedCategory === "Todas" || r.category === selectedCategory);
+  }, [reports, selectedCategory]);
+
+  const kpiItems: KpiCardItem[] = useMemo(() => {
+    const last = monthlyMetrics[monthlyMetrics.length - 1];
+    const totalRevenue = monthlyMetrics.reduce((acc, m) => acc + m.revenueCop, 0);
+    const totalSavings = monthlyMetrics.reduce((acc, m) => acc + m.savingsCop, 0);
+    const totalPo = monthlyMetrics.reduce((acc, m) => acc + m.poCount, 0);
+    return [
+      {
+        title: "Margen Operativo Neto",
+        value: last ? `${last.marginPct.toFixed(1)}%` : "—",
+        subtitle: `${monthlyMetrics.length} periodos analizados`,
+        trend: { direction: "up", label: last ? last.fullMonth : "Sin datos" },
+        icon: TrendingUp,
+        isHero: true,
+        onActionClick: () => showToast("Exportando informe ejecutivo de margen neto..."),
+      },
+      {
+        title: "Ingresos Brutos Consolidados",
+        value: totalRevenue > 0 ? `$${(totalRevenue / 1000000).toFixed(1)}M COP` : "—",
+        subtitle: `${totalPo} órdenes procesadas`,
+        trend: { direction: "up", label: "Acumulado del periodo" },
+        icon: DollarSign,
+      },
+      {
+        title: "Ahorro Negociado por IA",
+        value: totalSavings > 0 ? `$${(totalSavings / 1000000).toFixed(1)}M COP` : "—",
+        subtitle: "Volumen y consolidación de fletes",
+        trend: { direction: "up", label: "Ahorro acumulado" },
+        icon: Sparkles,
+      },
+      {
+        title: "Reportes Disponibles",
+        value: `${reports.length} Informes`,
+        subtitle: "Firmados y trazables",
+        trend: { direction: "up", label: "Descarga directa" },
+        icon: Layers,
+      },
+    ];
+  }, [monthlyMetrics, reports]);
+
+  const maxRevenue = Math.max(1, ...monthlyMetrics.map((m) => m.revenueCop));
 
   return (
-    <div className="flex-1 h-full overflow-y-auto bg-canvas text-[#F9FAFB] font-sans select-none flex flex-col p-6 space-y-6">
-      {/* Toast Notification */}
+    <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans flex flex-col p-group space-y-group">
       <AnimatePresence>
         {toastMessage && (
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E] border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
+            className="fixed top-6 right-8 z-50 px-compact py-compact rounded-pill flex items-center gap-compact bg-state-ok-surface border border-brand/40 text-state-ok"
           >
-            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span className="text-xs font-mono font-medium">{toastMessage}</span>
+            <div className="w-2 h-2 rounded-full bg-state-ok animate-pulse" />
+            <span className="text-caption font-mono font-medium">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
+              className="text-muted hover:text-primary text-caption ml-hairline"
             >
               ✕
             </button>
@@ -186,194 +238,176 @@ export const AnalyticsReportsView: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* ========================================================= */}
-      {/* HEADER EJECUTIVO LIMPIO                                   */}
-      {/* ========================================================= */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-base">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+          <h1 className="text-page-title font-bold text-primary tracking-tight">
             Análisis y Reportes
           </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <p className="text-caption text-muted mt-hairline">
             Métricas de margen, costo landed y rendimiento financiero multisede
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Switcher Temporal estilo CheckinOs */}
-          <div className="flex items-center p-1 rounded-xl bg-surface-1 border border-white/[0.08]">
-            <button
-              onClick={() => setTimeRange("mes")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${timeRange === "mes"
-                ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30"
-                : "text-zinc-400 hover:text-white"
-                }`}
-            >
-              Este Mes
-            </button>
-            <button
-              onClick={() => setTimeRange("trimestre")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${timeRange === "trimestre"
-                ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30"
-                : "text-zinc-400 hover:text-white"
-                }`}
-            >
-              Trimestre Q3
-            </button>
-            <button
-              onClick={() => setTimeRange("ano")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${timeRange === "ano"
-                ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30"
-                : "text-zinc-400 hover:text-white"
-                }`}
-            >
-              Año 2026
-            </button>
+        <div className="flex items-center gap-compact">
+          <div className="flex items-center p-hairline rounded-control bg-raised border border-border">
+            {(["mes", "trimestre", "ano"] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-compact py-hairline rounded-control text-caption font-medium transition-colors ${timeRange === range
+                  ? "bg-brand-surface text-brand font-semibold border border-brand/40"
+                  : "text-muted hover:text-primary border border-transparent"
+                  }`}
+              >
+                {range === "mes" ? "Este Mes" : range === "trimestre" ? "Trimestre Q3" : "Año 2026"}
+              </button>
+            ))}
           </div>
 
           <button
+            onClick={() => void load()}
+            disabled={loading}
+            className="h-9 px-compact rounded-control bg-raised border border-border hover:border-border-strong text-secondary hover:text-primary text-caption font-medium flex items-center gap-hairline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span>Actualizar</span>
+          </button>
+
+          <button
             onClick={() => showToast("Exportando compilado consolidado...")}
-            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
+            className="h-9 px-compact rounded-control bg-brand hover:bg-brand/90 text-canvas font-semibold text-caption flex items-center gap-hairline transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Exportar Informe PDF</span>
+            <span>Exportar Informe</span>
           </button>
         </div>
       </header>
 
-      {/* ========================================================= */}
-      {/* 1. FILA 1: KPI STRIP DE 4 TARJETAS CON TARJETA HÉROE      */}
-      {/* ========================================================= */}
+      {isFallback && (
+        <div className="px-compact py-compact rounded-control bg-state-attention-surface border border-border text-caption text-state-attention">
+          Mostrando datos de respaldo: el backend no respondió con las métricas reales.
+        </div>
+      )}
+
+      {error && (
+        <div className="px-compact py-compact rounded-control bg-state-error-surface border border-border text-caption text-state-error">
+          {error}
+        </div>
+      )}
+
       <KpiStrip items={kpiItems} />
 
-      {/* ========================================================= */}
-      {/* 2. FILA 2: BENTO VISUAL DE 3 BLOQUES                      */}
-      {/* ========================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Bloque Izquierdo (7 Cols): Barras Redondeadas con Proyección Rayada */}
-        <div className="lg:col-span-7 bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card flex flex-col justify-between">
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-white/[0.06]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-group">
+        <div className="lg:col-span-7 bg-panel rounded-container p-base border border-border flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-compact pb-compact border-b border-border">
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-section-title font-bold text-primary tracking-tight">
                 Ingresos y Proyección Operativa
               </h3>
-              <p className="text-xs text-zinc-400">
+              <p className="text-caption text-muted">
                 Ejecutado mensual frente a la proyección del agente
               </p>
             </div>
-            <div className="flex items-center gap-3 text-[10px] text-zinc-500">
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+            <div className="flex items-center gap-compact text-caption text-muted">
+              <span className="flex items-center gap-hairline">
+                <span className="w-2.5 h-2.5 rounded-sm bg-brand" />
                 Ejecutado
               </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-sm bg-hatched-emerald border border-emerald-500/30" />
+              <span className="flex items-center gap-hairline">
+                <span className="w-2.5 h-2.5 rounded-sm bg-brand-surface border border-brand/40" />
                 Proyección
               </span>
             </div>
           </div>
 
-          {/* Gráfico de Barras Redondeadas */}
-          <div className="relative my-5 h-52 w-full flex items-end justify-between gap-1.5 sm:gap-2.5">
-            {MONTHLY_METRICS.map((m, idx) => {
-              const maxRevenue = Math.max(...MONTHLY_METRICS.map((x) => x.revenueCop));
-              const actualPct = (m.revenueCop / maxRevenue) * 100;
-              // Proyección: últimos 3 meses muestran el tramo rayado
-              const isProjected = idx >= MONTHLY_METRICS.length - 3;
-              const projectionPct = isProjected ? Math.min(actualPct * 0.18, 100 - actualPct) : 0;
-              const isPeak = idx === MONTHLY_METRICS.length - 1;
-              return (
-                <div
-                  key={m.month}
-                  className="flex-1 flex flex-col items-center justify-end h-full group relative"
-                >
-                  {/* Tooltip al hover */}
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap px-2 py-1 rounded-lg bg-[#070B09] border border-emerald-500/40 shadow-xl">
-                    <span className="text-[10px] font-mono text-white">
-                      ${(m.revenueCop / 1000000).toFixed(1)}M
-                    </span>
-                  </div>
-
-                  <div className="w-full flex flex-col justify-end items-stretch gap-[2px] h-full">
-                    {/* Tramo proyectado rayado */}
-                    {projectionPct > 0 && (
-                      <div
-                        className="w-full rounded-t-md bg-hatched-emerald border border-emerald-500/25 border-b-0"
-                        style={{ height: `${projectionPct}%` }}
-                      />
-                    )}
-                    {/* Tramo ejecutado sólido */}
+          {loading && monthlyMetrics.length === 0 ? (
+            <div className="my-group h-52 w-full rounded-control bg-raised animate-pulse" aria-busy="true" />
+          ) : monthlyMetrics.length === 0 ? (
+            <div className="my-group h-52 w-full flex items-center justify-center">
+              <EmptyState
+                title="Sin serie de ingresos"
+                description="El backend no devolvió variación de ganancia para graficar. Verifica la conexión con /api/analytics/profit-variation."
+                actionLabel="Actualizar"
+                onAction={() => void load()}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="relative my-group h-52 w-full flex items-end justify-between gap-hairline">
+                {monthlyMetrics.map((m, idx) => {
+                  const actualPct = (m.revenueCop / maxRevenue) * 100;
+                  const isProjected = idx >= monthlyMetrics.length - 3;
+                  const projectionPct = isProjected ? Math.min(actualPct * 0.18, 100 - actualPct) : 0;
+                  const isPeak = idx === monthlyMetrics.length - 1;
+                  return (
                     <div
-                      className={`w-full rounded-md transition-all ${isPeak
-                        ? "bg-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.45)]"
-                        : "bg-emerald-600/85 group-hover:bg-emerald-500"
-                        }`}
-                      style={{ height: `${actualPct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      key={`${m.month}-${idx}`}
+                      className="flex-1 flex flex-col items-center justify-end h-full group relative"
+                    >
+                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap px-compact py-hairline rounded-control bg-panel border border-brand/40">
+                        <span className="text-caption font-mono text-primary">
+                          ${(m.revenueCop / 1000000).toFixed(1)}M
+                        </span>
+                      </div>
 
-          {/* Meses en el eje X */}
-          <div className="flex justify-between text-[10px] font-mono text-zinc-500 pt-2 border-t border-white/[0.04]">
-            {MONTHLY_METRICS.map((m) => (
-              <span key={m.month} className="flex-1 text-center">
-                {m.month}
-              </span>
-            ))}
-          </div>
+                      <div className="w-full flex flex-col justify-end items-stretch gap-[2px] h-full">
+                        {projectionPct > 0 && (
+                          <div
+                            className="w-full rounded-t-control bg-brand-surface border border-brand/25 border-b-0"
+                            style={{ height: `${projectionPct}%` }}
+                          />
+                        )}
+                        <div
+                          className={`w-full rounded-control transition-colors ${isPeak
+                            ? "bg-brand"
+                            : "bg-brand/70 group-hover:bg-brand"
+                            }`}
+                          style={{ height: `${actualPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-between text-caption font-mono text-muted pt-compact border-t border-border">
+                {monthlyMetrics.map((m, idx) => (
+                  <span key={`${m.month}-label-${idx}`} className="flex-1 text-center">
+                    {m.month}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Bloque Central (5 Cols): Medidor Semicircular de 180° de Eficiencia */}
-        <div className="lg:col-span-5 bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card flex flex-col justify-between">
-          <div className="pb-3 border-b border-white/[0.06]">
-            <h3 className="text-base font-bold text-white tracking-tight">
+        <div className="lg:col-span-5 bg-panel rounded-container p-base border border-border flex flex-col justify-between">
+          <div className="pb-compact border-b border-border">
+            <h3 className="text-section-title font-bold text-primary tracking-tight">
               Eficiencia Operativa
             </h3>
-            <p className="text-xs text-zinc-400">
+            <p className="text-caption text-muted">
               Rendimiento acumulado de ahorros y metas operativas
             </p>
           </div>
 
-          {/* Medidor Semicircular de 180° */}
-          <div className="relative flex flex-col items-center justify-center mt-4">
+          <div className="relative flex flex-col items-center justify-center mt-base">
             <svg className="w-56 h-32 select-none" viewBox="0 0 200 118">
               <defs>
-                <pattern
-                  id="gauge-hatch-pattern-analytics"
-                  width="6"
-                  height="6"
-                  patternTransform="rotate(-45)"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <line
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="6"
-                    stroke="#10B981"
-                    strokeWidth="2.5"
-                    strokeOpacity="0.5"
-                  />
-                </pattern>
                 <linearGradient id="gauge-solid-analytics" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#0E684D" />
-                  <stop offset="100%" stopColor="#10B981" />
+                  <stop offset="0%" stopColor="var(--color-brand)" stopOpacity="0.55" />
+                  <stop offset="100%" stopColor="var(--color-brand)" />
                 </linearGradient>
               </defs>
 
-              {/* Arco base */}
               <path
                 d="M 20 100 A 80 80 0 0 1 180 100"
                 fill="none"
-                stroke="#1B2620"
+                stroke="var(--color-border)"
                 strokeWidth="20"
                 strokeLinecap="round"
               />
 
-              {/* Tramo ejecutado sólido (48% de 180° ≈ 86.4°) */}
               <path
                 d="M 20 100 A 80 80 0 0 1 100 20"
                 fill="none"
@@ -382,15 +416,6 @@ export const AnalyticsReportsView: React.FC = () => {
                 strokeLinecap="round"
               />
 
-              {/* Tramo en ruta rayado (30% adicional) */}
-              <path
-                d="M 100 20 A 80 80 0 0 1 155 42"
-                fill="none"
-                stroke="url(#gauge-hatch-pattern-analytics)"
-                strokeWidth="20"
-              />
-
-              {/* Marcas de graduación */}
               {[0, 25, 50, 75, 100].map((pct) => {
                 const angle = Math.PI * (1 - pct / 100);
                 const x1 = 100 + Math.cos(angle) * 62;
@@ -404,7 +429,7 @@ export const AnalyticsReportsView: React.FC = () => {
                     y1={y1}
                     x2={x2}
                     y2={y2}
-                    stroke="rgba(255,255,255,0.18)"
+                    stroke="var(--color-border-strong)"
                     strokeWidth="1.5"
                     strokeLinecap="round"
                   />
@@ -412,115 +437,125 @@ export const AnalyticsReportsView: React.FC = () => {
               })}
             </svg>
 
-            {/* Texto Central */}
             <div className="absolute bottom-0 text-center">
-              <span className="text-3xl font-extrabold text-white tracking-tight font-sans tabular-numbers leading-none">
-                78%
+              <span className="text-metric font-extrabold text-primary tracking-tight font-sans tabular-nums leading-none">
+                {monthlyMetrics.length > 0
+                  ? `${Math.round(
+                    (monthlyMetrics.filter((m) => m.marginPct > 0).length / monthlyMetrics.length) * 100,
+                  )}%`
+                  : "—"}
               </span>
-              <span className="block text-[11px] font-medium text-zinc-400 mt-1">
-                Meta Trimestral
+              <span className="block text-caption font-medium text-muted mt-hairline">
+                Cobertura de Margen
               </span>
             </div>
           </div>
 
-          {/* Leyenda de 3 Estados */}
-          <div className="flex items-center justify-center gap-4 pt-3 mt-3 border-t border-white/[0.04] text-[11px] font-medium text-zinc-400">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#0E684D]" />
-              <span>Ejecutado 48%</span>
+          <div className="flex items-center justify-center gap-base pt-compact mt-compact border-t border-border text-caption font-medium text-muted">
+            <div className="flex items-center gap-hairline">
+              <span className="w-2.5 h-2.5 rounded-full bg-brand/55" />
+              <span>Ejecutado</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              <span>En Ruta 30%</span>
+            <div className="flex items-center gap-hairline">
+              <span className="w-2.5 h-2.5 rounded-full bg-brand" />
+              <span>En Ruta</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#1B2620]" />
-              <span>Pendiente 22%</span>
+            <div className="flex items-center gap-hairline">
+              <span className="w-2.5 h-2.5 rounded-full bg-border" />
+              <span>Pendiente</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ========================================================= */}
-      {/* 3. FILA 3: TABLA MODERNA DE REPORTES GENERADOS            */}
-      {/* ========================================================= */}
-      <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
+      <div className="bg-panel rounded-container p-base border border-border">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-base pb-compact border-b border-border">
           <div>
-            <h3 className="text-base font-bold text-white tracking-tight">
+            <h3 className="text-section-title font-bold text-primary tracking-tight">
               Reportes Ejecutivos & Auditoría
             </h3>
-            <p className="text-xs text-zinc-400">
+            <p className="text-caption text-muted">
               Descarga directa de informes firmados y trazabilidad matemática
             </p>
           </div>
 
-          {/* Pestañas de Filtro de Categoría */}
-          <div className="flex items-center gap-2 overflow-x-auto">
-            {["Todas", "Financiero", "Inventario", "Logística", "Gobernanza"].map(
-              (cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${selectedCategory === cat
-                    ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 shadow-sm"
-                    : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
-                    }`}
-                >
-                  {cat}
-                </button>
-              )
-            )}
+          <div className="flex items-center gap-compact overflow-x-auto">
+            {["Todas", "Financiero", "Inventario", "Logística", "Gobernanza"].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-compact py-hairline rounded-control text-caption font-medium transition-colors cursor-pointer ${selectedCategory === cat
+                  ? "bg-brand-surface text-brand font-semibold border border-brand/40"
+                  : "text-muted hover:text-primary hover:bg-raised border border-transparent"
+                  }`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Lista de Filas de Reporte */}
-        <div className="divide-y divide-white/[0.04] mt-2">
-          {filteredReports.map((r) => (
-            <div
-              key={r.id}
-              className="py-3.5 px-2 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/[0.02] rounded-xl transition-colors group"
-            >
-              <div className="flex items-center gap-3.5">
-                {/* Icono de Formato Enmarcado */}
-                <div className="w-10 h-10 rounded-xl bg-surface-well border border-white/[0.06] flex items-center justify-center shrink-0">
-                  {r.format === "pdf" ? (
-                    <FileText className="w-5 h-5 text-rose-400" />
-                  ) : r.format === "csv" ? (
-                    <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
-                  ) : (
-                    <ShieldCheck className="w-5 h-5 text-blue-400" />
-                  )}
-                </div>
+        {loading && reports.length === 0 ? (
+          <div className="space-y-compact mt-compact" aria-busy="true" aria-label="Cargando reportes">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-16 rounded-control bg-raised animate-pulse" />
+            ))}
+          </div>
+        ) : filteredReports.length === 0 ? (
+          <div className="py-group">
+            <EmptyState
+              title="Sin reportes en esta categoría"
+              description="No hay informes generados para la categoría seleccionada. Cambia el filtro o actualiza la consulta."
+              actionLabel="Ver todas"
+              onAction={() => setSelectedCategory("Todas")}
+            />
+          </div>
+        ) : (
+          <div className="divide-y divide-border mt-compact">
+            {filteredReports.map((r) => (
+              <div
+                key={r.id}
+                className="py-compact px-hairline flex flex-col md:flex-row md:items-center justify-between gap-base hover:bg-raised/50 rounded-control transition-colors group"
+              >
+                <div className="flex items-center gap-element">
+                  <div className="w-10 h-10 rounded-control bg-raised border border-border flex items-center justify-center shrink-0">
+                    {r.format === "pdf" ? (
+                      <FileText className="w-5 h-5 text-state-error" />
+                    ) : r.format === "csv" ? (
+                      <FileSpreadsheet className="w-5 h-5 text-brand" />
+                    ) : (
+                      <ShieldCheck className="w-5 h-5 text-state-pending" />
+                    )}
+                  </div>
 
-                <div>
-                  <h4 className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
-                    {r.title}
-                  </h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5 max-w-xl">
-                    {r.summary}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-zinc-500">
-                    <span>{r.filename}</span>
-                    <span>•</span>
-                    <span>{r.size}</span>
-                    <span>•</span>
-                    <span>{r.createdAt}</span>
+                  <div>
+                    <h4 className="text-label font-bold text-primary group-hover:text-brand transition-colors">
+                      {r.title}
+                    </h4>
+                    <p className="text-caption text-muted mt-hairline max-w-xl">
+                      {r.summary}
+                    </p>
+                    <div className="flex items-center gap-compact mt-hairline text-caption font-mono text-muted">
+                      <span>{r.filename}</span>
+                      <span>•</span>
+                      <span>{r.size}</span>
+                      <span>•</span>
+                      <span>{r.createdAt}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Botón de Descarga Táctil */}
-              <button
-                onClick={() => showToast(`Descargando ${r.filename}...`)}
-                className="px-3.5 py-2 rounded-xl bg-surface-well hover:bg-white/[0.08] text-xs font-medium text-zinc-300 hover:text-white border border-white/[0.06] flex items-center gap-1.5 transition-colors shrink-0"
-              >
-                <Download className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Descargar {r.format.toUpperCase()}</span>
-              </button>
-            </div>
-          ))}
-        </div>
+                <button
+                  onClick={() => showToast(`Generando ${r.filename}...`)}
+                  className="px-compact py-compact rounded-control bg-raised hover:bg-brand-surface text-caption font-medium text-secondary hover:text-brand border border-border flex items-center gap-hairline transition-colors shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5 text-brand" />
+                  <span>Descargar {r.format.toUpperCase()}</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

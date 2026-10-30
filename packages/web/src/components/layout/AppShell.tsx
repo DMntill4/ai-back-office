@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { AgentParticleCloud, AgentVisualState } from "../ui/AgentParticleCloud";
 import { CliTerminalPanel } from "../panels/CliTerminalPanel";
+import { CostBadge } from "../ui/CostBadge";
 
 export interface AppShellProps {
   currentTab: string;
@@ -25,6 +26,12 @@ export interface AppShellProps {
   pendingApprovalsCount?: number;
   agentStatusText?: string;
   agentState?: AgentVisualState;
+  /** Costo acumulado en USD de la tarea en curso (Agent FinOps). */
+  currentTaskCostUsd?: number;
+  /** Tokens consumidos por la tarea en curso. */
+  currentTaskTokens?: number;
+  /** Identificador de la tarea en curso, para el tooltip del badge de costo. */
+  currentTaskId?: string;
   children: React.ReactNode;
 }
 
@@ -42,6 +49,9 @@ export const AppShell: React.FC<AppShellProps> = ({
   pendingApprovalsCount = 2,
   agentStatusText = "Operativo · 10:24 a. m.",
   agentState = "reposo",
+  currentTaskCostUsd,
+  currentTaskTokens,
+  currentTaskId,
   children,
 }) => {
   const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
@@ -108,6 +118,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         "memoria_agente",
         "auditoria_eventos",
         "reglas_politicas",
+        "modelos",
+        "nodos",
+        "objetivos",
       ],
     },
     {
@@ -168,9 +181,8 @@ export const AppShell: React.FC<AppShellProps> = ({
               <Building2 className="w-3.5 h-3.5 text-brand" />
               <span className="truncate max-w-[200px]">{selectedCompany}</span>
               <ChevronDown
-                className={`w-3 h-3 text-secondary transition-transform duration-150 ${
-                  isCompanyMenuOpen ? "rotate-180" : ""
-                }`}
+                className={`w-3 h-3 text-secondary transition-transform duration-150 ${isCompanyMenuOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 
@@ -193,11 +205,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                         setSelectedCompany(comp);
                         setIsCompanyMenuOpen(false);
                       }}
-                      className={`w-full text-left px-2.5 py-2 rounded-control text-caption transition-colors flex items-center justify-between cursor-pointer ${
-                        selectedCompany === comp
-                          ? "bg-panel text-brand font-medium border border-border"
-                          : "text-secondary hover:bg-panel/70 hover:text-primary"
-                      }`}
+                      className={`w-full text-left px-2.5 py-2 rounded-control text-caption transition-colors flex items-center justify-between cursor-pointer ${selectedCompany === comp
+                        ? "bg-panel text-brand font-medium border border-border"
+                        : "text-secondary hover:bg-panel/70 hover:text-primary"
+                        }`}
                     >
                       <span className="truncate">{comp}</span>
                       {selectedCompany === comp && (
@@ -243,12 +254,19 @@ export const AppShell: React.FC<AppShellProps> = ({
             </span>
           </div>
 
+          {/* Insignia de costo de la tarea y total de sesión (Agent FinOps) */}
+          <CostBadge
+            taskCostUsd={currentTaskCostUsd}
+            taskTokens={currentTaskTokens}
+            taskId={currentTaskId}
+            className="hidden sm:flex"
+          />
+
           {/* Botón Discreto Telemetría (Ctrl+J) */}
           <button
             onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-            className={`w-8 h-8 rounded-pill bg-panel border border-border flex items-center justify-center transition-colors cursor-pointer ${
-              isTerminalOpen ? "text-brand border-brand" : "text-secondary hover:text-primary"
-            }`}
+            className={`w-8 h-8 rounded-pill bg-panel border border-border flex items-center justify-center transition-colors cursor-pointer ${isTerminalOpen ? "text-brand border-brand" : "text-secondary hover:text-primary"
+              }`}
             title="Consola de telemetría (Ctrl+J)"
           >
             <Terminal className="w-4 h-4" />
@@ -289,9 +307,8 @@ export const AppShell: React.FC<AppShellProps> = ({
 
       {/* 2. Barra Lateral de 232px (colapsable a 64px) con 7 Destinos */}
       <aside
-        className={`mt-[52px] border-r border-border bg-panel flex flex-col justify-between p-compact z-30 flex-shrink-0 h-[calc(100vh-52px)] overflow-y-auto transition-all duration-150 ${
-          isSidebarCollapsed ? "w-16" : "w-[232px]"
-        }`}
+        className={`mt-[52px] border-r border-border bg-panel flex flex-col justify-between p-compact z-30 flex-shrink-0 h-[calc(100vh-52px)] overflow-y-auto transition-all duration-150 ${isSidebarCollapsed ? "w-16" : "w-[232px]"
+          }`}
       >
         <div className="space-y-hairline">
           {navItems.map((item) => {
@@ -304,18 +321,16 @@ export const AppShell: React.FC<AppShellProps> = ({
               <button
                 key={item.id}
                 onClick={() => onSelectTab(item.id)}
-                className={`relative w-full flex items-center justify-between px-3 py-2 rounded-control text-body transition-colors cursor-pointer ${
-                  isSelected
-                    ? "bg-raised text-primary font-medium border border-border before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:bg-brand before:rounded-r-full"
-                    : "text-secondary hover:text-primary hover:bg-raised/40 font-normal"
-                }`}
+                className={`relative w-full flex items-center justify-between px-3 py-2 rounded-control text-body transition-colors cursor-pointer ${isSelected
+                  ? "bg-raised text-primary font-medium border border-border before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:bg-brand before:rounded-r-full"
+                  : "text-secondary hover:text-primary hover:bg-raised/40 font-normal"
+                  }`}
                 title={isSidebarCollapsed ? item.label : undefined}
               >
                 <div className="flex items-center gap-compact truncate">
                   <Icon
-                    className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                      isSelected ? "text-brand" : "text-secondary"
-                    }`}
+                    className={`w-4 h-4 flex-shrink-0 transition-colors ${isSelected ? "text-brand" : "text-secondary"
+                      }`}
                   />
                   {!isSidebarCollapsed && (
                     <span className="truncate">{item.label}</span>
@@ -337,11 +352,10 @@ export const AppShell: React.FC<AppShellProps> = ({
           {(import.meta as any).env?.DEV && !isSidebarCollapsed && (
             <button
               onClick={() => onSelectTab("componentes")}
-              className={`w-full text-left px-3 py-1.5 rounded-control text-caption flex items-center gap-2 cursor-pointer ${
-                currentTab === "componentes"
-                  ? "bg-raised text-brand font-medium border border-border"
-                  : "text-muted hover:text-secondary"
-              }`}
+              className={`w-full text-left px-3 py-1.5 rounded-control text-caption flex items-center gap-2 cursor-pointer ${currentTab === "componentes"
+                ? "bg-raised text-brand font-medium border border-border"
+                : "text-muted hover:text-secondary"
+                }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-brand" />
               <span>Sistema UI (Dev)</span>

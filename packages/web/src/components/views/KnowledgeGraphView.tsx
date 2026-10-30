@@ -19,6 +19,7 @@ import { SegmentedTabs, TabItem } from "../ui/SegmentedTabs";
 import { StatusIndicator, OperationalStatus } from "../ui/StatusIndicator";
 import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
+import { EmptyState } from "../ui/EmptyState";
 import {
   MintGraphNode,
   MintGraphEdge,
@@ -32,31 +33,31 @@ interface KnowledgeGraphViewProps {
 
 // Diccionario de etiquetas legibles de negocio (cero camelCase o jerga de base de datos)
 const BUSINESS_FIELD_LABELS: Record<string, string> = {
-  rolOperativo: "Función principal",
-  limiteAutonomo: "Límite de compra autónoma",
+  rolOperativo: "FunciÃ³n principal",
+  limiteAutonomo: "LÃ­mite de compra autÃ³noma",
   sedesMonitoreadas: "Sedes supervisadas",
-  frecuenciaRevision: "Frecuencia de revisión",
-  ciudad: "Ciudad / Ubicación",
-  direccion: "Dirección física",
+  frecuenciaRevision: "Frecuencia de revisiÃ³n",
+  ciudad: "Ciudad / UbicaciÃ³n",
+  direccion: "DirecciÃ³n física",
   capacidadTotal: "Capacidad instalada",
-  ocupacionActual: "Ocupación actual",
-  referenciasBajoMinimo: "Referencias bajo mínimo",
+  ocupacionActual: "OcupaciÃ³n actual",
+  referenciasBajoMinimo: "Referencias bajo mÃ­nimo",
   tiempoTraslado: "Tiempo de traslado a matriz",
   existenciaActual: "Existencias actuales",
   puntoReorden: "Punto de reorden",
-  minimoSeguridad: "Mínimo de seguridad",
+  minimoSeguridad: "MÃ­nimo de seguridad",
   costoUnitario: "Costo unitario",
-  categoria: "Categoría de producto",
+  categoria: "CategorÃ­a de producto",
   coberturaEstimada: "Cobertura proyectada",
   tiempoEntrega: "Tiempo de entrega",
-  cumplimientoHistorico: "Cumplimiento histórico",
+  cumplimientoHistorico: "Cumplimiento histÃ³rico",
   descuentoVolumen: "Descuento por volumen",
   montoTotal: "Monto total de la orden",
   cantidadSolicitada: "Cantidad solicitada",
   proveedorAsignado: "Proveedor asignado",
-  motivoRetencion: "Motivo de revisión",
-  reglaAplicada: "Política de negocio",
-  responsableFirma: "Responsable de aprobación",
+  motivoRetencion: "Motivo de revisiÃ³n",
+  reglaAplicada: "PolÃ­tica de negocio",
+  responsableFirma: "Responsable de Aprobación",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -68,311 +69,28 @@ const CATEGORY_LABELS: Record<string, string> = {
   decision: "Aprobación ejecutiva",
 };
 
-const ENTITY_NODES: MintGraphNode[] = [
-  {
-    id: "agent_coordinator",
-    type: "agent",
-    label: "Agente Autónomo Mint",
-    sublabel: "Coordinador de inventario y abastecimiento",
-    status: "running",
-    degree: 8,
-    metadata: {
-      rolOperativo: "Vigilancia de existencias y compras",
-      limiteAutonomo: "Hasta $5.000.000 COP",
-      sedesMonitoreadas: "Bucaramanga, Bogotá y Medellín",
-      frecuenciaRevision: "Cada 30 minutos",
-    },
-  },
-  {
-    id: "wh_bga",
-    type: "warehouse",
-    label: "Bodega Matriz Bucaramanga",
-    sublabel: "Zona Industrial Chimitá · 1.200 m³",
-    status: "active",
-    degree: 6,
-    metadata: {
-      ciudad: "Bucaramanga, Santander",
-      direccion: "Km 4 Vía Palenque",
-      capacidadTotal: "1.200 m³",
-      ocupacionActual: "78% de capacidad",
-      referenciasBajoMinimo: "8 productos bajo punto de reorden",
-    },
-  },
-  {
-    id: "wh_bog",
-    type: "warehouse",
-    label: "CD Fontibón (Bogotá)",
-    sublabel: "Parque Logístico Fontibón · 3.500 m³",
-    status: "active",
-    degree: 4,
-    metadata: {
-      ciudad: "Bogotá D.C.",
-      capacidadTotal: "3.500 m³",
-      ocupacionActual: "64% de capacidad",
-      tiempoTraslado: "2 días hábiles hacia Bucaramanga",
-    },
-  },
-  {
-    id: "wh_med",
-    type: "warehouse",
-    label: "Hub Logístico Itagüí (Medellín)",
-    sublabel: "Centro Mayorista Antioquia · 1.800 m³",
-    status: "active",
-    degree: 4,
-    metadata: {
-      ciudad: "Itagüí, Antioquia",
-      capacidadTotal: "1.800 m³",
-      ocupacionActual: "82% de capacidad",
-      tiempoTraslado: "2 días hábiles hacia Bucaramanga",
-    },
-  },
-  {
-    id: "sku_rot001",
-    type: "sku",
-    label: "Rotomartillo Bosch SDS Plus",
-    sublabel: "SKU-ROT-001 · Herramienta eléctrica",
-    status: "warning",
-    degree: 5,
-    metadata: {
-      existenciaActual: "4 unidades",
-      puntoReorden: "15 unidades",
-      minimoSeguridad: "10 unidades",
-      costoUnitario: "$145.000 COP",
-      categoria: "Maquinaria de perforación",
-      coberturaEstimada: "Menos de 2 días en obra",
-    },
-  },
-  {
-    id: "sku_dw714",
-    type: "sku",
-    label: "Sierra Circular DeWalt 7-1/4'",
-    sublabel: "SKU-DW-714 · Corte pesado 1800W",
-    status: "warning",
-    degree: 5,
-    metadata: {
-      existenciaActual: "6 unidades",
-      puntoReorden: "18 unidades",
-      minimoSeguridad: "12 unidades",
-      costoUnitario: "$145.000 COP",
-      categoria: "Equipos de corte",
-      coberturaEstimada: "3 días al ritmo actual",
-    },
-  },
-  {
-    id: "sku_disc7",
-    type: "sku",
-    label: "Disco Diamantado 7' Concreto",
-    sublabel: "SKU-COR-DISC7 · Consumibles de obra",
-    status: "active",
-    degree: 3,
-    metadata: {
-      existenciaActual: "45 unidades",
-      puntoReorden: "30 unidades",
-      minimoSeguridad: "15 unidades",
-      costoUnitario: "$78.000 COP",
-      categoria: "Abrasivos y discos",
-      coberturaEstimada: "24 días disponibles",
-    },
-  },
-  {
-    id: "supp_dist_san",
-    type: "supplier",
-    label: "Distribuciones Santander",
-    sublabel: "Mayorista ferretero regional",
-    status: "active",
-    degree: 4,
-    metadata: {
-      ciudad: "Bucaramanga, Santander",
-      tiempoEntrega: "24 horas en área metropolitana",
-      cumplimientoHistorico: "98.5% entregas a tiempo",
-      descuentoVolumen: "8% en pedidos sobre 40 unidades",
-    },
-  },
-  {
-    id: "supp_dewalt",
-    type: "supplier",
-    label: "DeWalt Colombia",
-    sublabel: "Fabricante y distribuidor directo",
-    status: "active",
-    degree: 4,
-    metadata: {
-      ciudad: "Bogotá D.C.",
-      tiempoEntrega: "2 días hábiles",
-      cumplimientoHistorico: "99.1% entregas a tiempo",
-      descuentoVolumen: "8% por consolidación nacional",
-    },
-  },
-  {
-    id: "supp_tornillos",
-    type: "supplier",
-    label: "Mundial de Tornillos S.A.S.",
-    sublabel: "Fijaciones estructurales y anclajes",
-    status: "active",
-    degree: 3,
-    metadata: {
-      ciudad: "Bogotá y Medellín",
-      tiempoEntrega: "3 días hábiles",
-      cumplimientoHistorico: "96.8% entregas a tiempo",
-    },
-  },
-  {
-    id: "po_24a190",
-    type: "purchase_order",
-    label: "Orden PO-24A190",
-    sublabel: "50× Sierra Circular · $7.250.000 COP",
-    status: "warning",
-    degree: 4,
-    metadata: {
-      montoTotal: "$7.250.000 COP",
-      cantidadSolicitada: "50 unidades",
-      proveedorAsignado: "Distribuciones Santander",
-      motivoRetencion: "Supera el límite autónomo de $5.000.000 COP",
-    },
-  },
-  {
-    id: "po_0142",
-    type: "purchase_order",
-    label: "Orden PO-2026-0142",
-    sublabel: "Fijaciones grado 8 · $1.450.000 COP",
-    status: "active",
-    degree: 3,
-    metadata: {
-      montoTotal: "$1.450.000 COP",
-      cantidadSolicitada: "1.200 unidades",
-      proveedorAsignado: "Mundial de Tornillos S.A.S.",
-      motivoRetencion: "Autorizada automáticamente (bajo $5M COP)",
-    },
-  },
-  {
-    id: "dec_0041",
-    type: "decision",
-    label: "Aprobación DEC-2026-0041",
-    sublabel: "Pendiente de firma en Aprobaciones",
-    status: "warning",
-    degree: 4,
-    metadata: {
-      reglaAplicada: "POL-COMP-01 · Límite de compra autónoma",
-      montoTotal: "$7.250.000 COP",
-      responsableFirma: "Fernando S. · Director de Operaciones",
-    },
-  },
-];
-
-const ENTITY_EDGES: MintGraphEdge[] = [
-  {
-    id: "e1",
-    source: "agent_coordinator",
-    target: "wh_bga",
-    relation: "queries",
-    label: "Supervisa existencias",
-  },
-  {
-    id: "e2",
-    source: "agent_coordinator",
-    target: "wh_bog",
-    relation: "queries",
-    label: "Supervisa existencias",
-  },
-  {
-    id: "e3",
-    source: "agent_coordinator",
-    target: "wh_med",
-    relation: "queries",
-    label: "Supervisa existencias",
-  },
-  {
-    id: "e4",
-    source: "wh_bga",
-    target: "sku_rot001",
-    relation: "belongs_to",
-    label: "Almacena (4 uds)",
-  },
-  {
-    id: "e5",
-    source: "wh_bga",
-    target: "sku_dw714",
-    relation: "belongs_to",
-    label: "Almacena (6 uds)",
-  },
-  {
-    id: "e6",
-    source: "wh_bog",
-    target: "sku_disc7",
-    relation: "belongs_to",
-    label: "Almacena (45 uds)",
-  },
-  {
-    id: "e7",
-    source: "supp_dist_san",
-    target: "sku_rot001",
-    relation: "depends_on",
-    label: "Abastece en 24h",
-  },
-  {
-    id: "e8",
-    source: "supp_dewalt",
-    target: "sku_dw714",
-    relation: "depends_on",
-    label: "Abastece con 8% dto.",
-  },
-  {
-    id: "e9",
-    source: "agent_coordinator",
-    target: "po_24a190",
-    relation: "generates",
-    label: "Propone compra",
-  },
-  {
-    id: "e10",
-    source: "po_24a190",
-    target: "supp_dist_san",
-    relation: "depends_on",
-    label: "Asignada a proveedor",
-  },
-  {
-    id: "e11",
-    source: "po_24a190",
-    target: "dec_0041",
-    relation: "approved_by",
-    label: "Requiere tu firma",
-  },
-  {
-    id: "e12",
-    source: "agent_coordinator",
-    target: "po_0142",
-    relation: "generates",
-    label: "Compra autónoma",
-  },
-  {
-    id: "e13",
-    source: "po_0142",
-    target: "supp_tornillos",
-    relation: "depends_on",
-    label: "Despacho en curso",
-  },
-];
 
 export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   onNavigateTo,
 }) => {
-  const [selectedNodeId, setSelectedNodeId] = useState<string>("agent_coordinator");
+  const [selectedNodeId, setSelectedNodeId] = useState<string>("");
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
 
-  // Grafo en vivo desde PostgreSQL (/api/graph/data) con fallback a los datos semilla.
+  // Grafo en vivo desde PostgreSQL (/api/graph/data). Sin datos semilla locales.
   const { graphData: liveGraph, loading: graphLoading, isFallback: graphIsFallback } =
     useLiveGraph({ mode: activeFilter, searchQuery });
 
-  const [graphNodes, setGraphNodes] = useState<MintGraphNode[]>(ENTITY_NODES);
-  const [graphEdges, setGraphEdges] = useState<MintGraphEdge[]>(ENTITY_EDGES);
+  const [graphNodes, setGraphNodes] = useState<MintGraphNode[]>([]);
+  const [graphEdges, setGraphEdges] = useState<MintGraphEdge[]>([]);
 
-  // Sincroniza el grafo real (o el fallback del cliente) con el estado local de la vista.
+  // Sincroniza el grafo real con el estado local de la vista.
   useEffect(() => {
-    if (liveGraph && liveGraph.nodes.length > 0) {
-      setGraphNodes(liveGraph.nodes);
-      setGraphEdges(liveGraph.edges);
+    if (liveGraph) {
+      setGraphNodes(liveGraph.nodes ?? []);
+      setGraphEdges(liveGraph.edges ?? []);
     }
   }, [liveGraph]);
 
@@ -393,16 +111,16 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     showAllLabels: true,
   };
 
-  // Subpestañas del destino Agente según Mint-DESIGN.md
+  // SubpestaÃ±as del destino Agente segÃºn Mint-DESIGN.md
   const agentSubTabs: TabItem[] = [
     { id: "flujo_agente", label: "Flujo del agente" },
     { id: "mapa_conocimiento", label: "Mapa de conocimiento" },
     { id: "memoria_agente", label: "Memoria del agente" },
     { id: "auditoria_eventos", label: "Historial de decisiones" },
-    { id: "reglas_politicas", label: "Reglas y políticas" },
+    { id: "reglas_politicas", label: "Reglas y polÃ­ticas" },
   ];
 
-  // Un solo control de filtros por categoría
+  // Un solo control de filtros por categorÃ­a
   const filterTabs: TabItem[] = [
     { id: "all", label: "Todos", badge: graphNodes.length },
     { id: "warehouse", label: "Bodegas" },
@@ -495,7 +213,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
 
   return (
     <div className="flex-1 h-full flex flex-col bg-canvas text-primary font-sans overflow-hidden">
-      {/* 1. Cabecera con Subpestañas del Destino Agente */}
+      {/* 1. Cabecera con SubpestaÃ±as del Destino Agente */}
       <div className="p-group pb-0">
         <PageHeader
           title="Mapa de conocimiento"
@@ -522,7 +240,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
         />
       </div>
 
-      {/* 2. Un Solo Control de Filtros Unificado (Cero Superposición) */}
+      {/* 2. Un Solo Control de Filtros Unificado (Cero SuperposiciÃ³n) */}
       <div className="px-group pt-compact">
         <div className="p-compact rounded-container bg-panel border border-border flex flex-col md:flex-row md:items-center justify-between gap-compact">
           {/* Buscador a la izquierda */}
@@ -539,7 +257,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
               <button
                 onClick={() => setSearchQuery("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-primary cursor-pointer"
-                title="Limpiar búsqueda"
+                title="Limpiar bÃºsqueda"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -561,18 +279,37 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-compact p-group pt-compact overflow-hidden">
         {/* Lienzo Interactivo con Leyenda en 1 Sola Línea */}
         <div className="flex-1 h-full rounded-container border border-border overflow-hidden relative bg-canvas">
-          <KnowledgeGraphCanvas
-            data={filteredData}
-            physicsSettings={physicsSettings}
-            selectedNodeId={selectedNodeId}
-            onSelectNode={(nodeId) => {
-              if (nodeId) {
-                setSelectedNodeId(nodeId);
-                setFocusNodeId(nodeId);
-              }
-            }}
-            focusNodeId={focusNodeId}
-          />
+          {graphLoading && graphNodes.length === 0 ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-compact text-secondary">
+              <div className="w-8 h-8 rounded-full border-2 border-border border-t-brand animate-spin" />
+              <span className="text-caption">Cargando grafo de conocimiento...</span>
+            </div>
+          ) : filteredData.nodes.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center p-group">
+              <EmptyState
+                title="Sin nodos en el grafo"
+                description="El backend no reporta entidades para este filtro. Ajusta los filtros o verifica que el vault tenga documentos indexados."
+                actionLabel="Limpiar filtros"
+                onAction={() => {
+                  setActiveFilter("all");
+                  setSearchQuery("");
+                }}
+              />
+            </div>
+          ) : (
+            <KnowledgeGraphCanvas
+              data={filteredData}
+              physicsSettings={physicsSettings}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={(nodeId) => {
+                if (nodeId) {
+                  setSelectedNodeId(nodeId);
+                  setFocusNodeId(nodeId);
+                }
+              }}
+              focusNodeId={focusNodeId}
+            />
+          )}
 
           {/* Leyenda Inferior en 1 Sola Línea Continua (sin partirse) */}
           <div className="absolute bottom-4 left-4 z-10 flex items-center gap-base px-3 py-1.5 rounded-control bg-panel border border-border text-caption text-secondary whitespace-nowrap shadow-popover">
@@ -628,10 +365,10 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 </div>
               </div>
 
-              {/* Ficha Operativa de Negocio (Sin camelCase ni términos de BD) */}
+              {/* Ficha Operativa de Negocio (Sin camelCase ni tÃ©rminos de BD) */}
               <div className="space-y-compact">
                 <h3 className="text-label font-semibold text-secondary">
-                  Información operativa
+                  InformaciÃ³n operativa
                 </h3>
                 <div className="p-compact rounded-control bg-raised border border-border divide-y divide-border">
                   {Object.entries(selectedNode.metadata || {}).map(
@@ -654,7 +391,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 </div>
               </div>
 
-              {/* Acción Contextual si es una Orden o Aprobación */}
+              {/* AcciÃ³n Contextual si es una Orden o Aprobación */}
               {(selectedNode.type === "purchase_order" ||
                 selectedNode.type === "decision") &&
                 onNavigateTo && (
@@ -679,7 +416,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                   <span className="text-caption text-muted tabular-nums">
                     {connectedEdges.incoming.length +
                       connectedEdges.outgoing.length}{" "}
-                    vínculos
+                    vÃ­nculos
                   </span>
                 </div>
 
@@ -722,7 +459,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 </div>
               </div>
 
-              {/* Detalle Técnico Oculto tras "Ver detalle técnico" */}
+              {/* Detalle TÃ©cnico Oculto tras "Ver detalle tÃ©cnico" */}
               <div className="pt-compact border-t border-border">
                 <button
                   onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
@@ -733,7 +470,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                   ) : (
                     <ChevronRight className="w-3.5 h-3.5 text-muted" />
                   )}
-                  <span>Ver detalle técnico</span>
+                  <span>Ver detalle tÃ©cnico</span>
                 </button>
 
                 {showTechnicalDetails && (
@@ -743,7 +480,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                       <span>Identificador interno verificado</span>
                     </div>
                     <div>ID: {selectedNode.id}</div>
-                    <div>Grado de conexión: {selectedNode.degree || 1}</div>
+                    <div>Grado de conexiÃ³n: {selectedNode.degree || 1}</div>
                   </div>
                 )}
               </div>

@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { StockSkuItem } from "../../types/workflow";
-import { Search, Copy, Check, Minus, Plus, Download } from "lucide-react";
+import { Search, Copy, Check, Minus, Plus, Download, RefreshCw } from "lucide-react";
 import { PageHeader } from "../ui/PageHeader";
 import { SegmentedTabs, TabItem } from "../ui/SegmentedTabs";
 import { MetricStrip, MetricItem } from "../ui/MetricStrip";
@@ -9,6 +9,7 @@ import { Button } from "../ui/Button";
 import { DataTable, TableColumn } from "../ui/DataTable";
 import { InputField } from "../ui/InputField";
 import { Dialog } from "../ui/Dialog";
+import { EmptyState } from "../ui/EmptyState";
 import { useInventoryData } from "../../hooks/useInventoryData";
 import type { RopAlert } from "../../services/apiClient";
 
@@ -26,249 +27,6 @@ interface EnrichedSkuItem extends StockSkuItem {
   quarantineReason?: string;
 }
 
-const EXTENDED_STOCK_DATA: EnrichedSkuItem[] = [
-  {
-    id: "stk_disc7",
-    sku: "SKU-COR-DISC7",
-    name: "Disco Diamantado 7' Concreto",
-    category: "Consumibles de Corte",
-    warehouseId: "wh_bga",
-    warehouseName: "Bodega Matriz Bucaramanga",
-    locationRack: "Bucaramanga · P-B04 · Gaveta 12",
-    lotNumber: "LT-2026-991A",
-    currentStock: 8,
-    minStock: 25,
-    safetyStock: 10,
-    dailyBurnRate: 2.1,
-    coverageDays: 3.8,
-    unitPriceCop: 45000,
-    ropThreshold: 25,
-    status: "quiebre",
-    demandHistory: [14, 16, 18, 22, 25, 29, 31],
-    demandTrendPct: 18.4,
-  },
-  {
-    id: "stk_sm400",
-    sku: "SKU-MAN-SM400",
-    name: "Martillo Demoledor SDS-Max 1500W",
-    category: "Maquinaria Pesada",
-    warehouseId: "wh_bga",
-    warehouseName: "Bodega Matriz Bucaramanga",
-    locationRack: "Bucaramanga · Maquinaria · Bahía 01",
-    lotNumber: "LT-2026-810B",
-    currentStock: 3,
-    minStock: 12,
-    safetyStock: 5,
-    dailyBurnRate: 0.8,
-    coverageDays: 3.7,
-    unitPriceCop: 1560000,
-    ropThreshold: 12,
-    status: "alerta",
-    demandHistory: [4, 5, 4, 6, 7, 8, 9],
-    demandTrendPct: 12.5,
-  },
-  {
-    id: "stk_per_hex",
-    sku: "SKU-PER-HEXG8",
-    name: "Pernos Hexagonales Grado 8 1/2' x 3'",
-    category: "Fijación y Tornillería",
-    warehouseId: "wh_bga",
-    warehouseName: "Bodega Matriz Bucaramanga",
-    locationRack: "Bucaramanga · Gavetero G-14",
-    lotNumber: "LT-2026-442T",
-    currentStock: 120,
-    minStock: 500,
-    safetyStock: 200,
-    dailyBurnRate: 57.1,
-    coverageDays: 2.1,
-    unitPriceCop: 3200,
-    ropThreshold: 500,
-    status: "quiebre",
-    demandHistory: [210, 240, 290, 340, 380, 420, 490],
-    demandTrendPct: 33.2,
-  },
-  {
-    id: "stk_sol_e6013",
-    sku: "SKU-SOL-E6013",
-    name: "Soldadura E6013 1/8' Caja 20kg",
-    category: "Soldadura y Ensamble",
-    warehouseId: "wh_bga",
-    warehouseName: "Bodega Matriz Bucaramanga",
-    locationRack: "Bucaramanga · P-C01 · Estiba 04",
-    lotNumber: "LT-2026-301C",
-    currentStock: 14,
-    minStock: 40,
-    safetyStock: 15,
-    dailyBurnRate: 4.1,
-    coverageDays: 3.4,
-    unitPriceCop: 210000,
-    ropThreshold: 40,
-    status: "alerta",
-    demandHistory: [18, 21, 24, 28, 30, 34, 38],
-    demandTrendPct: 14.8,
-  },
-  {
-    id: "stk_imp20",
-    sku: "SKU-TAL-IMP20",
-    name: "Taladro de Impacto Inalámbrico 20V",
-    category: "Herramientas Eléctricas",
-    warehouseId: "wh_bog",
-    warehouseName: "CD Bogotá D.C.",
-    locationRack: "Bogotá · Rack 12 · Nivel 3",
-    lotNumber: "LT-2026-118E",
-    currentStock: 45,
-    minStock: 15,
-    safetyStock: 8,
-    dailyBurnRate: 1.2,
-    coverageDays: 37.5,
-    unitPriceCop: 420000,
-    ropThreshold: 15,
-    status: "optimo",
-    demandHistory: [12, 11, 10, 11, 12, 10, 9],
-    demandTrendPct: -4.2,
-  },
-  {
-    id: "stk_pul_ang",
-    sku: "SKU-PUL-ANG45",
-    name: "Pulidora Angular 4-1/2' 850W",
-    category: "Herramientas Eléctricas",
-    warehouseId: "wh_bog",
-    warehouseName: "CD Bogotá D.C.",
-    locationRack: "Bogotá · Rack 09 · Nivel 2",
-    lotNumber: "LT-2026-559P",
-    currentStock: 18,
-    minStock: 20,
-    safetyStock: 10,
-    dailyBurnRate: 1.5,
-    coverageDays: 12.0,
-    unitPriceCop: 285000,
-    ropThreshold: 20,
-    status: "alerta",
-    demandHistory: [10, 12, 13, 14, 15, 17, 18],
-    demandTrendPct: 9.1,
-  },
-  {
-    id: "stk_cas300",
-    sku: "SKU-SEG-CAS300",
-    name: "Casco de Seguridad Industrial Tipo II",
-    category: "Protección Personal (EPP)",
-    warehouseId: "wh_med",
-    warehouseName: "CD Medellín",
-    locationRack: "Medellín · Mezanine EPP · Bloque M-2",
-    lotNumber: "LT-2026-773S",
-    currentStock: 60,
-    minStock: 30,
-    safetyStock: 15,
-    dailyBurnRate: 1.5,
-    coverageDays: 40.0,
-    unitPriceCop: 38000,
-    ropThreshold: 30,
-    status: "optimo",
-    demandHistory: [16, 17, 15, 16, 17, 18, 16],
-    demandTrendPct: 1.4,
-  },
-  {
-    id: "stk_quar_val",
-    sku: "SKU-QUAR-VAL01",
-    name: "Válvula de Bola Inoxidable 2' ANSI 150",
-    category: "Válvulas y Tubería",
-    warehouseId: "wh_bga",
-    warehouseName: "Bodega Matriz Bucaramanga",
-    locationRack: "Bucaramanga · Zona Cuarentena · P-Q01",
-    lotNumber: "LT-2026-081Q",
-    currentStock: 4,
-    minStock: 10,
-    safetyStock: 4,
-    dailyBurnRate: 0.1,
-    coverageDays: 40.0,
-    unitPriceCop: 640000,
-    ropThreshold: 10,
-    status: "cuarentena",
-    quarantineReason: "Discrepancia dimensional reportada por control de calidad.",
-    demandHistory: [2, 1, 0, 0, 0, 0, 0],
-    demandTrendPct: 0.0,
-  },
-  {
-    id: "stk_bro_con",
-    sku: "SKU-BRO-CON12",
-    name: "Broca para Concreto SDS Plus 1/2' x 6'",
-    category: "Consumibles de Perforación",
-    warehouseId: "wh_bga",
-    warehouseName: "Bodega Matriz Bucaramanga",
-    locationRack: "Bucaramanga · P-B02 · Gaveta 08",
-    lotNumber: "LT-2026-224D",
-    currentStock: 12,
-    minStock: 35,
-    safetyStock: 12,
-    dailyBurnRate: 3.4,
-    coverageDays: 3.5,
-    unitPriceCop: 22000,
-    ropThreshold: 35,
-    status: "alerta",
-    demandHistory: [10, 14, 18, 22, 28, 30, 36],
-    demandTrendPct: 24.1,
-  },
-  {
-    id: "stk_tub_pvc",
-    sku: "SKU-TUB-PVC03",
-    name: "Tubo Presión PVC RDE 21 3' x 6m",
-    category: "Tubería y Accesorios",
-    warehouseId: "wh_bog",
-    warehouseName: "CD Bogotá D.C.",
-    locationRack: "Bogotá · Patio Tubos · Bahía 03",
-    lotNumber: "LT-2026-619A",
-    currentStock: 85,
-    minStock: 40,
-    safetyStock: 20,
-    dailyBurnRate: 2.2,
-    coverageDays: 38.6,
-    unitPriceCop: 84000,
-    ropThreshold: 40,
-    status: "optimo",
-    demandHistory: [18, 20, 22, 21, 24, 25, 26],
-    demandTrendPct: 5.6,
-  },
-  {
-    id: "stk_cor_cab",
-    sku: "SKU-COR-CAB10",
-    name: "Cable Cobre Cuadruplex 2 AWG (m)",
-    category: "Material Eléctrico",
-    warehouseId: "wh_med",
-    warehouseName: "CD Medellín",
-    locationRack: "Medellín · Carretel C-04",
-    lotNumber: "LT-2026-788M",
-    currentStock: 320,
-    minStock: 150,
-    safetyStock: 80,
-    dailyBurnRate: 9.8,
-    coverageDays: 32.6,
-    unitPriceCop: 14500,
-    ropThreshold: 150,
-    status: "optimo",
-    demandHistory: [70, 75, 82, 85, 90, 94, 98],
-    demandTrendPct: 8.2,
-  },
-  {
-    id: "stk_dis_met",
-    sku: "SKU-DIS-MET45",
-    name: "Disco de Corte Metal 4-1/2' x 1/16'",
-    category: "Consumibles de Corte",
-    warehouseId: "wh_bga",
-    warehouseName: "Bodega Matriz Bucaramanga",
-    locationRack: "Bucaramanga · P-B04 · Gaveta 03",
-    lotNumber: "LT-2026-902K",
-    currentStock: 24,
-    minStock: 100,
-    safetyStock: 40,
-    dailyBurnRate: 14.2,
-    coverageDays: 1.7,
-    unitPriceCop: 4200,
-    ropThreshold: 100,
-    status: "quiebre",
-    demandHistory: [40, 52, 68, 79, 90, 110, 128],
-    demandTrendPct: 42.0,
-  },
-];
 
 const WAREHOUSES = [
   { id: "all", label: "Todas las sedes" },
@@ -350,10 +108,17 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
   onNavigateToInbox,
   onNavigateTo,
 }) => {
-  const [items, setItems] = useState<EnrichedSkuItem[]>(EXTENDED_STOCK_DATA);
+  const [items, setItems] = useState<EnrichedSkuItem[]>([]);
 
   // Inventario en vivo desde /api/inventory con degradación segura a la semilla local.
-  const { ropAlerts, loading: inventoryLoading } = useInventoryData({
+  const {
+    ropAlerts,
+    loading: inventoryLoading,
+    error: inventoryError,
+    isFallback: inventoryIsFallback,
+    refresh: refreshInventory,
+    adjustStock,
+  } = useInventoryData({
     refreshIntervalMs: 30000,
   });
 
@@ -362,11 +127,7 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
     if (ropAlerts.length === 0) return;
     setItems((prev) =>
       ropAlerts.map((alert) =>
-        toEnrichedSku(
-          alert,
-          prev.find((s) => s.sku === alert.sku) ??
-          EXTENDED_STOCK_DATA.find((s) => s.sku === alert.sku),
-        ),
+        toEnrichedSku(alert, prev.find((s) => s.sku === alert.sku)),
       ),
     );
   }, [ropAlerts]);
@@ -450,14 +211,28 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
     setAdjustReason("Descuadre en conteo físico cíclico");
   };
 
-  const handleConfirmAdjust = () => {
+  const handleConfirmAdjust = async () => {
     if (!adjustModalSku) return;
+    const target = adjustModalSku;
+    const delta = adjustQuantity - target.currentStock;
+    if (delta === 0) {
+      setAdjustModalSku(null);
+      return;
+    }
     setIsSubmittingAdjust(true);
-    setTimeout(() => {
-      const delta = adjustQuantity - adjustModalSku.currentStock;
-      setItems(
-        items.map((i) =>
-          i.sku === adjustModalSku.sku
+    try {
+      const ok = await adjustStock({
+        producto_id: target.id,
+        cantidad_delta: delta,
+        motivo: adjustReason,
+      });
+      if (!ok) {
+        showToast(`No se pudo ajustar ${target.sku}. Revisa la conexión con el backend.`);
+        return;
+      }
+      setItems((prev) =>
+        prev.map((i) =>
+          i.sku === target.sku
             ? {
               ...i,
               currentStock: adjustQuantity,
@@ -473,13 +248,13 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
             : i
         )
       );
-      setIsSubmittingAdjust(false);
       setAdjustModalSku(null);
       showToast(
-        `Ajuste confirmado para ${adjustModalSku.sku}: ${adjustQuantity} unidades (${delta >= 0 ? `+${delta}` : delta
-        }).`
+        `Ajuste confirmado para ${target.sku}: ${adjustQuantity} unidades (${delta >= 0 ? `+${delta}` : delta}).`
       );
-    }, 600);
+    } finally {
+      setIsSubmittingAdjust(false);
+    }
   };
 
   const handleExportCsv = () => {
@@ -691,6 +466,14 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
         description="Qué hay en cada sede y qué conviene reponer primero."
         actions={
           <>
+            <Button
+              variant="ghost"
+              icon={<RefreshCw className={`w-3.5 h-3.5 ${inventoryLoading ? "animate-spin" : ""}`} />}
+              onClick={() => void refreshInventory()}
+              disabled={inventoryLoading}
+            >
+              Actualizar
+            </Button>
             <Button variant="secondary" icon={<Download className="w-3.5 h-3.5" />} onClick={handleExportCsv}>
               Exportar CSV
             </Button>
@@ -704,6 +487,18 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
         }
         filterControl={<SegmentedTabs tabs={inventoryTabs} activeTab="inventario" onChange={(id) => onNavigateTo?.(id)} />}
       />
+
+      {inventoryIsFallback && (
+        <div className="rounded-control border border-state-attention/40 bg-state-attention-surface px-compact py-compact text-caption text-state-attention">
+          El backend de inventario no respondió. Se muestra el último estado conocido.
+        </div>
+      )}
+
+      {inventoryError && (
+        <div className="rounded-control border border-state-error/40 bg-state-error-surface px-compact py-compact text-caption text-state-error">
+          {inventoryError}
+        </div>
+      )}
 
       <MetricStrip items={metrics} />
 
@@ -734,12 +529,27 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
         <SegmentedTabs tabs={statusTabs} activeTab={selectedStatus} onChange={setSelectedStatus} />
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filteredItems}
-        keyExtractor={(i) => i.id}
-        emptyMessage="Ninguna referencia coincide con esos filtros. Cambia la sede o el estado, o borra la búsqueda."
-      />
+      {inventoryLoading && items.length === 0 ? (
+        <div className="space-y-compact" aria-busy="true" aria-label="Cargando existencias">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-12 rounded-control bg-raised animate-pulse" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <EmptyState
+          title="Sin existencias registradas"
+          description="El backend no devolvió referencias de inventario. Verifica la conexión con /api/inventory o registra productos en el catálogo."
+          actionLabel="Actualizar"
+          onAction={() => void refreshInventory()}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filteredItems}
+          keyExtractor={(i) => i.id}
+          emptyMessage="Ninguna referencia coincide con esos filtros. Cambia la sede o el estado, o borra la búsqueda."
+        />
+      )}
 
       <Dialog
         isOpen={!!adjustModalSku}

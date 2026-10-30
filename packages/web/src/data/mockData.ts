@@ -80,7 +80,7 @@ export const PREDEFINED_OBJECTIVES: WorkflowObjective[] = [
   },
   {
     id: "obj_hitl_guardian",
-    title: "Guardián Presupuestal y Gatekeeper HITL",
+    title: "Guardián Presupuestal y Gatekeeper de Aprobación",
     badge: "GOBERNANZA",
     description: "Inspección matemática determinista sobre órdenes de compra: bloqueo de duplicados 72h y tope de $5,000,000 COP.",
     recommendedModel: "grok-4.6",
@@ -183,7 +183,7 @@ export const INITIAL_NODES: NodeData[] = [
     id: "node_action_po",
     type: "action",
     label: "Crear Orden de Compra",
-    sublabel: "HITL Gatekeeper (≤ $5,000,000 COP)",
+    sublabel: "Gatekeeper de Aprobación (≤ $5,000,000 COP)",
     status: "idle",
     x: 800,
     y: 40,
@@ -195,7 +195,7 @@ export const INITIAL_NODES: NodeData[] = [
   {
     id: "node_action_hitl",
     type: "action",
-    label: "Notificar Operador (HITL)",
+    label: "Notificar Operador (Aprobación)",
     sublabel: "Bandeja de Decisiones /inbox",
     status: "idle",
     x: 800,
@@ -252,7 +252,7 @@ export const INITIAL_LOG_STEPS: LogStep[] = [
       recommendedSupplier: "prov_herramientas_bogota",
       cotizacionUnitCop: 420000,
       totalPropuestaCop: 3780000,
-      policyEvaluation: "PENDING_APPROVAL_HITL",
+      policyEvaluation: "PENDING_APPROVAL",
     },
   },
   {
@@ -262,7 +262,7 @@ export const INITIAL_LOG_STEPS: LogStep[] = [
     status: "running",
     timestamp: "10:14:08",
     payload: {
-      processingNode: "Notify Operator / HITL Inbox",
+      processingNode: "Notify Operator / Bandeja de Aprobación",
       decisionId: "dec_7f93a1c8",
       actionType: "crear_orden_compra",
       costoTotal: "$3,780,000 COP",
@@ -287,7 +287,7 @@ export const INITIAL_VAULT_NOTES: import("../types/workflow").VaultNote[] = [
     evidencias_count: 12,
     origen: "PostgreSQL: companies[comp_santander_01]",
     tags: ["#empresa", "#operaciones", "#colombia", "#sede_matriz"],
-    wikilinks: ["[[03-Logistica/bodega-matriz-bucaramanga]]", "[[04-Politicas/guardrail-presupuestal-hitl]]"],
+    wikilinks: ["[[03-Logistica/bodega-matriz-bucaramanga]]", "[[04-Politicas/guardrail-presupuestal-aprobacion]]"],
     content: `# Ferretería Industrial Santandereana S.A.S.
 
 Distribuidor mayorista de suministros industriales, consumibles de corte y maquinaria pesada en Santander y el nororiente colombiano.
@@ -296,7 +296,7 @@ Distribuidor mayorista de suministros industriales, consumibles de corte y maqui
 - **NIT:** 900.582.114-8
 - **Sede Matriz:** Bucaramanga, Chimitá ([[03-Logistica/bodega-matriz-bucaramanga]])
 - **Moneda Base:** COP (Pesos Colombianos)
-- **Política de Autonomía:** Aprobación asistida obligatoria por encima de $5,000,000 COP ([[04-Politicas/guardrail-presupuestal-hitl]]).`,
+- **Política de Autonomía:** Aprobación asistida obligatoria por encima de $5,000,000 COP ([[04-Politicas/guardrail-presupuestal-aprobacion]]).`,
     updatedAt: "Hoy, 11:20",
   },
   {
@@ -400,7 +400,7 @@ La memoria en el vault afirmaba que el proveedor otorgaba un 12% de descuento po
     confianza: 0.99,
     evidencias_count: 6,
     origen: "PostgreSQL: decisions[dec_po_2026_0089]",
-    tags: ["#decision", "#orden_compra", "#hitl_aprobada"],
+    tags: ["#decision", "#orden_compra", "#aprobada"],
     wikilinks: ["[[02-Productos/sku-disco-diamantado-7]]", "[[01-Proveedores/ferreterias-unidas-bogota]]"],
     content: `# Decisión PO-2026-0089
 
@@ -409,7 +409,7 @@ Orden de compra formulada por Mint para prevenir el desabasto del Disco Diamanta
 - **Monto Total:** $1,350,000 COP
 - **Proveedor:** [[01-Proveedores/ferreterias-unidas-bogota]]
 - **SKU:** [[02-Productos/sku-disco-diamantado-7]] (30 unidades)
-- **Estado HITL:** Autorizado con firma HMAC-SHA256 por el operador.`,
+- **Estado de Aprobación:** Autorizado con firma HMAC-SHA256 por el operador.`,
     updatedAt: "Hoy, 10:18",
   },
 ];
@@ -534,7 +534,7 @@ export const INITIAL_DOCTOR_CHECKS: import("../types/workflow").DoctorCheckItem[
   {
     id: "chk_db",
     category: "database",
-    label: "Base de Datos PostgreSQL (Drizzle ORM)",
+    label: "Base de Datos PostgreSQL",
     status: "ok",
     details: "Conexión activa a ai_back_office. 15 tablas sincronizadas, latencia de 18ms.",
     latencyMs: 18,
@@ -571,7 +571,7 @@ export const INITIAL_DOCTOR_CHECKS: import("../types/workflow").DoctorCheckItem[
   {
     id: "chk_gov",
     category: "governance",
-    label: "Guardrail Financiero HITL ($5,000,000 COP)",
+    label: "Guardrail Financiero de Aprobación ($5,000,000 COP)",
     status: "ok",
     details: "Motor de políticas determinista activo. Regla de duplicidad 72h habilitada.",
   },

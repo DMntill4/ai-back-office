@@ -94,6 +94,9 @@ export * from "./graph/graph.service";
 export * from "./telemetry/telemetry.types";
 export * from "./telemetry/telemetryPublisher";
 
+// 10.1 Auto-Evaluación y Verificación (Reflection & Verification Loop)
+export * from "./agent/evaluation/selfEvaluator";
+
 // 11. Seguridad, Detección de Prompt Injection, Anti-SSRF y Guardrails
 export * from "./security/index";
 

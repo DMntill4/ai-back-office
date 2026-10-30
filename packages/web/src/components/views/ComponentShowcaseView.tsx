@@ -76,21 +76,21 @@ export const ComponentShowcaseView: React.FC = () => {
       key: "sku",
       header: "SKU",
       render: (item) => (
-        <span className="font-mono text-txt-secondary">{item.sku}</span>
+        <span className="font-mono text-secondary">{item.sku}</span>
       ),
     },
     {
       key: "name",
       header: "Producto",
       render: (item) => (
-        <span className="font-medium text-txt-primary">{item.name}</span>
+        <span className="font-medium text-primary">{item.name}</span>
       ),
     },
     {
       key: "warehouse",
       header: "Sede",
       render: (item) => (
-        <span className="text-txt-secondary">{item.warehouse}</span>
+        <span className="text-secondary">{item.warehouse}</span>
       ),
     },
     {
@@ -108,7 +108,7 @@ export const ComponentShowcaseView: React.FC = () => {
       header: "Mínimo ROP",
       align: "right",
       render: (item) => (
-        <span className="font-mono tabular-nums text-txt-secondary">
+        <span className="font-mono tabular-nums text-secondary">
           {item.minStock} u
         </span>
       ),
@@ -118,7 +118,7 @@ export const ComponentShowcaseView: React.FC = () => {
       header: "Costo unitario",
       align: "right",
       render: (item) => (
-        <span className="font-mono tabular-nums text-txt-primary">
+        <span className="font-mono tabular-nums text-primary">
           ${item.costCop.toLocaleString("es-CO")} COP
         </span>
       ),
@@ -132,24 +132,24 @@ export const ComponentShowcaseView: React.FC = () => {
   ];
 
   return (
-    <div className="flex-1 h-full overflow-y-auto p-8 max-w-6xl mx-auto w-full space-y-12">
-      {/* Page Header (Flowcraft Style: Bold Grotesque + Dramatic Contrast) */}
-      <div className="border-b border-forest-border pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="flex-1 h-full overflow-y-auto p-page max-w-6xl mx-auto w-full space-y-section">
+      {/* Page Header */}
+      <div className="border-b border-border pb-base flex flex-col md:flex-row md:items-end justify-between gap-base">
         <div>
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-forest-card border border-brand/30 text-brand text-[11px] font-semibold mb-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
-            DISEÑO OPERATIVO FLOWCRAFT ADAPTADO A MINT
+          <span className="inline-flex items-center gap-compact px-compact py-hairline rounded-pill bg-raised border border-brand/40 text-brand text-caption font-semibold mb-compact">
+            <span className="w-1.5 h-1.5 rounded-pill bg-brand animate-pulse" />
+            Sistema de diseño operativo Mint
           </span>
-          <h1 className="text-3xl font-extrabold text-txt-primary tracking-tight">
+          <h1 className="text-page-title font-semibold text-primary">
             Sistema visual y componentes base
           </h1>
-          <p className="text-xs text-txt-secondary mt-1 max-w-xl">
+          <p className="text-label text-secondary mt-hairline max-w-xl">
             Librería atómica de componentes: botones píldora, franja de KPIs sin tarjetas,
             chips de evento y la nube de puntos orgánica del agente.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-compact">
           <Button
             variant="secondary"
             size="md"
@@ -167,20 +167,20 @@ export const ComponentShowcaseView: React.FC = () => {
         </div>
       </div>
 
-      {/* SECCIÓN 1: FRANJA DE KPIS TÁCTIL (DONEZO & CHECKINOS DARK EMERALD) */}
-      <section className="space-y-3">
+      {/* SECCIÓN 1: FRANJA DE KPIS */}
+      <section className="space-y-element">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-semibold text-txt-primary uppercase tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              1. Franja de KPIs Táctil (Donezo & CheckinOs Theme)
+            <h2 className="text-label font-semibold text-primary flex items-center gap-compact">
+              <span className="w-1.5 h-1.5 rounded-pill bg-brand" />
+              1. Franja de KPIs
             </h2>
-            <p className="text-[11px] text-txt-secondary mt-0.5">
-              Tarjeta 0 con gradiente esmeralda estelar (<code className="text-emerald-400">bg-hero-emerald</code>) y botón de acción circular ↗; tarjetas 1..3 en superficie táctil elevada con íconos enmarcados.
+            <p className="text-caption text-secondary mt-hairline">
+              Tarjeta destacada con acento de marca y botón de acción circular; tarjetas 1..3 en superficie elevada con íconos enmarcados.
             </p>
           </div>
-          <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-            4-Card Grid · 16px Radius
+          <span className="text-caption font-mono text-brand bg-brand-surface px-compact py-hairline rounded-pill border border-brand/40">
+            Cuadrícula de 4 tarjetas
           </span>
         </div>
 
@@ -209,46 +209,46 @@ export const ComponentShowcaseView: React.FC = () => {
       </section>
 
       {/* SECCIÓN 1.5: TRACKING DE ÓRDENES Y LOGÍSTICA (INVENTAR & FIKRI STORE MILESTONE STEPPER) */}
-      <section className="space-y-4">
+      <section className="space-y-base">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-semibold text-txt-primary uppercase tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <h2 className="text-label font-semibold text-primary flex items-center gap-compact">
+              <span className="w-1.5 h-1.5 rounded-pill bg-brand" />
               1.5 Tracking de Órdenes & Logística (Inventar & Fikri Store Stepper)
             </h2>
-            <p className="text-[11px] text-txt-secondary mt-0.5">
-              Nodos de 32x32px interconectados por barras de 4px con soporte para tramas diagonales (<code className="text-emerald-400">bg-hatched-emerald</code>), alertas de demora y estados completados.
+            <p className="text-caption text-secondary mt-hairline">
+              Nodos interconectados por barras con soporte para tramas diagonales, alertas de demora y estados completados.
             </p>
           </div>
-          <span className="text-[11px] font-mono text-zinc-400 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06]">
+          <span className="text-caption font-mono text-secondary bg-raised px-compact py-hairline rounded-pill border border-border">
             MilestoneStepper.tsx
           </span>
         </div>
 
         <div className="space-y-3">
           {/* Tarjeta PO estilo Inventar #1: En tránsito con trama diagonal */}
-          <div className="p-4 rounded-2xl bg-surface-1 border border-white/[0.06] shadow-card space-y-3">
+          <div className="p-base rounded-container bg-panel border border-border space-y-element">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold text-emerald-400">PO-2026-0089</span>
-                <span className="text-xs text-white font-medium">Disco Diamantado 7&apos; Concreto Industrial x30</span>
+              <div className="flex items-center gap-compact">
+                <span className="font-mono text-label font-semibold text-brand">PO-2026-0089</span>
+                <span className="text-label text-primary font-medium">Disco Diamantado 7&apos; Concreto Industrial x30</span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold text-white tabular-nums">$1.549.800 COP</span>
+              <div className="flex items-center gap-compact">
+                <span className="font-mono text-label font-semibold text-primary tabular-nums">$1.549.800 COP</span>
                 <StatusBadge status="paid" />
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-txt-secondary">
-              <div className="flex items-center gap-2 font-mono text-[11px]">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-[10px]">
+            <div className="flex items-center justify-between text-label text-secondary">
+              <div className="flex items-center gap-compact font-mono text-caption">
+                <span className="w-5 h-5 rounded-pill bg-brand-surface text-brand flex items-center justify-center font-semibold text-caption">
                   F
                 </span>
                 <span>Ferreterías Unidas Bogotá S.A.S.</span>
-                <span className="text-zinc-600">·</span>
+                <span className="text-muted">·</span>
                 <span>Bodega Matriz Bucaramanga</span>
               </div>
-              <span className="text-[10px] font-mono text-zinc-500">Facturado & Criptoverificado</span>
+              <span className="text-caption font-mono text-muted">Facturado & Criptoverificado</span>
             </div>
 
             {/* Stepper incrustado en contenedor Well */}
@@ -270,16 +270,16 @@ export const ComponentShowcaseView: React.FC = () => {
             />
           </div>
 
-          {/* Tarjeta PO estilo Inventar #2: Demora / Alerta ROP */}
-          <div className="p-4 rounded-2xl bg-surface-1 border border-white/[0.06] shadow-card space-y-3">
+          {/* Tarjeta PO #2: Demora / Alerta ROP */}
+          <div className="p-base rounded-container bg-panel border border-border space-y-element">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold text-amber-400">PO-2026-0093</span>
-                <span className="text-xs text-white font-medium">Taladro de Impacto Inalámbrico 20V x45</span>
+              <div className="flex items-center gap-compact">
+                <span className="font-mono text-label font-semibold text-state-attention">PO-2026-0093</span>
+                <span className="text-label text-primary font-medium">Taladro de Impacto Inalámbrico 20V x45</span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold text-white tabular-nums">$21.546.000 COP</span>
-                <StatusBadge status="pendiente" label="Aprobación HITL" />
+              <div className="flex items-center gap-compact">
+                <span className="font-mono text-label font-semibold text-primary tabular-nums">$21.546.000 COP</span>
+                <StatusBadge status="pendiente" label="Aprobación humana" />
               </div>
             </div>
 
@@ -297,39 +297,39 @@ export const ComponentShowcaseView: React.FC = () => {
         </div>
       </section>
 
-      {/* SECCIÓN 1.6: CONTENEDORES TÁCTILES Y SUPERFICIES MULTICAPA (SURFACE LEVEL 1 & WELL) */}
-      <section className="space-y-4">
+      {/* SECCIÓN 1.6: CONTENEDORES Y SUPERFICIES MULTICAPA */}
+      <section className="space-y-base">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-semibold text-txt-primary uppercase tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              1.6 Superficies Multicapa (Surface Level 1 + Well Container)
+            <h2 className="text-label font-semibold text-primary flex items-center gap-compact">
+              <span className="w-1.5 h-1.5 rounded-pill bg-brand" />
+              1.6 Superficies multicapa
             </h2>
-            <p className="text-[11px] text-txt-secondary mt-0.5">
-              Jerarquía táctil: Canvas (<code className="text-zinc-400">#0A0F0D</code>) &rarr; Surface Level 1 (<code className="text-emerald-400">#121A16</code>) &rarr; Surface Level 2 Well (<code className="text-emerald-300">#0B110E</code>).
+            <p className="text-caption text-secondary mt-hairline">
+              Jerarquía de superficies: lienzo, superficie elevada y contenedor interno.
             </p>
           </div>
-          <span className="text-[11px] font-mono text-zinc-400 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06]">
+          <span className="text-caption font-mono text-secondary bg-raised px-compact py-hairline rounded-pill border border-border">
             DataCard.tsx
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-base">
           <DataCard
             title="Inventario de Alta Rotación"
             value="74 SKUs"
             context="Monitoreo continuo en Bodega Matriz Bucaramanga"
             trend={{ direction: "up", label: "+8.4% vs mes anterior" }}
             wellContent={
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-txt-secondary">Nivel de cumplimiento ROP:</span>
-                  <span className="font-mono text-emerald-400 font-bold">96.2%</span>
+              <div className="space-y-compact">
+                <div className="flex justify-between items-center text-label">
+                  <span className="text-secondary">Nivel de cumplimiento ROP:</span>
+                  <span className="font-mono text-brand font-semibold">96.2%</span>
                 </div>
-                <div className="h-2 rounded-full bg-[#19241F] overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full w-[96.2%]" />
+                <div className="h-2 rounded-pill bg-raised overflow-hidden">
+                  <div className="h-full bg-brand rounded-pill w-[96.2%]" />
                 </div>
-                <div className="flex justify-between text-[10px] font-mono text-txt-tertiary pt-1">
+                <div className="flex justify-between text-caption font-mono text-muted pt-hairline">
                   <span>0 quiebres de stock</span>
                   <span>4 órdenes programadas</span>
                 </div>
@@ -344,15 +344,15 @@ export const ComponentShowcaseView: React.FC = () => {
             trend={{ direction: "up", label: "-12.5% vs costo base" }}
             isHero={true}
             wellContent={
-              <div className="space-y-2 text-white/90">
-                <div className="flex justify-between items-center text-xs">
+              <div className="space-y-compact text-primary">
+                <div className="flex justify-between items-center text-label">
                   <span>Volumen acumulado negociado:</span>
-                  <span className="font-mono font-bold text-white">$42.8M COP</span>
+                  <span className="font-mono font-semibold text-primary">$42.8M COP</span>
                 </div>
-                <div className="h-2 rounded-full bg-black/30 overflow-hidden">
-                  <div className="h-full bg-hatched-emerald rounded-full w-[78%]" />
+                <div className="h-2 rounded-pill bg-canvas overflow-hidden">
+                  <div className="h-full bg-brand rounded-pill w-[78%]" />
                 </div>
-                <div className="flex justify-between text-[10px] font-mono text-emerald-200/80 pt-1">
+                <div className="flex justify-between text-caption font-mono text-brand pt-hairline">
                   <span>7 proveedores activos</span>
                   <span>Playbook de descuentos activo</span>
                 </div>
@@ -362,29 +362,28 @@ export const ComponentShowcaseView: React.FC = () => {
         </div>
       </section>
 
-      {/* SECCIÓN 2: PRESENCIA DEL AGENTE (PARTICLE CLOUD DE LA GUANÁBANA) */}
-      <section className="space-y-4 p-6 rounded-2xl bg-forest-surface border border-forest-border relative overflow-hidden bg-forest-grid">
+      {/* SECCIÓN 2: PRESENCIA DEL AGENTE */}
+      <section className="space-y-base p-base rounded-container bg-panel border border-border relative overflow-hidden">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-txt-primary">
-              2. Presencia del Agente (Nube de partículas orgánica)
+            <h2 className="text-label font-semibold text-primary">
+              2. Presencia del agente
             </h2>
-            <p className="text-xs text-txt-secondary mt-0.5">
+            <p className="text-label text-secondary mt-hairline">
               130 partículas en Canvas 2D recreando la silueta de la guanábana. Se pausa cuando la ventana no está visible.
             </p>
           </div>
 
           {/* Selector interactivo de estado del agente */}
-          <div className="flex items-center gap-1.5 p-1 rounded-full bg-forest-card border border-forest-border text-xs">
+          <div className="flex items-center gap-hairline p-hairline rounded-pill bg-raised border border-border text-label">
             {(["reposo", "leyendo", "pensando", "mutando"] as AgentState[]).map((st) => (
               <button
                 key={st}
                 onClick={() => setAgentTestState(st)}
-                className={`px-3 py-1 rounded-full font-medium transition-colors capitalize ${
-                  agentTestState === st
-                    ? "bg-brand text-[#070B08] font-bold"
-                    : "text-txt-secondary hover:text-txt-primary"
-                }`}
+                className={`px-compact py-hairline rounded-pill font-medium transition-colors capitalize ${agentTestState === st
+                  ? "bg-brand text-canvas font-semibold"
+                  : "text-secondary hover:text-primary"
+                  }`}
               >
                 {st}
               </button>
@@ -392,19 +391,19 @@ export const ComponentShowcaseView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center justify-center gap-8 py-4">
-          <div className="p-4 rounded-full bg-forest-card/50 border border-forest-border shadow-agentGlow">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-section py-base">
+          <div className="p-base rounded-pill bg-raised border border-border">
             <AgentParticleOrb size={170} state={agentTestState} />
           </div>
 
-          <div className="space-y-2.5 max-w-sm">
-            <h3 className="text-base font-bold text-txt-primary tracking-tight">
-              Núcleo Autónomo en estado: <span className="text-brand capitalize">{agentTestState}</span>
+          <div className="space-y-compact max-w-sm">
+            <h3 className="text-body font-semibold text-primary">
+              Núcleo autónomo en estado: <span className="text-brand capitalize">{agentTestState}</span>
             </h3>
-            <p className="text-xs text-txt-secondary leading-relaxed">
+            <p className="text-label text-secondary leading-relaxed">
               En reposo mantiene una deriva lenta; al leer datos sus partículas fluyen hacia la derecha; al procesar o auditar gira con pulsos armónicos sobre el inventario.
             </p>
-            <div className="pt-2 flex items-center gap-2">
+            <div className="pt-compact flex items-center gap-compact">
               <AgentEventChip
                 action="Auditoría ROP finalizada"
                 detail="74 SKUs"
@@ -416,15 +415,15 @@ export const ComponentShowcaseView: React.FC = () => {
       </section>
 
       {/* SECCIÓN 3: CHIPS DE EVENTO DEL AGENTE (FLOWCRAFT PATTERN) */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-txt-primary">
+      <section className="space-y-base">
+        <h2 className="text-label font-semibold text-primary">
           3. Chips de evento del agente (Patrón único de bitácora en vivo)
         </h2>
-        <p className="text-xs text-txt-secondary">
+        <p className="text-label text-secondary">
           Estructura estandarizada: Píldora oscura + ícono de verificación en cápsula verde + acción + detalle técnico + tiempo.
         </p>
 
-        <div className="flex flex-wrap gap-2.5">
+        <div className="flex flex-wrap gap-compact">
           <AgentEventChip
             action="Orden de compra propuesta"
             detail="#OC-402 · DeWalt Colombia"
@@ -449,13 +448,13 @@ export const ComponentShowcaseView: React.FC = () => {
       </section>
 
       {/* SECCIÓN 4: BOTONES EN PÍLDORA Y FORMULARIOS */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-txt-primary">
+      <section className="space-y-base">
+        <h2 className="text-label font-semibold text-primary">
           4. Botones en píldora y campos de alta densidad
         </h2>
 
-        <div className="p-6 rounded-2xl bg-forest-card border border-forest-border space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="p-base rounded-container bg-panel border border-border space-y-group">
+          <div className="flex flex-wrap items-center gap-compact">
             <Button variant="primary" size="lg">
               Empezar auditoría
             </Button>
@@ -473,7 +472,7 @@ export const ComponentShowcaseView: React.FC = () => {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-forest-border items-end">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-base pt-base border-t border-border items-end">
             <InputField
               label="Búsqueda rápida en catálogo"
               placeholder="SKU, nombre o proveedor..."
@@ -489,7 +488,7 @@ export const ComponentShowcaseView: React.FC = () => {
               ]}
             />
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-compact">
               <Button variant="secondary" size="md">
                 Restablecer
               </Button>
@@ -502,16 +501,16 @@ export const ComponentShowcaseView: React.FC = () => {
       </section>
 
       {/* SECCIÓN 4.5: BADGES DE ESTADO TÁCTILES (INVENTAR & DONEZO STYLE) */}
-      <section className="space-y-4">
+      <section className="space-y-base">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-txt-primary flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          <h2 className="text-label font-semibold text-primary flex items-center gap-compact">
+            <span className="w-1.5 h-1.5 rounded-pill bg-brand" />
             4.5 Insignias de Estado Táctiles con Punto Luminoso (StatusBadge.tsx)
           </h2>
-          <span className="text-xs text-txt-secondary font-mono">Píldoras 10px con halo semántico</span>
+          <span className="text-label text-secondary font-mono">Píldoras 10px con halo semántico</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-surface-1 border border-white/[0.06] flex flex-wrap items-center gap-3">
+        <div className="p-base rounded-container bg-panel border border-border flex flex-wrap items-center gap-compact">
           <StatusBadge status="paid" />
           <StatusBadge status="shipped" />
           <StatusBadge status="en_curso" />
@@ -523,12 +522,12 @@ export const ComponentShowcaseView: React.FC = () => {
       </section>
 
       {/* SECCIÓN 5: TABLA DE DATOS */}
-      <section className="space-y-4">
+      <section className="space-y-base">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-txt-primary">
+          <h2 className="text-label font-semibold text-primary">
             5. Tabla de datos (Encabezados sobrios, números tabulares en mono)
           </h2>
-          <span className="text-xs text-txt-tertiary">3 registros de muestra</span>
+          <span className="text-label text-muted">3 registros de muestra</span>
         </div>
 
         <DataTable
@@ -539,12 +538,12 @@ export const ComponentShowcaseView: React.FC = () => {
       </section>
 
       {/* SECCIÓN 6: FILAS DE LISTA (LIST ROW) */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-txt-primary">
+      <section className="space-y-base">
+        <h2 className="text-label font-semibold text-primary">
           6. Filas de lista interactivas (Aprobaciones y trazabilidad)
         </h2>
 
-        <div className="space-y-2">
+        <div className="space-y-compact">
           <ListRow
             title="Orden de compra #OC-402 — DeWalt Colombia"
             subtitle="Reponer 15 unidades de Rotomartillo SDS Plus para Bucaramanga Centro."
@@ -578,12 +577,12 @@ export const ComponentShowcaseView: React.FC = () => {
       </section>
 
       {/* SECCIÓN 7: ESTADO VACÍO EN FONDO CUADRÍCULA */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-txt-primary">
+      <section className="space-y-base">
+        <h2 className="text-label font-semibold text-primary">
           7. Estado vacío (Permitido fondo en cuadrícula sutil)
         </h2>
 
-        <div className="rounded-2xl border border-forest-border p-2 bg-forest-grid">
+        <div className="rounded-container border border-border p-compact bg-panel">
           <EmptyState
             title="No hay compras por aprobar en este momento"
             description="El agente auditó los 74 SKUs de la ferretería hace 4 minutos. Todas las existencias se encuentran dentro del stock de seguridad."

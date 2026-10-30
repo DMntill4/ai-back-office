@@ -47,27 +47,24 @@ export const DataCard: React.FC<DataCardProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`rounded-2xl border p-5 transition-all flex flex-col justify-between ${cardBg} ${
-        onClick ? "cursor-pointer" : ""
-      } ${className}`}
+      className={`rounded-2xl border p-5 transition-all flex flex-col justify-between ${cardBg} ${onClick ? "cursor-pointer" : ""
+        } ${className}`}
     >
       <div>
         {/* Header row: title and framed icon */}
         <div className="flex items-start justify-between gap-3 mb-2">
           <span
-            className={`text-xs font-semibold uppercase tracking-wider font-sans ${
-              isHero ? "text-emerald-100/90" : "text-txt-secondary"
-            }`}
+            className={`text-label font-semibold font-sans ${isHero ? "text-brand" : "text-secondary"
+              }`}
           >
             {title}
           </span>
           {icon && (
             <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner ${
-                isHero
-                  ? "bg-black/20 text-white border border-white/10"
-                  : "bg-[#19241F] border border-white/[0.04] text-emerald-400"
-              }`}
+              className={`w-9 h-9 rounded-control flex items-center justify-center flex-shrink-0 ${isHero
+                ? "bg-raised text-primary border border-border"
+                : "bg-raised border border-border text-brand"
+                }`}
             >
               {icon}
             </div>
@@ -84,11 +81,10 @@ export const DataCard: React.FC<DataCardProps> = ({
         {/* Optional well container (Sub-caja interna estilo Inventar) */}
         {wellContent && (
           <div
-            className={`mt-3 rounded-xl p-3 border shadow-inner ${
-              isHero
-                ? "bg-black/25 border-white/[0.08]"
-                : "bg-surface-well border-white/[0.04]"
-            }`}
+            className={`mt-3 rounded-xl p-3 border shadow-inner ${isHero
+              ? "bg-black/25 border-white/[0.08]"
+              : "bg-surface-well border-white/[0.04]"
+              }`}
           >
             {wellContent}
           </div>
@@ -98,31 +94,29 @@ export const DataCard: React.FC<DataCardProps> = ({
       {/* Footer row: subtitle, trend badge, or status */}
       {(displaySubtitle || status || badge || trendLabel) && (
         <div
-          className={`mt-3 pt-3 border-t flex items-center justify-between text-xs ${
-            isHero ? "border-white/10 text-emerald-100/80" : "border-white/[0.06] text-txt-secondary"
-          }`}
+          className={`mt-hairline pt-hairline border-t flex items-center justify-between text-label ${isHero ? "border-brand/20 text-brand" : "border-border text-secondary"
+            }`}
         >
           <div className="truncate pr-2">
             {displaySubtitle && (
-              <span className="text-[11px] leading-tight opacity-90">{displaySubtitle}</span>
+              <span className="text-caption leading-tight opacity-90">{displaySubtitle}</span>
             )}
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
             {trendLabel && (
               <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border font-mono ${
-                  effectiveTrendType === "down" || effectiveTrendType === "warning"
-                    ? "bg-amber-500/15 text-amber-300 border-amber-500/25"
-                    : isHero
-                    ? "bg-black/20 text-white border-white/15"
-                    : "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
-                }`}
+                className={`inline-flex items-center gap-1 px-compact py-hairline rounded-pill text-caption font-semibold border font-mono ${effectiveTrendType === "down" || effectiveTrendType === "warning"
+                  ? "bg-state-attention-surface text-state-attention border-state-attention/30"
+                  : isHero
+                    ? "bg-raised text-primary border-border"
+                    : "bg-state-ok-surface text-state-ok border-state-ok/30"
+                  }`}
               >
                 {effectiveTrendType === "down" ? (
-                  <TrendingDown className="w-3 h-3 text-amber-400" />
+                  <TrendingDown className="w-3 h-3 text-state-attention" />
                 ) : (
-                  <TrendingUp className="w-3 h-3 text-emerald-400" />
+                  <TrendingUp className="w-3 h-3 text-state-ok" />
                 )}
                 <span>{trendLabel}</span>
               </span>

@@ -9,7 +9,7 @@ import {
   TelemetryGraphLink,
   AgentTelemetryAction,
 } from "../../types/telemetry";
-import { RAW_MINT_NODES, RAW_MINT_EDGES } from "../../data/graphData";
+import { useLiveGraph } from "../../hooks/useLiveGraph";
 import {
   Activity,
   Play,
@@ -71,7 +71,7 @@ const DEMO_GRAPH_NODES: TelemetryGraphNode[] = [
     group: "node",
     interactionCount: 8,
     bytesOrRowsTotal: 1200,
-    metadata: { hasAlert: true, status: "alerta", category: "Gobernanza HITL" },
+    metadata: { hasAlert: true, status: "alerta", category: "Gobernanza" },
   },
   {
     id: "mod_logistica",
@@ -228,6 +228,11 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
     return img;
   }, []);
 
+  // Grafo real desde PostgreSQL (`GET /api/graph/data`). Sin datos semilla.
+  const { graphData: liveGraph, loading: liveGraphLoading } = useLiveGraph({
+    mode: "global",
+  });
+
   // 2. Construcción de Nodos y Aristas
   const activeBaseData = useMemo(() => {
     if (datasetMode === "demo") {
@@ -237,7 +242,10 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
       };
     }
 
-    const fullNodes: TelemetryGraphNode[] = RAW_MINT_NODES.map((n) => {
+    const sourceNodes = liveGraph?.nodes ?? [];
+    const sourceEdges = liveGraph?.edges ?? [];
+
+    const fullNodes: TelemetryGraphNode[] = sourceNodes.map((n) => {
       let grp: TelemetryGraphNode["group"] = "node";
       if (n.type === "agent") grp = "agent";
       else if (n.type === "database") grp = "database";
@@ -254,13 +262,13 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
         interactionCount: Math.max(3, n.degree || 4),
         bytesOrRowsTotal: 1000,
         metadata: {
-          ...n.metadata,
+          ...(n.metadata ?? {}),
           hasAlert: n.status === "warning",
         },
       };
     });
 
-    const fullLinks: TelemetryGraphLink[] = RAW_MINT_EDGES.map((e) => ({
+    const fullLinks: TelemetryGraphLink[] = sourceEdges.map((e) => ({
       id: e.id,
       source: e.source,
       target: e.target,
@@ -269,7 +277,7 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
     }));
 
     return { nodes: fullNodes, links: fullLinks };
-  }, [datasetMode]);
+  }, [datasetMode, liveGraph]);
 
   // Combinar eventos WebSocket reales con datos base
   const combinedGraphData = useMemo(() => {
@@ -408,7 +416,7 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
       setRequestStep(4);
       setRequestStory({
         title: "Solicitud Completada",
-        description: "Decisión PO-2026-0089 registrada y lista para firma en Bandeja HITL.",
+        description: "Decisión PO-2026-0089 registrada y lista para firma en Bandeja de Aprobación.",
         targetId: "dec_po_2026_0089",
         state: "IDLE",
       });
@@ -720,36 +728,36 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
   );
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-[#090D16] select-none overflow-hidden font-sans">
+    <div className="relative w-full h-full flex flex-col bg-canvas overflow-hidden font-sans">
       {/* 1. Barra de Control Sobria (Linear Precision) */}
-      <div className="h-13 border-b border-[#172033] bg-[#0A0E18] px-4 flex items-center justify-between gap-3 z-20 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-gray-200 tracking-tight flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-mint-400" />
+      <div className="h-13 border-b border-border bg-panel px-base flex items-center justify-between gap-compact z-20 flex-shrink-0">
+        <div className="flex items-center gap-compact">
+          <div className="flex items-center gap-compact">
+            <span className="text-label font-semibold text-primary flex items-center gap-hairline">
+              <Activity className="w-3.5 h-3.5 text-brand" />
               Telemetría Operativa
             </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#101926] text-mint-400 border border-[#1C2A3E]">
+            <span className="text-caption font-mono px-compact py-hairline rounded-control bg-raised text-brand border border-border">
               Guanábana
             </span>
           </div>
 
           {/* Toggle de Dataset: Demo vs Topología Completa */}
-          <div className="hidden sm:flex items-center rounded-md bg-[#0D1424] border border-[#1E2838] p-0.5 text-[11px] font-mono">
+          <div className="hidden sm:flex items-center rounded-control bg-raised border border-border p-hairline text-caption font-mono">
             <button
               onClick={() => setDatasetMode("demo")}
-              className={`px-2.5 py-1 rounded font-medium transition-all ${datasetMode === "demo"
-                  ? "bg-[#182338] text-gray-100 shadow-sm"
-                  : "text-gray-400 hover:text-gray-200"
+              className={`px-compact py-hairline rounded-control font-medium transition-all ${datasetMode === "demo"
+                ? "bg-brand-surface text-primary"
+                : "text-secondary hover:text-primary"
                 }`}
             >
               Demo Solicitud
             </button>
             <button
               onClick={() => setDatasetMode("full")}
-              className={`px-2.5 py-1 rounded font-medium transition-all ${datasetMode === "full"
-                  ? "bg-[#182338] text-gray-100 shadow-sm"
-                  : "text-gray-400 hover:text-gray-200"
+              className={`px-compact py-hairline rounded-control font-medium transition-all ${datasetMode === "full"
+                ? "bg-brand-surface text-primary"
+                : "text-secondary hover:text-primary"
                 }`}
             >
               Topología Completa
@@ -759,21 +767,21 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
           {/* Toggle Vuelo de la Mascota */}
           <button
             onClick={() => setMascotFlightEnabled(!mascotFlightEnabled)}
-            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded border text-[11px] font-mono transition-all ${mascotFlightEnabled
-                ? "bg-[#101C18] border-[#164E37] text-mint-300"
-                : "bg-[#0D1424] border-[#1E2838] text-gray-400"
+            className={`hidden md:flex items-center gap-hairline px-compact py-hairline rounded-control border text-caption font-mono transition-all ${mascotFlightEnabled
+              ? "bg-brand-surface border-brand/40 text-brand"
+              : "bg-raised border-border text-secondary"
               }`}
             title="Activa el desplazamiento dinámico de Mint hacia los nodos"
           >
-            <Compass className="w-3.5 h-3.5 text-mint-400" />
+            <Compass className="w-3.5 h-3.5 text-brand" />
             <span>Vuelo: {mascotFlightEnabled ? "ON" : "OFF"}</span>
           </button>
         </div>
 
         {/* Acciones de Estado y Ejecución */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-compact">
           {/* Selector de Estados */}
-          <div className="hidden xl:flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#0D1424] border border-[#1E2838]">
+          <div className="hidden xl:flex items-center gap-hairline px-hairline py-hairline rounded-control bg-raised border border-border">
             {(["IDLE", "READING", "THINKING", "MUTATING"] as AgentState[]).map((st) => {
               const isCurrent = currentAgentState === st;
               const color = THEME.stateColors[st];
@@ -781,9 +789,9 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
                 <button
                   key={st}
                   onClick={() => setManualState(manualState === st ? null : st)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition-all ${isCurrent
-                      ? "bg-[#182338] text-white border border-[#2B3A54]"
-                      : "text-gray-400 hover:text-gray-200"
+                  className={`px-compact py-hairline rounded-control text-caption font-mono font-medium transition-all ${isCurrent
+                    ? "bg-brand-surface text-primary border border-border-strong"
+                    : "text-secondary hover:text-primary"
                     }`}
                   style={{
                     color: isCurrent ? color : undefined,
@@ -799,9 +807,9 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
           <button
             onClick={handleRunLiveRequest}
             disabled={requestRunning}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${requestRunning
-                ? "bg-[#182436] text-mint-300 border border-[#23354E]"
-                : "bg-mint-500 hover:bg-mint-400 text-slate-950 font-bold active:scale-98 shadow-sm"
+            className={`flex items-center gap-hairline px-compact py-hairline rounded-control text-label font-semibold transition-all ${requestRunning
+              ? "bg-raised text-brand border border-border"
+              : "bg-brand hover:bg-brand text-canvas font-semibold shadow-card"
               }`}
           >
             <Play className={`w-3.5 h-3.5 ${requestRunning ? "animate-spin" : ""}`} />
@@ -811,7 +819,7 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
           {/* Reset Zoom */}
           <button
             onClick={handleResetZoom}
-            className="p-1.5 rounded bg-[#0D1424] text-gray-400 hover:text-white border border-[#1E2838] transition-all"
+            className="p-hairline rounded-control bg-raised text-secondary hover:text-primary border border-border transition-all"
             title="Centrar Grafo"
           >
             <Maximize2 className="w-3.5 h-3.5" />
@@ -821,22 +829,22 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
 
       {/* 2. Banner Discreto de Solicitud en Curso */}
       {requestRunning && requestStory && (
-        <div className="bg-[#0C1420] border-b border-[#1C2C42] px-4 py-2 flex items-center justify-between gap-3 text-xs font-mono animate-in slide-in-from-top-1 duration-150 z-10">
-          <div className="flex items-center gap-2.5">
+        <div className="bg-raised border-b border-border px-base py-compact flex items-center justify-between gap-compact text-label font-mono animate-in slide-in-from-top-1 duration-150 z-10">
+          <div className="flex items-center gap-compact">
             <span
-              className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-black"
+              className="px-compact py-hairline rounded-control text-caption font-semibold text-canvas"
               style={{
                 backgroundColor: THEME.stateColors[requestStory.state],
               }}
             >
               {requestStory.state}
             </span>
-            <span className="font-semibold text-gray-200">{requestStory.title}:</span>
-            <span className="text-gray-400 hidden sm:inline">{requestStory.description}</span>
+            <span className="font-semibold text-primary">{requestStory.title}:</span>
+            <span className="text-secondary hidden sm:inline">{requestStory.description}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-gray-400 text-[11px]">
+          <div className="flex items-center gap-hairline text-secondary text-caption">
             <span>Recurso:</span>
-            <span className="font-mono text-gray-200 bg-[#141F30] px-1.5 py-0.5 rounded border border-[#202F46]">
+            <span className="font-mono text-primary bg-panel px-compact py-hairline rounded-control border border-border">
               {requestStory.targetId}
             </span>
           </div>
@@ -844,9 +852,9 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
       )}
 
       {/* 3. Barra de Filtros Sutil */}
-      <div className="h-9 border-b border-[#141B2B] bg-[#0A0E18]/80 px-4 flex items-center justify-between gap-2 z-10">
-        <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] font-mono">
-          <span className="text-gray-500 text-[10px] uppercase font-semibold mr-1">Filtros:</span>
+      <div className="h-9 border-b border-border bg-panel px-base flex items-center justify-between gap-compact z-10">
+        <div className="flex items-center gap-hairline overflow-x-auto text-caption font-mono">
+          <span className="text-muted text-caption font-semibold mr-hairline">Filtros:</span>
           {[
             { id: "agent", label: "Mint Core" },
             { id: "node", label: "Módulos" },
@@ -860,9 +868,9 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
               <button
                 key={grp.id}
                 onClick={() => toggleGroup(grp.id)}
-                className={`px-2 py-0.5 rounded border text-[10px] transition-all ${isActive
-                    ? "bg-[#141E2F] border-[#25354E] text-gray-200 font-medium"
-                    : "bg-transparent border-[#172032] text-gray-600 opacity-60"
+                className={`px-compact py-hairline rounded-control border text-caption transition-all ${isActive
+                  ? "bg-brand-surface border-border-strong text-primary font-medium"
+                  : "bg-transparent border-border text-muted opacity-60"
                   }`}
               >
                 {grp.label}
@@ -872,14 +880,14 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
         </div>
 
         {/* Indicador de Estado */}
-        <div className="flex items-center gap-2 text-[10px] font-mono text-gray-400">
+        <div className="flex items-center gap-compact text-caption font-mono text-secondary">
           <span>Estado del Grafo:</span>
           <span
-            className="font-medium px-2 py-0.5 rounded border"
+            className="font-medium px-compact py-hairline rounded-control border"
             style={{
               color: THEME.stateColors[currentAgentState],
-              backgroundColor: "#0D1424",
-              borderColor: "#1E2838",
+              backgroundColor: "var(--color-raised)",
+              borderColor: "var(--color-border)",
             }}
           >
             {currentAgentState}
@@ -962,38 +970,38 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
 
         {/* 5. Inspector Lateral Sobrio */}
         {selectedNode && (
-          <aside className="absolute top-4 right-4 w-76 max-h-[calc(100vh-190px)] rounded-xl bg-[#0D1424] border border-[#1E2838] shadow-2xl z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-3 duration-120 font-sans">
-            <div className="p-3.5 border-b border-[#1A2536] flex items-start justify-between gap-3">
+          <aside className="absolute top-base right-base w-76 max-h-[calc(100vh-190px)] rounded-container bg-panel border border-border shadow-popover z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-3 duration-120 font-sans">
+            <div className="p-compact border-b border-border flex items-start justify-between gap-compact">
               <div>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#162032] text-mint-400 border border-[#24354D] font-medium">
+                <span className="text-caption font-mono px-compact py-hairline rounded-control bg-raised text-brand border border-border font-medium">
                   {selectedNode.group}
                 </span>
-                <h3 className="text-xs font-semibold text-gray-100 mt-1.5 leading-snug">
+                <h3 className="text-label font-semibold text-primary mt-hairline leading-snug">
                   {selectedNode.label}
                 </h3>
-                <p className="text-[10px] font-mono text-gray-500">ID: {selectedNode.id}</p>
+                <p className="text-caption font-mono text-muted">ID: {selectedNode.id}</p>
               </div>
               <button
                 onClick={() => setSelectedNode(null)}
-                className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#182338] transition-colors"
+                className="p-hairline rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="p-3.5 space-y-3 overflow-y-auto text-xs font-mono flex-1">
+            <div className="p-compact space-y-compact overflow-y-auto text-label font-mono flex-1">
               {/* Acciones de Inspección */}
-              <div className="p-2.5 rounded-lg bg-[#0A0F1A] border border-[#1A2536] space-y-2">
-                <span className="text-[10px] text-gray-400 uppercase block font-semibold">
+              <div className="p-compact rounded-control bg-raised border border-border space-y-compact">
+                <span className="text-caption text-secondary block font-semibold">
                   Acción Operativa:
                 </span>
-                <div className="grid grid-cols-3 gap-1">
+                <div className="grid grid-cols-3 gap-hairline">
                   <button
                     onClick={() => {
                       setManualTargetId(selectedNode.id);
                       setManualState("READING");
                     }}
-                    className="px-2 py-1 rounded bg-[#0F2228] text-teal-300 border border-[#1A3E47] text-[10px] font-medium hover:bg-[#16333C]"
+                    className="px-compact py-hairline rounded-control bg-panel text-state-pending border border-border text-caption font-medium hover:bg-raised"
                   >
                     Leer
                   </button>
@@ -1002,7 +1010,7 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
                       setManualTargetId(selectedNode.id);
                       setManualState("THINKING");
                     }}
-                    className="px-2 py-1 rounded bg-[#0D2218] text-mint-300 border border-[#184632] text-[10px] font-medium hover:bg-[#133324]"
+                    className="px-compact py-hairline rounded-control bg-panel text-brand border border-border text-caption font-medium hover:bg-raised"
                   >
                     Evaluar
                   </button>
@@ -1011,37 +1019,37 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
                       setManualTargetId(selectedNode.id);
                       setManualState("MUTATING");
                     }}
-                    className="px-2 py-1 rounded bg-[#132B1E] text-green-300 border border-[#1F5438] text-[10px] font-medium hover:bg-[#1A3B29]"
+                    className="px-compact py-hairline rounded-control bg-panel text-state-ok border border-border text-caption font-medium hover:bg-raised"
                   >
                     Mutar
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="p-2 rounded bg-[#0A0F1A] border border-[#1A2536]">
-                  <span className="text-[10px] text-gray-500 uppercase block">Eventos</span>
-                  <span className="font-semibold text-gray-200">
+              <div className="grid grid-cols-2 gap-compact text-caption">
+                <div className="p-compact rounded-control bg-raised border border-border">
+                  <span className="text-caption text-muted block">Eventos</span>
+                  <span className="font-semibold text-primary">
                     {selectedNode.interactionCount}
                   </span>
                 </div>
-                <div className="p-2 rounded bg-[#0A0F1A] border border-[#1A2536]">
-                  <span className="text-[10px] text-gray-500 uppercase block">Tráfico</span>
-                  <span className="font-semibold text-gray-200">
+                <div className="p-compact rounded-control bg-raised border border-border">
+                  <span className="text-caption text-muted block">Tráfico</span>
+                  <span className="font-semibold text-primary">
                     {selectedNode.bytesOrRowsTotal.toLocaleString()} B
                   </span>
                 </div>
               </div>
 
               {selectedNode.metadata && Object.keys(selectedNode.metadata).length > 0 && (
-                <div className="p-2.5 rounded-lg bg-[#0A0F1A] border border-[#1A2536] space-y-1">
-                  <span className="text-[10px] text-gray-500 uppercase block mb-1">
+                <div className="p-compact rounded-control bg-raised border border-border space-y-hairline">
+                  <span className="text-caption text-muted block mb-hairline">
                     Metadatos
                   </span>
                   {Object.entries(selectedNode.metadata).map(([k, v]) => (
-                    <div key={k} className="flex justify-between items-center text-[10px]">
-                      <span className="text-gray-500 capitalize">{k}:</span>
-                      <span className="text-gray-300 truncate max-w-[140px] font-mono">
+                    <div key={k} className="flex justify-between items-center text-caption">
+                      <span className="text-muted capitalize">{k}:</span>
+                      <span className="text-secondary truncate max-w-[140px] font-mono">
                         {typeof v === "object" ? JSON.stringify(v) : String(v)}
                       </span>
                     </div>
@@ -1054,21 +1062,21 @@ export const LiveObsidianGraph: React.FC<LiveObsidianGraphProps> = ({ options })
       </div>
 
       {/* 6. Barra Inferior Discreta */}
-      <div className="h-8 border-t border-[#141B2B] bg-[#0A0E18] px-4 flex items-center justify-between text-[10px] font-mono text-gray-500 z-20 flex-shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="h-8 border-t border-border bg-panel px-base flex items-center justify-between text-caption font-mono text-muted z-20 flex-shrink-0">
+        <div className="flex items-center gap-compact">
           <span>
-            Núcleo: <strong className="text-gray-300">Mint Autonomous Agent</strong>
+            Núcleo: <strong className="text-secondary">Mint Autonomous Agent</strong>
           </span>
           <span>•</span>
           <span>
             Objetivo:{" "}
-            <strong className="text-gray-300">
+            <strong className="text-secondary">
               {activeTargetId || "En reposo"}
             </strong>
           </span>
         </div>
         <div>
-          <span>Telemetría de Precisión • Linear Style</span>
+          <span>Telemetría de Precisión</span>
         </div>
       </div>
     </div>

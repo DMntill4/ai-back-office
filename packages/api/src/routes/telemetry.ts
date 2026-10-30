@@ -22,6 +22,43 @@ export const telemetryRoutes: FastifyPluginAsync = async (server: FastifyInstanc
     });
   });
 
+  // 2.1 Resumen FinOps: consumo acumulado de tokens y costo USD por tarea
+  server.get("/api/telemetry/costs", async (req, reply) => {
+    const events = telemetryPublisher.getRecentEvents(250);
+    const costEvents = events.filter((e) => e.action === "meter" && e.cost);
+
+    const byTask = new Map<
+      string,
+      { taskId: string; tokens: number; costUsd: number; model: string; lastAt: number }
+    >();
+    let totalTokens = 0;
+    let totalCostUsd = 0;
+
+    for (const ev of costEvents) {
+      const c = ev.cost!;
+      totalTokens += c.tokens || 0;
+      totalCostUsd += c.costUsd || 0;
+      const prev = byTask.get(c.taskId);
+      byTask.set(c.taskId, {
+        taskId: c.taskId,
+        tokens: (prev?.tokens || 0) + (c.tokens || 0),
+        costUsd: (prev?.costUsd || 0) + (c.costUsd || 0),
+        model: c.model || prev?.model || "unknown",
+        lastAt: ev.timestamp,
+      });
+    }
+
+    return reply.send({
+      success: true,
+      session: {
+        totalTokens,
+        totalCostUsd: Number(totalCostUsd.toFixed(6)),
+        taskCount: byTask.size,
+      },
+      tasks: Array.from(byTask.values()).sort((a, b) => b.lastAt - a.lastAt),
+    });
+  });
+
   // 3. Disparador de Ciclo Operativo Real / Simulación en Vivo
   // Permite ver cómo el grafo interactivo se ilumina y genera nodos y aristas en vivo
   server.post("/api/telemetry/simulate", async (req, reply) => {

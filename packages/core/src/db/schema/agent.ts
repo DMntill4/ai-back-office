@@ -34,6 +34,9 @@ export const cases = pgTable("cases", {
   resolutionReason: text("resolution_reason"),
   totalCost: decimal("total_cost", { precision: 10, scale: 6 }).default("0"), // Dinero siempre en decimal
   totalTokens: integer("total_tokens").default(0),
+  promptTokens: integer("prompt_tokens").default(0),
+  completionTokens: integer("completion_tokens").default(0),
+  modelUsed: varchar("model_used", { length: 100 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

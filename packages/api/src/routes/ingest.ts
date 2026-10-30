@@ -248,6 +248,135 @@ export async function ingestRoutes(fastify: FastifyInstance) {
         }
     });
 
+    // 2.1 Sincronización activa bajo demanda (conectores reales configurados en .env)
+    // Ejecuta el motor de sync contra una fuente real (PostgreSQL read-only o CSV remoto)
+    // y actualiza productos, inventario y envíos reflejando datos vivos.
+    fastify.post("/api/ingest/sync", async (request: FastifyRequest, reply: FastifyReply) => {
+        const companyId = currentSession.companyId;
+        const body = (request.body as any) || {};
+        const sourceType = String(body.sourceType || "postgres_readonly");
+
+        try {
+            if (sourceType === "postgres_readonly") {
+                const connectionString =
+                    body.connectionString ||
+                    process.env.INGEST_POSTGRES_URL ||
+                    process.env.DATABASE_URL;
+                if (!connectionString) {
+                    reply.code(400);
+                    return {
+                        success: false,
+                        message:
+                            "Falta 'connectionString' o la variable INGEST_POSTGRES_URL/DATABASE_URL para sincronizar PostgreSQL.",
+                    };
+                }
+
+                const { listPostgresTables, queryReadOnlyPostgres } = await import("@mint/ingest");
+                const table = String(body.table || "");
+                if (!table) {
+                    const tables = await listPostgresTables(connectionString);
+                    reply.code(400);
+                    return {
+                        success: false,
+                        message: "Se requiere 'table' para sincronizar desde PostgreSQL.",
+                        availableTables: tables,
+                    };
+                }
+
+                const { rows, headers } = await queryReadOnlyPostgres({
+                    connectionString,
+                    tableName: table,
+                    limit: Number(body.limit) || 5000,
+                });
+
+                const sanitizedRows = rows.map((row) => sanitizeRow(row));
+                const result = await syncDataSource({
+                    companyId,
+                    sourceName: String(body.sourceName || `postgres:${table}`),
+                    sourceType: "postgres_readonly",
+                    uriOrPath: String(body.uriOrPath || `postgres://${table}`),
+                    currentHeaders: headers,
+                    rows: sanitizedRows,
+                    originMtime: new Date(),
+                });
+
+                sseHub.broadcast({
+                    type: "ingest_completed",
+                    agent: "dataIngest",
+                    action: "active_sync",
+                    details: `Sincronización activa de '${table}' (${result.totalRows} filas) con estado ${result.status}.`,
+                    resultSummary: `${result.importedRows} importadas · ${result.failedRows} fallidas`,
+                    payload: { table, ...result },
+                });
+
+                return { success: result.success, data: { table, ...result } };
+            }
+
+            if (sourceType === "csv") {
+                const rawUrl = body.url;
+                if (!rawUrl) {
+                    reply.code(400);
+                    return { success: false, message: "Se requiere 'url' para sincronizar CSV remoto." };
+                }
+                const ssrf = validateOutboundUrl(String(rawUrl));
+                if (!ssrf.isSafe) {
+                    reply.code(422);
+                    return {
+                        success: false,
+                        blocked: true,
+                        message: `URL rechazada por el guardia anti-SSRF: ${ssrf.reason}`,
+                    };
+                }
+                const res = await fetch(ssrf.normalizedUrl || String(rawUrl), {
+                    signal: AbortSignal.timeout(15000),
+                });
+                if (!res.ok) {
+                    reply.code(502);
+                    return {
+                        success: false,
+                        message: `El origen remoto respondió ${res.status} ${res.statusText}.`,
+                    };
+                }
+                const content = await res.text();
+                const parsed = parseCsvContent(content);
+                if (parsed.headers.length === 0) {
+                    reply.code(422);
+                    return { success: false, message: "El recurso remoto no contiene encabezados CSV válidos." };
+                }
+                const sanitizedRows = parsed.rows.map((row) => sanitizeRow(row));
+                const result = await syncDataSource({
+                    companyId,
+                    sourceName: String(body.sourceName || ssrf.normalizedUrl || rawUrl),
+                    sourceType: "csv",
+                    uriOrPath: ssrf.normalizedUrl || String(rawUrl),
+                    currentHeaders: parsed.headers,
+                    rows: sanitizedRows,
+                    originMtime: new Date(),
+                });
+
+                sseHub.broadcast({
+                    type: "ingest_completed",
+                    agent: "dataIngest",
+                    action: "active_sync",
+                    details: `Sincronización activa CSV desde '${ssrf.normalizedUrl}' (${result.totalRows} filas) con estado ${result.status}.`,
+                    resultSummary: `${result.importedRows} importadas · ${result.failedRows} fallidas`,
+                    payload: { url: ssrf.normalizedUrl, ...result },
+                });
+
+                return { success: result.success, data: { url: ssrf.normalizedUrl, ...result } };
+            }
+
+            reply.code(400);
+            return {
+                success: false,
+                message: `sourceType '${sourceType}' no soportado. Usa 'postgres_readonly' o 'csv'.`,
+            };
+        } catch (err: any) {
+            reply.code(500);
+            return { success: false, message: `Error en la sincronización activa: ${err.message}` };
+        }
+    });
+
     // 3. Descubrimiento de esquema (solo lectura, nunca altera tablas del cliente)
     fastify.get("/api/ingest/schema", async (request: FastifyRequest) => {
         const query = (request.query as any) || {};

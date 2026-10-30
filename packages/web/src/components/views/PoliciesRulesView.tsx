@@ -2,23 +2,20 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Shield,
-  Sliders,
   DollarSign,
-  AlertTriangle,
   CheckCircle2,
   Save,
   Truck,
   Boxes,
   Zap,
   Sparkles,
-  RotateCcw,
   Percent,
   Clock,
   Lock,
 } from "lucide-react";
 import { KpiStrip, KpiCardItem } from "../ui/KpiStrip";
 
-/** Interruptor táctil del Design System Dark Emerald. */
+/** Interruptor táctil del Design System Mint. */
 const TactileSwitch: React.FC<{
   checked: boolean;
   onChange: (v: boolean) => void;
@@ -30,18 +27,25 @@ const TactileSwitch: React.FC<{
     aria-checked={checked}
     aria-label={label}
     onClick={() => onChange(!checked)}
-    className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-200 border ${checked
-      ? "bg-emerald-500 border-emerald-400 shadow-[0_0_14px_rgba(16,185,129,0.45)]"
-      : "bg-[#0B100E] border-white/[0.12]"
+    className={`relative w-11 h-6 rounded-pill shrink-0 transition-colors duration-200 border ${checked
+      ? "bg-brand border-brand"
+      : "bg-raised border-border-strong"
       }`}
   >
     <span
-      className={`absolute top-0.5 w-4.5 h-4.5 rounded-full transition-all duration-200 ${checked ? "left-[22px] bg-black" : "left-0.5 bg-zinc-500"
+      className={`absolute top-0.5 rounded-pill transition-all duration-200 ${checked ? "left-[22px] bg-canvas" : "left-0.5 bg-muted"
         }`}
       style={{ width: 18, height: 18 }}
     />
   </button>
 );
+
+const cardClass = "bg-panel rounded-container p-base border border-border flex flex-col justify-between";
+const cardHeaderClass = "flex items-center justify-between pb-compact border-b border-border";
+const iconBoxClass = "w-8 h-8 rounded-control bg-brand-surface text-brand flex items-center justify-center";
+const wellClass = "bg-raised rounded-control p-compact mt-base border border-border";
+const rangeClass = "w-full accent-brand cursor-pointer";
+const codeLabelClass = "text-caption text-muted font-mono";
 
 export const PoliciesRulesView: React.FC = () => {
   const [hitlThreshold, setHitlThreshold] = useState<number>(5000000);
@@ -78,7 +82,7 @@ export const PoliciesRulesView: React.FC = () => {
 
   const kpis: KpiCardItem[] = [
     {
-      title: "Umbral Autónomo HITL",
+      title: "Umbral de aprobación",
       value: `$${(hitlThreshold / 1000000).toFixed(1)}M COP`,
       subtitle: "Órdenes mayores requieren firma",
       trend: { direction: "up", label: "Gobernanza activa" },
@@ -110,7 +114,7 @@ export const PoliciesRulesView: React.FC = () => {
   ];
 
   return (
-    <div className="flex-1 h-full overflow-y-auto bg-canvas text-[#F9FAFB] font-sans select-none flex flex-col p-6 space-y-6">
+    <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans flex flex-col p-group space-y-group">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -118,13 +122,13 @@ export const PoliciesRulesView: React.FC = () => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-4 py-3 rounded-full flex items-center gap-3 bg-[#0A160E] border border-[#10B981]/40 text-[#34D399] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
+            className="fixed top-6 right-8 z-50 px-compact py-hairline rounded-pill flex items-center gap-compact bg-brand-surface border border-brand/40 text-brand shadow-popover"
           >
-            <div className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-            <span className="text-xs font-mono font-medium">{toastMessage}</span>
+            <div className="w-2 h-2 rounded-pill bg-brand animate-ping" />
+            <span className="text-caption font-mono font-medium">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-[#8E9893] hover:text-[#F9FAFB] text-xs ml-1"
+              className="text-muted hover:text-primary text-caption ml-hairline"
             >
               ✕
             </button>
@@ -133,26 +137,26 @@ export const PoliciesRulesView: React.FC = () => {
       </AnimatePresence>
 
       {/* HEADER SUPERIOR */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-base">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+          <h1 className="text-page-title font-semibold text-primary">
             Reglas y Políticas de Gobernanza
           </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <p className="text-caption text-secondary mt-hairline">
             Límites financieros, guardrails de seguridad y parámetros de intervención humana
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-compact">
           <button
             onClick={handleReset}
-            className="px-3.5 py-2 rounded-xl bg-surface-1 hover:bg-white/[0.08] text-xs font-medium text-zinc-300 hover:text-white border border-white/[0.08] transition-colors"
+            className="px-compact py-hairline rounded-control bg-raised hover:bg-panel text-caption font-medium text-secondary hover:text-primary border border-border transition-colors"
           >
             Restablecer Parámetros
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
+            className="px-base py-hairline rounded-control bg-brand hover:bg-brand text-canvas font-semibold text-caption flex items-center gap-compact transition-colors cursor-pointer"
           >
             <Save className="w-3.5 h-3.5" />
             <span>Guardar Cambios</span>
@@ -160,38 +164,38 @@ export const PoliciesRulesView: React.FC = () => {
         </div>
       </header>
 
-      {/* FILA 1: KPI STRIP DE 4 TARJETAS CON HÉROE */}
+      {/* FILA 1: KPI STRIP */}
       <KpiStrip items={kpis} />
 
-      {/* FILA 2: GRID DE TARJETAS DE 2 NIVELES (INVENTAR STYLE) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Regla 1: Umbral de Aprobación HITL */}
-        <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl flex flex-col justify-between">
+      {/* FILA 2: GRID DE TARJETAS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-element">
+        {/* Regla 1: Umbral de Aprobación */}
+        <div className={cardClass}>
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+            <div className={cardHeaderClass}>
+              <div className="flex items-center gap-compact">
+                <div className={iconBoxClass}>
                   <DollarSign className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white">Umbral de Compra Autónoma</h3>
-                  <span className="text-[10px] text-zinc-500 font-mono">POL-COMP-01</span>
+                  <h3 className="text-caption font-semibold text-primary">Umbral de Compra Autónoma</h3>
+                  <span className={codeLabelClass}>POL-COMP-01</span>
                 </div>
               </div>
-              <span className="text-sm font-bold text-emerald-400 font-mono">
+              <span className="text-label font-semibold text-brand font-mono">
                 ${(hitlThreshold / 1000000).toFixed(1)}M COP
               </span>
             </div>
 
-            <p className="text-xs text-zinc-300 mt-3 leading-relaxed">
-              Las órdenes de compra que superen este valor son retenidas automáticamente en la bandeja HITL para firma humana autorizada.
+            <p className="text-caption text-secondary mt-compact leading-relaxed">
+              Las órdenes de compra que superen este valor son retenidas automáticamente en la bandeja de aprobación para firma humana autorizada.
             </p>
           </div>
 
-          <div className="bg-surface-well rounded-xl p-3.5 mt-4 border border-white/[0.04]">
-            <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-2">
+          <div className={wellClass}>
+            <div className="flex justify-between text-caption font-mono text-secondary mb-hairline">
               <span>$1.000.000</span>
-              <span className="text-white font-bold">${hitlThreshold.toLocaleString("es-CO")} COP</span>
+              <span className="text-primary font-semibold">${hitlThreshold.toLocaleString("es-CO")} COP</span>
               <span>$20.000.000</span>
             </div>
             <input
@@ -201,36 +205,36 @@ export const PoliciesRulesView: React.FC = () => {
               step={500000}
               value={hitlThreshold}
               onChange={(e) => setHitlThreshold(Number(e.target.value))}
-              className="w-full accent-emerald-500 cursor-pointer"
+              className={rangeClass}
             />
           </div>
         </div>
 
         {/* Regla 2: Multiplicador de Stock de Seguridad */}
-        <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl flex flex-col justify-between">
+        <div className={cardClass}>
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
+            <div className={cardHeaderClass}>
+              <div className="flex items-center gap-compact">
+                <div className={iconBoxClass}>
                   <Boxes className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white">Multiplicador de Stock de Seguridad</h3>
-                  <span className="text-[10px] text-zinc-500 font-mono">POL-STK-02</span>
+                  <h3 className="text-caption font-semibold text-primary">Multiplicador de Stock de Seguridad</h3>
+                  <span className={codeLabelClass}>POL-STK-02</span>
                 </div>
               </div>
-              <span className="text-sm font-bold text-white font-mono">{safetyMultiplier}x</span>
+              <span className="text-label font-semibold text-primary font-mono">{safetyMultiplier}x</span>
             </div>
 
-            <p className="text-xs text-zinc-300 mt-3 leading-relaxed">
+            <p className="text-caption text-secondary mt-compact leading-relaxed">
               Factor aplicado sobre la desviación estándar del tiempo de entrega del proveedor para prevenir quiebres de inventario.
             </p>
           </div>
 
-          <div className="bg-surface-well rounded-xl p-3.5 mt-4 border border-white/[0.04]">
-            <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-2">
+          <div className={wellClass}>
+            <div className="flex justify-between text-caption font-mono text-secondary mb-hairline">
               <span>1.0x (Mínimo)</span>
-              <span className="text-emerald-400 font-bold">{safetyMultiplier}x Cobertura</span>
+              <span className="text-brand font-semibold">{safetyMultiplier}x Cobertura</span>
               <span>3.0x (Máximo)</span>
             </div>
             <input
@@ -240,36 +244,36 @@ export const PoliciesRulesView: React.FC = () => {
               step={0.1}
               value={safetyMultiplier}
               onChange={(e) => setSafetyMultiplier(Number(e.target.value))}
-              className="w-full accent-emerald-500 cursor-pointer"
+              className={rangeClass}
             />
           </div>
         </div>
 
         {/* Regla 3: Techo Máximo de Flete */}
-        <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl flex flex-col justify-between">
+        <div className={cardClass}>
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
+            <div className={cardHeaderClass}>
+              <div className="flex items-center gap-compact">
+                <div className="w-8 h-8 rounded-control bg-state-attention/15 text-state-attention flex items-center justify-center">
                   <Truck className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white">Tope de Flete sobre Valor de Compra</h3>
-                  <span className="text-[10px] text-zinc-500 font-mono">POL-LOG-03</span>
+                  <h3 className="text-caption font-semibold text-primary">Tope de Flete sobre Valor de Compra</h3>
+                  <span className={codeLabelClass}>POL-LOG-03</span>
                 </div>
               </div>
-              <span className="text-sm font-bold text-amber-400 font-mono">{maxFreightPct}%</span>
+              <span className="text-label font-semibold text-state-attention font-mono">{maxFreightPct}%</span>
             </div>
 
-            <p className="text-xs text-zinc-300 mt-3 leading-relaxed">
+            <p className="text-caption text-secondary mt-compact leading-relaxed">
               Si el flete excede este porcentaje sobre el valor neto de la mercancía, el agente consolida o reprograma la ruta.
             </p>
           </div>
 
-          <div className="bg-surface-well rounded-xl p-3.5 mt-4 border border-white/[0.04]">
-            <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-2">
+          <div className={wellClass}>
+            <div className="flex justify-between text-caption font-mono text-secondary mb-hairline">
               <span>5%</span>
-              <span className="text-white font-bold">{maxFreightPct}% Máximo</span>
+              <span className="text-primary font-semibold">{maxFreightPct}% Máximo</span>
               <span>25%</span>
             </div>
             <input
@@ -279,36 +283,36 @@ export const PoliciesRulesView: React.FC = () => {
               step={1}
               value={maxFreightPct}
               onChange={(e) => setMaxFreightPct(Number(e.target.value))}
-              className="w-full accent-emerald-500 cursor-pointer"
+              className={rangeClass}
             />
           </div>
         </div>
 
         {/* Regla 4: Filtro de Calidad SLA de Proveedores */}
-        <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-xl flex flex-col justify-between">
+        <div className={cardClass}>
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
+            <div className={cardHeaderClass}>
+              <div className="flex items-center gap-compact">
+                <div className={iconBoxClass}>
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white">Score Mínimo para Órdenes Automáticas</h3>
-                  <span className="text-[10px] text-zinc-500 font-mono">POL-PRV-04</span>
+                  <h3 className="text-caption font-semibold text-primary">Score Mínimo para Órdenes Automáticas</h3>
+                  <span className={codeLabelClass}>POL-PRV-04</span>
                 </div>
               </div>
-              <span className="text-sm font-bold text-white font-mono">{minSupplierScore} pts</span>
+              <span className="text-label font-semibold text-primary font-mono">{minSupplierScore} pts</span>
             </div>
 
-            <p className="text-xs text-zinc-300 mt-3 leading-relaxed">
+            <p className="text-caption text-secondary mt-compact leading-relaxed">
               Solo proveedores con puntaje superior a este umbral califican para generación directa de órdenes sin revisión previa.
             </p>
           </div>
 
-          <div className="bg-surface-well rounded-xl p-3.5 mt-4 border border-white/[0.04]">
-            <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-2">
+          <div className={wellClass}>
+            <div className="flex justify-between text-caption font-mono text-secondary mb-hairline">
               <span>70 pts</span>
-              <span className="text-emerald-400 font-bold">{minSupplierScore} Puntos Mínimos</span>
+              <span className="text-brand font-semibold">{minSupplierScore} Puntos Mínimos</span>
               <span>95 pts</span>
             </div>
             <input
@@ -318,32 +322,32 @@ export const PoliciesRulesView: React.FC = () => {
               step={1}
               value={minSupplierScore}
               onChange={(e) => setMinSupplierScore(Number(e.target.value))}
-              className="w-full accent-emerald-500 cursor-pointer"
+              className={rangeClass}
             />
           </div>
         </div>
       </div>
 
       {/* FILA 3: PERMISOS DE EJECUCIÓN AUTÓNOMA */}
-      <div className="bg-surface-1 rounded-2xl p-5 border border-white/[0.06] shadow-card">
-        <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+      <div className="bg-panel rounded-container p-base border border-border">
+        <div className="flex items-center justify-between pb-compact mb-base border-b border-border">
+          <div className="flex items-center gap-compact">
+            <div className={iconBoxClass}>
               <Zap className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Permisos de Ejecución Autónoma</h3>
-              <p className="text-[11px] text-zinc-400">
+              <h3 className="text-label font-semibold text-primary">Permisos de Ejecución Autónoma</h3>
+              <p className="text-caption text-secondary">
                 Habilita o restringe las acciones que el agente puede ejecutar sin supervisión
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span className="text-caption font-mono px-hairline py-hairline rounded-pill bg-brand-surface text-brand border border-brand/20">
             {[autoRebalanceEnabled, strictHmacEnabled, autoSupplierSelection].filter(Boolean).length} de 3 activos
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-compact">
           {[
             {
               key: "rebalance",
@@ -374,18 +378,18 @@ export const PoliciesRulesView: React.FC = () => {
             return (
               <div
                 key={perm.key}
-                className={`rounded-xl p-3.5 border transition-colors ${perm.checked
-                  ? "bg-emerald-500/[0.05] border-emerald-500/25"
-                  : "bg-surface-well border-white/[0.04]"
+                className={`rounded-control p-compact border transition-colors ${perm.checked
+                  ? "bg-brand-surface border-brand/25"
+                  : "bg-raised border-border"
                   }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-start justify-between gap-compact">
+                  <div className="flex items-center gap-hairline min-w-0">
                     <Icon
-                      className={`w-3.5 h-3.5 shrink-0 ${perm.checked ? "text-emerald-400" : "text-zinc-500"
+                      className={`w-3.5 h-3.5 shrink-0 ${perm.checked ? "text-brand" : "text-muted"
                         }`}
                     />
-                    <span className="text-[11px] font-semibold text-zinc-200 leading-snug">
+                    <span className="text-caption font-semibold text-primary leading-snug">
                       {perm.title}
                     </span>
                   </div>
@@ -395,25 +399,25 @@ export const PoliciesRulesView: React.FC = () => {
                     label={perm.title}
                   />
                 </div>
-                <p className="text-[10px] text-zinc-500 leading-relaxed mt-2">{perm.desc}</p>
+                <p className="text-caption text-muted leading-relaxed mt-hairline">{perm.desc}</p>
               </div>
             );
           })}
         </div>
 
-        {/* Parámetros de activación en contenedor well */}
-        <div className="bg-surface-well rounded-xl p-4 mt-4 border border-white/[0.04]">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block mb-3">
+        {/* Parámetros de activación */}
+        <div className="bg-raised rounded-control p-base mt-base border border-border">
+          <span className="text-caption font-mono text-muted block mb-compact">
             Parámetros de Activación
           </span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-base">
             <div>
-              <div className="flex items-center justify-between text-[11px] mb-2">
-                <span className="text-zinc-400 flex items-center gap-1.5">
-                  <Clock className="w-3 h-3 text-emerald-400" />
+              <div className="flex items-center justify-between text-caption mb-hairline">
+                <span className="text-secondary flex items-center gap-hairline">
+                  <Clock className="w-3 h-3 text-brand" />
                   Ventana anti-duplicados
                 </span>
-                <span className="font-mono font-bold text-white tabular-numbers">
+                <span className="font-mono font-semibold text-primary tabular-numbers">
                   {duplicateWindowHours} h
                 </span>
               </div>
@@ -424,33 +428,33 @@ export const PoliciesRulesView: React.FC = () => {
                 step={12}
                 value={duplicateWindowHours}
                 onChange={(e) => setDuplicateWindowHours(Number(e.target.value))}
-                className="w-full accent-emerald-500 cursor-pointer"
+                className={rangeClass}
               />
-              <p className="text-[10px] text-zinc-500 mt-1">
+              <p className="text-caption text-muted mt-hairline">
                 Bloquea órdenes repetidas al mismo proveedor dentro de este lapso.
               </p>
             </div>
 
             <div>
-              <div className="flex items-center justify-between text-[11px] mb-2">
-                <span className="text-zinc-400 flex items-center gap-1.5">
-                  <Percent className="w-3 h-3 text-emerald-400" />
+              <div className="flex items-center justify-between text-caption mb-hairline">
+                <span className="text-secondary flex items-center gap-hairline">
+                  <Percent className="w-3 h-3 text-brand" />
                   Tope de flete
                 </span>
-                <span className="font-mono font-bold text-white tabular-numbers">
+                <span className="font-mono font-semibold text-primary tabular-numbers">
                   {maxFreightPct}%
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
+              <div className="flex items-center gap-hairline">
+                <div className="flex-1 h-1.5 rounded-pill bg-raised overflow-hidden">
                   <div
-                    className="h-full bg-emerald-500 rounded-full transition-all"
+                    className="h-full bg-brand rounded-pill transition-all"
                     style={{ width: `${(maxFreightPct / 25) * 100}%` }}
                   />
                 </div>
-                <span className="text-[10px] text-zinc-500 font-mono">máx 25%</span>
+                <span className="text-caption text-muted font-mono">máx 25%</span>
               </div>
-              <p className="text-[10px] text-zinc-500 mt-1">
+              <p className="text-caption text-muted mt-hairline">
                 Sobre el valor neto de la mercancía antes de consolidar la ruta.
               </p>
             </div>

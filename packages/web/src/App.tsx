@@ -16,7 +16,11 @@ import { MemoryVaultView } from "./components/views/MemoryVaultView";
 import { AnalyticsReportsView } from "./components/views/AnalyticsReportsView";
 import { SettingsView } from "./components/views/SettingsView";
 import { ComponentShowcaseView } from "./components/views/ComponentShowcaseView";
+import { ModelsView } from "./components/views/ModelsView";
+import { NodeLibraryView } from "./components/views/NodeLibraryView";
+import { ObjectivesView } from "./components/views/ObjectivesView";
 import { ApprovalDialog } from "./components/ui/ApprovalDialog";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 import { HitlDecision } from "./types/workflow";
 import { INITIAL_HITL_DECISIONS } from "./data/mockData";
@@ -169,6 +173,18 @@ export const App: React.FC = () => {
       case "reglas_politicas":
         return <PoliciesRulesView />;
 
+      // Modelos de IA configurados (FinOps / latencias / estado de API keys)
+      case "modelos":
+        return <ModelsView />;
+
+      // Biblioteca de nodos / especialistas / herramientas del agente
+      case "nodos":
+        return <NodeLibraryView onAddNode={() => handleTabChange("flujo_agente")} />;
+
+      // Objetivos del orquestador (stock, margen, tiempo de entrega)
+      case "objetivos":
+        return <ObjectivesView />;
+
       // 6. REPORTES (Análisis)
       case "reportes":
       case "analisis_reportes":
@@ -198,10 +214,12 @@ export const App: React.FC = () => {
       case "componentes":
         return <ComponentShowcaseView />;
 
+      // Fallback controlado: cualquier id desconocido cae en el Dashboard,
+      // nunca en una pantalla en blanco.
       default:
         return (
           <DashboardOverviewView
-            onNavigateTo={setCurrentTab}
+            onNavigateTo={handleTabChange}
             onOpenApproval={() => setIsApprovalDialogOpen(true)}
           />
         );
@@ -225,7 +243,7 @@ export const App: React.FC = () => {
           transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
           className="w-full flex-1 flex flex-col h-full min-h-0"
         >
-          {renderContent()}
+          <ErrorBoundary viewKey={currentTab}>{renderContent()}</ErrorBoundary>
         </motion.div>
       </AnimatePresence>
 

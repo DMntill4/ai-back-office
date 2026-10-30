@@ -6,6 +6,7 @@ import {
   AgentTelemetryTarget,
   AgentTelemetryAction,
   AgentTelemetryStatus,
+  AgentTelemetryCostPayload,
 } from "./telemetry.types";
 
 /**
@@ -168,6 +169,42 @@ export class TelemetryPublisher extends EventEmitter {
       },
       action,
       status,
+    };
+    this.publish(event);
+    return event;
+  }
+
+  /**
+   * Helper FinOps: publica el consumo acumulado de tokens y costo USD de una tarea.
+   * Payload: { taskId, tokens, costUsd, model } (+ desglose opcional).
+   */
+  public emitCost(
+    source: AgentTelemetrySource,
+    payload: AgentTelemetryCostPayload,
+    status: AgentTelemetryStatus = "success",
+  ): AgentTelemetryEvent {
+    const event: AgentTelemetryEvent = {
+      id: `evt_cost_${randomUUID().slice(0, 8)}`,
+      timestamp: Date.now(),
+      source,
+      target: {
+        id: `cost_${payload.taskId}`,
+        label: `Costo tarea ${payload.taskId}`,
+        group: "cost",
+        metadata: {
+          taskId: payload.taskId,
+          tokens: payload.tokens,
+          costUsd: payload.costUsd,
+          model: payload.model,
+          promptTokens: payload.promptTokens,
+          completionTokens: payload.completionTokens,
+          cachedTokens: payload.cachedTokens,
+        },
+      },
+      action: "meter",
+      status,
+      bytesOrRowsAffected: payload.tokens,
+      cost: payload,
     };
     this.publish(event);
     return event;

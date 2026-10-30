@@ -15,7 +15,7 @@ export interface KpiCardItem {
   onActionClick?: () => void;
 }
 
-export interface KpiMetric extends KpiCardItem {}
+export interface KpiMetric extends KpiCardItem { }
 
 export interface KpiStripProps {
   metrics?: KpiCardItem[];
@@ -33,10 +33,10 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
 
   // Default icons if none passed
   const defaultIcons = [
-    <Sparkles key="0" className="w-4 h-4 text-lime-300" />,
-    <Layers key="1" className="w-4 h-4 text-emerald-400" />,
-    <AlertCircle key="2" className="w-4 h-4 text-amber-400" />,
-    <TrendingUp key="3" className="w-4 h-4 text-emerald-400" />,
+    <Sparkles key="0" className="w-4 h-4 text-brand" />,
+    <Layers key="1" className="w-4 h-4 text-brand" />,
+    <AlertCircle key="2" className="w-4 h-4 text-state-attention" />,
+    <TrendingUp key="3" className="w-4 h-4 text-brand" />,
   ];
 
   return (
@@ -57,13 +57,13 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
         // Render Icon
         const renderIconElement = () => {
           if (!item.icon) {
-            return defaultIcons[idx] || <Layers className="w-4 h-4 text-emerald-400" />;
+            return defaultIcons[idx] || <Layers className="w-4 h-4 text-brand" />;
           }
           if (React.isValidElement(item.icon)) {
             return item.icon;
           }
           const IconComp = item.icon as React.ComponentType<{ className?: string }>;
-          return <IconComp className="w-4 h-4 text-emerald-400" />;
+          return <IconComp className="w-4 h-4 text-brand" />;
         };
 
         // CARD 1: HERO CARD (Donezo Style with Mint Guanábana Lime gradient)
@@ -71,40 +71,37 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
           return (
             <div
               key={idx}
-              className="bg-gradient-to-br from-[#0B5C43] via-[#084230] to-[#05281D] rounded-2xl border border-emerald-400/25 hover:border-lime-400/40 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.4)] flex flex-col justify-between relative overflow-hidden transition-all group"
+              className="bg-brand-surface rounded-container border border-brand/40 hover:border-brand p-base shadow-card flex flex-col justify-between relative overflow-hidden transition-all group"
             >
-              {/* Sutil halo lima insignia de Mint */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[radial-gradient(circle_at_top_right,rgba(163,230,53,0.18),transparent_70%)] pointer-events-none" />
-
-              <div className="flex items-start justify-between gap-3 mb-3 relative z-10">
-                <span className="text-xs font-medium text-emerald-100/90 font-sans">
+              <div className="flex items-start justify-between gap-compact mb-compact relative z-10">
+                <span className="text-label font-medium text-brand font-sans">
                   {displayLabel || "Valorización de Inventario"}
                 </span>
 
                 <button
                   type="button"
                   onClick={item.onActionClick}
-                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all shadow-sm flex-shrink-0 cursor-pointer"
+                  className="w-7 h-7 rounded-pill bg-raised hover:bg-border flex items-center justify-center text-primary transition-all flex-shrink-0 cursor-pointer"
                   title="Ver detalle"
                 >
                   <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                 </button>
               </div>
 
-              <div className="relative z-10 my-1">
-                <span className="text-3xl font-extrabold tracking-tight text-white font-sans tabular-nums block">
+              <div className="relative z-10 my-hairline">
+                <span className="text-metric font-semibold text-primary font-sans tabular-nums block">
                   {item.value}
                 </span>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-emerald-400/15 relative z-10 flex items-center justify-between text-xs">
-                <span className="text-emerald-100/80 text-[11px] leading-tight line-clamp-1">
+              <div className="mt-base pt-compact border-t border-brand/20 relative z-10 flex items-center justify-between text-caption">
+                <span className="text-secondary text-caption leading-tight line-clamp-1">
                   {displayContext || "Capital activo consolidado en 3 sedes"}
                 </span>
 
                 {trendLabel && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/15 text-lime-300 font-sans flex-shrink-0">
-                    <TrendingUp className="w-3 h-3 text-lime-400" />
+                  <span className="inline-flex items-center gap-hairline px-compact py-hairline rounded-pill text-caption font-semibold bg-raised text-brand font-sans flex-shrink-0">
+                    <TrendingUp className="w-3 h-3 text-brand" />
                     {trendLabel}
                   </span>
                 )}
@@ -119,47 +116,47 @@ export const KpiStrip: React.FC<KpiStripProps> = ({
           trendDirection === "down";
 
         const trendColorClass = isWarning
-          ? "bg-amber-500/10 text-amber-300 border-amber-500/20"
+          ? "bg-state-attention-surface text-state-attention border-state-attention/30"
           : trendDirection === "neutral"
-          ? "bg-white/[0.04] text-zinc-300 border-white/[0.08]"
-          : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
+            ? "bg-raised text-secondary border-border"
+            : "bg-state-ok-surface text-state-ok border-state-ok/30";
 
         return (
           <div
             key={idx}
-            className="bg-surface-1 rounded-2xl border border-white/[0.06] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:border-white/10 transition-all flex flex-col justify-between group"
+            className="bg-panel rounded-container border border-border p-base shadow-card hover:border-border-strong transition-all flex flex-col justify-between group"
           >
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <span className="text-xs font-medium text-zinc-400 font-sans">
+            <div className="flex items-start justify-between gap-compact mb-compact">
+              <span className="text-label font-medium text-secondary font-sans">
                 {displayLabel}
               </span>
 
-              <div className="w-8 h-8 rounded-xl bg-surface-well border border-white/[0.04] flex items-center justify-center flex-shrink-0 shadow-inner">
+              <div className="w-8 h-8 rounded-control bg-raised border border-border flex items-center justify-center flex-shrink-0">
                 {renderIconElement()}
               </div>
             </div>
 
-            <div className="my-1">
-              <span className="text-3xl font-extrabold tracking-tight text-white font-sans tabular-nums block">
+            <div className="my-hairline">
+              <span className="text-metric font-semibold text-primary font-sans tabular-nums block">
                 {item.value}
               </span>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
-              <span className="text-zinc-400 text-[11px] leading-tight line-clamp-1 pr-2">
+            <div className="mt-base pt-compact border-t border-border flex items-center justify-between text-caption">
+              <span className="text-secondary text-caption leading-tight line-clamp-1 pr-compact">
                 {displayContext}
               </span>
 
               {trendLabel && (
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border font-sans flex-shrink-0 ${trendColorClass}`}
+                  className={`inline-flex items-center gap-hairline px-compact py-hairline rounded-pill text-caption font-semibold border font-sans flex-shrink-0 ${trendColorClass}`}
                 >
                   {isWarning ? (
-                    <TrendingDown className="w-3 h-3 text-amber-400" />
+                    <TrendingDown className="w-3 h-3 text-state-attention" />
                   ) : trendDirection === "neutral" ? (
-                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                    <span className="w-1.5 h-1.5 rounded-pill bg-muted" />
                   ) : (
-                    <TrendingUp className="w-3 h-3 text-emerald-400" />
+                    <TrendingUp className="w-3 h-3 text-state-ok" />
                   )}
                   {trendLabel}
                 </span>

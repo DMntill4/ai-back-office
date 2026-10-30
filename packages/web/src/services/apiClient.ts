@@ -12,8 +12,7 @@ import {
     INITIAL_STOCK_SKUS,
     INITIAL_VAULT_NOTES,
 } from "../data/mockData";
-import { RAW_MINT_NODES, RAW_MINT_EDGES } from "../data/graphData";
-import type { MintGraphData, MintGraphEdge, MintGraphNode } from "../types/graph";
+import type { MintGraphData } from "../types/graph";
 
 // ---------------------------------------------------------------------------
 // Configuración
@@ -240,6 +239,26 @@ export interface VaultDocument {
     wikilinks: string[];
     updatedAt: string;
     sizeBytes: number;
+}
+
+export interface TelemetryCostTask {
+    taskId: string;
+    tokens: number;
+    costUsd: number;
+    model: string | null;
+    promptTokens?: number;
+    completionTokens?: number;
+    events: number;
+    lastAt?: number;
+}
+
+export interface TelemetryCostsResponse {
+    session: {
+        totalTokens: number;
+        totalCostUsd: number;
+        taskCount: number;
+    };
+    tasks: TelemetryCostTask[];
 }
 
 export interface VaultMetrics {
@@ -522,12 +541,17 @@ export const FALLBACK_VAULT_METRICS: VaultMetrics = {
     generatedAt: new Date().toISOString(),
 };
 
+/**
+ * Grafo vacío de degradación segura.
+ * Ya NO se usan nodos semilla de `graphData.ts`: si el backend no responde,
+ * la vista muestra su `EmptyState` en lugar de datos ficticios.
+ */
 export const FALLBACK_GRAPH: MintGraphData = {
-    nodes: RAW_MINT_NODES as MintGraphNode[],
-    edges: RAW_MINT_EDGES as MintGraphEdge[],
+    nodes: [],
+    edges: [],
     metadata: {
-        totalNodes: RAW_MINT_NODES.length,
-        totalEdges: RAW_MINT_EDGES.length,
+        totalNodes: 0,
+        totalEdges: 0,
         generatedAt: new Date().toISOString(),
     } as any,
 };
@@ -591,5 +615,121 @@ export const api = {
             if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
             return (await res.json()) as any;
         },
+        /** Sincronización activa contra una fuente real (PostgreSQL read-only o CSV remoto). */
+        sync: (body: {
+            sourceType?: "postgres_readonly" | "csv";
+            connectionString?: string;
+            table?: string;
+            url?: string;
+            limit?: number;
+            sourceName?: string;
+        }) => request<any>("/ingest/sync", { method: "POST", body }),
+    },
+
+    telemetry: {
+        /** Desglose de costo/tokens acumulado por tarea y total de la sesión. */
+        costs: () =>
+            requestWithFallback<TelemetryCostsResponse>("/telemetry/costs", {
+                session: { totalTokens: 0, totalCostUsd: 0, taskCount: 0 },
+                tasks: [],
+            }),
+        /** Historial de eventos de telemetría (para paneles de logs). */
+        history: (limit = 100) =>
+            requestWithFallback<any[]>(`/telemetry/history?limit=${limit}`, []),
+    },
+
+    decisions: {
+        /** Decisiones pendientes de aprobación humana (HITL). */
+        pending: () => requestWithFallback<any[]>("/decisions/pending", []),
+        /** Historial de decisiones resueltas (aprobadas / rechazadas). */
+        history: (params?: { status?: string; limit?: number }) => {
+            const qs = new URLSearchParams();
+            if (params?.status) qs.set("status", params.status);
+            if (params?.limit) qs.set("limit", String(params.limit));
+            const suffix = qs.toString() ? `?${qs.toString()}` : "";
+            return requestWithFallback<any[]>(`/decisions/history${suffix}`, []);
+        },
+        detail: (id: string) =>
+            requestWithFallback<any>(`/decisions/${encodeURIComponent(id)}`, null),
+        approve: (id: string, body?: Record<string, unknown>) =>
+            request<any>(`/decisions/${encodeURIComponent(id)}/approve`, {
+                method: "POST",
+                body: body ?? {},
+            }),
+        reject: (id: string, body?: Record<string, unknown>) =>
+            request<any>(`/decisions/${encodeURIComponent(id)}/reject`, {
+                method: "POST",
+                body: body ?? {},
+            }),
+        resolve: (id: string, body: { action: "approve" | "reject"; reason?: string }) =>
+            request<any>(`/decisions/${encodeURIComponent(id)}/resolve`, {
+                method: "POST",
+                body,
+            }),
+    },
+
+    config: {
+        /** Configuración de la empresa (modelos, umbrales, zona horaria). */
+        get: () => requestWithFallback<any>("/config", null),
+        update: (body: Record<string, unknown>) =>
+            request<any>("/config", { method: "PATCH", body }),
+        timezones: () => requestWithFallback<any[]>("/config/timezones", []),
+        thresholds: () => requestWithFallback<any[]>("/config/thresholds", []),
+        updateThreshold: (productId: string, body: Record<string, unknown>) =>
+            request<any>(`/config/thresholds/${encodeURIComponent(productId)}`, {
+                method: "PATCH",
+                body,
+            }),
+    },
+
+    reports: {
+        list: (params?: { type?: string; limit?: number }) => {
+            const qs = new URLSearchParams();
+            if (params?.type) qs.set("type", params.type);
+            if (params?.limit) qs.set("limit", String(params.limit));
+            const suffix = qs.toString() ? `?${qs.toString()}` : "";
+            return requestWithFallback<any[]>(`/reports${suffix}`, []);
+        },
+        detail: (id: string) =>
+            requestWithFallback<any>(`/reports/${encodeURIComponent(id)}`, null),
+    },
+
+    products: {
+        list: () => requestWithFallback<any[]>("/products", []),
+        detail: (id: string) =>
+            requestWithFallback<any>(`/products/${encodeURIComponent(id)}`, null),
+    },
+
+    team: {
+        /** Operadores con acceso a la empresa (RBAC). */
+        list: () => requestWithFallback<any[]>("/team", []),
+    },
+
+    channels: {
+        /** Canales de notificación configurados (Slack, Telegram, Discord, correo). */
+        list: () => requestWithFallback<any[]>("/channels", []),
+        create: (body: Record<string, unknown>) =>
+            request<any>("/channels", { method: "POST", body }),
+        test: (body: Record<string, unknown>) =>
+            request<any>("/channels/test", { method: "POST", body }),
+    },
+
+    orders: {
+        /** Órdenes de compra consolidadas con inteligencia de flota. */
+        list: () => requestWithFallback<any[]>("/orders", []),
+        summary: () => requestWithFallback<any>("/orders/summary", null),
+    },
+
+    analytics: {
+        /** Briefing ejecutivo diario. */
+        briefing: () => requestWithFallback<any>("/analytics/briefing", null),
+        /** Alertas inteligentes del motor analítico. */
+        alerts: () => requestWithFallback<any[]>("/analytics/alerts", []),
+        /** Pronóstico de demanda con margen de error explícito. */
+        forecast: () => requestWithFallback<any>("/analytics/forecast", null),
+        /** Conciliación ventas / pagos / entregas. */
+        reconciliation: () => requestWithFallback<any>("/analytics/reconciliation", null),
+        /** Variación semanal de ganancia (serie temporal para gráficos). */
+        profitVariation: () => requestWithFallback<any>("/analytics/profit-variation", null),
     },
 };

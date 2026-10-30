@@ -52,14 +52,14 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
               </span>
             )}
             {dateOrMeta && (
-              <span className="text-[11px] font-mono text-txt-secondary">
+              <span className="text-caption font-mono text-secondary">
                 {dateOrMeta}
               </span>
             )}
           </div>
 
           {actionButton && (
-            <div className="flex items-center text-xs font-medium text-emerald-400 hover:text-emerald-300">
+            <div className="flex items-center text-label font-medium text-brand hover:text-brand">
               {actionButton}
             </div>
           )}
@@ -74,25 +74,25 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
             const nextStep = !isLast ? steps[idx + 1] : null;
 
             // Determina el color de la barra horizontal entre este nodo y el siguiente
-            let barColor = "bg-[#1F2924]";
+            let barColor = "bg-border";
             if (nextStep) {
               if (step.status === "completed" && nextStep.status === "completed") {
-                barColor = "bg-[#10B981]";
+                barColor = "bg-brand";
               } else if (step.status === "completed" && (nextStep.status === "active" || nextStep.status === "warning")) {
-                barColor = nextStep.status === "warning" ? "bg-[#F59E0B]" : "bg-[#10B981]";
+                barColor = nextStep.status === "warning" ? "bg-state-attention" : "bg-brand";
               } else if (step.status === "active") {
                 barColor = "bg-hatched-emerald";
               }
             }
 
-            // Estilos del nodo de 32x32px (rounded-lg)
-            let nodeStyle = "bg-[#19241F] text-zinc-500 border border-white/[0.04]";
+            // Estilos del nodo de 32x32px (rounded-control)
+            let nodeStyle = "bg-raised text-muted border border-border";
             if (step.status === "completed") {
-              nodeStyle = "bg-[#10B981] text-white shadow-[0_0_14px_rgba(16,185,129,0.4)]";
+              nodeStyle = "bg-brand text-canvas";
             } else if (step.status === "active") {
-              nodeStyle = "bg-emerald-500/20 text-[#34D399] border-2 border-[#10B981] shadow-[0_0_12px_rgba(16,185,129,0.3)] animate-pulse";
+              nodeStyle = "bg-brand-surface text-brand border-2 border-brand animate-pulse";
             } else if (step.status === "warning") {
-              nodeStyle = "bg-amber-500/20 text-[#F59E0B] border-2 border-[#F59E0B] shadow-[0_0_12px_rgba(245,158,11,0.3)]";
+              nodeStyle = "bg-state-attention-surface text-state-attention border-2 border-state-attention";
             }
 
             return (
@@ -100,12 +100,11 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
                 {/* Nodo de 32x32px */}
                 <div
                   onClick={() => onStepClick && onStepClick(idx)}
-                  className={`flex flex-col items-center group relative z-10 ${
-                    onStepClick ? "cursor-pointer" : ""
-                  }`}
+                  className={`flex flex-col items-center group relative z-10 ${onStepClick ? "cursor-pointer" : ""
+                    }`}
                 >
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${nodeStyle}`}
+                    className={`w-8 h-8 rounded-control flex items-center justify-center transition-all ${nodeStyle}`}
                   >
                     {step.icon || defaultStepIcons[idx] || (
                       step.status === "completed" ? (
@@ -121,18 +120,17 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
                   {/* Label y Timestamp debajo del nodo */}
                   <div className="text-center mt-2 max-w-[90px] sm:max-w-[120px]">
                     <span
-                      className={`block text-[11px] font-medium leading-tight truncate ${
-                        step.status === "completed" || step.status === "active"
-                          ? "text-white"
-                          : step.status === "warning"
-                          ? "text-amber-400"
-                          : "text-zinc-500"
-                      }`}
+                      className={`block text-caption font-medium leading-tight truncate ${step.status === "completed" || step.status === "active"
+                        ? "text-primary"
+                        : step.status === "warning"
+                          ? "text-state-attention"
+                          : "text-muted"
+                        }`}
                     >
                       {step.label}
                     </span>
                     {step.timestamp && (
-                      <span className="block text-[10px] font-mono text-zinc-500 mt-0.5">
+                      <span className="block text-caption font-mono text-muted mt-hairline">
                         {step.timestamp}
                       </span>
                     )}
@@ -141,7 +139,7 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
 
                 {/* Barra horizontal conectora de 4px de grosor */}
                 {!isLast && (
-                  <div className="flex-1 h-[4px] mx-2 -mt-6 rounded-full overflow-hidden bg-[#1F2924] relative">
+                  <div className="flex-1 h-[4px] mx-compact -mt-6 rounded-pill overflow-hidden bg-border relative">
                     <div className={`h-full w-full ${barColor} transition-all duration-300`} />
                   </div>
                 )}
