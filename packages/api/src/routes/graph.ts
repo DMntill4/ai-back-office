@@ -18,7 +18,7 @@ import { currentSession } from "./auth";
  */
 
 export async function graphRoutes(fastify: FastifyInstance) {
-    fastify.get("/api/graph/data", async (request: FastifyRequest) => {
+    const buildGraph = async (request: FastifyRequest) => {
         const query = (request.query as any) || {};
         const companyId = query.companyId || currentSession.companyId;
 
@@ -51,5 +51,10 @@ export async function graphRoutes(fastify: FastifyInstance) {
                 message: `Error al construir el grafo de conocimiento: ${err.message}`,
             };
         }
-    });
+    };
+
+    // Endpoint canónico del contrato de la consola.
+    fastify.get("/api/graph", buildGraph);
+    // Alias retrocompatible usado por el cliente web actual.
+    fastify.get("/api/graph/data", buildGraph);
 }

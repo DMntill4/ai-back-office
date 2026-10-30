@@ -4,6 +4,9 @@ import {
   cases,
   caseEvents,
   runAgentLoop,
+  analyzePromptInjection,
+  resolveNaturalLanguageIntent,
+  mintOrchestrator,
   type AgentExecutionReport,
 } from "@mint/core";
 import { eq, desc } from "drizzle-orm";
@@ -22,6 +25,59 @@ export async function chatRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({
         success: false,
         error: "El mensaje o directiva operativa no puede estar vacío.",
+      });
+    }
+
+    // 0. Guardia anti-prompt-injection: corta el ataque antes de tocar la BD
+    //    o de invocar cualquier herramienta del orquestador.
+    const injection = analyzePromptInjection(message);
+    if (injection.isSuspicious) {
+      sseHub.broadcast({
+        type: "security_blocked",
+        agent: "Guardia de Seguridad [Prompt Injection]",
+        action: "block_prompt_injection",
+        details: `Directiva bloqueada. Patrones detectados: ${injection.detectedPatterns.join(", ")}.`,
+        payload: { score: injection.score, patterns: injection.detectedPatterns },
+      });
+      return reply.status(422).send({
+        success: false,
+        blocked: true,
+        error:
+          "Identifiqué un intento de reescribir instrucciones o eludir controles de seguridad. Como agente operativo MINT mantengo mis políticas de gobernanza intactas. ¿En qué tarea operativa legítima te puedo colaborar?",
+        security: {
+          score: injection.score,
+          patterns: injection.detectedPatterns,
+        },
+      });
+    }
+
+    // 1. Motor de intenciones en lenguaje natural: resuelve consultas
+    //    deterministas (inventario, órdenes, flota, reportes, configuración,
+    //    memoria) sin gastar tokens de LLM. También aplica los guardrails de
+    //    comunicación externa y de prompt injection del core.
+    let intentResult: Awaited<ReturnType<typeof resolveNaturalLanguageIntent>> | null = null;
+    try {
+      intentResult = await resolveNaturalLanguageIntent(companyId, message);
+    } catch {
+      intentResult = null;
+    }
+
+    if (intentResult?.handledDeterministically) {
+      sseHub.broadcast({
+        type: "intent_resolved",
+        agent: "Motor de Intenciones NL",
+        action: intentResult.intent,
+        details: intentResult.response,
+        resultSummary: intentResult.suggestedAction,
+        payload: intentResult,
+      });
+      return reply.status(200).send({
+        success: true,
+        handledDeterministically: true,
+        intent: intentResult.intent,
+        response: intentResult.response,
+        suggestedAction: intentResult.suggestedAction,
+        data: intentResult.data ?? null,
       });
     }
 
@@ -157,6 +213,67 @@ export async function chatRoutes(fastify: FastifyInstance) {
       };
     } catch (err: any) {
       return reply.status(500).send({ success: false, error: err.message });
+    }
+  });
+
+  // 4. Orquestación explícita de un evento operativo (MintOrchestrator)
+  //    Permite disparar el pipeline multi-agente completo sobre una señal
+  //    concreta (quiebre de stock, retraso logístico, etc.) sin pasar por el
+  //    bucle conversacional. Aplica gobernanza, permisos y deduplicación.
+  fastify.post("/api/orchestrate", async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = (request.body as any) || {};
+    const companyId = body.companyId || currentSession.companyId;
+    const eventType = body.eventType;
+    const title = body.title;
+
+    if (!eventType || !title) {
+      return reply.status(400).send({
+        success: false,
+        error: "Se requieren 'eventType' y 'title' para orquestar un evento operativo.",
+      });
+    }
+
+    // Los datos libres del evento se tratan como no confiables.
+    const injection = analyzePromptInjection(`${title} ${body.description || ""}`);
+    if (injection.isSuspicious) {
+      return reply.status(422).send({
+        success: false,
+        blocked: true,
+        error: "El evento contiene patrones de manipulación y fue rechazado por el guardia de seguridad.",
+        security: { score: injection.score, patterns: injection.detectedPatterns },
+      });
+    }
+
+    try {
+      const result = await mintOrchestrator.orchestrateEvent({
+        eventId: body.eventId,
+        eventType: String(eventType),
+        companyId,
+        productId: body.productId,
+        title: String(title),
+        description: body.description,
+        payload: body.payload,
+        autonomyLevel: body.autonomyLevel,
+        force: Boolean(body.force),
+        requireAiReasoning: Boolean(body.requireAiReasoning),
+      });
+
+      sseHub.broadcast({
+        type: "orchestration_completed",
+        caseId: result.caseId,
+        agent: "MINT Orchestrator (Coordinador Central)",
+        action: "orchestrate_event",
+        details: result.summary,
+        resultSummary: `Tokens: ${result.totalTokensConsumed} | Costo: $${result.totalCostUsd} USD`,
+        payload: result,
+      });
+
+      return { success: result.success, data: result };
+    } catch (err: any) {
+      return reply.status(500).send({
+        success: false,
+        error: `Error al orquestar el evento: ${err.message}`,
+      });
     }
   });
 }

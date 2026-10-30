@@ -11,6 +11,14 @@ import {
     syncDataSource,
     sanitizeRow,
 } from "@mint/ingest";
+import {
+    validateOutboundUrl,
+    discoverCustomerSchema,
+    saveConfirmedTableMapping,
+    estimateTableSize,
+    safePaginatedQuery,
+    detectSchemaDrift,
+} from "@mint/core";
 import { currentSession } from "./auth";
 import { sseHub } from "../events/sseHub";
 
@@ -23,7 +31,13 @@ import { sseHub } from "../events/sseHub";
  *  - `syncEngine.syncDataSource` (importación con drift y cuarentena)
  *
  * Endpoints:
- *  - POST /api/ingest/upload → recibe CSV/Excel y ejecuta el pipeline de sync
+ *  - POST /api/ingest/upload          → recibe CSV/Excel y ejecuta el pipeline de sync
+ *  - POST /api/ingest/remote          → importa desde una URL externa (protegida por ssrfGuard)
+ *  - GET  /api/ingest/schema          → descubrimiento de esquema en modo solo lectura
+ *  - POST /api/ingest/schema/mapping  → confirma un mapeo de tabla propuesto
+ *  - GET  /api/ingest/table-size      → estimación de tamaño de tabla
+ *  - GET  /api/ingest/paginated       → consulta paginada acotada (statement_timeout)
+ *  - GET  /api/ingest/drift           → detección de deriva de esquema
  */
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
@@ -162,6 +176,196 @@ export async function ingestRoutes(fastify: FastifyInstance) {
                     // Limpieza best-effort del archivo temporal.
                 }
             }
+        }
+    });
+
+    // 2. Ingesta remota desde URL externa (protegida contra SSRF)
+    fastify.post("/api/ingest/remote", async (request: FastifyRequest, reply: FastifyReply) => {
+        const companyId = currentSession.companyId;
+        const body = (request.body as any) || {};
+        const rawUrl = body.url;
+
+        if (!rawUrl) {
+            reply.code(400);
+            return { success: false, message: "Se requiere 'url' para la ingesta remota." };
+        }
+
+        // Bloquea metadatos cloud, loopback, redes privadas y protocolos peligrosos.
+        const ssrf = validateOutboundUrl(String(rawUrl));
+        if (!ssrf.isSafe) {
+            reply.code(422);
+            return {
+                success: false,
+                blocked: true,
+                message: `URL rechazada por el guardia anti-SSRF: ${ssrf.reason}`,
+            };
+        }
+
+        try {
+            const res = await fetch(ssrf.normalizedUrl || String(rawUrl), {
+                signal: AbortSignal.timeout(15000),
+            });
+            if (!res.ok) {
+                reply.code(502);
+                return {
+                    success: false,
+                    message: `El origen remoto respondió ${res.status} ${res.statusText}.`,
+                };
+            }
+
+            const content = await res.text();
+            const parsed = parseCsvContent(content);
+
+            if (parsed.headers.length === 0) {
+                reply.code(422);
+                return { success: false, message: "El recurso remoto no contiene encabezados CSV válidos." };
+            }
+
+            const sanitizedRows = parsed.rows.map((row) => sanitizeRow(row));
+            const result = await syncDataSource({
+                companyId,
+                sourceName: String(body.sourceName || ssrf.normalizedUrl || rawUrl),
+                sourceType: "csv",
+                uriOrPath: ssrf.normalizedUrl || String(rawUrl),
+                currentHeaders: parsed.headers,
+                rows: sanitizedRows,
+                originMtime: new Date(),
+            });
+
+            sseHub.broadcast({
+                type: "ingest_completed",
+                agent: "dataIngest",
+                action: "remote_sync",
+                details: `Ingesta remota desde '${ssrf.normalizedUrl}' (${result.totalRows} filas) con estado ${result.status}.`,
+                resultSummary: `${result.importedRows} importadas · ${result.failedRows} fallidas`,
+                payload: { url: ssrf.normalizedUrl, ...result },
+            });
+
+            return { success: result.success, data: { url: ssrf.normalizedUrl, ...result } };
+        } catch (err: any) {
+            reply.code(500);
+            return { success: false, message: `Error en la ingesta remota: ${err.message}` };
+        }
+    });
+
+    // 3. Descubrimiento de esquema (solo lectura, nunca altera tablas del cliente)
+    fastify.get("/api/ingest/schema", async (request: FastifyRequest) => {
+        const query = (request.query as any) || {};
+        const companyId = query.companyId || currentSession.companyId;
+
+        try {
+            const data = await discoverCustomerSchema(companyId);
+            return { success: true, data };
+        } catch (err: any) {
+            return {
+                success: false,
+                data: null,
+                message: `Error al descubrir el esquema: ${err.message}`,
+            };
+        }
+    });
+
+    // 4. Confirmar un mapeo de tabla propuesto
+    fastify.post("/api/ingest/schema/mapping", async (request: FastifyRequest, reply: FastifyReply) => {
+        const body = (request.body as any) || {};
+        const companyId = body.companyId || currentSession.companyId;
+
+        // Acepta tanto el vocabulario del servicio (`sourceTable`/`targetEntity`)
+        // como los alias históricos de la consola (`tableName`/`mintEntity`).
+        const sourceTable = body.sourceTable || body.tableName;
+        const targetEntity = body.targetEntity || body.mintEntity;
+
+        if (!sourceTable || !targetEntity) {
+            reply.code(400);
+            return {
+                success: false,
+                message: "Se requieren 'sourceTable' (o 'tableName') y 'targetEntity' (o 'mintEntity').",
+            };
+        }
+
+        try {
+            await saveConfirmedTableMapping({
+                companyId,
+                sourceTable: String(sourceTable),
+                targetEntity: String(targetEntity),
+                columnMappings: body.columnMappings || body.columnMapping || {},
+                isConfirmed: body.isConfirmed ?? true,
+                isReadOnly: body.isReadOnly ?? true,
+                writeRoles: Array.isArray(body.writeRoles) ? body.writeRoles.map(String) : [],
+            });
+            return {
+                success: true,
+                data: {
+                    companyId,
+                    sourceTable: String(sourceTable),
+                    targetEntity: String(targetEntity),
+                    confirmedBy: body.confirmedBy || currentSession.userName,
+                },
+            };
+        } catch (err: any) {
+            reply.code(422);
+            return { success: false, message: `Error al guardar el mapeo: ${err.message}` };
+        }
+    });
+
+    // 5. Estimación de tamaño de tabla
+    fastify.get("/api/ingest/table-size", async (request: FastifyRequest, reply: FastifyReply) => {
+        const query = (request.query as any) || {};
+        const tableName = query.tableName || query.table;
+
+        if (!tableName) {
+            reply.code(400);
+            return { success: false, message: "Se requiere 'tableName'." };
+        }
+
+        try {
+            const data = await estimateTableSize(String(tableName));
+            return { success: true, data };
+        } catch (err: any) {
+            reply.code(422);
+            return { success: false, message: `Error al estimar el tamaño: ${err.message}` };
+        }
+    });
+
+    // 6. Consulta paginada acotada
+    fastify.get("/api/ingest/paginated", async (request: FastifyRequest, reply: FastifyReply) => {
+        const query = (request.query as any) || {};
+        const tableName = query.tableName || query.table;
+
+        if (!tableName) {
+            reply.code(400);
+            return { success: false, message: "Se requiere 'tableName'." };
+        }
+
+        try {
+            const data = await safePaginatedQuery({
+                tableName: String(tableName),
+                columns: query.columns ? String(query.columns).split(",").filter(Boolean) : undefined,
+                cursorColumn: query.cursorColumn || undefined,
+                lastCursorValue: query.cursor ?? undefined,
+                limit: Number(query.limit) || 500,
+            });
+            return { success: true, data };
+        } catch (err: any) {
+            reply.code(422);
+            return { success: false, message: `Error en la consulta paginada: ${err.message}` };
+        }
+    });
+
+    // 7. Detección de deriva de esquema
+    fastify.get("/api/ingest/drift", async (request: FastifyRequest) => {
+        const query = (request.query as any) || {};
+        const companyId = query.companyId || currentSession.companyId;
+
+        try {
+            const data = await detectSchemaDrift(companyId);
+            return { success: true, data };
+        } catch (err: any) {
+            return {
+                success: false,
+                data: null,
+                message: `Error al detectar deriva de esquema: ${err.message}`,
+            };
         }
     });
 }

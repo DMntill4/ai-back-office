@@ -8,6 +8,11 @@ import {
     trackShipments,
     calculateRealRoute,
     getCompanyCurrency,
+    trackShipmentOrOrder,
+    calculateMultiProviderRoute,
+    proposeAlternativeRoute,
+    approveAlternativeRoute,
+    listCompanyFleet,
     type GeoPoint,
 } from "@mint/core";
 import { eq, and } from "drizzle-orm";
@@ -345,4 +350,140 @@ export async function logisticsRoutes(fastify: FastifyInstance) {
             return { success: false, message: `Error al re-enrutar el envío: ${err.message}` };
         }
     });
+
+    // 4. Flota y envíos activos (fleetAndOrdersService)
+    fastify.get("/api/logistics/fleet", async (request: FastifyRequest) => {
+        const query = (request.query as any) || {};
+        const companyId = query.companyId || currentSession.companyId;
+
+        try {
+            const data = await listCompanyFleet(companyId);
+            return { success: true, data };
+        } catch (err: any) {
+            return {
+                success: false,
+                data: null,
+                message: `Error al consultar la flota: ${err.message}`,
+            };
+        }
+    });
+
+    // 5. Rastreo unificado de pedido / guía / camión / ruta (trackingService)
+    fastify.get("/api/logistics/track", async (request: FastifyRequest, reply: FastifyReply) => {
+        const query = (request.query as any) || {};
+        const companyId = query.companyId || currentSession.companyId;
+        const q = query.q || query.trackingNumber || query.query;
+
+        if (!q) {
+            reply.code(400);
+            return {
+                success: false,
+                message: "Se requiere 'q' (guía, pedido, camión o ruta) para rastrear.",
+            };
+        }
+
+        try {
+            const data = await trackShipmentOrOrder(String(q), companyId);
+            if (!data.found) {
+                reply.code(404);
+                return { success: false, data, message: `No se encontró '${q}'.` };
+            }
+            return { success: true, data };
+        } catch (err: any) {
+            reply.code(500);
+            return { success: false, message: `Error al rastrear: ${err.message}` };
+        }
+    });
+
+    // 6. Ruta multi-proveedor (Google → TomTom → Mapbox → HERE → OSRM)
+    fastify.post("/api/logistics/route", async (request: FastifyRequest, reply: FastifyReply) => {
+        const body = (request.body as any) || {};
+
+        if (
+            !body.origin ||
+            typeof body.origin.latitude !== "number" ||
+            !body.destination ||
+            typeof body.destination.latitude !== "number"
+        ) {
+            reply.code(400);
+            return {
+                success: false,
+                message: "Se requieren 'origin' y 'destination' con latitude/longitude numéricos.",
+            };
+        }
+
+        try {
+            const data = await calculateMultiProviderRoute(body.origin, body.destination);
+            return { success: true, data };
+        } catch (err: any) {
+            reply.code(422);
+            return { success: false, message: `Error al calcular la ruta: ${err.message}` };
+        }
+    });
+
+    // 7. Proponer ruta alternativa ante una incidencia
+    fastify.post("/api/logistics/incidents", async (request: FastifyRequest, reply: FastifyReply) => {
+        const companyId = currentSession.companyId;
+        const body = (request.body as any) || {};
+
+        if (!body.trackingNumber || !body.reason) {
+            reply.code(400);
+            return {
+                success: false,
+                message: "Se requieren 'trackingNumber' y 'reason' para registrar la incidencia.",
+            };
+        }
+
+        try {
+            const data = await proposeAlternativeRoute({
+                companyId,
+                trackingNumber: String(body.trackingNumber),
+                incidentType: body.incidentType || "delay",
+                reason: String(body.reason),
+                delayMinutes: Number(body.delayMinutes) || 0,
+                currentLocation: String(body.currentLocation || "En ruta"),
+                newRouteDetails: body.newRouteDetails || {},
+            });
+            sseHub.broadcast({
+                type: "logistics_incident",
+                agent: "transporteSpecialist",
+                action: "propose_alternative_route",
+                details: `Incidencia registrada para la guía ${body.trackingNumber}: ${body.reason}.`,
+                payload: data,
+            });
+            return { success: true, data };
+        } catch (err: any) {
+            reply.code(422);
+            return { success: false, message: `Error al registrar la incidencia: ${err.message}` };
+        }
+    });
+
+    // 8. Aprobar ruta alternativa (HITL)
+    fastify.post(
+        "/api/logistics/incidents/:id/approve",
+        async (request: FastifyRequest, reply: FastifyReply) => {
+            const { id } = request.params as { id: string };
+            const body = (request.body as any) || {};
+            const approvedBy = body.approvedBy || currentSession.userName || "Operador Consola";
+
+            try {
+                const result = await approveAlternativeRoute(id, approvedBy);
+                if (!result.success) {
+                    reply.code(404);
+                    return { success: false, message: result.message };
+                }
+                sseHub.broadcast({
+                    type: "logistics_reroute_approved",
+                    agent: "transporteSpecialist",
+                    action: "approve_alternative_route",
+                    details: result.message,
+                    payload: { incidentId: id, approvedBy },
+                });
+                return { success: true, message: result.message };
+            } catch (err: any) {
+                reply.code(500);
+                return { success: false, message: `Error al aprobar la ruta: ${err.message}` };
+            }
+        },
+    );
 }

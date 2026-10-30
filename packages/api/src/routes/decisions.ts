@@ -5,6 +5,11 @@ import {
   executeAndVerifyDecision,
   rejectDecision,
 } from "@mint/core";
+import {
+  processRemoteApproval,
+  processOutboxQueue,
+  getOutboxQueueStats,
+} from "@mint/notifiers";
 import { eq, and, desc } from "drizzle-orm";
 import { sseHub } from "../events/sseHub";
 import { currentSession } from "./auth";
@@ -194,6 +199,69 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
       return { success: true, result };
     } catch (err: any) {
       return reply.status(500).send({ success: false, error: err.message });
+    }
+  });
+
+  // 5. Aprobación remota por token firmado (Telegram / Slack / Gmail)
+  fastify.post("/api/decisions/remote-approval", async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = (request.body as any) || {};
+    const signedToken = body.signedToken || body.token;
+    const channel = body.channel || "telegram";
+    const approverName = body.approverName || currentSession.userName || "Operador Remoto";
+
+    if (!signedToken) {
+      return reply.status(400).send({
+        success: false,
+        error: "Se requiere 'signedToken' para procesar la aprobación remota.",
+      });
+    }
+
+    if (!["telegram", "slack", "gmail"].includes(channel)) {
+      return reply.status(400).send({
+        success: false,
+        error: `Canal no soportado: '${channel}'. Usa telegram, slack o gmail.`,
+      });
+    }
+
+    try {
+      const result = await processRemoteApproval({
+        signedToken: String(signedToken),
+        approverName: String(approverName),
+        channel,
+      });
+
+      sseHub.broadcast({
+        type: "decision_resolved",
+        agent: `Gobernanza Remota [${channel}]`,
+        action: "remote_approval",
+        details: `Aprobación remota procesada por ${approverName} vía ${channel}.`,
+        resultSummary: result.auditMessage,
+        payload: result,
+      });
+
+      return { success: result.success, data: result };
+    } catch (err: any) {
+      // Token reutilizado, expirado o decisión ya resuelta → conflicto idempotente.
+      return reply.status(409).send({ success: false, error: err.message });
+    }
+  });
+
+  // 6. Estado de la cola outbox de notificaciones
+  fastify.get("/api/decisions/outbox/stats", async () => {
+    try {
+      return { success: true, data: getOutboxQueueStats() };
+    } catch (err: any) {
+      return { success: false, data: null, error: err.message };
+    }
+  });
+
+  // 7. Forzar el drenaje de la cola outbox (reintentos con backoff)
+  fastify.post("/api/decisions/outbox/process", async () => {
+    try {
+      const result = await processOutboxQueue();
+      return { success: true, data: result };
+    } catch (err: any) {
+      return { success: false, data: null, error: err.message };
     }
   });
 }

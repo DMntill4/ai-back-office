@@ -4,11 +4,68 @@ import {
   purchaseOrders,
   products,
   suppliers,
+  listCompanyOrders,
+  listCompanySalesSummary,
+  getCustomersPortfolio,
 } from "@mint/core";
 import { eq, desc } from "drizzle-orm";
 import { currentSession } from "./auth";
 
 export async function ordersRoutes(fastify: FastifyInstance) {
+  // 0. Órdenes consolidadas con inteligencia de flota (fleetAndOrdersService)
+  fastify.get("/api/orders/summary", async (request: FastifyRequest) => {
+    const query = (request.query as any) || {};
+    const companyId = query.companyId || currentSession.companyId;
+
+    try {
+      const data = await listCompanyOrders(companyId, query.status);
+      const limit = Number(query.limit) || 50;
+      const limited = data.slice(0, limit);
+      return { success: true, count: limited.length, data: limited };
+    } catch (err: any) {
+      return {
+        success: false,
+        count: 0,
+        data: [],
+        message: `Error al consolidar órdenes: ${err.message}`,
+      };
+    }
+  });
+
+  // 0.1 Resumen de ventas por canal
+  fastify.get("/api/orders/sales-summary", async (request: FastifyRequest) => {
+    const query = (request.query as any) || {};
+    const companyId = query.companyId || currentSession.companyId;
+
+    try {
+      const data = await listCompanySalesSummary(companyId);
+      return { success: true, data };
+    } catch (err: any) {
+      return {
+        success: false,
+        data: null,
+        message: `Error al calcular el resumen de ventas: ${err.message}`,
+      };
+    }
+  });
+
+  // 0.2 Cartera de clientes
+  fastify.get("/api/orders/customers", async (request: FastifyRequest) => {
+    const query = (request.query as any) || {};
+    const companyId = query.companyId || currentSession.companyId;
+
+    try {
+      const data = await getCustomersPortfolio(companyId);
+      return { success: true, count: data.customers.length, data };
+    } catch (err: any) {
+      return {
+        success: false,
+        count: 0,
+        data: null,
+        message: `Error al calcular la cartera de clientes: ${err.message}`,
+      };
+    }
+  });
   // 1. Listar órdenes de compra
   fastify.get("/api/orders", async (request: FastifyRequest) => {
     const query = (request.query as any) || {};

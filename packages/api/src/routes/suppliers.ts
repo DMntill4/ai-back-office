@@ -6,6 +6,9 @@ import {
     products,
     executeEvaluarProveedores,
     evaluarProveedoresSchema,
+    listCompanySuppliers,
+    getSupplierDetail,
+    addCompanySupplier,
 } from "@mint/core";
 import { eq } from "drizzle-orm";
 import { currentSession } from "./auth";
@@ -238,6 +241,77 @@ export async function suppliersRoutes(fastify: FastifyInstance) {
         } catch (err: any) {
             reply.code(500);
             return { success: false, message: `Error al consultar proveedor: ${err.message}` };
+        }
+    });
+
+    // 4. Inteligencia de proveedores (fleetAndOrdersService): SLA + catálogo + órdenes
+    fastify.get("/api/suppliers/intelligence", async (request: FastifyRequest) => {
+        const query = (request.query as any) || {};
+        const companyId = query.companyId || currentSession.companyId;
+
+        try {
+            const data = await listCompanySuppliers(companyId);
+            return { success: true, count: data.length, data };
+        } catch (err: any) {
+            return {
+                success: false,
+                count: 0,
+                data: [],
+                message: `Error al calcular la inteligencia de proveedores: ${err.message}`,
+            };
+        }
+    });
+
+    // 5. Expediente enriquecido de un proveedor
+    fastify.get("/api/suppliers/:id/intelligence", async (request: FastifyRequest, reply: FastifyReply) => {
+        const { id } = request.params as { id: string };
+        const query = (request.query as any) || {};
+        const companyId = query.companyId || currentSession.companyId;
+
+        try {
+            const data = await getSupplierDetail(companyId, id);
+            if (!data) {
+                reply.code(404);
+                return { success: false, message: `Proveedor ${id} no encontrado.` };
+            }
+            return { success: true, data };
+        } catch (err: any) {
+            reply.code(500);
+            return { success: false, message: `Error al consultar el proveedor: ${err.message}` };
+        }
+    });
+
+    // 6. Alta de proveedor con validación de dominio
+    fastify.post("/api/suppliers", async (request: FastifyRequest, reply: FastifyReply) => {
+        const companyId = currentSession.companyId;
+        const body = (request.body as any) || {};
+
+        if (!body.name) {
+            reply.code(400);
+            return { success: false, message: "Se requiere 'name' para crear el proveedor." };
+        }
+
+        try {
+            const data = await addCompanySupplier(companyId, {
+                name: String(body.name),
+                email: body.email,
+                phone: body.phone,
+                taxId: body.taxId,
+                city: body.city,
+                country: body.country,
+                streetAddress: body.streetAddress,
+            });
+            sseHub.broadcast({
+                type: "supplier_created",
+                agent: "comprasSpecialist",
+                action: "add_supplier",
+                details: `Proveedor '${body.name}' registrado en el catálogo del tenant.`,
+                payload: data,
+            });
+            return { success: true, data };
+        } catch (err: any) {
+            reply.code(422);
+            return { success: false, message: `Error al crear el proveedor: ${err.message}` };
         }
     });
 }

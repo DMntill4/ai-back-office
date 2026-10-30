@@ -6,6 +6,7 @@ import {
     warehouses,
     analyzeDynamicCatalogHealth,
     getCompanyCurrency,
+    getInventoryIntelligence,
     executeAjustarStock,
     ajustarStockSchema,
     type DynamicInventoryHealth,
@@ -236,6 +237,23 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
             return { success: true, count: items.length, data: items };
         } catch (err: any) {
             return { success: false, count: 0, data: [], message: err.message };
+        }
+    });
+
+    // 5. Inteligencia de inventario (quiebre predictivo, ABC/Pareto, sobrestock)
+    fastify.get("/api/inventory/intelligence", async (request: FastifyRequest) => {
+        const query = (request.query as any) || {};
+        const companyId = query.companyId || currentSession.companyId;
+
+        try {
+            const data = await getInventoryIntelligence(companyId);
+            return { success: true, data };
+        } catch (err: any) {
+            return {
+                success: false,
+                data: null,
+                message: `Error al calcular la inteligencia de inventario: ${err.message}`,
+            };
         }
     });
 }

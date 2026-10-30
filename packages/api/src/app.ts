@@ -21,6 +21,14 @@ import { suppliersRoutes } from "./routes/suppliers";
 import { vaultRoutes } from "./routes/vault";
 import { graphRoutes } from "./routes/graph";
 import { ingestRoutes } from "./routes/ingest";
+import { analyticsRoutes } from "./routes/analytics";
+import { reportsRoutes } from "./routes/reports";
+import { dataHealthRoutes } from "./routes/dataHealth";
+import { preflightRoutes } from "./routes/preflight";
+import { shadowRoutes } from "./routes/shadow";
+import { questionsRoutes } from "./routes/questions";
+import { configRoutes } from "./routes/config";
+import { profileRoutes } from "./routes/profile";
 import fastifyWebsocket from "@fastify/websocket";
 import fastifyMultipart from "@fastify/multipart";
 import { startTelemetryBridge, stopTelemetryBridge } from "./events/telemetryBridge";
@@ -75,6 +83,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   server.register(vaultRoutes);
   server.register(graphRoutes);
   server.register(ingestRoutes);
+  server.register(analyticsRoutes);
+  server.register(reportsRoutes);
+  server.register(dataHealthRoutes);
+  server.register(preflightRoutes);
+  server.register(shadowRoutes);
+  server.register(questionsRoutes);
+  server.register(configRoutes);
+  server.register(profileRoutes);
 
   // Static web console serving
   const candidateStaticPaths = [
