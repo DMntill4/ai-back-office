@@ -98,3 +98,4 @@ export const SimulationSlider: React.FC<SimulationSliderProps> = ({
     </div>
   );
 };
+
