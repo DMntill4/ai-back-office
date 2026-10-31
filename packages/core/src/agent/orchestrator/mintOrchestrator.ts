@@ -94,6 +94,29 @@ export class MintOrchestrator {
     const caseTitle = params.title || `Evento Operativo: ${params.eventType}`;
     const caseDesc = params.description || `Orquestación multi-agente para ${params.eventType}`;
 
+    // Guardia anti-duplicados a nivel de caso: Si ya hay un caso activo con el mismo título en proceso, no duplicar
+    if (!params.force) {
+      const existingActive = await db
+        .select({ id: cases.id })
+        .from(cases)
+        .where(and(eq(cases.companyId, companyId), eq(cases.title, caseTitle), eq(cases.status, "en_proceso")))
+        .limit(1);
+
+      if (existingActive.length > 0) {
+        return {
+          correlationId,
+          caseId: existingActive[0].id,
+          success: true,
+          agentResults: {},
+          usedAi: false,
+          totalTokensConsumed: 0,
+          totalCostUsd: "0.000000",
+          deduplicated: true,
+          summary: `Caso activo ya en proceso (#${existingActive[0].id}) para '${caseTitle}'. Se omite duplicación.`,
+        };
+      }
+    }
+
     await db.insert(cases).values({
       id: caseId,
       companyId,

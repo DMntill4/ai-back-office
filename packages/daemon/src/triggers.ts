@@ -24,11 +24,18 @@ export interface ScanResult {
  * Idempotente: nunca procesa productos con propuestas abiertas ni satura APIs cartográficas.
  */
 export async function scanStockDeficits(companyId: string = "comp_default"): Promise<number> {
-  const [prods, invs, blocked] = await Promise.all([
+  const [prods, invs, blocked, activeCases] = await Promise.all([
     db.select().from(products).where(eq(products.companyId, companyId)),
     db.select().from(inventory).where(eq(inventory.companyId, companyId)),
     getProductsWithOpenProposals(companyId).catch(() => new Set<string>()),
+    db
+      .select({ title: cases.title })
+      .from(cases)
+      .where(and(eq(cases.companyId, companyId), eq(cases.status, "en_proceso")))
+      .catch(() => []),
   ]);
+
+  const activeTitles = new Set(activeCases.map((c) => c.title));
 
   const stockMap = new Map<string, number>();
   for (const inv of invs) {
@@ -43,7 +50,12 @@ export async function scanStockDeficits(companyId: string = "comp_default"): Pro
       minStock: p.minStock,
       stock: stockMap.get(p.id) || 0,
     }))
-    .filter((r) => r.stock <= r.minStock && !blocked.has(r.productId));
+    .filter(
+      (r) =>
+        r.stock <= r.minStock &&
+        !blocked.has(r.productId) &&
+        !activeTitles.has(`Desabasto detectado: ${r.name} (${r.sku})`),
+    );
 
   // Limitar a maximo 3 por ciclo para evitar tormentas de peticiones fantasma
   const batch = deficits.slice(0, 3);
@@ -89,14 +101,22 @@ export async function scanDelayedShipments(companyId: string = "comp_default"): 
     return 0;
   }
 
-  const allShipments = await db
-    .select()
-    .from(shipments)
-    .where(eq(shipments.companyId, companyId));
+  const [allShipments, activeCases] = await Promise.all([
+    db.select().from(shipments).where(eq(shipments.companyId, companyId)),
+    db
+      .select({ title: cases.title })
+      .from(cases)
+      .where(and(eq(cases.companyId, companyId), eq(cases.status, "en_proceso")))
+      .catch(() => []),
+  ]);
+
+  const activeTitles = new Set(activeCases.map((c) => c.title));
 
   const now = new Date();
   const delayed = allShipments.filter(
-    (s) => s.status === "retrasado" || (s.status === "en_transito" && new Date(s.estimatedDelivery) < now),
+    (s) =>
+      (s.status === "retrasado" || (s.status === "en_transito" && new Date(s.estimatedDelivery) < now)) &&
+      !activeTitles.has(`Envío retrasado: Guía ${s.trackingNumber} (${s.carrier})`),
   );
 
   let triggeredCount = 0;

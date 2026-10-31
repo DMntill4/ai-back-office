@@ -166,6 +166,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       root: resolvedStaticPath,
       prefix: "/",
       wildcard: false,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith("index.html")) {
+          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          res.setHeader("Pragma", "no-cache");
+          res.setHeader("Expires", "0");
+        } else if (filePath.includes("assets")) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
     });
 
     // SPA fallback: Any non-API route serves index.html
@@ -178,7 +187,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       }
       const indexPath = path.join(resolvedStaticPath!, "index.html");
       if (fs.existsSync(indexPath)) {
-        return reply.type("text/html; charset=utf-8").sendFile("index.html");
+        return reply
+          .header("Cache-Control", "no-cache, no-store, must-revalidate")
+          .header("Pragma", "no-cache")
+          .header("Expires", "0")
+          .type("text/html; charset=utf-8")
+          .sendFile("index.html");
       }
       return reply.status(404).send("Web UI not found");
     });

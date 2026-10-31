@@ -49,7 +49,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       </svg>
 
       <div className="relative flex h-20 w-20 items-center justify-center rounded-container bg-panel border border-border">
-        <MintLogo size="md" showText={false} />
+        <MintLogo size="lg" showText={false} />
       </div>
     </div>
 

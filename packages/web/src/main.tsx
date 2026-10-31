@@ -9,6 +9,12 @@ import "@fontsource/ibm-plex-mono/500.css";
 import { App } from "./App";
 import "./index.css";
 
+// Auto-recuperación de chunks dinámicos desactualizados tras nuevos despliegues
+window.addEventListener("vite:preloadError", (event) => {
+  console.warn("[MINT Web] Chunk desactualizado detectado, recargando...", event);
+  window.location.reload();
+});
+
 const rootElement = document.getElementById("root");
 if (rootElement) {
   ReactDOM.createRoot(rootElement).render(

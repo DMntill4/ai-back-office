@@ -1,21 +1,23 @@
 import React, { useState } from "react";
 
 export interface MintLogoProps {
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   showText?: boolean;
   className?: string;
 }
 
 const SIZE_CLASSES = {
-  sm: "h-6",
-  md: "h-8",
-  lg: "h-11",
+  sm: "h-6 w-6",
+  md: "h-8 w-8",
+  lg: "h-11 w-11",
+  xl: "h-14 w-14",
 } as const;
 
 const ICON_SIZE_CLASSES = {
   sm: "h-6 w-6",
   md: "h-8 w-8",
   lg: "h-11 w-11",
+  xl: "h-14 w-14",
 } as const;
 
 export const MintLogo: React.FC<MintLogoProps> = ({

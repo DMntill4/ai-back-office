@@ -203,7 +203,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             onClick={() => onSelectTab("inicio")}
             className="flex items-center gap-compact cursor-pointer group"
           >
-            <MintLogo size="sm" showText={false} />
+            <MintLogo size="md" showText={true} />
           </div>
 
           <div className="h-4 w-px bg-border" />
@@ -409,7 +409,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
           {!isSidebarCollapsed && (
             <div className="p-compact rounded-control bg-raised/50 border border-border flex items-center justify-between">
-              <MintLogo size="sm" showText={false} className="hidden min-w-0 xl:inline-flex" />
+              <MintLogo size="sm" showText={true} className="hidden min-w-0 xl:inline-flex" />
               <span className="text-caption font-mono text-muted">v2.0</span>
             </div>
           )}
