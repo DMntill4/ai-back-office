@@ -98,7 +98,7 @@ _Por favor confirme o rechace esta operación antes de que expire el token._
     }
 
     try {
-      const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      let response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -109,7 +109,21 @@ _Por favor confirme o rechace esta operación antes de que expire el token._
         }),
       });
 
-      const data: any = await response.json();
+      let data: any = await response.json();
+      if (!data.ok && String(data.description || "").includes("can't parse entities")) {
+        // Fallback robusto sin markdown si Telegram rechaza caracteres reservados en IDs o textos
+        response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: messageText.replace(/[*_`]/g, ""),
+            ...(inlineKeyboard ? { reply_markup: { inline_keyboard: inlineKeyboard } } : {}),
+          }),
+        });
+        data = await response.json();
+      }
+
       if (data.ok) {
         return {
           success: true,

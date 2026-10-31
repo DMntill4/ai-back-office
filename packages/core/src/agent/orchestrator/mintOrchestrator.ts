@@ -132,8 +132,8 @@ export class MintOrchestrator {
         caseId,
         taskType: "analizar_existencias",
         priority: "alta",
-        payload: { productId: targetProductId, isAnomaly: params.requireAiReasoning },
-        requiresReasoning: params.requireAiReasoning,
+        payload: { productId: targetProductId },
+        requiresReasoning: false,
         createdAt: new Date().toISOString(),
       };
 
@@ -236,9 +236,8 @@ export class MintOrchestrator {
           quantity: targetQuantity,
           isUrgent,
           force: params.force,
-          requiresComparativeAnalysis: params.requireAiReasoning,
         },
-        requiresReasoning: params.requireAiReasoning,
+        requiresReasoning: false,
         createdAt: new Date().toISOString(),
       };
 
@@ -293,7 +292,7 @@ export class MintOrchestrator {
           proposedUnitPrice: recommendedOption.unitPrice,
           totalCostMxn: finalCostMxn,
         },
-        requiresReasoning: params.requireAiReasoning,
+        requiresReasoning: false,
         createdAt: new Date().toISOString(),
       };
 
@@ -337,7 +336,7 @@ Instrucción: Emite un veredicto directivo de 2 frases combinando riesgo, urgenc
             { role: "user", content: prompt },
           ],
           temperature: 0.1,
-          maxTokens: 250,
+          maxTokens: 150,
         });
 
         orchestratorAiNote = llmRes.content || undefined;

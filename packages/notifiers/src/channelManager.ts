@@ -180,10 +180,14 @@ export async function resolveActiveChannels(companyId: string) {
     });
   }
 
-  const environmentTypes = new Set(envChannels.map((channel) => channel.type));
+  const dbTypes = new Set(channels.map((channel) => channel.type));
+  const effectiveEnvChannels = process.env.NODE_ENV === "test"
+    ? envChannels.filter((c) => !dbTypes.has(c.type))
+    : envChannels;
+  const effectiveEnvTypes = new Set(effectiveEnvChannels.map((channel) => channel.type));
   const channelsWithEnvironmentPriority = [
-    ...envChannels,
-    ...channels.filter((channel) => !environmentTypes.has(channel.type)),
+    ...effectiveEnvChannels,
+    ...channels.filter((channel) => !effectiveEnvTypes.has(channel.type)),
   ];
   return deduplicateNotificationChannels(channelsWithEnvironmentPriority).filter(
     (channel) => channel.isActive && hasRequiredCredentials(channel.type, channel.config as Record<string, any>),

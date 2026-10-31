@@ -554,7 +554,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
       messages: requestMessages,
       tools: isSmallTalk ? undefined : AGENT_TOOLS,
       toolChoice: isSmallTalk ? undefined : "auto",
-      maxTokens: isSmallTalk ? 200 : options.maxTokens ?? 900,
+      maxTokens: isSmallTalk ? 150 : (options.maxTokens ?? 900),
       temperature: 0.1,
     });
 
@@ -763,7 +763,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
         }
 
         // Devolver resultados compactados para conservar los datos operativos dentro del presupuesto.
-        const safeContent = compactToolPayload(result, 900);
+        const safeContent = compactToolPayload(result, 350);
         messages.push({
           role: "tool",
           tool_call_id: call.id,
@@ -821,7 +821,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           },
         ], TOKEN_BUDGETS.COORDINATOR.maxInputTokens),
         tools: undefined,
-        maxTokens: options.maxTokens ?? 700,
+        maxTokens: options.maxTokens ?? 350,
         temperature: 0.1,
       });
       if (synthResponse?.content) {

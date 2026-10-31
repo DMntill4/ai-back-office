@@ -9,22 +9,49 @@ export interface TokenBudget {
 }
 
 export const TOKEN_BUDGETS = {
-  INVENTORY_SPECIALIST: { maxInputTokens: 1200, maxOutputTokens: 400 },
-  PURCHASING_SPECIALIST: { maxInputTokens: 1200, maxOutputTokens: 400 },
-  TRANSPORT_SPECIALIST: { maxInputTokens: 1200, maxOutputTokens: 400 },
-  RISK_AUDITOR: { maxInputTokens: 1500, maxOutputTokens: 500 },
-  COORDINATOR: { maxInputTokens: 7000, maxOutputTokens: 800 },
+  INVENTORY_SPECIALIST: { maxInputTokens: 1000, maxOutputTokens: 250 },
+  PURCHASING_SPECIALIST: { maxInputTokens: 1000, maxOutputTokens: 250 },
+  TRANSPORT_SPECIALIST: { maxInputTokens: 1000, maxOutputTokens: 250 },
+  RISK_AUDITOR: { maxInputTokens: 1200, maxOutputTokens: 300 },
+  COORDINATOR: { maxInputTokens: 3500, maxOutputTokens: 500 },
 } as const;
+
+const IGNORED_CONTEXT_KEYS = new Set([
+  "__v",
+  "createdAt",
+  "updatedAt",
+  "password",
+  "hash",
+  "rawQuery",
+  "fullSql",
+  "tenantId",
+]);
 
 const PRIORITY_CONTEXT_KEYS = [
   "isSuccess",
   "verified",
-  "errorMessage",
   "status",
   "id",
   "sku",
   "productId",
+  "productName",
+  "currentStock",
+  "minStock",
+  "deficit",
+  "burnRate",
+  "daysCoverage",
+  "unitPrice",
+  "totalCostMxn",
+  "supplierId",
+  "supplierName",
+  "leadTimeDays",
+  "quantity",
+  "decisionId",
+  "trackingNumber",
+  "requiresApproval",
   "message",
+  "summary",
+  "errorMessage",
   "details",
   "data",
   "result",
@@ -58,10 +85,11 @@ function compactValue(value: unknown, budget: number): unknown {
     });
     const result: Record<string, unknown> = {};
     for (const key of keys) {
+      if (IGNORED_CONTEXT_KEYS.has(key)) continue;
       const used = JSON.stringify(result).length;
       const available = budget - used - key.length - 6;
       if (available < 8) continue;
-      const compacted = compactValue(record[key], Math.min(available, 1600));
+      const compacted = compactValue(record[key], Math.min(available, 800));
       if (compacted !== undefined) result[key] = compacted;
     }
     return result;
@@ -70,7 +98,7 @@ function compactValue(value: unknown, budget: number): unknown {
 }
 
 /** Compacta resultados manteniendo JSON válido y los campos operativos prioritarios. */
-export function compactToolPayload(value: unknown, maxTokens = 900): string {
+export function compactToolPayload(value: unknown, maxTokens = 350): string {
   const maxChars = Math.max(64, maxTokens * 4);
   const compacted = compactValue(value, maxChars);
   const serialized = JSON.stringify(compacted ?? { truncated: true });
@@ -126,7 +154,28 @@ export function fitMessagesToBudget<T extends ContextMessage>(
   }
 
   let retainedRounds = rounds.slice(-2);
-  let retainedHistory = history;
+  if (retainedRounds.length > 1) {
+    // Compactar llamadas a herramientas de turnos previos para evitar inflar tokens repetidos
+    retainedRounds = retainedRounds.map((rnd, idx) => {
+      if (idx === retainedRounds.length - 1) return rnd;
+      return rnd.map((msg) => {
+        if (msg.role === "tool" && typeof msg.content === "string" && msg.content.length > 180) {
+          try {
+            const parsed = JSON.parse(msg.content);
+            const summary = parsed.summary || parsed.message || parsed.resumen || (parsed.isSuccess ? "Completado exitosamente" : "Fallo");
+            return {
+              ...msg,
+              content: JSON.stringify({ isSuccess: parsed.isSuccess ?? true, summary }),
+            } as T;
+          } catch {
+            return { ...msg, content: msg.content.slice(0, 150) + "..." } as T;
+          }
+        }
+        return msg;
+      });
+    });
+  }
+  let retainedHistory = history.slice(-2);
   let result = [system, ...retainedHistory, currentUser, ...retainedRounds.flat()];
   while (messageSize(result) > maxTokens && retainedRounds.length > 1) {
     retainedRounds = retainedRounds.slice(1);

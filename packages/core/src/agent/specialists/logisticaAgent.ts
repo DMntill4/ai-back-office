@@ -97,7 +97,7 @@ Instrucción: Genera un plan de acción de contingencia de 2 oraciones para el c
             { role: "user", content: prompt },
           ],
           temperature: 0.1,
-          maxTokens: 200,
+          maxTokens: 150,
         });
 
         aiNotes = llmRes.content || undefined;
