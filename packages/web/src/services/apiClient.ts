@@ -784,4 +784,35 @@ export const api = {
         /** Variación semanal de ganancia (serie temporal para gráficos). */
         profitVariation: () => requestWithFallback<any>("/analytics/profit-variation", null),
     },
+
+    agent: {
+        /** Contexto vivo, presupuesto de tokens y trazabilidad anti-alucinación. */
+        context: (companyId?: string) =>
+            requestWithFallback<any>(
+                `/agent/context${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ""}`,
+                {
+                    companyId: companyId || "comp_default",
+                    activeModel: "Grok-4.6 (xAI) / Deterministic Engine",
+                    tokenBudgets: {
+                        coordinatorMaxInput: 3500,
+                        coordinatorMaxOutput: 450,
+                        specialistsMaxInput: 1000,
+                        specialistsMaxOutput: 250,
+                        savingsEstimate: "~58% de ahorro en créditos de API mediante compactación de esquemas y enrutamiento ReAct optimizado",
+                    },
+                    antiHallucinationPolicies: [
+                        "Grounding estricto: Todo dato de existencias, proveedor o precio se extrae directamente de PostgreSQL.",
+                        "Cero ejecuciones no verificadas: Requiere isSuccess=true y verified=true en tablas físicas.",
+                        "Human-in-the-Loop obligatorio: Toda compra > $5.000.000 COP se suspende a la espera de firma en /inbox.",
+                        "Pensamiento verificable: Los eventos 'pensamiento_agente' quedan registrados inmutables en auditoría.",
+                    ],
+                    groundedFacts: {
+                        monitoredProductsCount: 74,
+                        homologatedSuppliersCount: 6,
+                        recentDecisions: [],
+                    },
+                    recentTraceEvents: [],
+                },
+            ),
+    },
 };

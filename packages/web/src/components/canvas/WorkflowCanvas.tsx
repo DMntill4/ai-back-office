@@ -20,6 +20,7 @@ import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
 import { AgentParticleCloud } from "../ui/AgentParticleCloud";
 import { AgentEventChip } from "../ui/AgentEventChip";
+import { TransparentContextBox } from "./TransparentContextBox";
 
 interface WorkflowCanvasProps {
   onOpenApprovalModal?: (orderId: string) => void;
@@ -571,6 +572,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               tabs={[
                 { id: "bitacora", label: "Bitácora de la etapa" },
                 { id: "parametros", label: "Criterios operativos" },
+                { id: "contexto", label: "Caja de contexto" },
               ]}
               activeTab={inspectorTab}
               onChange={setInspectorTab}
@@ -631,7 +633,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               </div>
             ))}
           </div>
-        ) : (
+        ) : inspectorTab === "parametros" ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-compact">
             {stageParameters[selectedStage].map((param, idx) => (
               <div
@@ -650,6 +652,8 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               </div>
             ))}
           </div>
+        ) : (
+          <TransparentContextBox selectedRun={selectedRun} />
         )}
 
         {/* Detalle Técnico Oculto tras "Ver detalle técnico" según Mint-DESIGN.md */}

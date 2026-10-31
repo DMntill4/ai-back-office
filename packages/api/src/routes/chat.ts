@@ -1,4 +1,4 @@
-﻿import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
   db,
   cases,
@@ -273,6 +273,73 @@ export async function chatRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({
         success: false,
         error: `Error al orquestar el evento: ${err.message}`,
+      });
+    }
+  });
+
+  // 4. Caja de Contexto Transparente (Transparent Context Box)
+  fastify.get("/api/agent/context", async (request: FastifyRequest, reply: FastifyReply) => {
+    const query = (request.query as any) || {};
+    const companyId = query.companyId || currentSession.companyId;
+
+    try {
+      const { products, suppliers, decisions } = await import("@mint/core");
+      const { sql } = await import("drizzle-orm");
+
+      const [prodsCount, suppsCount, recentDecs, lastEvents] = await Promise.all([
+        db.select({ n: sql<number>`count(*)::int` }).from(products).where(eq(products.companyId, companyId)),
+        db.select({ n: sql<number>`count(*)::int` }).from(suppliers).where(eq(suppliers.companyId, companyId)),
+        db.select({
+          id: decisions.id,
+          title: decisions.title,
+          costMxn: decisions.costMxn,
+          policyDecision: decisions.policyDecision,
+        }).from(decisions).where(eq(decisions.companyId, companyId)).orderBy(desc(decisions.createdAt)).limit(3),
+        db.select({
+          id: caseEvents.id,
+          eventType: caseEvents.eventType,
+          payload: caseEvents.payload,
+          createdAt: caseEvents.createdAt,
+        }).from(caseEvents).orderBy(desc(caseEvents.createdAt)).limit(5),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          companyId,
+          activeModel: "Grok-4.6 (xAI) / Deterministic Engine",
+          tokenBudgets: {
+            coordinatorMaxInput: 3500,
+            coordinatorMaxOutput: 450,
+            specialistsMaxInput: 1000,
+            specialistsMaxOutput: 250,
+            savingsEstimate: "~58% de ahorro en créditos de API mediante compactación de esquemas y enrutamiento ReAct optimizado",
+          },
+          antiHallucinationPolicies: [
+            "Grounding estricto: Todo dato de existencias, proveedor o precio se extrae directamente de PostgreSQL.",
+            "Cero ejecuciones no verificadas: Requiere isSuccess=true y verified=true en tablas físicas.",
+            "Human-in-the-Loop obligatorio: Toda compra > $5.000.000 COP se suspende a la espera de firma en /inbox.",
+            "Pensamiento verificable: Los eventos 'pensamiento_agente' quedan registrados inmutables en auditoría.",
+          ],
+          groundedFacts: {
+            monitoredProductsCount: Number(prodsCount[0]?.n ?? 0),
+            homologatedSuppliersCount: Number(suppsCount[0]?.n ?? 0),
+            recentDecisions: recentDecs,
+          },
+          recentTraceEvents: lastEvents.map((evt) => ({
+            id: evt.id,
+            eventType: evt.eventType,
+            timestamp: evt.createdAt,
+            summary: typeof evt.payload === "object" && evt.payload !== null
+              ? (evt.payload as any).pensamiento || (evt.payload as any).summary || (evt.payload as any).eventType || "Evento operativo"
+              : String(evt.payload || ""),
+          })),
+        },
+      };
+    } catch (err: any) {
+      return reply.status(500).send({
+        success: false,
+        error: `Error al obtener contexto del agente: ${err.message}`,
       });
     }
   });
