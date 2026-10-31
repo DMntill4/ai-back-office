@@ -750,12 +750,20 @@ export const api = {
     },
 
     channels: {
-        /** Canales de notificación configurados (Slack, Telegram, Discord, correo). */
+        /** Canales de notificación efectivos, sin devolver credenciales del servidor. */
         list: () => requestWithFallback<any[]>("/channels", []),
+        update: (id: string, enabled: boolean) =>
+            request<any>(`/channels/${encodeURIComponent(id)}`, {
+                method: "PATCH",
+                body: { enabled },
+            }),
         create: (body: Record<string, unknown>) =>
             request<any>("/channels", { method: "POST", body }),
-        test: (body: Record<string, unknown>) =>
-            request<any>("/channels/test", { method: "POST", body }),
+        test: (channelId: string) =>
+            request<any>("/channels/test", {
+                method: "POST",
+                body: { channelId },
+            }),
     },
 
     orders: {

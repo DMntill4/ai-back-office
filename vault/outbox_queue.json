@@ -3342,5 +3342,1055 @@
     "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 477",
     "createdAt": 1793408042658,
     "updatedAt": 1793408042658
+  },
+  {
+    "id": "outbox_bd4f9dbc",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_cd09756f",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2NkMDk3NTZmIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxMzk4MjM3OSwibm9uY2UiOiIzNzllZTVlYzMyM2U3ZDE0In0.45d1f3b662a9a07a19082988f594d6ae7429d4d71521a31ff54a1007eb8335c2",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2NkMDk3NTZmIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDEzOTgyMzgwLCJub25jZSI6IjI1YWRkNzRkMTdiYmRiOTcifQ.54e6c141c182de58ac6760321c359cf83a77a760a6fffcad2e597d5a5180f8de"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410387845,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410382845,
+    "updatedAt": 1793410382845
+  },
+  {
+    "id": "outbox_c8b3df71",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_f9097c02",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2Y5MDk3YzAyIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxMzk5MjkzMywibm9uY2UiOiIwMjE4NTQ3YjBmNzI3OWI5In0.f1f83dfbecb54cd94b82d21e01a53f643e4a25d805974ceda86185cbff879cfe",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2Y5MDk3YzAyIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDEzOTkyOTMzLCJub25jZSI6ImEyMzU4ZDJmNTZkYzgyZTUifQ.14c6bc80f7d733f429758a339b023f438fcc0e31aa2ba1c2bf370b33a024cefd"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410398381,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410393381,
+    "updatedAt": 1793410393381
+  },
+  {
+    "id": "outbox_19e810c8",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_9f5331b4",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzlmNTMzMWI0IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDAwNTIxOSwibm9uY2UiOiI3MWZiOGYyODQ1ZDRjMzIxIn0.7cd6d14395e6307fbb58856917c0708d0af7b8a0e72f8b3088f86c36db5482aa",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzlmNTMzMWI0IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MDA1MjE5LCJub25jZSI6ImZkYTNiMzY4NzZkN2E2YWUifQ.894ff89ed0990eb7f3b0dac78a4f07bb48c2f040347b7447988f2b66bd88c95d"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410410668,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410405668,
+    "updatedAt": 1793410405668
+  },
+  {
+    "id": "outbox_246d4d33",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_78848e04",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzc4ODQ4ZTA0IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDAxMTE4NSwibm9uY2UiOiIzZDdmMGNiNmIzZjdmZGQxIn0.7f814097e086fb8160343cccf30cf9cdc239d86ff6f70907d5f0aaeff3dec868",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzc4ODQ4ZTA0IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MDExMTg2LCJub25jZSI6IjcwY2Y5ZDE4MDM5YzcxOTMifQ.3c599735281db5062ef3c24e0f6f46b20bd708445bc6813550bc94293ba7f44b"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410416643,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410411643,
+    "updatedAt": 1793410411643
+  },
+  {
+    "id": "outbox_d664d9a2",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_d10b31f9",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2QxMGIzMWY5IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDAxOTA4MCwibm9uY2UiOiJkZDdiNmYwMGFmYWFiNjI1In0.702d2b933d195f0e3c93d8f07fcf5e8431c0dfd7026f684e1a8f8a507ff3e70e",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2QxMGIzMWY5IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MDE5MDgwLCJub25jZSI6IjMxMjQ0YzljNDNjMmU5Y2MifQ.63868a91a2aec4f0ae328c157a5e49d1389ab56a3a4949a5a9e8ab69563ad705"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410424539,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410419539,
+    "updatedAt": 1793410419539
+  },
+  {
+    "id": "outbox_1c2c8e65",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_9d390030",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzlkMzkwMDMwIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDAyNzI0OCwibm9uY2UiOiJiZTU5MjgyZDYwYzBjMzNjIn0.33175139258481757326cc2d965720e2e98d6b2e0e3fdf65cceb033ddc7815ff",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzlkMzkwMDMwIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MDI3MjQ4LCJub25jZSI6IjAzNzgzZDEwOTMzNzVmNmYifQ.b01221632cda8dceb67281d3eae1dec010ca3afcd819238ce02df8d6b8f20dbf"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410432733,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410427733,
+    "updatedAt": 1793410427733
+  },
+  {
+    "id": "outbox_133052cd",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_9f1aa0dc",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzlmMWFhMGRjIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDA0MTgzMywibm9uY2UiOiIxY2MxZDQ1ODdlMmQxMDEyIn0.be5686bc54c26c3bbbeecd45367b42c560968d31657f5bf9df453dea4461c4e0",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzlmMWFhMGRjIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MDQxODM0LCJub25jZSI6ImIzNDIzNjFjMjNjNGNkYjcifQ.5820c80d67f6f20852f592ef7847a7ec17434086f75dd951f39c26550e9a56d5"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410447299,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410442299,
+    "updatedAt": 1793410442299
+  },
+  {
+    "id": "outbox_c697068b",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_66f3acf3",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzY2ZjNhY2YzIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDA1NTIwMCwibm9uY2UiOiJiYTgyOTUzOWE1ZTQwNTY1In0.0dd1e246c38bff7f55d80a52d494f2ca84cb9189ce35c66f115dcd6dea26e666",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzY2ZjNhY2YzIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MDU1MjAwLCJub25jZSI6IjE1NGZiNzUwMWFhOGU0YTYifQ.0405a7a0fc840e08da7d2cff810a90b026356de2eae77f83318009d811385f76"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410460640,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410455640,
+    "updatedAt": 1793410455640
+  },
+  {
+    "id": "outbox_9c418e04",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_5edf06f3",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzVlZGYwNmYzIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDA2NjY4Niwibm9uY2UiOiI0MzM5M2JjZTJlNWYwMjVlIn0.b7b41fb55d02ac9dc47f00b0e59d15e9a1b1806b9e4d57b7f359263c80bc1e8d",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzVlZGYwNmYzIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MDY2Njg2LCJub25jZSI6ImI0MTkzZjhmYTc1MWZhNWMifQ.1416e2eebd6a92bb7a82474ad55141e0605b49f4ca23c1cbb48190f9e77432e5"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410472128,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410467128,
+    "updatedAt": 1793410467128
+  },
+  {
+    "id": "outbox_0cc4b7e3",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_bb35e0b0",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2JiMzVlMGIwIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDA3MzIxOCwibm9uY2UiOiJlZDk2YzUwZjllNDVmNzkzIn0.e6e6de8b6fed34a9668688732f4a802ae3d0346fcc94f254e9bb726ab6ebf5f2",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2JiMzVlMGIwIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MDczMjE4LCJub25jZSI6ImRiZTk0NTE0MWFkYWJiYTAifQ.1d5796c3433d8e6e3d8bdf1a4b9fb516c2219614fa458d99ae16d05bcb58c2cd"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410478711,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410473711,
+    "updatedAt": 1793410473711
+  },
+  {
+    "id": "outbox_c5304358",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_f6c8cb75",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2Y2YzhjYjc1IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDA4NDA5NSwibm9uY2UiOiJiZTk5NGNlOTNmM2ZkMWI5In0.003c8e3272ca24464bec05e38d3c75912fa209545bc8e3eabc61f1a3b511254f",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2Y2YzhjYjc1IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MDg0MDk2LCJub25jZSI6Ijk3MDZkYTY4NmMzYjA5NzMifQ.1db6a4288d8b7c2c234153125c1de819e8e556498c0ebb98d31f88978d636e06"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410489582,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410484582,
+    "updatedAt": 1793410484582
+  },
+  {
+    "id": "outbox_79c93594",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_16657bf0",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzE2NjU3YmYwIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDA5NDUwNSwibm9uY2UiOiJmMGVmZGQ1MDdkYzkxOGU2In0.a4ed46ea2fa4744f54a52c0c5210978ec43d92ec93fb7669ef5588709ef3ead3",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzE2NjU3YmYwIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MDk0NTA1LCJub25jZSI6Ijc2MDc0ZTljMmI2NWMyNzQifQ.6fd600df096411c007647ec6fcd747c58373e5398bd54e1b846788adc5a595d1"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410499965,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410494965,
+    "updatedAt": 1793410494965
+  },
+  {
+    "id": "outbox_b895cdf5",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_52ee73bd",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzUyZWU3M2JkIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDEwNDY5OSwibm9uY2UiOiJjN2I2ZmIzN2Q0N2FhZjcyIn0.cff55c3b5a2e93db276b0af18b14100aa6dacd1996133ee3063c7eaa9bcab925",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzUyZWU3M2JkIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MTA0Njk5LCJub25jZSI6IjhhODgzNWU5YTczNWUzZGQifQ.8d67a037344fe061b78c23af3e6dc54355a5d979aeb15e030ca3955ffbfdd334"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410510139,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410505139,
+    "updatedAt": 1793410505139
+  },
+  {
+    "id": "outbox_eda63092",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_307b5287",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzMwN2I1Mjg3IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDExMzEwNywibm9uY2UiOiI0YjBkODA0NDBkOTMyYTM4In0.6b92018e73ff535b3af2875fb910b0f4add4637760ff6db1d1a6fc71e97b4c76",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzMwN2I1Mjg3IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MTEzMTA3LCJub25jZSI6IjUzNzZiOTZhN2RkNmZlZmQifQ.0d7fef0596e7c852dfd54ee38a97539b9e6e0bf9679f6d1f7e9df960bd56d2f8"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410518558,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410513558,
+    "updatedAt": 1793410513558
+  },
+  {
+    "id": "outbox_3249ed5a",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_1883eb6f",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzE4ODNlYjZmIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDEyMTQ4OSwibm9uY2UiOiI0NzZhNzJhM2VjZWNmZWY5In0.a2dbef9b14883b76b279dcad8999ef87ad264f43fab98566528257577e398299",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzE4ODNlYjZmIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MTIxNDg5LCJub25jZSI6ImE2ZGIyYjZjMmYxNzllZGEifQ.a5ab66c15ef9e5989b101c3b464da1d53ffbe46c5e7c87ddffaeb6c9a8c05811"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410526970,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410521970,
+    "updatedAt": 1793410521970
+  },
+  {
+    "id": "outbox_8b93045b",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_b49bb258",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2I0OWJiMjU4IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDEzMTU5OSwibm9uY2UiOiIwOTI5YjllYmQ3MzUyNzI4In0.32eafd5875ccd0095213f74949007495cbda9e28f5d310fc43c649eded51a5f2",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2I0OWJiMjU4IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MTMxNjAwLCJub25jZSI6ImNjZDUxZWI4YjlhM2IwMDIifQ.8b4f0ef19148ec527c3d0013005071ce29a3272ec63a93d183b36eac2853af30"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410537051,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410532051,
+    "updatedAt": 1793410532051
+  },
+  {
+    "id": "outbox_fd56d742",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_cf7f0f03",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2NmN2YwZjAzIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDE0NDMyMCwibm9uY2UiOiJiMWY0NmQ5ZjM4MzMyZTM1In0.9485e7d7e3b9446abf054475bb0cbc190bbbb60884e2ccea563a3493a3bd6ed4",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2NmN2YwZjAzIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MTQ0MzIwLCJub25jZSI6IjcwNDdlYWI2M2I1YzE2ODAifQ.f4a836c496d7854d3550ef2fb68e4bbf60687cb3b3df98d494a2db6de3f72947"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410549808,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410544808,
+    "updatedAt": 1793410544808
+  },
+  {
+    "id": "outbox_7cf92f5e",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_7968dcba",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzc5NjhkY2JhIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDE1MzkxOCwibm9uY2UiOiI1ODc2YjA5NDJlMTVjNTlkIn0.b5a545db07f7131ba8219005178d74ad490e7d7e62a90b2110c6517746a3beac",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzc5NjhkY2JhIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MTUzOTE4LCJub25jZSI6IjZlYzkxM2IyZTNjYzA3MWQifQ.e35aabb9dce8bc6c2bdcc8d008003451a0a3d90c76b41bb3ebac564fef6c2964"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410559410,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410554410,
+    "updatedAt": 1793410554410
+  },
+  {
+    "id": "outbox_9ca04822",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_284bbf2f",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzI4NGJiZjJmIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDE2NDM2Nywibm9uY2UiOiIzYmI3NDIzOTcyNjY3ZmJkIn0.55130f920d6b99a8832018a6a48c2c96125dc25cc20db01ff702a2b059d5c7fb",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzI4NGJiZjJmIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MTY0MzY3LCJub25jZSI6IjVjZGM0YjdkOWVkMjRjZjYifQ.257bcdea3fec97b0ff2fad4bef243fd02d3549e2495de47b4e37ae592b5b0877"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410569855,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410564855,
+    "updatedAt": 1793410564855
+  },
+  {
+    "id": "outbox_5b24a3c4",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_513b4840",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzUxM2I0ODQwIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDE3NzQ0MSwibm9uY2UiOiJlZDA3OGRiMTk4ZmVlYzczIn0.cc7f8acd5d19fe6ed01fd435a562de8830b69785ff1f50862ebf6a0266d99dda",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzUxM2I0ODQwIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MTc3NDQyLCJub25jZSI6ImFhNGFkNzkxOTQ1YjBjYjgifQ.b98b53ac416ec372ca353effa5e46b500da55b67a03663a3a925ebf7d44300cb"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410583083,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410578083,
+    "updatedAt": 1793410578083
+  },
+  {
+    "id": "outbox_ff24e63c",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_a034082a",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2EwMzQwODJhIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDE4NzM3Mywibm9uY2UiOiIxYWNmMTg5MDA4MTUzZGFlIn0.7cffe75d85a6a255e2a95a32717968f39cbd1b8ecf2f5fc4aace5f9e0c32c5de",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2EwMzQwODJhIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MTg3MzczLCJub25jZSI6IjhjYzI5Yjg0OTY1OWNkNTUifQ.ceec3e8d9208e30b7e16df802d78343031112633adca8a140c853d540956cd04"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410592852,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410587852,
+    "updatedAt": 1793410587852
+  },
+  {
+    "id": "outbox_4f45c01e",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_034495f2",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzAzNDQ5NWYyIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDE5NjkyNywibm9uY2UiOiJmYWIwN2Q5Zjg2OTc3YjdlIn0.f8a843071c4af50ce9a29870d52a6b8622f2bd92464e2539c6640b0b11111f38",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzAzNDQ5NWYyIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MTk2OTI3LCJub25jZSI6IjRjOTZkNTliOGVjOTA1MGIifQ.2c5c5baeac7523468223cd5229f540cff05ee3c74ec11e0723ffade8b2013262"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410602421,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410597421,
+    "updatedAt": 1793410597421
+  },
+  {
+    "id": "outbox_05c12218",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_edc556dc",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2VkYzU1NmRjIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDIwNTU0OSwibm9uY2UiOiJjOGUxZjBjMWRjMmY3NDA5In0.dfffc861565dd30b43e4ecbc87b13b4a963f1e21fe1aded47e7dbd3adc6c7389",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2VkYzU1NmRjIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MjA1NTQ5LCJub25jZSI6ImZiMWZiMjFjYjM2ZTNkNzYifQ.d64b5b3033491bd64f089dcb85c52006c11e864239366b137a5f88816de675b0"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410611016,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410606016,
+    "updatedAt": 1793410606016
+  },
+  {
+    "id": "outbox_574a9dc4",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_f4dfebfe",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2Y0ZGZlYmZlIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDIxMzkzMSwibm9uY2UiOiIwMjAyNzRiMDI2MjRlYjQ5In0.7073b382c96959c2b8f0fbc436c4e558c1536fd1bfe0f600c01a2bde1b69c10b",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2Y0ZGZlYmZlIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MjEzOTMxLCJub25jZSI6ImMzZGE5YjRhYWRlNTVjNGIifQ.88dac39e835be8ff1b2efe3be4d2661d896edf89e7a62a5e5d52bc9f2fb321e3"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410619370,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410614370,
+    "updatedAt": 1793410614370
+  },
+  {
+    "id": "outbox_48a698a9",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_e4b8b099",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2U0YjhiMDk5IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDIyMzYzMSwibm9uY2UiOiJlMjM2MmEwYTY1ZDZlZDUwIn0.d2f265abedf4c60b9eac512638fdbd8fd7928e4ba7214ec79c56c54139a68bbf",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2U0YjhiMDk5IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MjIzNjMxLCJub25jZSI6IjhmMjZlNzhjYzk1ZGQzNWEifQ.635a8b28835483180b18156f3e7104c7324a5b861c286d6c611ebf3a3c569c68"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410629113,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410624113,
+    "updatedAt": 1793410624113
+  },
+  {
+    "id": "outbox_64398e84",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_7442517d",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzc0NDI1MTdkIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDIzMzA0Niwibm9uY2UiOiJhODYxYTViZWE1ZjdiM2RiIn0.eed281f2e86b541b79f2cc5a161b7d87cd61217d6136684f1a51d889a611dd1c",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzc0NDI1MTdkIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MjMzMDQ2LCJub25jZSI6IjQyOTk3NTI0YzlkN2IzZDIifQ.cc9dd77422703e2ced9229492dba5dd7de9a81a08d73008382145d724ad7fa56"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410638493,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410633493,
+    "updatedAt": 1793410633493
+  },
+  {
+    "id": "outbox_2f065f4c",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_2f72ab0b",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzJmNzJhYjBiIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDI0NDEzMSwibm9uY2UiOiJhZDRhMGMxMTRhZDQ5YjkyIn0.227405934bc39e142043de91a15fa4d457347daa8b9fe95b28ca20cb64610ac9",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzJmNzJhYjBiIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MjQ0MTMyLCJub25jZSI6IjVlN2UyMjdhYjViN2U4ZTIifQ.1f1d81101a0874e9cf9138830a42f5d3cae878eb3d8b5a68580da0c94d86405b"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410649579,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410644579,
+    "updatedAt": 1793410644579
+  },
+  {
+    "id": "outbox_fbec5296",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_a219f1a3",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2EyMTlmMWEzIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDI1MzY2OCwibm9uY2UiOiIwYzcwOGFjNjZhZTA1YzFkIn0.241d63fce38ef5f73d4c789b41a365297bd3c91fb6fbf2a93661eca22881dfd1",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2EyMTlmMWEzIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MjUzNjY4LCJub25jZSI6ImNhMmJjZTY0NDlmN2Y0MGEifQ.edab305cfe1bfc5b9f49d4924826ae80fead100989a8127de21a41b475ed5b37"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410659118,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410654118,
+    "updatedAt": 1793410654118
+  },
+  {
+    "id": "outbox_f0c6d6fc",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_bc74c08a",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2JjNzRjMDhhIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDI2MTQwNiwibm9uY2UiOiIwMDQ4YWU2M2M5NWUwOGViIn0.d933f3ddfc4e7d25aa5e002e50e92a5f7141d16f61bb344dd45dc9cbda966536",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2JjNzRjMDhhIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MjYxNDA2LCJub25jZSI6ImRhMTk3ZmMyMDVmMWU1MWMifQ.a7d338ee0fb5fec9dbce49ec24e6d58c77bd76bc3eaa402c8b22a636a1bd7cc1"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410666850,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410661850,
+    "updatedAt": 1793410661850
+  },
+  {
+    "id": "outbox_5babd9c2",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_f11fde5b",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2YxMWZkZTViIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDI2OTgyMSwibm9uY2UiOiI5Y2U2YzM0YzQwMjRlYzE2In0.9150ec818a4aab906c429752d31e8608eba7451e077fd63b33146a3385a54a66",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2YxMWZkZTViIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MjY5ODIxLCJub25jZSI6ImMyNzU5MzM4ODQ0OWY3YmMifQ.8879370c97bef9cdbedaa9cf31997a8241be2259a151741ea75f5a77a61daf00"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410675274,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410670274,
+    "updatedAt": 1793410670274
+  },
+  {
+    "id": "outbox_649e4203",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_1eb23432",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzFlYjIzNDMyIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDI4MTc5MSwibm9uY2UiOiI2OTUyZTkyYzQ0ZDc1NDY3In0.5f64d816d0bd06ae1b8a84fee4d4d8c83f2b3e9cea82f760793191a6087a82c5",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzFlYjIzNDMyIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MjgxNzkxLCJub25jZSI6IjA0ZWVlM2I5OWUxNGM2YmQifQ.371e898eea63a07f3cdf1f8f5c32d0c02deab738fd2798e0c526e7ce734ac991"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410687243,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410682243,
+    "updatedAt": 1793410682243
+  },
+  {
+    "id": "outbox_853f89c0",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_d98883ae",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2Q5ODg4M2FlIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDI5MTEyNywibm9uY2UiOiIzMWU0YTQwYWRmYTY1NmJkIn0.b8dc870b72b60f2d87a4d2b1b900fb5568d20a5c0e727054c18fa407a6c2a044",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2Q5ODg4M2FlIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MjkxMTI3LCJub25jZSI6ImUxNzAzNzRlZDRhZDE3ODgifQ.8c9ca67d4a6929985fb763414dc7da0f9cf12f484b6b36ef6f7ad3c84d67ea13"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410696565,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410691565,
+    "updatedAt": 1793410691565
+  },
+  {
+    "id": "outbox_41a2bc2b",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_058590aa",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzA1ODU5MGFhIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDMwMjU2MCwibm9uY2UiOiJhNmY3MWFhODI1ZWU0ZjY4In0.55a73f109b58e8bbeddb6eeae9bef9499e1a09835967294204414975c35fd371",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzA1ODU5MGFhIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MzAyNTYwLCJub25jZSI6IjYzMTlhZjg5NGQ3YjQ2NTUifQ.9e51bc3cc85bee3917af1164d8f54631b57b611fec0d00ad1316738eb9a3e1b2"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410708027,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410703027,
+    "updatedAt": 1793410703027
+  },
+  {
+    "id": "outbox_5690a92b",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_56a0f25e",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzU2YTBmMjVlIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDMxMzYyMywibm9uY2UiOiI1ZThmNTBmZjEzZGQxM2JiIn0.816747d76eee811d2f01d774e8b449fbbd412ac8d301b7123d1eea0b64bf8eb8",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzU2YTBmMjVlIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MzEzNjIzLCJub25jZSI6IjUwYjQyMWYzOTU2NTBjZWYifQ.4a08dd6d7334f1eadb847a1ad5e71fe12d3307bdd0287a288c37002f3aaa5bcc"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410719091,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410714091,
+    "updatedAt": 1793410714091
+  },
+  {
+    "id": "outbox_0edabd84",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_893f1435",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzg5M2YxNDM1IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzQxNDMyNzg4MCwibm9uY2UiOiJkMTkzNjBhYTk2NDBmMzJhIn0.4120585aaaa87fde68e32170a26e00f270eae2c9557721d52a0959c66140de8d",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzg5M2YxNDM1IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNDE0MzI3ODgwLCJub25jZSI6IjZhZDU2MmYyZThiYWU2MGUifQ.9f84f50ed9c533ef7bb65af5226c136f320fe529d0c71e017c3ba5aa1ea71af5"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793410733318,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 390",
+    "createdAt": 1793410728318,
+    "updatedAt": 1793410728318
   }
 ]

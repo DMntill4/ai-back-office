@@ -13,8 +13,205 @@ export const TOKEN_BUDGETS = {
   PURCHASING_SPECIALIST: { maxInputTokens: 1200, maxOutputTokens: 400 },
   TRANSPORT_SPECIALIST: { maxInputTokens: 1200, maxOutputTokens: 400 },
   RISK_AUDITOR: { maxInputTokens: 1500, maxOutputTokens: 500 },
-  COORDINATOR: { maxInputTokens: 2500, maxOutputTokens: 800 },
+  COORDINATOR: { maxInputTokens: 7000, maxOutputTokens: 800 },
 } as const;
+
+const PRIORITY_CONTEXT_KEYS = [
+  "isSuccess",
+  "verified",
+  "errorMessage",
+  "status",
+  "id",
+  "sku",
+  "productId",
+  "message",
+  "details",
+  "data",
+  "result",
+];
+
+function compactValue(value: unknown, budget: number): unknown {
+  if (budget < 4) return undefined;
+  if (value === null || typeof value === "boolean" || typeof value === "number") return value;
+  if (typeof value === "string") {
+    if (value.length <= budget - 2) return value;
+    return `${value.slice(0, Math.max(0, budget - 18))}…[recortado]`;
+  }
+  if (Array.isArray(value)) {
+    const result: unknown[] = [];
+    for (const item of value) {
+      const available = budget - JSON.stringify(result).length - 4;
+      if (available < 8) break;
+      const compacted = compactValue(item, Math.min(available, 1200));
+      if (compacted === undefined) break;
+      result.push(compacted);
+    }
+    return result;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record).sort((a, b) => {
+      const aPriority = PRIORITY_CONTEXT_KEYS.indexOf(a);
+      const bPriority = PRIORITY_CONTEXT_KEYS.indexOf(b);
+      return (aPriority < 0 ? PRIORITY_CONTEXT_KEYS.length : aPriority) -
+        (bPriority < 0 ? PRIORITY_CONTEXT_KEYS.length : bPriority);
+    });
+    const result: Record<string, unknown> = {};
+    for (const key of keys) {
+      const used = JSON.stringify(result).length;
+      const available = budget - used - key.length - 6;
+      if (available < 8) continue;
+      const compacted = compactValue(record[key], Math.min(available, 1600));
+      if (compacted !== undefined) result[key] = compacted;
+    }
+    return result;
+  }
+  return String(value).slice(0, Math.max(0, budget - 18));
+}
+
+/** Compacta resultados manteniendo JSON válido y los campos operativos prioritarios. */
+export function compactToolPayload(value: unknown, maxTokens = 900): string {
+  const maxChars = Math.max(64, maxTokens * 4);
+  const compacted = compactValue(value, maxChars);
+  const serialized = JSON.stringify(compacted ?? { truncated: true });
+  if (serialized.length <= maxChars) return serialized;
+  const fallback = JSON.stringify({ truncated: true });
+  return fallback.length <= maxChars ? fallback : "{}";
+}
+
+interface ContextMessage {
+  role: string;
+  content?: unknown;
+  tool_calls?: unknown[];
+  tool_call_id?: string;
+}
+
+function messageSize(messages: ContextMessage[]): number {
+  return Math.ceil(JSON.stringify(messages).length / 4);
+}
+
+/** Conserva la solicitud actual y las interacciones más recientes dentro del presupuesto. */
+export function fitMessagesToBudget<T extends ContextMessage>(
+  messages: T[],
+  maxTokens: number,
+): T[] {
+  if (messageSize(messages) <= maxTokens) return messages;
+  const system = messages[0];
+  const remaining = messages.slice(1);
+  const firstToolCallIndex = remaining.findIndex(
+    (message) => message.role === "assistant" && message.tool_calls?.length,
+  );
+  const userSearchEnd = firstToolCallIndex >= 0 ? firstToolCallIndex : remaining.length;
+  let userIndex = -1;
+  for (let index = 0; index < userSearchEnd; index++) {
+    if (remaining[index].role === "user") userIndex = index;
+  }
+  if (userIndex < 0) {
+    for (let index = 0; index < remaining.length; index++) {
+      if (remaining[index].role === "user") userIndex = index;
+    }
+  }
+  if (userIndex < 0) return messages;
+
+  const history = remaining.slice(0, userIndex).slice(-4);
+  const currentUser = remaining[userIndex];
+  const interactions = remaining.slice(userIndex + 1);
+  const rounds: T[][] = [];
+  for (const message of interactions) {
+    if (message.role === "assistant" && message.tool_calls?.length) {
+      rounds.push([message]);
+    } else if (rounds.length > 0) {
+      rounds[rounds.length - 1].push(message);
+    }
+  }
+
+  let retainedRounds = rounds.slice(-2);
+  let retainedHistory = history;
+  let result = [system, ...retainedHistory, currentUser, ...retainedRounds.flat()];
+  while (messageSize(result) > maxTokens && retainedRounds.length > 1) {
+    retainedRounds = retainedRounds.slice(1);
+    result = [system, ...retainedHistory, currentUser, ...retainedRounds.flat()];
+  }
+  while (messageSize(result) > maxTokens && retainedHistory.length > 0) {
+    retainedHistory = retainedHistory.slice(2);
+    result = [system, ...retainedHistory, currentUser, ...retainedRounds.flat()];
+  }
+  if (messageSize(result) > maxTokens) {
+    const excessChars = (messageSize(result) - maxTokens) * 4;
+    const userContent = typeof currentUser.content === "string" ? currentUser.content : "";
+    const systemContent = typeof system.content === "string" ? system.content : "";
+    const userLimit = Math.max(1000, userContent.length - Math.ceil(excessChars * 0.6));
+    const systemLimit = Math.max(4000, systemContent.length - Math.ceil(excessChars * 0.4));
+    const boundedSystem = {
+      ...system,
+      content: systemContent.slice(0, systemLimit),
+    } as T;
+    const boundedUser = {
+      ...currentUser,
+      content: userContent.slice(0, userLimit),
+    } as T;
+    result = [boundedSystem, ...retainedHistory, boundedUser, ...retainedRounds.flat()];
+  }
+  while (messageSize(result) > maxTokens) {
+    const excessChars = (messageSize(result) - maxTokens) * 4 + 8;
+    let toolIndex = -1;
+    for (let index = result.length - 1; index >= 0; index -= 1) {
+      if (result[index].role === "tool" && typeof result[index].content === "string") {
+        toolIndex = index;
+        break;
+      }
+    }
+    if (toolIndex >= 0) {
+      const toolMessage = result[toolIndex];
+      const content = String(toolMessage.content);
+      const requestedTokens = Math.max(32, Math.floor((content.length - excessChars) / 4));
+      let payload: unknown = content;
+      try {
+        payload = JSON.parse(content);
+      } catch {
+        payload = content.slice(0, Math.max(0, content.length - excessChars));
+      }
+      const compactedContent = typeof payload === "string"
+        ? payload
+        : compactToolPayload(payload, requestedTokens);
+      if (compactedContent.length < content.length) {
+        result = result.map((message, index) =>
+          index === toolIndex ? { ...message, content: compactedContent } as T : message,
+        );
+        continue;
+      }
+    }
+
+    let userPosition = -1;
+    for (let index = result.length - 1; index >= 0; index -= 1) {
+      if (result[index].role === "user") {
+        userPosition = index;
+        break;
+      }
+    }
+    const userMessage = result[userPosition];
+    const userContent = typeof userMessage?.content === "string" ? userMessage.content : "";
+    if (userContent.length > 120) {
+      const reducedContent = userContent.slice(0, Math.max(120, userContent.length - excessChars));
+      result = result.map((message, index) =>
+        index === userPosition ? { ...message, content: reducedContent } as T : message,
+      );
+      continue;
+    }
+
+    const systemMessage = result[0];
+    const systemContent = typeof systemMessage?.content === "string" ? systemMessage.content : "";
+    if (systemContent.length > 1000) {
+      const reducedContent = systemContent.slice(0, Math.max(1000, systemContent.length - excessChars));
+      result = result.map((message, index) =>
+        index === 0 ? { ...message, content: reducedContent } as T : message,
+      );
+      continue;
+    }
+    break;
+  }
+  return result;
+}
 
 /**
  * Compacta información real de existencias y demanda en formato denso para el LLM

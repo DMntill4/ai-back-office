@@ -3,7 +3,9 @@ import {
   compactStockFacts,
   compactSupplierFacts,
   compactShipmentFacts,
+  compactToolPayload,
   enforceTokenBudget,
+  fitMessagesToBudget,
 } from "@mint/core";
 
 describe("Capa de Gestión y Compresión de Ventana de Contexto (ContextManager)", () => {
@@ -47,5 +49,44 @@ describe("Capa de Gestión y Compresión de Ventana de Contexto (ContextManager)
 
     expect(trimmed.length).toBeLessThan(longText.length);
     expect(trimmed).toContain("[Contexto truncado por límite de ventana]");
+  });
+
+  it("compacta resultados de herramientas como JSON válido y conserva campos críticos", () => {
+    const output = compactToolPayload({
+      isSuccess: true,
+      verified: true,
+      productId: "prod_123",
+      data: { sku: "SKU-123", details: "dato".repeat(3000) },
+      diagnostics: Array.from({ length: 40 }, (_, index) => `fila-${index}`),
+    }, 120);
+
+    expect(output.length).toBeLessThanOrEqual(480);
+    expect(JSON.parse(output)).toMatchObject({
+      isSuccess: true,
+      verified: true,
+      productId: "prod_123",
+    });
+  });
+
+  it("preserva la consulta actual y solo interacciones completas dentro del presupuesto", () => {
+    const messages = [
+      { role: "system", content: "system ".repeat(20) },
+      { role: "user", content: "old question ".repeat(80) },
+      { role: "assistant", content: "old answer ".repeat(80) },
+      { role: "user", content: "Consulta actual: SKU-123" },
+      ...[1, 2, 3].flatMap((step) => [
+        {
+          role: "assistant",
+          tool_calls: [{ id: `tool-${step}` }],
+          content: null,
+        },
+        { role: "tool", tool_call_id: `tool-${step}`, content: "resultado ".repeat(400) },
+      ]),
+    ];
+
+    const bounded = fitMessagesToBudget(messages, 1000);
+    expect(Math.ceil(JSON.stringify(bounded).length / 4)).toBeLessThanOrEqual(1000);
+    expect(bounded.some((message) => message.content === "Consulta actual: SKU-123")).toBe(true);
+    expect(bounded.filter((message) => message.role === "assistant" && "tool_calls" in message).length).toBeLessThanOrEqual(2);
   });
 });

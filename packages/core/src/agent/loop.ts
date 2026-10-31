@@ -8,7 +8,11 @@ import { db } from "../db/client";
 import { cases, caseEvents } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { enforceTokenBudget } from "./context/contextManager";
+import {
+  compactToolPayload,
+  fitMessagesToBudget,
+  TOKEN_BUDGETS,
+} from "./context/contextManager";
 import { normalizeBotLanguage, type BotLanguage } from "../services/configService";
 import { telemetryPublisher } from "../telemetry/telemetryPublisher";
 import { toMintGraphNodeId } from "../graph/graph.types";
@@ -79,7 +83,26 @@ export function isInvalidOrGibberishInput(text: string): boolean {
  * Carga el prompt del sistema y las instrucciones operativas desde disco,
  * inyectando el idioma ('es' | 'en'), la personalidad y reglas personalizadas configuradas.
  */
+const SYSTEM_PROMPT_CACHE_TTL_MS = 15_000;
+const systemPromptCache = new Map<string, {
+  expiresAt: number;
+  value: { prompt: string; botLanguage: BotLanguage };
+}>();
+
 async function loadSystemPrompt(companyId?: string): Promise<{ prompt: string; botLanguage: BotLanguage }> {
+  const cacheKey = companyId || "default";
+  const cached = systemPromptCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const value = await buildSystemPrompt(companyId);
+  systemPromptCache.set(cacheKey, {
+    expiresAt: Date.now() + SYSTEM_PROMPT_CACHE_TTL_MS,
+    value,
+  });
+  return value;
+}
+
+async function buildSystemPrompt(companyId?: string): Promise<{ prompt: string; botLanguage: BotLanguage }> {
   let prompt = "";
   let botLanguage: BotLanguage = "es";
 
@@ -105,9 +128,14 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
       const [[comp], [prodCount], supps, chans, configs] = await Promise.all([
         db.select().from(companies).where(eq(companies.id, companyId)).limit(1),
         db.select({ n: sql<number>`count(*)::int` }).from(products).where(eq(products.companyId, companyId)),
-        db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers).where(eq(suppliers.companyId, companyId)).limit(25),
-        db.select().from(notificationChannels).where(eq(notificationChannels.companyId, companyId)),
-        db.select().from(businessConfig).where(eq(businessConfig.companyId, companyId)),
+        db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers).where(eq(suppliers.companyId, companyId)).limit(8),
+        db.select({
+          type: notificationChannels.type,
+          name: notificationChannels.name,
+          isActive: notificationChannels.isActive,
+          config: notificationChannels.config,
+        }).from(notificationChannels).where(eq(notificationChannels.companyId, companyId)),
+        db.select({ key: businessConfig.key, value: businessConfig.value }).from(businessConfig).where(eq(businessConfig.companyId, companyId)),
       ]);
       const prods = { length: Number(prodCount?.n ?? 0) };
 
@@ -137,15 +165,34 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
       } else {
         customBlock += `\n- Proveedores: Sin proveedores externos homologados aún.`;
       }
-      if (chans.length > 0) {
-        customBlock += `\n- Canales de Notificación Conectados: ${chans.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`;
+      const hasEnvTelegram = Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
+      const readyChannels = chans.filter((channel) => {
+        if (!channel.isActive) return false;
+        const config = channel.config as Record<string, unknown>;
+        if (channel.type === "telegram") return Boolean(config?.botToken && config?.chatId);
+        if (["slack", "discord", "webhook"].includes(channel.type)) {
+          try {
+            return ["http:", "https:"].includes(new URL(String(config?.webhookUrl ?? "")).protocol);
+          } catch {
+            return false;
+          }
+        }
+        if (channel.type === "gmail") {
+          return Boolean(config?.email || process.env.RESEND_API_KEY || process.env.SMTP_HOST);
+        }
+        return false;
+      });
+      if (hasEnvTelegram && !readyChannels.some((channel) => channel.type === "telegram")) {
+        customBlock += `\n- Canales de Notificación Conectados: TELEGRAM (configuración de entorno).`;
+      } else if (readyChannels.length > 0) {
+        customBlock += `\n- Canales de Notificación Conectados: ${readyChannels.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`;
       } else {
         customBlock += `\n- Canales de Notificación: Sin canales remotos conectados actualmente.`;
       }
       customBlock += `\n- Asistente: ${botName} (Tono: ${botTone})`;
       customBlock += `\n- Gobernanza: HUMAN-IN-THE-LOOP 100%. CERO compras automáticas unilaterales fuera de política.`;
       if (customRules) {
-        customBlock += `\n- Reglas de Negocio Personalizadas: ${customRules}`;
+        customBlock += `\n- Reglas de Negocio Personalizadas: ${customRules.slice(0, 1200)}`;
       }
       try {
         const { decisions } = await import("../db/schema");
@@ -161,7 +208,7 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
           .from(decisions)
           .where(eq(decisions.companyId, companyId))
           .orderBy(desc(decisions.createdAt))
-          .limit(4);
+          .limit(2);
 
         if (recentDecs.length > 0) {
           customBlock +=
@@ -364,7 +411,10 @@ export async function runAgentLoop(
     const { ne, desc, and, like, isNotNull } = await import("drizzle-orm");
     // Priorizar turnos conversacionales recientes que tengan tanto pregunta como respuesta guardada
     let prevCases = await db
-      .select()
+      .select({
+        description: cases.description,
+        resultSummary: cases.resultSummary,
+      })
       .from(cases)
       .where(
         and(
@@ -375,22 +425,7 @@ export async function runAgentLoop(
         ),
       )
       .orderBy(desc(cases.createdAt))
-      .limit(3);
-
-    if (prevCases.length === 0) {
-      prevCases = await db
-        .select()
-        .from(cases)
-        .where(
-          and(
-            eq(cases.companyId, companyId),
-            ne(cases.id, caseId),
-            isNotNull(cases.resultSummary),
-          ),
-        )
-        .orderBy(desc(cases.createdAt))
-        .limit(2);
-    }
+      .limit(2);
 
     for (const prev of prevCases.reverse()) {
       const userText = (prev.description || "").trim();
@@ -399,11 +434,11 @@ export async function runAgentLoop(
       if (userText && assistantText && !isInvalidOrGibberishInput(userText)) {
         previousDialogues.push({
           role: "user",
-          content: userText.slice(0, 500),
+          content: userText.slice(0, 300),
         });
         previousDialogues.push({
           role: "assistant",
-          content: assistantText.slice(0, 800),
+          content: assistantText.slice(0, 500),
         });
       }
     }
@@ -471,6 +506,14 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
     botLanguage === "en" ? "Maximum step limit reached" : "Límite de pasos alcanzado";
   let completedNaturally = false;
   const multiAgentTimeline: Array<{ agent: string; action: string; details?: string }> = [];
+  if (isSmallTalk) {
+    finalSummary = botLanguage === "en"
+      ? "Hello. How can I help with your inventory, purchasing, or logistics operations?"
+      : "Hola. ¿En qué puedo ayudarte con inventario, compras o logística?";
+    finalReason = "Respuesta conversacional determinista; no requiere consulta al modelo.";
+    finalStatus = "resuelto";
+    completedNaturally = true;
+  }
 
   const SPECIALIST_MAP: Record<string, string> = {
     consultar_stock: "Módulo Inventario [PostgreSQL]",
@@ -499,12 +542,16 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
   ]);
 
   // 4. Bucle principal de pensamiento y acción (ReAct)
-  while (currentStep < maxSteps) {
+  while (!completedNaturally && currentStep < maxSteps) {
     currentStep++;
 
+    const requestMessages = fitMessagesToBudget(
+      messages,
+      TOKEN_BUDGETS.COORDINATOR.maxInputTokens,
+    );
     const response = await client.chatCompletion({
       caseId,
-      messages,
+      messages: requestMessages,
       tools: isSmallTalk ? undefined : AGENT_TOOLS,
       toolChoice: isSmallTalk ? undefined : "auto",
       maxTokens: isSmallTalk ? 200 : options.maxTokens ?? 900,
@@ -715,9 +762,8 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           }
         }
 
-        // Devolver resultado de la herramienta al modelo con presupuesto amplio (3500 tokens ~ 14,000 chars) para no truncar ni corromper JSON
-        const rawJson = JSON.stringify(result);
-        const safeContent = enforceTokenBudget(rawJson, 3500);
+        // Devolver resultados compactados para conservar los datos operativos dentro del presupuesto.
+        const safeContent = compactToolPayload(result, 900);
         messages.push({
           role: "tool",
           tool_call_id: call.id,
@@ -767,13 +813,13 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           : "Sintetiza de forma ejecutiva en ESPAÑOL los hallazgos obtenidos con las herramientas ejecutadas hasta ahora para responder al usuario, usando únicamente datos verificados.";
       const synthResponse = await client.chatCompletion({
         caseId,
-        messages: [
+        messages: fitMessagesToBudget([
           ...messages,
           {
             role: "user",
             content: synthInstruction,
           },
-        ],
+        ], TOKEN_BUDGETS.COORDINATOR.maxInputTokens),
         tools: undefined,
         maxTokens: options.maxTokens ?? 700,
         temperature: 0.1,

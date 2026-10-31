@@ -10,7 +10,7 @@ import {
   products,
 } from "@mint/core";
 import { eq, and } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { TelegramAdapter } from "./adapters/telegramAdapter";
 import { SlackAdapter } from "./adapters/slackAdapter";
 import { GmailAdapter } from "./adapters/gmailAdapter";
@@ -35,6 +35,18 @@ export async function addNotificationChannel(params: {
   quietHoursStart?: string;
   quietHoursEnd?: string;
 }) {
+  if (hasRequiredCredentials(params.type, params.config)) {
+    const existing = (await listNotificationChannels(params.companyId)).find((channel) =>
+      channel.type === params.type &&
+      hasRequiredCredentials(channel.type, channel.config as Record<string, any>) &&
+      channelDestinationKey(channel.type, channel.config as Record<string, any>) ===
+        channelDestinationKey(params.type, params.config),
+    );
+    if (existing) {
+      return { channelId: existing.id, ...params, alreadyConfigured: true };
+    }
+  }
+
   const channelId = `chan_${params.type}_${randomUUID().slice(0, 8)}`;
 
   await db.insert(notificationChannels).values({
@@ -48,7 +60,7 @@ export async function addNotificationChannel(params: {
     isActive: true,
   });
 
-  return { channelId, ...params };
+  return { channelId, ...params, alreadyConfigured: false };
 }
 
 export async function listNotificationChannels(companyId: string) {
@@ -58,67 +70,124 @@ export async function listNotificationChannels(companyId: string) {
     .where(eq(notificationChannels.companyId, companyId));
 }
 
-async function resolveActiveChannels(companyId: string) {
-  let channels = await listNotificationChannels(companyId);
+function hasRequiredCredentials(type: string, config: Record<string, any>): boolean {
+  if (type === "telegram") return Boolean(config?.botToken && config?.chatId);
+  if (type === "slack" || type === "discord" || type === "webhook") {
+    try {
+      const url = new URL(String(config?.webhookUrl ?? ""));
+      return url.protocol === "https:" || url.protocol === "http:";
+    } catch {
+      return false;
+    }
+  }
+  if (type === "gmail") {
+    return Boolean(config?.email || process.env.RESEND_API_KEY || process.env.SMTP_HOST);
+  }
+  return false;
+}
 
-  if (channels.length === 0) {
-    const envChannels: typeof channels = [];
-    if (process.env.DISCORD_WEBHOOK_URL) {
-      envChannels.push({
-        id: "chan_discord_env",
-        companyId,
-        type: "discord",
-        name: "Discord Webhook (ENV)",
-        config: { webhookUrl: process.env.DISCORD_WEBHOOK_URL },
-        isActive: true,
-        quietHoursStart: null,
-        quietHoursEnd: null,
-        createdAt: new Date(),
-      });
+function channelDestinationKey(type: string, config: Record<string, any>): string {
+  const identity = type === "telegram"
+    ? [config?.botToken, config?.chatId]
+    : type === "gmail"
+      ? [config?.email, config?.resendApiKey, config?.smtpHost, config?.smtpUser]
+      : [config?.webhookUrl];
+  return createHash("sha256").update(JSON.stringify([type, identity])).digest("hex");
+}
+
+export function deduplicateNotificationChannels<T extends {
+  type: string;
+  config: unknown;
+  isActive: boolean;
+  createdAt?: Date | null;
+}>(channels: T[]): T[] {
+  const selected = new Map<string, T>();
+  for (const channel of channels) {
+    const config = channel.config && typeof channel.config === "object"
+      ? channel.config as Record<string, unknown>
+      : {};
+    const key = channelDestinationKey(channel.type, config);
+    const existing = selected.get(key);
+    if (!existing) {
+      selected.set(key, channel);
+      continue;
     }
-    if (process.env.SLACK_WEBHOOK_URL) {
-      envChannels.push({
-        id: "chan_slack_env",
-        companyId,
-        type: "slack",
-        name: "Slack Webhook (ENV)",
-        config: { webhookUrl: process.env.SLACK_WEBHOOK_URL },
-        isActive: true,
-        quietHoursStart: null,
-        quietHoursEnd: null,
-        createdAt: new Date(),
-      });
+
+    const existingTime = existing.createdAt?.getTime() ?? 0;
+    const candidateTime = channel.createdAt?.getTime() ?? 0;
+    if ((!existing.isActive && channel.isActive) ||
+      (existing.isActive === channel.isActive && candidateTime > existingTime)) {
+      selected.set(key, channel);
     }
-    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-      envChannels.push({
-        id: "chan_tg_env",
-        companyId,
-        type: "telegram",
-        name: "Telegram Bot (ENV)",
-        config: { botToken: process.env.TELEGRAM_BOT_TOKEN, chatId: process.env.TELEGRAM_CHAT_ID },
-        isActive: true,
-        quietHoursStart: null,
-        quietHoursEnd: null,
-        createdAt: new Date(),
-      });
-    }
-    if (process.env.GENERIC_WEBHOOK_URL || process.env.WEBHOOK_URL) {
-      envChannels.push({
-        id: "chan_webhook_env",
-        companyId,
-        type: "webhook",
-        name: "Webhook Externo (ENV)",
-        config: { webhookUrl: process.env.GENERIC_WEBHOOK_URL || process.env.WEBHOOK_URL },
-        isActive: true,
-        quietHoursStart: null,
-        quietHoursEnd: null,
-        createdAt: new Date(),
-      });
-    }
-    channels = envChannels;
+  }
+  return [...selected.values()];
+}
+
+export async function resolveActiveChannels(companyId: string) {
+  const channels = await listNotificationChannels(companyId);
+
+  const envChannels: typeof channels = [];
+  if (process.env.DISCORD_WEBHOOK_URL) {
+    envChannels.push({
+      id: "chan_discord_env",
+      companyId,
+      type: "discord",
+      name: "Discord Webhook (ENV)",
+      config: { webhookUrl: process.env.DISCORD_WEBHOOK_URL },
+      isActive: true,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+      createdAt: new Date(),
+    });
+  }
+  if (process.env.SLACK_WEBHOOK_URL) {
+    envChannels.push({
+      id: "chan_slack_env",
+      companyId,
+      type: "slack",
+      name: "Slack Webhook (ENV)",
+      config: { webhookUrl: process.env.SLACK_WEBHOOK_URL },
+      isActive: true,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+      createdAt: new Date(),
+    });
+  }
+  if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+    envChannels.push({
+      id: "chan_tg_env",
+      companyId,
+      type: "telegram",
+      name: "Telegram Bot (ENV)",
+      config: { botToken: process.env.TELEGRAM_BOT_TOKEN, chatId: process.env.TELEGRAM_CHAT_ID },
+      isActive: true,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+      createdAt: new Date(),
+    });
+  }
+  if (process.env.GENERIC_WEBHOOK_URL || process.env.WEBHOOK_URL) {
+    envChannels.push({
+      id: "chan_webhook_env",
+      companyId,
+      type: "webhook",
+      name: "Webhook Externo (ENV)",
+      config: { webhookUrl: process.env.GENERIC_WEBHOOK_URL || process.env.WEBHOOK_URL },
+      isActive: true,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+      createdAt: new Date(),
+    });
   }
 
-  return channels;
+  const environmentTypes = new Set(envChannels.map((channel) => channel.type));
+  const channelsWithEnvironmentPriority = [
+    ...envChannels,
+    ...channels.filter((channel) => !environmentTypes.has(channel.type)),
+  ];
+  return deduplicateNotificationChannels(channelsWithEnvironmentPriority).filter(
+    (channel) => channel.isActive && hasRequiredCredentials(channel.type, channel.config as Record<string, any>),
+  );
 }
 
 /**
@@ -579,4 +648,3 @@ export async function dispatchStockLogNotification(params: {
 
   return results;
 }
-

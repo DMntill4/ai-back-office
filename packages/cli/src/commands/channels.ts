@@ -142,7 +142,11 @@ export async function channelsCommand(action?: string, arg1?: string, arg2?: str
         config,
       });
 
-      console.log(`\n  ${theme.mintBold("[OK]")} Canal ${theme.bold(channelName)} verificado y registrado en base de datos.\n`);
+      if (created.alreadyConfigured) {
+        console.log(`\n  ${theme.mintBold("[OK]")} Este destino ya estaba registrado; no se creó un duplicado.\n`);
+      } else {
+        console.log(`\n  ${theme.mintBold("[OK]")} Canal ${theme.bold(channelName)} verificado y registrado en base de datos.\n`);
+      }
     } catch (err: any) {
       console.log(`\n  ${theme.redBold("[ERROR] Error al validar canal:")} ${err.message}`);
       console.log(`  ${theme.amber("El canal NO fue guardado.")}\n`);

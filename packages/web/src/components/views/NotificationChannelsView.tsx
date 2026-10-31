@@ -1,286 +1,172 @@
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import {
-  Bell,
-  Send,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  Sparkles,
-  Zap,
-  Check,
-  MessageSquare,
-  Mail,
-  RotateCcw,
-} from "lucide-react";
-import { KpiStrip, KpiCardItem } from "../ui/KpiStrip";
-import { StatusBadge } from "../ui/StatusBadge";
+import React, { useCallback, useEffect, useState } from "react";
+import { BellRing, CheckCircle2, Database, Play, RefreshCw, ShieldAlert } from "lucide-react";
+import { EmptyState } from "../ui/EmptyState";
+import { api } from "../../services/apiClient";
 
-interface ChannelConfig {
+interface NotificationChannel {
   id: string;
+  type: string;
   name: string;
-  description: string;
-  destination: string;
-  status: "conectado" | "degradado" | "desconectado";
-  enabled: boolean;
-  latencyMs: number;
-  eventsCount: number;
-  subscribedEvents: string[];
+  isActive: boolean;
+  source: "environment" | "database";
+  available: boolean;
+  createdAt: string | null;
+  topics: string[];
 }
 
-const CHANNELS_DATA: ChannelConfig[] = [
-  {
-    id: "telegram",
-    name: "Telegram Bot (Alertas Críticas)",
-    description: "Canal prioritario para autorización móvil de órdenes extraordinarias.",
-    destination: "@MintSantanderBot · Chat ID: -1004928172",
-    status: "conectado",
-    enabled: true,
-    latencyMs: 42,
-    eventsCount: 48,
-    subscribedEvents: ["Órdenes de Compra > $5M COP", "Bloqueos Viales OSRM", "Quiebres Inminentes"],
-  },
-  {
-    id: "slack",
-    name: "Slack Corporativo (#operaciones-mint)",
-    description: "Notificaciones operativas para el equipo de compras y logística.",
-    destination: "Workspace Santander · #operaciones-mint",
-    status: "conectado",
-    enabled: true,
-    latencyMs: 65,
-    eventsCount: 114,
-    subscribedEvents: ["Arribos de Mercancía a Muelle", "Resumen de Margen Diario", "Actualizaciones de Stock"],
-  },
-  {
-    id: "email",
-    name: "Correo Electrónico Corporativo",
-    description: "Envío formal de remisiones y órdenes de compra firmadas a proveedores.",
-    destination: "compras@ferreteriasantander.com (SMTP Seguro)",
-    status: "conectado",
-    enabled: true,
-    latencyMs: 140,
-    eventsCount: 36,
-    subscribedEvents: ["Envío de Órdenes a Proveedores", "Informes Ejecutivos Semanales"],
-  },
-  {
-    id: "whatsapp",
-    name: "WhatsApp Business API",
-    description: "Comunicación directa y confirmaciones con conductores en ruta.",
-    destination: "+57 (607) 639-0011 (Línea Oficial)",
-    status: "conectado",
-    enabled: true,
-    latencyMs: 85,
-    eventsCount: 22,
-    subscribedEvents: ["Despachos Asignados", "Alertas de Desvío Vial"],
-  },
-];
-
 export const NotificationChannelsView: React.FC = () => {
-  const [channels, setChannels] = useState<ChannelConfig[]>(CHANNELS_DATA);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [channels, setChannels] = useState<NotificationChannel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.channels.list();
+      if (!response.success || response.isFallback) {
+        setChannels([]);
+        setError(response.message ?? "No fue posible consultar los canales en el backend.");
+        return;
+      }
+      setChannels(Array.isArray(response.data) ? response.data : []);
+    } catch (cause) {
+      setChannels([]);
+      setError(cause instanceof Error ? cause.message : "Error al consultar los canales.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const toggle = async (channel: NotificationChannel) => {
+    setError(null);
+    try {
+      await api.channels.update(channel.id, !channel.isActive);
+      setMessage(`Se actualizó el estado de ${channel.name}.`);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo actualizar el canal.");
+    }
   };
 
-  const handleToggleChannel = (id: string) => {
-    setChannels((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c))
-    );
-    showToast(`Canal ${id} actualizado.`);
+  const test = async (channel: NotificationChannel) => {
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await api.channels.test(channel.id);
+      if (response?.result?.success === false) {
+        throw new Error(response.result.error ?? "El proveedor no aceptó el mensaje de prueba.");
+      }
+      setMessage(`El backend confirmó el envío de prueba para ${channel.name}.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible probar el canal.");
+    }
   };
-
-  const handleSendTest = (name: string) => {
-    showToast(`Mensaje de prueba enviado exitosamente a ${name}. Latencia: 45ms.`);
-  };
-
-  const kpis: KpiCardItem[] = [
-    {
-      title: "Canales Conectados",
-      value: "4 / 4 Activos",
-      subtitle: "Telegram, Slack, Email, WhatsApp",
-      trend: { direction: "up", label: "100% disponibilidad" },
-      icon: Bell,
-      isHero: true,
-      onActionClick: () => showToast("Todos los canales probados exitosamente."),
-    },
-    {
-      title: "Notificaciones Hoy",
-      value: "220 Alertas",
-      subtitle: "0 fallos de entrega",
-      trend: { direction: "up", label: "+14% vs ayer" },
-      icon: Send,
-    },
-    {
-      title: "Latencia Promedio",
-      value: "68 ms",
-      subtitle: "Despacho telemático instantáneo",
-      trend: { direction: "up", label: "Óptimo" },
-      icon: Zap,
-    },
-    {
-      title: "Integridad de Envío",
-      value: "100% Cifrado",
-      subtitle: "Firmas HMAC en cada webhook",
-      trend: { direction: "up", label: "Seguro" },
-      icon: CheckCircle2,
-    },
-  ];
 
   return (
-    <div className="flex flex-col gap-group">
-      {/* Toast Notification */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-compact py-compact rounded-pill flex items-center gap-compact bg-panel border border-brand/40 text-brand shadow-popover"
-          >
-            <div className="w-2 h-2 rounded-pill bg-brand animate-ping" />
-            <span className="text-label font-mono font-medium">{toastMessage}</span>
-            <button
-              onClick={() => setToastMessage(null)}
-              className="text-muted hover:text-primary text-label ml-hairline"
-            >
-              ✕
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* BARRA DE ACCIONES DE LA SUB-PESTAÑA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-compact">
-        <div className="flex items-center gap-compact text-caption font-mono text-muted">
-          <span className="px-compact py-hairline rounded-control bg-panel border border-border text-secondary">
-            {channels.filter((c) => c.enabled).length} de {channels.length} canales activos
-          </span>
-          <span className="hidden sm:inline">220 alertas entregadas hoy · 0 fallos</span>
-        </div>
-
+    <section className="flex flex-col gap-group">
+      <div className="flex flex-wrap items-center justify-between gap-compact">
+        <p className="text-caption text-secondary">
+          Canales de notificación disponibles para la empresa activa, consultados al backend.
+        </p>
         <button
-          onClick={() => showToast("Enviando ping de verificación a todos los canales...")}
-          className="px-base py-hairline rounded-control bg-brand hover:bg-brand text-canvas font-semibold text-caption flex items-center gap-compact transition-colors cursor-pointer self-start sm:self-auto"
+          type="button"
+          onClick={() => void load()}
+          disabled={loading}
+          className="h-9 px-compact rounded-control bg-raised border border-border text-secondary hover:text-primary text-caption flex items-center gap-hairline disabled:opacity-50"
         >
-          <Send className="w-3.5 h-3.5" />
-          <span>Probar Todos los Canales</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          Actualizar
         </button>
       </div>
 
-      {/* FILA 1: KPI STRIP DE 4 TARJETAS CON HÉROE */}
-      <KpiStrip items={kpis} />
+      {error && (
+        <div role="alert" className="rounded-control border border-state-error/30 bg-state-error-surface px-compact py-compact text-caption text-state-error">
+          {error}
+        </div>
+      )}
+      {message && (
+        <div role="status" className="rounded-control border border-state-ok/30 bg-state-ok-surface px-compact py-compact text-caption text-state-ok">
+          {message}
+        </div>
+      )}
 
-      {/* FILA 2: GRID DE TARJETAS DE 2 NIVELES */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-base">
-        {channels.map((ch) => {
-          const isEmail = ch.id === "email";
-          const pingTone =
-            ch.latencyMs <= 60
-              ? "bg-brand-surface text-brand border-brand/30"
-              : ch.latencyMs <= 100
-                ? "bg-state-attention/15 text-state-attention border-state-attention/30"
-                : "bg-state-error/15 text-state-error border-state-error/30";
-
-          return (
-            <div
-              key={ch.id}
-              className={`bg-panel rounded-container p-base border flex flex-col justify-between transition-colors ${ch.enabled
-                ? "border-border hover:border-brand/30"
-                : "border-border opacity-70"
-                }`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-compact pb-compact border-b border-border">
-                  <div className="flex items-center gap-compact min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-control flex items-center justify-center shrink-0 ${ch.enabled
-                        ? "bg-brand-surface text-brand"
-                        : "bg-raised text-muted"
-                        }`}
-                    >
-                      {isEmail ? <Mail className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-label font-semibold text-primary truncate">{ch.name}</h3>
-                      <span className="text-caption text-muted font-mono truncate block">
-                        {ch.destination}
-                      </span>
-                    </div>
+      {loading && channels.length === 0 ? (
+        <div className="grid gap-group md:grid-cols-2" aria-busy="true">
+          {[0, 1].map((item) => <div key={item} className="h-40 rounded-container bg-raised animate-pulse" />)}
+        </div>
+      ) : channels.length === 0 ? (
+        <EmptyState
+          title="No hay canales de alerta disponibles"
+          description="Cuando el backend detecte canales configurados en el entorno o en la base de datos, aparecerán aquí."
+          actionLabel="Volver a consultar"
+          onAction={() => void load()}
+        />
+      ) : (
+        <div className="grid gap-group md:grid-cols-2">
+          {channels.map((channel) => (
+            <article key={channel.id} className="rounded-container border border-border bg-panel p-base">
+              <header className="flex items-start justify-between gap-compact">
+                <div className="flex min-w-0 items-center gap-compact">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-brand-surface text-brand">
+                    <BellRing className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-label font-semibold text-primary">{channel.name}</h2>
+                    <p className="text-caption font-mono text-muted">{channel.type}</p>
                   </div>
+                </div>
+                <span className={`inline-flex items-center gap-hairline text-caption ${channel.available ? "text-state-ok" : "text-state-attention"}`}>
+                  {channel.available ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+                  {channel.available ? "Credenciales disponibles" : "Faltan credenciales"}
+                </span>
+              </header>
 
-                  {/* Switch Táctil */}
+              <div className="mt-compact flex items-center gap-hairline text-caption text-secondary">
+                <Database className="h-3.5 w-3.5 text-muted" />
+                <span>{channel.source === "environment" ? "Gestionado por entorno" : "Guardado en base de datos"}</span>
+              </div>
+              <p className="mt-hairline text-caption text-muted">
+                {channel.topics.length ? `Temas: ${channel.topics.join(", ")}` : "Suscrito a los temas configurados por el servidor."}
+              </p>
+
+              <footer className="mt-base flex flex-wrap items-center justify-between gap-compact border-t border-border pt-compact">
+                <span className={`text-caption font-medium ${channel.isActive && channel.available ? "text-state-ok" : "text-muted"}`}>
+                  {channel.isActive && channel.available ? "Activo" : channel.isActive ? "No disponible" : "Pausado"}
+                  {channel.createdAt ? ` · Alta ${new Date(channel.createdAt).toLocaleDateString("es-CO")}` : ""}
+                </span>
+                <div className="flex items-center gap-compact">
+                  {channel.source === "database" && channel.available && (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={channel.isActive}
+                      onClick={() => void toggle(channel)}
+                      className="rounded-control border border-border px-compact py-hairline text-caption text-secondary hover:text-primary"
+                    >
+                      {channel.isActive ? "Pausar" : "Activar"}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    role="switch"
-                    aria-checked={ch.enabled}
-                    aria-label={`Activar ${ch.name}`}
-                    onClick={() => handleToggleChannel(ch.id)}
-                    className={`relative w-11 h-6 rounded-pill shrink-0 transition-colors duration-200 border ${ch.enabled
-                      ? "bg-brand border-brand"
-                      : "bg-raised border-border-strong"
-                      }`}
+                    disabled={!channel.isActive || !channel.available}
+                    onClick={() => void test(channel)}
+                    className="inline-flex items-center gap-hairline rounded-control border border-border px-compact py-hairline text-caption text-secondary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <span
-                      className={`absolute top-0.5 rounded-pill transition-all duration-200 ${ch.enabled ? "left-[22px] bg-canvas" : "left-0.5 bg-muted"
-                        }`}
-                      style={{ width: 18, height: 18 }}
-                    />
+                    <Play className="h-3 w-3" />
+                    Enviar prueba
                   </button>
                 </div>
-
-                <p className="text-caption text-secondary mt-compact leading-relaxed">{ch.description}</p>
-              </div>
-
-              {/* Sub-caja Well con Estado, Eventos y Botón de Prueba */}
-              <div className="bg-raised rounded-control p-compact mt-base border border-border space-y-compact">
-                <div className="flex items-center justify-between gap-compact">
-                  <div className="flex items-center gap-hairline flex-wrap">
-                    <span
-                      className={`inline-flex items-center gap-hairline px-compact py-hairline rounded text-caption font-mono border ${pingTone}`}
-                    >
-                      <Zap className="w-2.5 h-2.5" />
-                      {ch.latencyMs} ms
-                    </span>
-                    <span className="inline-flex items-center gap-hairline px-compact py-hairline rounded text-caption font-mono bg-brand-surface text-brand border border-brand/25">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
-                      Token válido
-                    </span>
-                    <span className="inline-flex items-center gap-hairline px-compact py-hairline rounded text-caption font-mono bg-panel text-secondary border border-border">
-                      {ch.eventsCount} envíos
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => handleSendTest(ch.name)}
-                    className="text-caption text-brand hover:text-brand font-medium flex items-center gap-hairline cursor-pointer shrink-0"
-                  >
-                    <span>Probar</span>
-                    <Send className="w-3 h-3" />
-                  </button>
-                </div>
-
-                <div className="pt-compact border-t border-border">
-                  <span className="text-caption font-mono text-muted block mb-hairline">
-                    Eventos Suscritos
-                  </span>
-                  <div className="flex flex-wrap items-center gap-hairline">
-                    {ch.subscribedEvents.map((evt, idx) => (
-                      <span
-                        key={idx}
-                        className="px-compact py-hairline rounded bg-panel border border-border text-caption text-secondary"
-                      >
-                        {evt}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+              </footer>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 };

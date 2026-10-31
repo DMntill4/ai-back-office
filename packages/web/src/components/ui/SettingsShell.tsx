@@ -63,14 +63,14 @@ export const SETTINGS_TABS: SettingsTabDef[] = [
         id: "integraciones",
         label: "Integraciones",
         shortLabel: "Integraciones",
-        description: "Conectores ERP, DIAN y motor logístico",
+        description: "Estado real de la base de datos y el motor de IA",
         icon: Plug,
     },
     {
         id: "canales_notificaciones",
         label: "Canales de Alerta",
         shortLabel: "Canales",
-        description: "Telegram, Slack, correo y WhatsApp",
+        description: "Canales de notificación disponibles en el backend",
         icon: BellRing,
     },
     {
