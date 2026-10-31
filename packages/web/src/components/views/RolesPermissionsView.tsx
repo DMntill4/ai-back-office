@@ -11,57 +11,49 @@ import {
   ShieldCheck,
   MoreHorizontal,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { KpiStrip, KpiCardItem } from "../ui/KpiStrip";
 import { StatusBadge } from "../ui/StatusBadge";
 import { EmptyState } from "../ui/EmptyState";
+import { Dialog } from "../ui/Dialog";
 import { api } from "../../services/apiClient";
+
+type UserRoleKey =
+  | "owner"
+  | "admin"
+  | "supervisor"
+  | "operator"
+  | "driver"
+  | "viewer"
+  | "auditor"
+  | "finance"
+  | "client";
 
 interface UserOperator {
   id: string;
   name: string;
   email: string;
+  roleKey: UserRoleKey;
   role: string;
-  maxApprovalLimitCop: number;
   assignedWarehouses: string[];
+  hasPassword: boolean;
   lastLogin: string;
-  status: "activo" | "invitado";
+  status: "configurado" | "pendiente";
   permissions: string[];
 }
 
-/** Límite de firma por rol, derivado de la política de gobernanza. */
-const ROLE_APPROVAL_LIMITS: Record<string, number> = {
-  admin: 999999999,
-  owner: 999999999,
-  supervisor: 10000000,
-  operator: 5000000,
-  viewer: 0,
-};
-
-/** Capacidades operativas por rol, alineadas con el motor de políticas. */
-const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: [
-    "Firma de aprobación sin límite",
-    "Mutación de políticas de gobernanza",
-    "Adjudicación de contratos marco",
-    "Parada de emergencia del agente",
-  ],
-  owner: [
-    "Firma de aprobación sin límite",
-    "Mutación de políticas de gobernanza",
-    "Parada de emergencia del agente",
-  ],
-  supervisor: [
-    "Firma de aprobación hasta $10M COP",
-    "Ajustes de inventario físico",
-    "Despacho y asignación de rutas",
-  ],
-  operator: [
-    "Recepción y muelle",
-    "Telemetría de rutas en vivo",
-    "Conciliación de entregas",
-  ],
-  viewer: ["Consulta de tableros y reportes"],
+const PERMISSION_LABELS: Record<string, string> = {
+  canConfigureBot: "Configurar agente",
+  canUploadSql: "Cargar datos",
+  canApprovePurchases: "Aprobar compras",
+  canExecutePurchases: "Ejecutar compras",
+  canProcessPayments: "Procesar pagos",
+  canDispatch: "Despachar rutas",
+  canReceive: "Recibir mercancía",
+  canManageTeam: "Administrar equipo",
+  canManageChannels: "Administrar canales",
+  canViewDashboard: "Ver tableros",
 };
 
 function humanizeRole(role: string): string {
@@ -69,30 +61,47 @@ function humanizeRole(role: string): string {
     admin: "Administrador General",
     owner: "Propietario",
     supervisor: "Supervisor de Operaciones",
-    operator: "Coordinador de Distribución",
-    viewer: "Consulta",
+    operator: "Operador de Logística y Compras",
+    driver: "Conductor / Transportista",
+    viewer: "Consultor (Solo Lectura)",
+    auditor: "Auditor de decisiones",
+    finance: "Tesorería / Control de Pagos",
+    client: "Cliente / Destinatario",
   };
-  return map[role?.toLowerCase()] ?? (role || "Operador");
+  return map[role?.toLowerCase()] ?? (role || "Rol no especificado");
 }
 
 function mapTeamMember(u: any): UserOperator {
   const roleKey = String(u?.role ?? "operator").toLowerCase();
   return {
-    id: String(u?.id ?? crypto.randomUUID()),
-    name: String(u?.name ?? "Operador sin nombre"),
-    email: String(u?.email ?? "sin-correo@empresa.com"),
+    id: String(u?.id ?? ""),
+    name: String(u?.name ?? "Usuario sin nombre"),
+    email: String(u?.email ?? "Correo no disponible"),
+    roleKey: roleKey as UserRoleKey,
     role: humanizeRole(roleKey),
-    maxApprovalLimitCop: ROLE_APPROVAL_LIMITS[roleKey] ?? 0,
-    assignedWarehouses: Array.isArray(u?.assignedWarehouses) && u.assignedWarehouses.length > 0
-      ? u.assignedWarehouses
-      : ["Todas las sedes"],
+    assignedWarehouses: Array.isArray(u?.assignedWarehouses) ? u.assignedWarehouses : [],
+    hasPassword: Boolean(u?.hasPassword),
     lastLogin: u?.createdAt
       ? `Alta: ${new Date(u.createdAt).toLocaleDateString("es-CO")}`
       : "Sin registro",
-    status: "activo",
-    permissions: ROLE_PERMISSIONS[roleKey] ?? ROLE_PERMISSIONS.operator,
+    status: u?.hasPassword ? "configurado" : "pendiente",
+    permissions: Array.isArray(u?.permissions)
+      ? u.permissions.map((permission: string) => PERMISSION_LABELS[permission] ?? permission)
+      : [],
   };
 }
+
+const ROLE_OPTIONS: Array<{ value: UserRoleKey; label: string }> = [
+  { value: "admin", label: "Administrador" },
+  { value: "supervisor", label: "Supervisor" },
+  { value: "operator", label: "Operador" },
+  { value: "driver", label: "Conductor" },
+  { value: "viewer", label: "Solo lectura" },
+  { value: "auditor", label: "Auditor" },
+  { value: "finance", label: "Tesorería" },
+  { value: "client", label: "Cliente" },
+  { value: "owner", label: "Propietario" },
+];
 
 export const RolesPermissionsView: React.FC = () => {
   const [operators, setOperators] = useState<UserOperator[]>([]);
@@ -101,6 +110,16 @@ export const RolesPermissionsView: React.FC = () => {
   const [isFallback, setIsFallback] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePassword, setInvitePassword] = useState("");
+  const [inviteRole, setInviteRole] = useState<UserRoleKey>("operator");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<UserOperator | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -115,7 +134,7 @@ export const RolesPermissionsView: React.FC = () => {
       const rows = Array.isArray(res.data) ? res.data : [];
       setOperators(rows.map(mapTeamMember));
       setIsFallback(Boolean(res.isFallback));
-      if (!res.success) setError(res.message ?? "No fue posible leer el equipo.");
+      if (!res.success || res.isFallback) setError(res.message ?? "No fue posible consultar el equipo real.");
     } catch (err: any) {
       setError(err?.message ?? "Error de red al consultar el equipo.");
       setOperators([]);
@@ -128,9 +147,60 @@ export const RolesPermissionsView: React.FC = () => {
     void load();
   }, [load]);
 
+  const handleCreateUser = async () => {
+    setInviteError(null);
+    setIsCreating(true);
+    try {
+      await api.team.create({
+        name: inviteName,
+        email: inviteEmail,
+        password: invitePassword,
+        role: inviteRole,
+      });
+      setIsInviteOpen(false);
+      setInviteName("");
+      setInviteEmail("");
+      setInvitePassword("");
+      setInviteRole("operator");
+      showToast("Cuenta creada y guardada en la base de datos.");
+      await load();
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : "No se pudo crear el usuario.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleRoleChange = async (operator: UserOperator, role: UserRoleKey) => {
+    setOpenMenuId(null);
+    if (operator.roleKey === role) return;
+    try {
+      await api.team.updateRole(operator.id, role);
+      showToast(`Rol actualizado para ${operator.name}.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo actualizar el rol.");
+    }
+  };
+
+  const handleRemoveUser = async () => {
+    if (!memberToRemove) return;
+    setIsRemoving(true);
+    try {
+      await api.team.remove(memberToRemove.id);
+      showToast(`Se eliminó el acceso de ${memberToRemove.name}.`);
+      setMemberToRemove(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar el usuario.");
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
   const kpis: KpiCardItem[] = useMemo(() => {
-    const admins = operators.filter((o) => o.maxApprovalLimitCop > 100000000).length;
-    const warehouses = new Set(operators.flatMap((o) => o.assignedWarehouses));
+    const admins = operators.filter((o) => o.roleKey === "owner" || o.roleKey === "admin").length;
+    const secureAccounts = operators.filter((o) => o.hasPassword).length;
     return [
       {
         title: "Usuarios con Acceso",
@@ -139,27 +209,30 @@ export const RolesPermissionsView: React.FC = () => {
         trend: { direction: "up", label: "0 accesos bloqueados" },
         icon: UserCheck,
         isHero: true,
-        onActionClick: () => showToast("Abriendo invitación de operador..."),
+        onActionClick: () => {
+          setInviteError(null);
+          setIsInviteOpen(true);
+        },
       },
       {
         title: "Nivel de Privilegio Crítico",
         value: `${admins} Administrador${admins === 1 ? "" : "es"}`,
-        subtitle: "Firma ilimitada habilitada",
+        subtitle: "Usuarios con rol de propietario o administrador",
         trend: { direction: "up", label: admins > 0 ? "Cobertura activa" : "Sin firmante" },
         icon: ShieldCheck,
       },
       {
         title: "Sedes Bajo Cobertura",
-        value: `${warehouses.size} Bodegas`,
-        subtitle: Array.from(warehouses).slice(0, 3).join(", ") || "Sin asignar",
-        trend: { direction: "up", label: "Asignación vigente" },
+        value: "No disponible",
+        subtitle: "El backend no registra asignaciones por sede",
+        trend: { direction: "neutral", label: "Sin dato" },
         icon: Building2,
       },
       {
         title: "Seguridad de Acceso",
-        value: "100% Seguro",
-        subtitle: "Firmas digitales validadas",
-        trend: { direction: "up", label: "Criptografía activa" },
+        value: `${secureAccounts} de ${operators.length}`,
+        subtitle: "Cuentas con contraseña configurada",
+        trend: { direction: secureAccounts === operators.length ? "up" : "down", label: secureAccounts === operators.length ? "Al día" : "Revisar" },
         icon: Lock,
       },
     ];
@@ -242,18 +315,21 @@ export const RolesPermissionsView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => showToast("Abriendo diálogo para invitar nuevo operador...")}
+            onClick={() => {
+              setInviteError(null);
+              setIsInviteOpen(true);
+            }}
             className="h-9 px-compact rounded-control bg-brand hover:bg-brand/90 text-canvas font-semibold text-caption flex items-center gap-hairline transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Invitar</span>
+            <span>Crear usuario</span>
           </button>
         </div>
       </div>
 
       {isFallback && (
         <div className="px-compact py-compact rounded-control bg-state-attention-surface border border-border text-caption text-state-attention">
-          Mostrando datos de respaldo: el backend no respondió con el equipo real.
+          No se muestran usuarios de respaldo. Vuelve a consultar cuando el backend esté disponible.
         </div>
       )}
 
@@ -354,7 +430,10 @@ export const RolesPermissionsView: React.FC = () => {
                   <div>
                     <div className="flex items-center gap-compact">
                       <h3 className="text-label font-bold text-primary">{op.name}</h3>
-                      <StatusBadge variant="success" label="Activo" />
+                      <StatusBadge
+                        variant={op.status === "configurado" ? "success" : "warning"}
+                        label={op.status === "configurado" ? "Acceso configurado" : "Sin contraseña"}
+                      />
                     </div>
                     <div className="flex items-center gap-compact text-caption text-muted mt-hairline">
                       <span className="text-secondary font-medium">{op.role}</span>
@@ -366,17 +445,54 @@ export const RolesPermissionsView: React.FC = () => {
 
                 <div className="flex items-center gap-element">
                   <div className="text-right">
-                    <span className="text-caption font-mono font-bold text-primary block tabular-nums">
-                      {op.maxApprovalLimitCop > 100000000
-                        ? "Sin Límite"
-                        : `$${(op.maxApprovalLimitCop / 1000000).toFixed(0)}M COP máx.`}
+                    <span className="text-caption font-medium text-primary block">
+                      {op.permissions.length} permisos asignados
                     </span>
-                    <span className="text-caption text-muted">Límite de Firma</span>
+                    <span className="text-caption text-muted">Según su rol</span>
                   </div>
 
-                  <button className="p-hairline rounded-control text-muted hover:text-primary hover:bg-raised transition-colors">
+                  <div className="relative">
+                  <button
+                    type="button"
+                    aria-label={`Administrar acceso de ${op.name}`}
+                    aria-expanded={openMenuId === op.id}
+                    onClick={() => setOpenMenuId((current) => current === op.id ? null : op.id)}
+                    className="p-hairline rounded-control text-muted hover:text-primary hover:bg-raised transition-colors"
+                  >
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
+                  {openMenuId === op.id && (
+                    <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-control border border-border bg-panel p-compact shadow-card">
+                      <label className="mb-hairline block text-caption text-secondary" htmlFor={`role-${op.id}`}>
+                        Cambiar rol
+                      </label>
+                      <select
+                        id={`role-${op.id}`}
+                        value={op.roleKey}
+                        onChange={(event) => void handleRoleChange(op, event.target.value as UserRoleKey)}
+                        className="h-9 w-full rounded-control border border-border bg-raised px-compact text-caption text-primary"
+                      >
+                        {ROLE_OPTIONS
+                          .filter((role) => role.value !== "owner" || op.roleKey === "owner")
+                          .map((role) => (
+                            <option key={role.value} value={role.value}>{role.label}</option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMemberToRemove(op);
+                          setOpenMenuId(null);
+                        }}
+                        disabled={op.roleKey === "owner"}
+                        className="mt-compact flex w-full items-center gap-hairline rounded-control px-compact py-hairline text-caption text-state-error hover:bg-state-error-surface disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Eliminar acceso</span>
+                      </button>
+                    </div>
+                  )}
+                  </div>
                 </div>
               </div>
 
@@ -384,7 +500,9 @@ export const RolesPermissionsView: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-hairline pb-compact mb-compact border-b border-border text-caption">
                   <span className="text-muted">
                     Sedes asignadas:{" "}
-                    <strong className="text-primary">{op.assignedWarehouses.join(", ")}</strong>
+                    <strong className="text-primary">
+                      {op.assignedWarehouses.length ? op.assignedWarehouses.join(", ") : "No configuradas"}
+                    </strong>
                   </span>
                   <span className="text-muted font-mono text-caption">
                     Última actividad: {op.lastLogin}
@@ -407,6 +525,84 @@ export const RolesPermissionsView: React.FC = () => {
           ))}
         </div>
       )}
+      <Dialog
+        isOpen={isInviteOpen}
+        onClose={() => {
+          if (!isCreating) setIsInviteOpen(false);
+        }}
+        title="Crear acceso de usuario"
+        description="La cuenta se guardará en esta empresa. No se envía un correo de invitación; comparte la contraseña inicial de forma segura."
+        confirmLabel="Crear cuenta"
+        onConfirm={handleCreateUser}
+        isProcessing={isCreating}
+      >
+        <div className="space-y-compact">
+          <label className="block text-caption text-secondary">
+            Nombre
+            <input
+              autoComplete="name"
+              value={inviteName}
+              onChange={(event) => setInviteName(event.target.value)}
+              className="mt-hairline h-9 w-full rounded-control border border-border bg-raised px-compact text-caption text-primary"
+            />
+          </label>
+          <label className="block text-caption text-secondary">
+            Correo
+            <input
+              type="email"
+              autoComplete="email"
+              value={inviteEmail}
+              onChange={(event) => setInviteEmail(event.target.value)}
+              className="mt-hairline h-9 w-full rounded-control border border-border bg-raised px-compact text-caption text-primary"
+            />
+          </label>
+          <label className="block text-caption text-secondary">
+            Contraseña inicial (mínimo 12 caracteres)
+            <input
+              type="password"
+              autoComplete="new-password"
+              minLength={12}
+              value={invitePassword}
+              onChange={(event) => setInvitePassword(event.target.value)}
+              className="mt-hairline h-9 w-full rounded-control border border-border bg-raised px-compact text-caption text-primary"
+            />
+          </label>
+          <label className="block text-caption text-secondary">
+            Rol
+            <select
+              value={inviteRole}
+              onChange={(event) => setInviteRole(event.target.value as UserRoleKey)}
+              className="mt-hairline h-9 w-full rounded-control border border-border bg-raised px-compact text-caption text-primary"
+            >
+              {ROLE_OPTIONS.filter((role) => role.value !== "owner").map((role) => (
+                <option key={role.value} value={role.value}>{role.label}</option>
+              ))}
+            </select>
+          </label>
+          {inviteError && (
+            <p role="alert" className="text-caption text-state-error">{inviteError}</p>
+          )}
+        </div>
+      </Dialog>
+      <Dialog
+        isOpen={memberToRemove !== null}
+        onClose={() => {
+          if (!isRemoving) setMemberToRemove(null);
+        }}
+        title="Eliminar acceso"
+        description={memberToRemove
+          ? `Se eliminará el acceso de ${memberToRemove.name} (${memberToRemove.email}) a esta empresa. Esta acción no se puede deshacer.`
+          : undefined}
+        confirmLabel="Eliminar acceso"
+        cancelLabel="Conservar usuario"
+        isDestructive
+        isProcessing={isRemoving}
+        onConfirm={handleRemoveUser}
+      >
+        <p className="text-caption text-secondary">
+          El usuario dejará de aparecer en el equipo y no podrá acceder a esta organización.
+        </p>
+      </Dialog>
     </div>
   );
 };

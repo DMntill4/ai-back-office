@@ -17,6 +17,7 @@ import { WebhooksApiView } from "./WebhooksApiView";
 import { RolesPermissionsView } from "./RolesPermissionsView";
 import { ProfileSettingsView } from "./ProfileSettingsView";
 import { PreferencesSettingsView } from "./PreferencesSettingsView";
+import { api } from "../../services/apiClient";
 
 export interface SettingsViewProps {
   initialTab?: string;
@@ -40,14 +41,25 @@ const selectClass =
 
 const GeneralSettingsPanel: React.FC = () => {
   const [autonomyLevel, setAutonomyLevel] = useState<"assisted" | "strict" | "auto">("assisted");
-  const [primaryModel, setPrimaryModel] = useState("gemini-flash");
-  const [temperature, setTemperature] = useState("0.1");
+  const [llmConfig, setLlmConfig] = useState<{ provider: string; model: string } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
+
+  useEffect(() => {
+    let active = true;
+    void api.config.get().then((res) => {
+      if (active && res.success && !res.isFallback && res.data?.llm) {
+        setLlmConfig(res.data.llm);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSave = () => {
     showToast("Configuracion general y parametros del sistema guardados con exito.");
@@ -83,9 +95,9 @@ const GeneralSettingsPanel: React.FC = () => {
     },
     {
       title: "Motor de Inferencia",
-      value: "MINT Core v2.4",
-      subtitle: "Latencia promedio: 142ms",
-      trend: { direction: "up", label: "Optimizado" },
+      value: llmConfig?.model ?? "Consultando",
+      subtitle: llmConfig?.provider ?? "Configuración del servidor",
+      trend: { direction: "neutral", label: "GROK_MODEL" },
       icon: Cpu,
     },
   ];
@@ -145,43 +157,25 @@ const GeneralSettingsPanel: React.FC = () => {
                 </div>
               </div>
               <span className="text-caption font-bold font-mono text-brand bg-brand-surface px-compact py-hairline rounded border border-brand/20">
-                Latencia: 142ms
+                Configurado en servidor
               </span>
             </div>
 
             <p className="text-caption text-secondary mt-compact leading-relaxed">
-              Selecciona el modelo de inferencia para orquestacion de compras, calculo de rotacion ROP y enrutamiento logistico.
+              El modelo activo se configura en el servidor mediante variables de entorno. Esta pantalla muestra el proveedor real y no permite seleccionar proveedores que no estén conectados.
             </p>
           </div>
 
           <div className={wellClass}>
             <div>
-              <label className={labelClass}>Modelo Asignado</label>
-              <select
-                value={primaryModel}
-                onChange={(e) => setPrimaryModel(e.target.value)}
-                className={selectClass}
-              >
-                <option value="gemini-flash">Google Gemini 2.0 Flash (Alta Velocidad - Recomendado)</option>
-                <option value="gemini-pro">Google Gemini 1.5 Pro (Razonamiento Complejo)</option>
-                <option value="claude-sonnet">Anthropic Claude 3.5 Sonnet</option>
-              </select>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-caption font-mono text-secondary mb-hairline">
-                <span>Temperatura de Decision</span>
-                <span className="text-primary font-bold">{temperature} (Determinista)</span>
+              <span className={labelClass}>Proveedor y modelo activos</span>
+              <div className="flex h-9 items-center justify-between rounded-control border border-border bg-panel px-compact text-caption text-primary">
+                <span>{llmConfig?.provider ?? "Consultando configuración…"}</span>
+                <span className="font-mono">{llmConfig?.model ?? "—"}</span>
               </div>
-              <input
-                type="range"
-                min="0.0"
-                max="0.5"
-                step="0.05"
-                value={temperature}
-                onChange={(e) => setTemperature(e.target.value)}
-                className="w-full accent-brand cursor-pointer"
-              />
+              <p className="mt-hairline text-caption text-muted">
+                Para cambiar el modelo, actualiza <code>GROK_MODEL</code> en el entorno del servidor y reinicia la API.
+              </p>
             </div>
           </div>
         </div>

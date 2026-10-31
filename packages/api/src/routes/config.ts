@@ -7,6 +7,7 @@ import {
     listProductThresholds,
     COMMON_TIMEZONES,
 } from "@mint/core";
+import { env } from "@mint/core";
 import { currentSession } from "./auth";
 
 /**
@@ -38,7 +39,17 @@ export async function configRoutes(fastify: FastifyInstance) {
                 getCompanyConfig(companyId),
                 getCompanyTimezone(companyId),
             ]);
-            return { success: true, data: { ...config, timezone } };
+            return {
+                success: true,
+                data: {
+                    ...config,
+                    timezone,
+                    llm: {
+                        provider: "Grok",
+                        model: env.GROK_MODEL,
+                    },
+                },
+            };
         } catch (err: any) {
             return {
                 success: false,

@@ -1,7 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { checkDatabaseHealth, db, users, companies } from "@mint/core";
-import { eq } from "drizzle-orm";
-import { currentSession } from "./auth";
+import { checkDatabaseHealth } from "@mint/core";
 
 export async function healthRoutes(fastify: FastifyInstance) {
   // 1. Healthcheck general
@@ -31,37 +29,4 @@ export async function healthRoutes(fastify: FastifyInstance) {
     };
   });
 
-  // 3. Miembros del equipo (RBAC)
-  fastify.get("/api/team", async () => {
-    try {
-      const allUsers = await db
-        .select()
-        .from(users)
-        .where(eq(users.companyId, currentSession.companyId));
-
-      return {
-        success: true,
-        team: allUsers.map((u) => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          role: u.role,
-          createdAt: u.createdAt,
-        })),
-      };
-    } catch {
-      return {
-        success: true,
-        team: [
-          {
-            id: currentSession.userId,
-            name: currentSession.userName,
-            email: currentSession.userEmail,
-            role: currentSession.role,
-            createdAt: new Date().toISOString(),
-          },
-        ],
-      };
-    }
-  });
 }

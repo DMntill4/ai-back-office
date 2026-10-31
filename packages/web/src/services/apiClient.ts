@@ -741,6 +741,12 @@ export const api = {
     team: {
         /** Operadores con acceso a la empresa (RBAC). */
         list: () => requestWithFallback<any[]>("/team", []),
+        create: (body: { name: string; email: string; password: string; role: string }) =>
+          request<any>("/team", { method: "POST", body }),
+        updateRole: (id: string, role: string) =>
+          request<any>(`/team/${encodeURIComponent(id)}/role`, { method: "PATCH", body: { role } }),
+        remove: (id: string) =>
+          request<any>(`/team/${encodeURIComponent(id)}`, { method: "DELETE" }),
     },
 
     channels: {

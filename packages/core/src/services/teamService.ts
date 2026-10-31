@@ -2,7 +2,7 @@ import { db } from "../db/client";
 import { users, companies } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { type UserRole } from "./authAndSetupService";
+import { hashPassword, type UserRole } from "./authAndSetupService";
 
 export interface TeamMember {
   id: string;
@@ -45,6 +45,7 @@ export async function inviteTeamMember(params: {
   companyId: string;
   email: string;
   name: string;
+  password?: string;
   role?: UserRole;
 }): Promise<{ success: boolean; member?: TeamMember; message: string }> {
   const role = params.role || "operator";
@@ -75,6 +76,7 @@ export async function inviteTeamMember(params: {
     email,
     name: params.name.trim(),
     role,
+    ...(params.password ? { passwordHash: hashPassword(params.password) } : {}),
     setupCompleted: true,
   });
 
@@ -98,7 +100,30 @@ export async function updateTeamMemberRole(params: {
   userId: string;
   newRole: UserRole;
 }): Promise<{ success: boolean; message: string }> {
-  const result = await db
+  const target = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(and(eq(users.id, params.userId), eq(users.companyId, params.companyId)))
+    .limit(1);
+
+  if (target.length === 0) {
+    return { success: false, message: `Usuario '${params.userId}' no encontrado en la empresa.` };
+  }
+
+  if (target[0].role === "owner" && params.newRole !== "owner") {
+    const owners = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.companyId, params.companyId), eq(users.role, "owner")));
+    if (owners.length <= 1) {
+      return {
+        success: false,
+        message: "No puedes cambiar el rol del único propietario de la organización.",
+      };
+    }
+  }
+
+  await db
     .update(users)
     .set({ role: params.newRole })
     .where(and(eq(users.id, params.userId), eq(users.companyId, params.companyId)));

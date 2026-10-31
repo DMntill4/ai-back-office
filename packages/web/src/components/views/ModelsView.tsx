@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import {
   Cpu,
-  Sparkles,
   Check,
   Zap,
   Layers,
@@ -23,63 +21,19 @@ interface ModelDescriptor {
   desc: string;
 }
 
-/**
- * Catálogo de modelos conocidos. Se usa como enriquecimiento de presentación
- * (descripciones, badges) sobre los modelos que reporta el backend en
- * `GET /api/config`. El backend es la fuente de verdad de cuáles están activos.
- */
-const MODEL_CATALOG: Record<string, Omit<ModelDescriptor, "id">> = {
-  "gemini-2-flash": {
-    name: "Google Gemini 2.0 Flash",
-    badge: "RECOMENDADO OPERACIONES",
-    context: "1.000k tokens",
-    latency: "142 ms",
-    costPer1k: "$0.0001 USD",
-    desc: "Excelente velocidad y precisión para razonamiento estructurado en tiempo real, balanceo ROP y cálculo de fletes.",
-  },
-  "gemini-1-5-pro": {
-    name: "Google Gemini 1.5 Pro",
-    badge: "ALTO RAZONAMIENTO",
-    context: "2.000k tokens",
-    latency: "280 ms",
-    costPer1k: "$0.0012 USD",
-    desc: "Ideal para síntesis profunda de auditoría, conciliación de contratos marco y análisis financiero multidimensional.",
-  },
-  "claude-3-5-sonnet": {
-    name: "Claude 3.5 Sonnet (Anthropic)",
-    badge: "ANÁLISIS CONTRACTUAL",
-    context: "200k tokens",
-    latency: "310 ms",
-    costPer1k: "$0.0030 USD",
-    desc: "Diseñado para inspección exhaustiva de cláusulas legales y evaluación de riesgo de proveedores.",
-  },
-  "gpt-4o": {
-    name: "GPT-4o (OpenAI)",
-    badge: "MULTIMODAL & OCR",
-    context: "128k tokens",
-    latency: "240 ms",
-    costPer1k: "$0.0025 USD",
-    desc: "Adecuado para ingesta de albaranes escaneados, facturación digital y cotejo visual de remisiones.",
-  },
-};
-
 function buildDescriptor(id: string): ModelDescriptor {
-  const known = MODEL_CATALOG[id];
-  if (known) return { id, ...known };
   return {
     id,
     name: id,
-    badge: "CONFIGURADO",
+    badge: "ACTIVO EN SERVIDOR",
     context: "—",
     latency: "—",
     costPer1k: "—",
-    desc: "Modelo reportado por la configuración del backend.",
+    desc: "Modelo configurado en el servidor para solicitudes del agente. Los detalles de capacidad y costo no se inventan si el proveedor no los reporta.",
   };
 }
 
 export const ModelsView: React.FC = () => {
-  const [selectedModel, setSelectedModel] = useState<string>("");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState<boolean>(false);
@@ -89,11 +43,6 @@ export const ModelsView: React.FC = () => {
     totalCostUsd: number;
     taskCount: number;
   }>({ totalTokens: 0, totalCostUsd: 0, taskCount: 0 });
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
 
   const load = async () => {
     setLoading(true);
@@ -106,15 +55,10 @@ export const ModelsView: React.FC = () => {
 
       // Extraer modelos configurados de la respuesta de /api/config.
       const cfg: any = configRes?.data ?? {};
-      const rawModels: string[] =
-        (Array.isArray(cfg?.models) && cfg.models) ||
-        (Array.isArray(cfg?.aiModels) && cfg.aiModels) ||
-        (cfg?.primaryModel ? [cfg.primaryModel] : []) ||
-        [];
-
-      const ids = rawModels
-        .map((m: any) => (typeof m === "string" ? m : m?.id))
-        .filter((v: any): v is string => typeof v === "string" && v.length > 0);
+      const configuredModel = cfg?.llm?.model;
+      const ids = typeof configuredModel === "string" && configuredModel.length > 0
+        ? [configuredModel]
+        : [];
 
       setModelIds(ids);
       setIsFallback(Boolean(configRes?.isFallback || costsRes?.isFallback));
@@ -128,9 +72,6 @@ export const ModelsView: React.FC = () => {
         });
       }
 
-      if (ids.length > 0 && !selectedModel) {
-        setSelectedModel(ids[0]);
-      }
     } catch (err: any) {
       setError(err?.message ?? "No se pudo cargar la configuración de modelos.");
     } finally {
@@ -157,10 +98,9 @@ export const ModelsView: React.FC = () => {
         subtitle: primary
           ? "Inferencia continua para MINT"
           : "Configura un modelo en Ajustes",
-        trend: { direction: "up", label: primary ? "Recomendado" : "Pendiente" },
+        trend: { direction: "neutral", label: primary ? "Configurado en servidor" : "Pendiente" },
         icon: Cpu,
         isHero: true,
-        onActionClick: () => showToast("Modelo activo verificado."),
       },
       {
         title: "Tokens Procesados (Sesión)",
@@ -188,27 +128,6 @@ export const ModelsView: React.FC = () => {
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-canvas text-primary font-sans flex flex-col p-group space-y-group">
-      {/* Toast Notification */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-6 right-8 z-50 px-compact py-element rounded-pill flex items-center gap-compact bg-panel border border-state-ok/40 text-state-ok shadow-popover"
-          >
-            <div className="w-2 h-2 rounded-full bg-state-ok animate-ping" />
-            <span className="text-caption font-mono font-medium">{toastMessage}</span>
-            <button
-              onClick={() => setToastMessage(null)}
-              className="text-muted hover:text-primary text-caption ml-1"
-            >
-              ✕
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* HEADER SUPERIOR */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-base">
         <div>
@@ -228,19 +147,6 @@ export const ModelsView: React.FC = () => {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Actualizar</span>
-          </button>
-          <button
-            onClick={() =>
-              showToast(
-                selectedModel
-                  ? `Modelo ${selectedModel} guardado como motor predeterminado.`
-                  : "Selecciona un modelo primero.",
-              )
-            }
-            className="px-compact py-hairline rounded-control bg-brand text-canvas font-semibold text-caption flex items-center gap-hairline hover:opacity-90 transition-opacity"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Activar Modelo Seleccionado</span>
           </button>
         </div>
       </header>
@@ -281,15 +187,11 @@ export const ModelsView: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-group">
           {models.map((m) => {
-            const isSelected = selectedModel === m.id;
+            const isSelected = true;
             return (
               <div
                 key={m.id}
-                onClick={() => {
-                  setSelectedModel(m.id);
-                  showToast(`Modelo seleccionado: ${m.name}`);
-                }}
-                className={`bg-panel rounded-container p-group border cursor-pointer transition-all flex flex-col justify-between ${isSelected
+                className={`bg-panel rounded-container p-group border transition-all flex flex-col justify-between ${isSelected
                     ? "border-brand ring-1 ring-brand/40"
                     : "border-border hover:border-border-strong"
                   }`}
@@ -333,15 +235,15 @@ export const ModelsView: React.FC = () => {
                 <div className="bg-raised rounded-control p-element mt-base border border-border">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-compact text-center text-caption font-mono">
                     <div>
-                      <span className="text-caption text-muted uppercase block">Contexto</span>
+                      <span className="text-caption text-muted block">Contexto</span>
                       <span className="text-primary font-bold">{m.context}</span>
                     </div>
                     <div>
-                      <span className="text-caption text-muted uppercase block">Latencia</span>
+                      <span className="text-caption text-muted block">Latencia</span>
                       <span className="text-state-ok font-bold">{m.latency}</span>
                     </div>
                     <div>
-                      <span className="text-caption text-muted uppercase block">Costo / 1k</span>
+                      <span className="text-caption text-muted block">Costo / 1k</span>
                       <span className="text-primary font-bold">{m.costPer1k}</span>
                     </div>
                   </div>

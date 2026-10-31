@@ -29,6 +29,7 @@ import { shadowRoutes } from "./routes/shadow";
 import { questionsRoutes } from "./routes/questions";
 import { configRoutes } from "./routes/config";
 import { profileRoutes } from "./routes/profile";
+import { teamRoutes } from "./routes/team";
 import fastifyWebsocket from "@fastify/websocket";
 import fastifyMultipart from "@fastify/multipart";
 import { startTelemetryBridge, stopTelemetryBridge } from "./events/telemetryBridge";
@@ -141,6 +142,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   server.register(questionsRoutes);
   server.register(configRoutes);
   server.register(profileRoutes);
+  server.register(teamRoutes);
 
   // Static web console serving
   const candidateStaticPaths = [
