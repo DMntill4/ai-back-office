@@ -55,7 +55,7 @@ export const MintAgentGraph: React.FC<MintAgentGraphProps> = ({
   const mascotImg = useMemo(() => {
     if (typeof window === "undefined") return null;
     const img = new Image();
-    img.src = "/assets/mint-mascot-glow.svg";
+    img.src = "/assets/mint-mascot.png";
     return img;
   }, []);
 

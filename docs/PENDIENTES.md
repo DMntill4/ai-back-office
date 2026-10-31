@@ -48,3 +48,4 @@ Rama activa: `unify/mint`
    - El código de `packages/web` está listo para ser empaquetado como aplicación de escritorio nativa mediante `npm run tauri build` una vez instalado Rust y las dependencias de compilación del sistema operativo.
 3. **Métricas en Vivo de FinOps:**
    - Integrar un widget de visualización de gasto acumulado diario en USD/COP en `SettingsView.tsx` basado en los registros de la tabla `llm_calls` y el histórico de tokens cacheados.
+

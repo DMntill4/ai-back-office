@@ -554,7 +554,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
       messages: requestMessages,
       tools: isSmallTalk ? undefined : AGENT_TOOLS,
       toolChoice: isSmallTalk ? undefined : "auto",
-      maxTokens: isSmallTalk ? 150 : (options.maxTokens ?? 900),
+      maxTokens: isSmallTalk ? 150 : options.maxTokens ?? 450,
       temperature: 0.1,
     });
 

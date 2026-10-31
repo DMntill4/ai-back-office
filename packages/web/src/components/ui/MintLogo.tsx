@@ -63,17 +63,17 @@ export const MintLogo: React.FC<MintLogoProps> = ({
         </span>
       ) : (
         <img
-          src="/assets/bannerIcon.png"
+          src="/assets/mint-logo.png"
           alt="Mint."
           loading="eager"
           draggable={false}
           onError={() => setHasAssetError(true)}
-          className={`${SIZE_CLASSES[size]} w-auto shrink-0 object-contain mix-blend-screen`}
+          className={`${SIZE_CLASSES[size]} w-auto shrink-0 object-contain drop-shadow-sm`}
         />
       )}
       {showText && (
-        <span className="font-mono text-caption text-secondary whitespace-nowrap">
-          AI Back Office
+        <span className="font-sans text-body font-bold tracking-tight text-primary">
+          Mint<span className="text-brand">.</span>
         </span>
       )}
     </span>
