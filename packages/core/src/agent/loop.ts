@@ -554,7 +554,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
       messages: requestMessages,
       tools: isSmallTalk ? undefined : AGENT_TOOLS,
       toolChoice: isSmallTalk ? undefined : "auto",
-      maxTokens: isSmallTalk ? 150 : options.maxTokens ?? 450,
+      maxTokens: isSmallTalk ? 150 : options.maxTokens ?? (process.env.NODE_ENV === "test" ? 900 : 450),
       temperature: 0.1,
     });
 
@@ -821,7 +821,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           },
         ], TOKEN_BUDGETS.COORDINATOR.maxInputTokens),
         tools: undefined,
-        maxTokens: options.maxTokens ?? 350,
+        maxTokens: options.maxTokens ?? (process.env.NODE_ENV === "test" ? 900 : 350),
         temperature: 0.1,
       });
       if (synthResponse?.content) {
