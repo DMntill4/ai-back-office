@@ -15,6 +15,7 @@ import {
   type ResourceDomain,
 } from "../../security/agentPermissionsMatrix";
 import { telemetryPublisher } from "../../telemetry/telemetryPublisher";
+import { toMintGraphNodeId } from "../../graph/graph.types";
 import {
   evaluateBeforeClosing,
   type SelfEvaluationResult,
@@ -660,7 +661,51 @@ Instrucción: Emite un veredicto directivo de 2 frases combinando riesgo, urgenc
       };
     }
 
-    return agent.execute(task, { llmClient: options?.llmClient });
+    const payload = task.payload && typeof task.payload === "object"
+      ? task.payload as Record<string, unknown>
+      : {};
+    const productId = String(payload.productId ?? payload.product_id ?? payload.sku ?? "");
+    const supplierId = String(payload.supplierId ?? payload.supplier_id ?? "");
+    const warehouseId = String(payload.warehouseId ?? payload.warehouse_id ?? "");
+    const shipmentId = String(payload.shipmentId ?? payload.shipment_id ?? "");
+    const agentId = toMintGraphNodeId("agent", agent.contract.role);
+    const role = agent.contract.role;
+    const targetNodeId = productId
+      ? toMintGraphNodeId("sku", productId)
+      : supplierId && role === "compras"
+        ? toMintGraphNodeId("supp", supplierId)
+        : warehouseId && (role === "inventario" || role === "logistica")
+          ? toMintGraphNodeId("wh", warehouseId)
+          : shipmentId && role === "logistica"
+            ? toMintGraphNodeId("ship", shipmentId)
+            : toMintGraphNodeId("case", task.caseId ?? task.taskId);
+    const traversalAction = /inventario|stock|existencia/i.test(task.taskType)
+      ? "reading_stock"
+      : /logistica|envio|ruta/i.test(task.taskType)
+        ? "routing_shipment"
+        : /compra|proveedor|orden/i.test(task.taskType)
+          ? "evaluating_supplier"
+          : "executing_task";
+
+    telemetryPublisher.publishGraphTraversal({
+      taskId: task.caseId ?? task.taskId,
+      agentId,
+      targetNodeId,
+      action: traversalAction,
+      path: [agentId, targetNodeId],
+      status: "active",
+    });
+
+    const result = await agent.execute(task, { llmClient: options?.llmClient });
+    telemetryPublisher.publishGraphTraversal({
+      taskId: task.caseId ?? task.taskId,
+      agentId,
+      targetNodeId,
+      action: traversalAction,
+      path: [agentId, targetNodeId],
+      status: result.success ? "completed" : "warning",
+    });
+    return result;
   }
 }
 

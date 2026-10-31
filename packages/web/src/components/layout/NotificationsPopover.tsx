@@ -76,14 +76,15 @@ export const NotificationsPopover: React.FC<Props> = ({ notifications, onSelectT
         onClick={() => setIsOpen((v) => !v)}
         aria-haspopup="true"
         aria-expanded={isOpen}
-        className={`relative w-8 h-8 rounded-pill bg-panel border flex items-center justify-center transition-colors cursor-pointer ${
-          isOpen ? "text-brand border-brand" : "text-secondary hover:text-primary border-border"
+        className={`relative w-8 h-8 rounded-control bg-raised border flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+          isOpen ? "text-brand border-brand" : "text-secondary hover:text-primary hover:bg-panel border-border"
         }`}
         title="Notificaciones"
+        aria-label={`Notificaciones${unreadCount ? `, ${unreadCount} sin leer` : ""}`}
       >
         <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-pill bg-state-pending text-caption font-bold text-canvas flex items-center justify-center px-1 font-mono">
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-pill bg-brand text-caption font-bold text-action-text flex items-center justify-center px-1 ring-2 ring-panel">
             {unreadCount}
           </span>
         )}

@@ -34,13 +34,13 @@ export async function getKnowledgeGraph(
 
   if (mode === "workflow") {
     // Modo Workflow: Únicamente agentes, tools, bases de datos y decisiones
-    const allowedTypes = new Set(["agent", "tool", "database", "decision"]);
+    const allowedTypes = new Set(["agent", "decision", "case"]);
     nodes = nodes.filter((n) => allowedTypes.has(n.type));
     const nodeIds = new Set(nodes.map((n) => n.id));
     edges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
   } else if (mode === "execution") {
     // Modo Execution: Trazabilidad de decisiones generadas y herramientas usadas
-    const executionTypes = new Set(["agent", "decision", "sku", "supplier", "tool"]);
+    const executionTypes = new Set(["agent", "decision", "case", "sku", "supplier", "shipment"]);
     nodes = nodes.filter((n) => executionTypes.has(n.type));
     const nodeIds = new Set(nodes.map((n) => n.id));
     edges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));

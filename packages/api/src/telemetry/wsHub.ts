@@ -1,5 +1,5 @@
 import type { WebSocket } from "ws";
-import { telemetryPublisher, AgentTelemetryEvent } from "@mint/core";
+import { telemetryPublisher, AgentTelemetryEvent, type AgentGraphTraversal } from "@mint/core";
 
 /**
  * WebSocket Telemetry Hub
@@ -19,6 +19,9 @@ class WebSocketTelemetryHub {
 
     telemetryPublisher.subscribe((event: AgentTelemetryEvent) => {
       this.broadcast(event);
+    });
+    telemetryPublisher.on("agent_graph_traversal", (event: AgentGraphTraversal) => {
+      this.broadcastTraversal(event);
     });
 
     this.isSubscribedToCore = true;
@@ -86,6 +89,21 @@ class WebSocketTelemetryHub {
 
     for (const client of this.clients) {
       if (client.readyState === 1) { // WebSocket.OPEN
+        try {
+          client.send(payload);
+        } catch {
+          this.clients.delete(client);
+        }
+      } else {
+        this.clients.delete(client);
+      }
+    }
+  }
+
+  private broadcastTraversal(event: AgentGraphTraversal): void {
+    const payload = JSON.stringify(event);
+    for (const client of this.clients) {
+      if (client.readyState === 1) {
         try {
           client.send(payload);
         } catch {

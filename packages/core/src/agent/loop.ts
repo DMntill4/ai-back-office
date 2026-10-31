@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { enforceTokenBudget } from "./context/contextManager";
 import { normalizeBotLanguage, type BotLanguage } from "../services/configService";
 import { telemetryPublisher } from "../telemetry/telemetryPublisher";
+import { toMintGraphNodeId } from "../graph/graph.types";
 import {
   evaluateBeforeClosing,
   type SelfEvaluationResult,
@@ -374,7 +375,7 @@ export async function runAgentLoop(
         ),
       )
       .orderBy(desc(cases.createdAt))
-      .limit(6);
+      .limit(3);
 
     if (prevCases.length === 0) {
       prevCases = await db
@@ -388,7 +389,7 @@ export async function runAgentLoop(
           ),
         )
         .orderBy(desc(cases.createdAt))
-        .limit(3);
+        .limit(2);
     }
 
     for (const prev of prevCases.reverse()) {
@@ -398,11 +399,11 @@ export async function runAgentLoop(
       if (userText && assistantText && !isInvalidOrGibberishInput(userText)) {
         previousDialogues.push({
           role: "user",
-          content: userText.slice(0, 1000),
+          content: userText.slice(0, 500),
         });
         previousDialogues.push({
           role: "assistant",
-          content: assistantText.slice(0, 1600),
+          content: assistantText.slice(0, 800),
         });
       }
     }
@@ -506,7 +507,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
       messages,
       tools: isSmallTalk ? undefined : AGENT_TOOLS,
       toolChoice: isSmallTalk ? undefined : "auto",
-      maxTokens: isSmallTalk ? 200 : undefined,
+      maxTokens: isSmallTalk ? 200 : options.maxTokens ?? 900,
       temperature: 0.1,
     });
 
@@ -567,6 +568,57 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           let result: any;
           let isClosingAction = false;
           let closingType: "resuelto" | "escalado" | undefined;
+          let parsedToolArgs: Record<string, unknown> = {};
+          try {
+            parsedToolArgs = typeof toolArgs === "string"
+              ? JSON.parse(toolArgs || "{}") as Record<string, unknown>
+              : toolArgs && typeof toolArgs === "object"
+                ? toolArgs as Record<string, unknown>
+                : {};
+          } catch {
+            parsedToolArgs = {};
+          }
+          const role = /stock|inventario|demanda/i.test(toolName)
+            ? "inventario"
+            : /proveedor|compra|orden/i.test(toolName)
+              ? "compras"
+              : /envio|ruta|logistica|carga/i.test(toolName)
+                ? "logistica"
+                : /auditar|anomalia|riesgo/i.test(toolName)
+                  ? "auditoria"
+                  : /notificacion|canal/i.test(toolName)
+                    ? "notificaciones"
+                    : /dato|integracion|sincron/i.test(toolName)
+                      ? "datos_integraciones"
+                      : "orchestrator";
+          const agentId = toMintGraphNodeId("agent", role);
+          const productId = String(
+            parsedToolArgs.productId ??
+            parsedToolArgs.product_id ??
+            parsedToolArgs.producto_id ??
+            parsedToolArgs.sku ??
+            "",
+          );
+          const supplierId = String(parsedToolArgs.supplierId ?? parsedToolArgs.proveedor_id ?? "");
+          const warehouseId = String(parsedToolArgs.warehouseId ?? parsedToolArgs.bodega_id ?? "");
+          const shipmentId = String(parsedToolArgs.shipmentId ?? parsedToolArgs.shipment_id ?? "");
+          const targetNodeId = productId
+            ? toMintGraphNodeId("sku", productId)
+            : supplierId && role === "compras"
+              ? toMintGraphNodeId("supp", supplierId)
+              : warehouseId && (role === "inventario" || role === "logistica")
+                ? toMintGraphNodeId("wh", warehouseId)
+                : shipmentId && role === "logistica"
+                  ? toMintGraphNodeId("ship", shipmentId)
+                  : toMintGraphNodeId("case", caseId);
+          telemetryPublisher.publishGraphTraversal({
+            taskId: caseId,
+            agentId,
+            targetNodeId,
+            action: toolName,
+            path: [agentId, targetNodeId],
+            status: "active",
+          });
           try {
             const dispatched = await dispatchToolCall(toolName, toolArgs, {
               companyId,
@@ -601,6 +653,14 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
                 () => { },
               );
           }
+          telemetryPublisher.publishGraphTraversal({
+            taskId: caseId,
+            agentId,
+            targetNodeId,
+            action: toolName,
+            path: [agentId, targetNodeId],
+            status: result?.isSuccess === false ? "warning" : "completed",
+          });
 
           // Registrar ejecución en la tabla formal de herramientas tool_calls y en la bitácora
           try {
@@ -715,6 +775,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           },
         ],
         tools: undefined,
+        maxTokens: options.maxTokens ?? 700,
         temperature: 0.1,
       });
       if (synthResponse?.content) {

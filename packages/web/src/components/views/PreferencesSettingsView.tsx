@@ -25,16 +25,17 @@ const Toggle: React.FC<{
       {description && <p className="text-caption text-muted mt-hairline">{description}</p>}
     </div>
     <button
+      type="button"
       role="switch"
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={`relative shrink-0 w-10 h-6 rounded-pill border transition-colors cursor-pointer ${
-        checked ? "bg-brand/80 border-brand" : "bg-raised border-border"
+        checked ? "bg-brand border-brand" : "bg-raised border-border"
       }`}
     >
       <span
-        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-pill bg-canvas transition-transform ${
+        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-pill bg-action transition-transform ${
           checked ? "translate-x-4" : ""
         }`}
       />

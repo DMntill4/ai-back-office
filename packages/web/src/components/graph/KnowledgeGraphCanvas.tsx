@@ -7,6 +7,7 @@ import {
   SimEdge,
   GraphPhysicsSettings,
 } from "../../types/graph";
+import type { AgentGraphTraversal } from "../../types/telemetry";
 import { ZoomIn, ZoomOut, Scan } from "lucide-react";
 
 interface KnowledgeGraphCanvasProps {
@@ -18,6 +19,7 @@ interface KnowledgeGraphCanvasProps {
   onSelectNode: (nodeId: string | null) => void;
   physicsSettings: GraphPhysicsSettings;
   focusNodeId?: string | null;
+  activeTraversals?: AgentGraphTraversal[];
 }
 
 // Semillas deterministas para la nube de puntos de la guanábana en el nodo del agente
@@ -43,6 +45,7 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
   onSelectNode,
   physicsSettings,
   focusNodeId,
+  activeTraversals = [],
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -83,6 +86,8 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
   const simNodesRef = useRef<Map<string, SimNode>>(new Map());
   const simEdgesRef = useRef<SimEdge[]>([]);
   const animationFrameId = useRef<number | null>(null);
+  const activeTraversalsRef = useRef(activeTraversals);
+  activeTraversalsRef.current = activeTraversals;
 
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
   const cameraRef = useRef(camera);
@@ -248,6 +253,7 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
 
     let isRunning = true;
     let time = 0;
+    const motionAllowed = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const {
       repulsion = 5200,
@@ -265,55 +271,81 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
 
     const render = () => {
       if (!isRunning) return;
-      time += 0.025;
+      if (motionAllowed) time += 0.025;
+      const viewportWidth = canvas.clientWidth;
+      const viewportHeight = canvas.clientHeight;
+      if (viewportWidth <= 0 || viewportHeight <= 0) {
+        animationFrameId.current = requestAnimationFrame(render);
+        return;
+      }
 
       const nodes = Array.from(simNodesRef.current.values());
       const edges = simEdgesRef.current;
+      const currentTime = Date.now();
+      const recentTraversals = activeTraversalsRef.current.filter(
+        (traversal) => currentTime - traversal.timestamp < 8000,
+      );
 
       // A. Simulación de fuerzas
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const n1 = nodes[i];
-          const n2 = nodes[j];
-          const dx = n2.x - n1.x;
-          const dy = n2.y - n1.y;
-          const distSq = dx * dx + dy * dy || 1;
-          const dist = Math.sqrt(distSq);
+      const cellSize = 420;
+      if (motionAllowed) {
+        const spatialBuckets = new Map<string, Array<{ node: SimNode; index: number }>>();
+        nodes.forEach((node, index) => {
+          const cellX = Math.floor(node.x / cellSize);
+          const cellY = Math.floor(node.y / cellSize);
+          const key = `${cellX},${cellY}`;
+          const bucket = spatialBuckets.get(key) ?? [];
+          bucket.push({ node, index });
+          spatialBuckets.set(key, bucket);
+        });
+        for (let i = 0; i < nodes.length; i++) {
+        const n1 = nodes[i];
+        const cellX = Math.floor(n1.x / cellSize);
+        const cellY = Math.floor(n1.y / cellSize);
+        for (let offsetX = -1; offsetX <= 1; offsetX++) {
+          for (let offsetY = -1; offsetY <= 1; offsetY++) {
+            const nearby = spatialBuckets.get(`${cellX + offsetX},${cellY + offsetY}`) ?? [];
+            for (const candidate of nearby) {
+              if (candidate.index <= i) continue;
+              const n2 = candidate.node;
+              const dx = n2.x - n1.x;
+              const dy = n2.y - n1.y;
+              const distSq = dx * dx + dy * dy || 1;
+              const dist = Math.sqrt(distSq);
+              if (dist >= cellSize) continue;
 
-          if (dist < 420) {
-            const force = repulsion / distSq;
-            const fx = (dx / dist) * force;
-            const fy = (dy / dist) * force;
+              const force = repulsion / distSq;
+              const fx = (dx / dist) * force;
+              const fy = (dy / dist) * force;
+              if (!n1.isDragging) {
+                n1.vx -= fx;
+                n1.vy -= fy;
+              }
+              if (!n2.isDragging) {
+                n2.vx += fx;
+                n2.vy += fy;
+              }
 
-            if (!n1.isDragging) {
-              n1.vx -= fx;
-              n1.vy -= fy;
-            }
-            if (!n2.isDragging) {
-              n2.vx += fx;
-              n2.vy += fy;
-            }
-          }
-
-          // Colisión dura: garantiza separación mínima entre centros de nodos
-          // para que las etiquetas no se solapen.
-          if (dist < MIN_NODE_DISTANCE && dist > 0.001) {
-            const overlap = (MIN_NODE_DISTANCE - dist) * 0.5;
-            const nx = dx / dist;
-            const ny = dy / dist;
-            if (!n1.isDragging) {
-              n1.x -= nx * overlap;
-              n1.y -= ny * overlap;
-            }
-            if (!n2.isDragging) {
-              n2.x += nx * overlap;
-              n2.y += ny * overlap;
+              if (dist < MIN_NODE_DISTANCE && dist > 0.001) {
+                const overlap = (MIN_NODE_DISTANCE - dist) * 0.5;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                if (!n1.isDragging) {
+                  n1.x -= nx * overlap;
+                  n1.y -= ny * overlap;
+                }
+                if (!n2.isDragging) {
+                  n2.x += nx * overlap;
+                  n2.y += ny * overlap;
+                }
+              }
             }
           }
         }
+        }
       }
 
-      for (const edge of edges) {
+      if (motionAllowed) for (const edge of edges) {
         const s = edge.source;
         const t = edge.target;
         const dx = t.x - s.x;
@@ -335,7 +367,10 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
       }
 
       for (const n of nodes) {
-        if (!n.isDragging) {
+        if (!motionAllowed) {
+          n.vx = 0;
+          n.vy = 0;
+        } else if (!n.isDragging) {
           if (n.type === "agent") {
             n.x = 0;
             n.y = 0;
@@ -425,17 +460,38 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           }
         });
       }
+      for (const traversal of recentTraversals) {
+        traversal.path.forEach((id) => highlightedNodeIds.add(id));
+      }
 
       // 1. Dibujar Aristas Nítidas y Encendidas
       edges.forEach((edge) => {
         const isHighlighted = highlightedEdgeIds.has(edge.id);
         const hasSelection = Boolean(activeHighlightId);
+        const traversal = recentTraversals.find((item) =>
+          item.path.some(
+            (id, index) =>
+              index < item.path.length - 1 &&
+              ((id === edge.source.id && item.path[index + 1] === edge.target.id) ||
+                (id === edge.target.id && item.path[index + 1] === edge.source.id)),
+          ),
+        );
+        const traversalAge = traversal ? currentTime - traversal.timestamp : 0;
+        const trailOpacity = traversal?.status === "active"
+          ? 1
+          : traversal
+            ? Math.max(0, 1 - traversalAge / 8000)
+            : 0;
 
         ctx.beginPath();
         ctx.moveTo(edge.source.x, edge.source.y);
         ctx.lineTo(edge.target.x, edge.target.y);
 
-        if (isHighlighted) {
+        if (traversal) {
+          ctx.strokeStyle = traversal.status === "warning" ? "#F5B544" : "#2BB656";
+          ctx.lineWidth = traversal.status === "active" ? 3 : 2;
+          ctx.globalAlpha = trailOpacity;
+        } else if (isHighlighted) {
           ctx.strokeStyle = "#2BB656";
           ctx.lineWidth = 2.2;
           ctx.globalAlpha = 1.0;
@@ -451,7 +507,16 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
         ctx.stroke();
 
         // Flecha direccional en conexiones activas
-        if (isHighlighted) {
+        if (traversal?.status === "active" && motionAllowed) {
+          const progress = (time * 0.25 + (traversal.path.indexOf(edge.source.id) * 0.23)) % 1;
+          const particleX = edge.source.x + (edge.target.x - edge.source.x) * progress;
+          const particleY = edge.source.y + (edge.target.y - edge.source.y) * progress;
+          ctx.beginPath();
+          ctx.arc(particleX, particleY, 4.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#9DE342";
+          ctx.globalAlpha = 1;
+          ctx.fill();
+        } else if (isHighlighted) {
           const midX = (edge.source.x + edge.target.x) / 2;
           const midY = (edge.source.y + edge.target.y) / 2;
           const angle = Math.atan2(
@@ -476,12 +541,52 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
         }
       });
 
+      for (const traversal of recentTraversals) {
+        const trailOpacity = traversal.status === "active"
+          ? 1
+          : Math.max(0, 1 - (currentTime - traversal.timestamp) / 8000);
+        for (let index = 0; index < traversal.path.length - 1; index++) {
+          const source = simNodesRef.current.get(traversal.path[index]);
+          const target = simNodesRef.current.get(traversal.path[index + 1]);
+          if (!source || !target) continue;
+          const hasPersistentEdge = edges.some((edge) =>
+            (edge.source.id === source.id && edge.target.id === target.id) ||
+            (edge.source.id === target.id && edge.target.id === source.id),
+          );
+          if (hasPersistentEdge) continue;
+
+          ctx.beginPath();
+          ctx.moveTo(source.x, source.y);
+          ctx.lineTo(target.x, target.y);
+          ctx.strokeStyle = traversal.status === "warning" ? "#F5B544" : "#2BB656";
+          ctx.lineWidth = traversal.status === "active" ? 3 : 2;
+          ctx.globalAlpha = trailOpacity;
+          ctx.stroke();
+
+          if (traversal.status === "active" && motionAllowed) {
+            const progress = (time * 0.25 + index * 0.23) % 1;
+            ctx.beginPath();
+            ctx.arc(
+              source.x + (target.x - source.x) * progress,
+              source.y + (target.y - source.y) * progress,
+              4.5,
+              0,
+              Math.PI * 2,
+            );
+            ctx.fillStyle = "#9DE342";
+            ctx.globalAlpha = 1;
+            ctx.fill();
+          }
+        }
+      }
+
       // 2. Dibujar Nodos con Colores Semánticos y Nube de Guanábana en el Agente
       // Registro de etiquetas ya dibujadas para resolver colisiones.
       const placedLabels: { x: number; y: number; w: number }[] = [];
       nodes.forEach((node) => {
         const isSelected = node.id === selectedNodeId;
         const isHovered = node.id === hoveredNodeId;
+        const traversal = recentTraversals.find((item) => item.path.includes(node.id));
         const isConnected = highlightedNodeIds.has(node.id);
         const hasSelection = Boolean(activeHighlightId);
 
@@ -571,6 +676,20 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           ctx.arc(node.x, node.y, 4, 0, Math.PI * 2);
           ctx.fillStyle = dotColor;
           ctx.fill();
+        }
+
+        if (traversal) {
+          const pulse = traversal.status === "active" && motionAllowed
+            ? 1 + (Math.sin(time * 2.5) + 1) * 0.08
+            : 1;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, node.radius * pulse + 5, 0, Math.PI * 2);
+          ctx.lineWidth = traversal.status === "active" ? 2.5 : 1.5;
+          ctx.strokeStyle = traversal.status === "warning" ? "#F5B544" : "#2BB656";
+          ctx.globalAlpha = traversal.status === "active"
+            ? 0.85
+            : Math.max(0, 1 - (currentTime - traversal.timestamp) / 8000);
+          ctx.stroke();
         }
 
         // 3. Etiquetas legibles (12px Figtree, nunca menor a 12px)

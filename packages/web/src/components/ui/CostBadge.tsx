@@ -78,6 +78,10 @@ export const CostBadge: React.FC<CostBadgeProps> = ({
     const hasTask = typeof taskCostUsd === "number" && taskCostUsd > 0;
     const sessionCost = session?.totalCostUsd ?? 0;
     const sessionTokens = session?.totalTokens ?? 0;
+    const sessionPromptTokens = session?.promptTokens ?? 0;
+    const sessionCompletionTokens = session?.completionTokens ?? 0;
+    const displayedCost = showSessionTotal ? sessionCost : taskCostUsd ?? 0;
+    const displayedLabel = showSessionTotal ? "sesión" : "tarea";
 
     const tooltipParts: string[] = [];
     if (taskId) tooltipParts.push(`Tarea: ${taskId}`);
@@ -85,27 +89,20 @@ export const CostBadge: React.FC<CostBadgeProps> = ({
     if (typeof taskTokens === "number") tooltipParts.push(`Tokens tarea: ${taskTokens}`);
     if (showSessionTotal) {
         tooltipParts.push(`Sesión: ${formatUsd(sessionCost)} · ${formatTokens(sessionTokens)} tokens`);
+        tooltipParts.push(`Entrada: ${formatTokens(sessionPromptTokens)} · Salida: ${formatTokens(sessionCompletionTokens)}`);
         tooltipParts.push(`${session?.taskCount ?? 0} tareas medidas`);
     }
 
     return (
         <div
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-raised border border-border text-caption font-mono whitespace-nowrap ${className}`}
+            className={`flex h-8 items-center gap-compact px-compact rounded-pill bg-raised border border-border whitespace-nowrap ${className}`}
             title={tooltipParts.join("\n")}
         >
-            <Coins className="w-3.5 h-3.5 text-brand flex-shrink-0" />
-            {hasTask ? (
-                <span className="text-primary font-semibold">{formatUsd(taskCostUsd!)}</span>
-            ) : (
-                <span className="text-muted">—</span>
-            )}
-            {showSessionTotal && (
-                <>
-                    <span className="text-muted">/</span>
-                    <span className="text-secondary">{formatUsd(sessionCost)}</span>
-                    <span className="text-muted hidden xl:inline">sesión</span>
-                </>
-            )}
+            <Coins className="w-3.5 h-3.5 text-brand-lime flex-shrink-0" />
+            <span className="font-mono text-caption text-primary font-medium tracking-tight">
+                {formatUsd(displayedCost)}
+            </span>
+            <span className="text-caption text-secondary">{displayedLabel}</span>
         </div>
     );
 };

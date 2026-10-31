@@ -64,12 +64,24 @@ export const AppShell: React.FC<AppShellProps> = ({
   children,
 }) => {
   const { profile, preferences } = useUserSettings();
+  const [statusTime, setStatusTime] = useState(() =>
+    new Intl.DateTimeFormat("es-CO", { hour: "numeric", minute: "2-digit" }).format(new Date()),
+  );
   const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(preferences.sidebarCollapsed);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(preferences.defaultCompany);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setStatusTime(
+        new Intl.DateTimeFormat("es-CO", { hour: "numeric", minute: "2-digit" }).format(new Date()),
+      );
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Atajo global Ctrl+J / Cmd+J para abrir/cerrar consola de telemetría
   useEffect(() => {
@@ -263,15 +275,23 @@ export const AppShell: React.FC<AppShellProps> = ({
         {/* Acciones de la Derecha */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-compact">
           {/* Indicador de estado del agente */}
-          <div className="flex lg:hidden items-center justify-center w-8 h-8 rounded-pill bg-raised border border-border" title={agentStatusText} aria-label={agentStatusText}>
-            <span className="w-2 h-2 rounded-pill bg-state-ok" />
-          </div>
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-pill bg-raised border border-border">
-            <span className="w-2 h-2 rounded-pill bg-state-ok" />
-            <span className="text-caption text-secondary font-medium whitespace-nowrap">
-              {agentStatusText}
+        <div className="flex lg:hidden items-center justify-center w-8 h-8 rounded-control bg-raised border border-border" title={`${agentStatusText} · ${statusTime}`} aria-label={`${agentStatusText} · ${statusTime}`}>
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-pill bg-brand opacity-75 animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-pill bg-brand-lime" />
             </span>
           </div>
+        <div className="hidden lg:flex h-8 items-center gap-2 px-3 rounded-pill bg-raised border border-border">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="absolute inline-flex h-full w-full rounded-pill bg-brand opacity-75 animate-ping" />
+            <span className="relative inline-flex h-2 w-2 rounded-pill bg-brand-lime" />
+            </span>
+          <span className="text-caption text-secondary font-medium whitespace-nowrap">
+            {agentStatusText.split("·")[0].trim()}
+          </span>
+          <span className="text-muted" aria-hidden="true">·</span>
+          <span className="text-caption text-muted whitespace-nowrap">{statusTime}</span>
+        </div>
 
           {/* Insignia de costo de la tarea y total de sesión (Agent FinOps) */}
           {preferences.showCostBadge && (
@@ -286,9 +306,11 @@ export const AppShell: React.FC<AppShellProps> = ({
           {/* Botón Discreto Telemetría (Ctrl+J) */}
           <button
             onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-            className={`w-8 h-8 rounded-pill bg-panel border border-border flex items-center justify-center transition-colors cursor-pointer ${isTerminalOpen ? "text-brand border-brand" : "text-secondary hover:text-primary"
+            className={`w-8 h-8 rounded-control bg-raised border border-border flex items-center justify-center transition-all active:scale-95 cursor-pointer ${isTerminalOpen ? "text-brand border-brand" : "text-secondary hover:text-primary hover:bg-panel"
               }`}
-            title="Consola de telemetría (Ctrl+J)"
+            title="Abrir consola interactiva (Ctrl+J)"
+            aria-label="Abrir consola interactiva"
+            aria-pressed={isTerminalOpen}
           >
             <Terminal className="w-4 h-4" />
           </button>
@@ -296,7 +318,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           {/* Notificaciones: lista con destino propio por aviso */}
           <NotificationsPopover notifications={notifications} onSelectTab={onSelectTab} />
 
-          <div className="h-4 w-px bg-border" />
+          <div className="h-4 w-px bg-border/60 mx-1" />
 
           {/* Perfil de usuario con menú */}
           <ProfileMenu companyName={selectedCompany} onSelectTab={onSelectTab} />

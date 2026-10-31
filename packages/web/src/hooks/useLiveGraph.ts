@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../services/apiClient";
+import { API_BASE_URL, api } from "../services/apiClient";
 import type { MintGraphData } from "../types/graph";
 import { sanitizeGraphData } from "../lib/graphSanitizer";
 
@@ -20,8 +20,7 @@ export interface UseLiveGraphResult {
 
 /**
  * Hook del grafo de conocimiento vivo.
- * Consume `GET /api/graph/data` (nodos + aristas desde PostgreSQL)
- * con degradación segura a `graphData.ts`.
+ * Consume el contrato canónico `GET /api/graph`; no usa datos simulados como respaldo.
  */
 export function useLiveGraph(options: UseLiveGraphOptions = {}): UseLiveGraphResult {
     const { enabled = true, mode, searchQuery, refreshIntervalMs = 0 } = options;
@@ -32,6 +31,7 @@ export function useLiveGraph(options: UseLiveGraphOptions = {}): UseLiveGraphRes
     const [isFallback, setIsFallback] = useState<boolean>(false);
 
     const mountedRef = useRef(true);
+    const hasLoadedRef = useRef(false);
     useEffect(() => {
         mountedRef.current = true;
         return () => {
@@ -40,29 +40,52 @@ export function useLiveGraph(options: UseLiveGraphOptions = {}): UseLiveGraphRes
     }, []);
 
     const refresh = useCallback(async () => {
-        setLoading(true);
+        setLoading(!hasLoadedRef.current);
         setError(null);
         try {
-            const res = await api.graph.data({ mode, searchQuery });
+            const res = await api.graph.live({ mode, searchQuery });
             if (!mountedRef.current) return;
 
-            // Saneamiento defensivo: ids normalizados, aristas huérfanas
-            // descartadas y textos mojibake reparados antes de llegar al canvas.
-            const sanitized = sanitizeGraphData(res.data);
+            const canonical = {
+                nodes: res.nodes.map((node) => ({
+                    id: node.id,
+                    label: node.label,
+                    type: node.type === "product" ? "sku" as const : node.type,
+                    status: node.status === "critical" ? "warning" as const : node.status,
+                    metadata: node.metrics,
+                })),
+                edges: res.links.map((link, index) => ({
+                    id: `link_${index}_${link.source}_${link.target}`,
+                    source: link.source,
+                    target: link.target,
+                    relation: link.relation as import("../types/graph").MintRelationType,
+                    weight: link.weight,
+                    label: link.relation,
+                })),
+            };
+            const sanitized = sanitizeGraphData(canonical);
             setGraphData({
                 nodes: sanitized.nodes,
                 edges: sanitized.edges,
-                metadata: res.data?.metadata,
+                metadata: {
+                    totalNodes: sanitized.nodes.length,
+                    totalEdges: sanitized.edges.length,
+                    mode: (mode === "local" || mode === "workflow" || mode === "execution" ? mode : "global"),
+                    generatedAt: new Date().toISOString(),
+                },
             });
-            setIsFallback(res.isFallback);
-            if (res.isFallback && res.message) setError(res.message);
+            setIsFallback(false);
         } catch (err) {
             if (!mountedRef.current) return;
             // Nunca dejamos el grafo en un estado indefinido: se degrada a vacío.
             setGraphData({ nodes: [], edges: [] });
+            setIsFallback(false);
             setError(err instanceof Error ? err.message : "Error desconocido al cargar el grafo");
         } finally {
-            if (mountedRef.current) setLoading(false);
+            if (mountedRef.current) {
+                hasLoadedRef.current = true;
+                setLoading(false);
+            }
         }
     }, [mode, searchQuery]);
 
@@ -76,6 +99,31 @@ export function useLiveGraph(options: UseLiveGraphOptions = {}): UseLiveGraphRes
         const timer = setInterval(() => void refresh(), refreshIntervalMs);
         return () => clearInterval(timer);
     }, [enabled, refreshIntervalMs, refresh]);
+
+    useEffect(() => {
+        if (!enabled || typeof EventSource === "undefined") return;
+        const source = new EventSource(`${API_BASE_URL}/events/stream`);
+        const refreshOnChange = () => void refresh();
+        const eventTypes = [
+            "inventory_adjustment",
+            "inventory_alert",
+            "purchase_order_transition",
+            "decision_resolved",
+            "proactive_stock_alert",
+            "proactive_reorder_alert",
+            "shipment_updated",
+            "scan_completed",
+        ];
+        for (const eventType of eventTypes) {
+            source.addEventListener(eventType, refreshOnChange);
+        }
+        return () => {
+            for (const eventType of eventTypes) {
+                source.removeEventListener(eventType, refreshOnChange);
+            }
+            source.close();
+        };
+    }, [enabled, refresh]);
 
     return { graphData, loading, error, isFallback, refresh };
 }

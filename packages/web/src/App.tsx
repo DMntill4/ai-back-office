@@ -479,7 +479,7 @@ export const App: React.FC = () => {
         pendingApprovalsCount={pendingApprovalsCount}
         notifications={notifications}
         searchRecords={searchRecords}
-        agentStatusText="Operativo · 10:24 a. m."
+        agentStatusText="Operativo"
         agentState="reposo"
       >
         <AnimatePresence mode="wait" initial={false}>

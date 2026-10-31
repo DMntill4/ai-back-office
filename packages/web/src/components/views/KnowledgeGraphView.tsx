@@ -22,12 +22,15 @@ import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
 import { EmptyState } from "../ui/EmptyState";
 import { LoadingScreen } from "../ui/LoadingScreen";
+import { CostBadge } from "../ui/CostBadge";
 import {
   MintGraphNode,
   MintGraphEdge,
   GraphPhysicsSettings,
 } from "../../types/graph";
 import { useLiveGraph } from "../../hooks/useLiveGraph";
+import { useAgentTelemetry } from "../../hooks/useAgentTelemetry";
+import { api, type TelemetryCostTask } from "../../services/apiClient";
 
 interface KnowledgeGraphViewProps {
   onNavigateTo?: (tabId: string) => void;
@@ -60,6 +63,49 @@ const BUSINESS_FIELD_LABELS: Record<string, string> = {
   motivoRetencion: "Motivo de revisión",
   reglaAplicada: "Política de negocio",
   responsableFirma: "Responsable de Aprobación",
+  productId: "Identificador de producto",
+  sku: "Código SKU",
+  currentStock: "Existencias actuales",
+  minStock: "Punto de reorden",
+  price: "Precio de venta",
+  costPrice: "Costo unitario",
+  origin: "Origen del registro",
+  stockByWarehouse: "Existencias por bodega",
+  averageDailyConsumption: "Consumo promedio diario",
+  supplierId: "Identificador de proveedor",
+  email: "Correo",
+  phone: "Teléfono",
+  activeOrders: "Órdenes activas",
+  averageLeadTimeDays: "Entrega promedio (días)",
+  reliabilityPct: "Fiabilidad observada",
+  role: "Especialidad",
+  toolsEnabled: "Herramientas habilitadas",
+  acceptedTasks: "Tareas aceptadas",
+  permissions: "Permisos efectivos",
+  resolvedCasesToday: "Casos resueltos hoy",
+  decisionId: "Identificador de decisión",
+  caseId: "Caso relacionado",
+  costCop: "Costo estimado (COP)",
+  riskScore: "Riesgo evaluado",
+  policyDecision: "Veredicto de política",
+  policyReason: "Motivo del veredicto",
+  proposingAgent: "Agente proponente",
+  status: "Estado actual",
+  caseCost: "Costo registrado del caso",
+  caseTotalTokens: "Tokens utilizados",
+  casePromptTokens: "Tokens de entrada",
+  caseCompletionTokens: "Tokens de salida",
+  priority: "Prioridad",
+  createdAt: "Fecha de creación",
+  shipmentId: "Identificador de envío",
+  carrier: "Transportista",
+  currentLocation: "Ubicación actual",
+  destination: "Destino",
+  relativePath: "Ruta de la nota",
+  sizeBytes: "Tamaño del documento",
+  company: "Empresa",
+  latitude: "Latitud",
+  longitude: "Longitud",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -69,6 +115,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   supplier: "Proveedor homologado",
   purchase_order: "Orden de compra",
   decision: "Aprobación ejecutiva",
+  case: "Caso operativo",
+  shipment: "Envío",
+  document: "Nota de memoria",
 };
 
 
@@ -81,14 +130,23 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [freshNode, setFreshNode] = useState<MintGraphNode | null>(null);
+  const [nodeLoading, setNodeLoading] = useState(false);
+  const [nodeError, setNodeError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [stockDelta, setStockDelta] = useState(1);
+  const [decisionCost, setDecisionCost] = useState<TelemetryCostTask | null>(null);
 
-  // Grafo en vivo desde PostgreSQL (/api/graph/data). Sin datos semilla locales.
+  // Grafo en vivo desde PostgreSQL (/api/graph). Sin datos semilla locales.
   const {
     graphData: liveGraph,
     loading: graphLoading,
+    error,
     isFallback: graphIsFallback,
     refresh: refreshGraph,
-  } = useLiveGraph({ mode: activeFilter, searchQuery });
+  } = useLiveGraph({ searchQuery });
+  const { status: telemetryStatus, traversals } = useAgentTelemetry();
+  const currentTraversal = traversals[0];
 
   const [graphNodes, setGraphNodes] = useState<MintGraphNode[]>([]);
   const [graphEdges, setGraphEdges] = useState<MintGraphEdge[]>([]);
@@ -114,14 +172,14 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     }
   }, [graphNodes, selectedNodeId]);
 
-  const physicsSettings: GraphPhysicsSettings = {
+  const physicsSettings: GraphPhysicsSettings = useMemo(() => ({
     repulsion: 3200,
     springLength: 215,
     gravity: 0.005,
     damping: 0.82,
     showGrid: true,
     showAllLabels: true,
-  };
+  }), []);
 
 
   // Un solo control de filtros por categoría
@@ -179,7 +237,100 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   }, [searchQuery, activeFilter, graphNodes, graphEdges]);
 
   const selectedNode =
-    graphNodes.find((n) => n.id === selectedNodeId) || graphNodes[0];
+    (freshNode?.id === selectedNodeId ? freshNode : null) ||
+    graphNodes.find((n) => n.id === selectedNodeId) ||
+    graphNodes[0];
+
+  useEffect(() => {
+    if (!selectedNodeId) {
+      setFreshNode(null);
+      return;
+    }
+    let active = true;
+    setNodeLoading(true);
+    setNodeError(null);
+    api.graph.node(selectedNodeId)
+      .then(({ node }) => {
+        if (active) setFreshNode(node);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setFreshNode(null);
+          setNodeError(error instanceof Error ? error.message : "No se pudo actualizar el detalle.");
+        }
+      })
+      .finally(() => {
+        if (active) setNodeLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedNodeId, liveGraph?.metadata?.generatedAt]);
+
+  const selectedDecisionId = String(selectedNode?.metadata?.decisionId ?? "");
+  const selectedDecisionCaseId = String(selectedNode?.metadata?.caseId ?? "");
+  useEffect(() => {
+    if (!selectedDecisionId || !selectedDecisionCaseId) {
+      setDecisionCost(null);
+      return;
+    }
+
+    let active = true;
+    setDecisionCost(null);
+    api.telemetry.costs().then((response) => {
+      if (!active || response.isFallback) return;
+      setDecisionCost(
+        response.data.tasks.find((task) => task.taskId === selectedDecisionCaseId) ?? null,
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, [selectedDecisionId, selectedDecisionCaseId]);
+
+  const refreshSelectedNode = async () => {
+    if (!selectedNodeId) return;
+    setActionMessage(null);
+    try {
+      const { node } = await api.graph.node(selectedNodeId);
+      setFreshNode(node);
+      await refreshGraph();
+      setActionMessage("Información actualizada desde el servidor.");
+    } catch (error) {
+      setNodeError(error instanceof Error ? error.message : "No se pudo actualizar la información.");
+    }
+  };
+
+  const adjustSelectedStock = async () => {
+    const productId = String(selectedNode?.metadata?.productId ?? "");
+    if (!productId || stockDelta === 0) return;
+    setActionMessage(null);
+    try {
+      await api.inventory.adjust({
+        producto_id: productId,
+        cantidad_delta: stockDelta,
+        motivo: "Ajuste desde el mapa de conocimiento",
+      });
+      await refreshGraph();
+      setActionMessage("Ajuste de existencias registrado.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "No se pudo ajustar el inventario.");
+    }
+  };
+
+  const resolveSelectedDecision = async (resolution: "approve" | "reject") => {
+    const decisionId = String(selectedNode?.metadata?.decisionId ?? "");
+    if (!decisionId) return;
+    setActionMessage(null);
+    try {
+      if (resolution === "approve") await api.decisions.approve(decisionId);
+      else await api.decisions.reject(decisionId);
+      await refreshGraph();
+      setActionMessage(resolution === "approve" ? "Decisión aprobada." : "Decisión rechazada.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "No se pudo resolver la decisión.");
+    }
+  };
 
   const connectedEdges = useMemo(() => {
     if (!selectedNode) return { incoming: [], outgoing: [] };
@@ -194,14 +345,42 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     setIsInspectorOpen(true);
   };
 
+  const formatMetadataValue = (value: unknown) => {
+    if (Array.isArray(value)) {
+      return value.map((item) =>
+        item && typeof item === "object" ? JSON.stringify(item) : String(item),
+      ).join(", ");
+    }
+    if (value && typeof value === "object") return JSON.stringify(value);
+    return String(value).replace(/,(?!\s)/g, ", ");
+  };
+
   const getNodeStatusMeta = (
     node: MintGraphNode
   ): { status: OperationalStatus; label: string } => {
-    if (node.type === "decision" || node.id === "po_24a190") {
-      return { status: "pending", label: "Requiere firma" };
+    const entityKind = String(node.metadata?.entityKind ?? node.type);
+    if (entityKind === "decision") {
+      if (node.metadata?.policyDecision === "pending_approval") {
+        return { status: "pending", label: "Requiere firma" };
+      }
+      if (node.metadata?.policyDecision === "rejected" || node.metadata?.policyDecision === "blocked") {
+        return { status: "error", label: "Rechazada o bloqueada" };
+      }
+    }
+    if (entityKind === "shipment" && node.metadata?.status === "retrasado") {
+      return { status: "attention", label: "Envío retrasado" };
+    }
+    if (entityKind === "purchase_order" && node.metadata?.status === "abierta") {
+      return { status: "pending", label: "Orden abierta" };
+    }
+    if (entityKind === "case" && node.status === "warning") {
+      return { status: "attention", label: "Caso escalado" };
     }
     if (node.status === "warning") {
       return { status: "attention", label: "Bajo punto de reorden" };
+    }
+    if (node.status === "running") {
+      return { status: "progress", label: "En proceso" };
     }
     return { status: "ok", label: "Operativo" };
   };
@@ -245,7 +424,10 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 variant="secondary"
                 size="md"
                 icon={<Target className="w-3.5 h-3.5 text-brand" />}
-                onClick={() => handleCenterNode("agent_coordinator")}
+                onClick={() => {
+                  const agent = graphNodes.find((node) => node.type === "agent");
+                  if (agent) handleCenterNode(agent.id);
+                }}
               >
                 Centrar en el agente
               </Button>
@@ -294,6 +476,20 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
         {/* Lienzo Interactivo con Leyenda en 1 Sola Línea */}
         <div className="relative flex-1 min-h-[320px] min-w-0 w-full xl:min-h-0 xl:h-full rounded-container border border-border overflow-hidden bg-canvas">
           {!graphLoading && filteredData.nodes.length > 0 && (
+            <div
+              className="absolute left-3 top-3 z-20 inline-flex items-center gap-hairline rounded-control border border-border bg-panel px-compact py-1.5 text-caption text-secondary"
+              role="status"
+            >
+              <span className={telemetryStatus === "connected" ? "text-state-ok" : "text-state-attention"}>
+                ●
+              </span>
+              <span>{telemetryStatus === "connected" ? "Telemetría en vivo" : "Conectando telemetría"}</span>
+              {currentTraversal?.status === "active" && (
+                <span className="text-primary">{currentTraversal.action}</span>
+              )}
+            </div>
+          )}
+          {!graphLoading && filteredData.nodes.length > 0 && (
             <button
               type="button"
               onClick={() => setIsInspectorOpen(true)}
@@ -312,23 +508,20 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 fullScreen={false}
               />
             </div>
-          ) : filteredData.nodes.length === 0 ? (
+          ) : filteredData.nodes.length === 0 || !filteredData.nodes.some((node) => node.type !== "agent") ? (
             <div className="absolute inset-0 flex items-center justify-center p-group">
               <EmptyState
                 title="Sin nodos en el grafo"
                 description={
-                  graphIsFallback
-                    ? "No fue posible conectar con el servicio del grafo. Reintenta la carga o revisa que la API esté en línea."
-                    : "El backend no reporta entidades para este filtro. Ajusta los filtros o verifica que el vault tenga documentos indexados."
+                  graphLoading || graphIsFallback
+                    ? error || "No fue posible conectar con el servicio del grafo. Reintenta la carga o revisa que la API esté en línea."
+                    : error || "La base de datos y el vault no contienen entidades para visualizar todavía."
                 }
-                actionLabel={graphIsFallback ? "Reintentar carga" : "Limpiar filtros"}
+                actionLabel={graphIsFallback || error ? "Volver a consultar" : "Actualizar mapa"}
                 onAction={() => {
-                  if (graphIsFallback) {
-                    void refreshGraph();
-                    return;
-                  }
                   setActiveFilter("all");
                   setSearchQuery("");
+                  void refreshGraph();
                 }}
               />
             </div>
@@ -336,6 +529,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
             <KnowledgeGraphCanvas
               data={filteredData}
               physicsSettings={physicsSettings}
+              activeTraversals={traversals}
               selectedNodeId={selectedNodeId}
               onSelectNode={(nodeId) => {
                 if (nodeId) {
@@ -394,10 +588,10 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 <div className="flex items-center justify-between gap-compact">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-control bg-raised border border-border flex items-center justify-center shrink-0">
-                      {renderNodeIcon(selectedNode.type)}
+                      {renderNodeIcon(String(selectedNode.metadata?.entityKind ?? selectedNode.type))}
                     </div>
                     <span className="text-caption font-medium text-secondary">
-                      {CATEGORY_LABELS[selectedNode.type] || "Entidad operativa"}
+                      {CATEGORY_LABELS[String(selectedNode.metadata?.entityKind ?? selectedNode.type)] || "Entidad operativa"}
                     </span>
                   </div>
                   <StatusIndicator
@@ -433,7 +627,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                   Información operativa
                 </h3>
                 <div className="p-compact rounded-control bg-raised border border-border divide-y divide-border">
-                  {Object.entries(selectedNode.metadata || {}).map(
+                  {Object.entries(selectedNode.metadata || {}).filter(([key]) => key !== "entityKind").map(
                     ([key, value]) => {
                       const humanLabel =
                         BUSINESS_FIELD_LABELS[key] || "Detalle operativo";
@@ -446,7 +640,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                             {humanLabel}
                           </span>
                           <span className="min-w-0 text-primary font-medium text-right break-words">
-                            {String(value).replace(/,(?!\s)/g, ", ")}
+                            {formatMetadataValue(value)}
                           </span>
                         </div>
                       );
@@ -454,6 +648,95 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                   )}
                 </div>
               </div>
+
+              {nodeLoading && (
+                  <p className="text-caption text-secondary" role="status">
+                    Actualizando detalles desde el servidor...
+                  </p>
+              )}
+              {nodeError && (
+                  <p className="text-caption text-state-error" role="alert">
+                    {nodeError}
+                  </p>
+              )}
+              {actionMessage && (
+                  <p className="text-caption text-secondary" role="status">
+                    {actionMessage}
+                  </p>
+              )}
+              <Button variant="secondary" className="w-full" onClick={() => void refreshSelectedNode()}>
+                  Actualizar información
+              </Button>
+
+              {selectedNode.type === "sku" && (
+                  <div className="space-y-compact rounded-control border border-border bg-raised p-compact">
+                    <h3 className="text-label font-semibold text-secondary">Ajustar existencias</h3>
+                    <label className="block text-caption text-secondary" htmlFor="graph-stock-delta">
+                      Cambio de unidades
+                    </label>
+                    <input
+                      id="graph-stock-delta"
+                      type="number"
+                      value={stockDelta}
+                      onChange={(event) => setStockDelta(Number(event.target.value))}
+                      className="h-9 w-full rounded-control border border-border bg-panel px-compact text-caption text-primary"
+                    />
+                    <Button
+                      variant="primary"
+                      className="w-full"
+                      onClick={() => void adjustSelectedStock()}
+                      disabled={nodeLoading || !selectedNode.metadata?.productId || stockDelta === 0}
+                    >
+                      Ajustar stock
+                    </Button>
+                  </div>
+              )}
+
+              {selectedNode.type === "decision" && (
+                  <div className="space-y-compact rounded-control border border-border bg-raised p-compact">
+                    <h3 className="text-label font-semibold text-secondary">Gobernanza de la decisión</h3>
+                    <div className="space-y-1 text-caption">
+                      <p className="text-secondary">Costo de la tarea</p>
+                      {decisionCost ? (
+                        <>
+                          <p className="font-semibold text-primary">
+                            {decisionCost.costUsd.toLocaleString("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                              maximumFractionDigits: 6,
+                            })}{" "}
+                            · {decisionCost.tokens.toLocaleString()} tokens
+                          </p>
+                          <p className="text-secondary">
+                            Entrada: {decisionCost.promptTokens?.toLocaleString() ?? "—"} · Salida:{" "}
+                            {decisionCost.completionTokens?.toLocaleString() ?? "—"}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-secondary">Desglose USD/tokens no disponible en esta sesión.</p>
+                      )}
+                    </div>
+                    <CostBadge showSessionTotal refreshMs={0} />
+                    <div className="flex flex-col gap-compact">
+                      <Button
+                        variant="primary"
+                        className="w-full"
+                        onClick={() => void resolveSelectedDecision("approve")}
+                        disabled={nodeLoading || !selectedNode.metadata?.decisionId || selectedNode.metadata?.policyDecision !== "pending_approval"}
+                      >
+                        Aprobar
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="w-full"
+                        onClick={() => void resolveSelectedDecision("reject")}
+                        disabled={nodeLoading || !selectedNode.metadata?.decisionId || selectedNode.metadata?.policyDecision !== "pending_approval"}
+                      >
+                        Rechazar
+                      </Button>
+                    </div>
+                  </div>
+              )}
 
               {/* Acción Contextual si es una Orden o Aprobación */}
               {(selectedNode.type === "purchase_order" ||

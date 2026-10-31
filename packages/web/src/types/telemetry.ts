@@ -29,6 +29,17 @@ export interface AgentTelemetryEvent {
   bytesOrRowsAffected?: number;
 }
 
+export interface AgentGraphTraversal {
+  type: "agent_graph_traversal";
+  taskId: string;
+  agentId: string;
+  targetNodeId: string;
+  action: string;
+  path: string[];
+  status: "active" | "warning" | "completed";
+  timestamp: number;
+}
+
 export interface TelemetryGraphNode {
   id: string;
   label: string;

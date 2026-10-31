@@ -4,6 +4,7 @@ import {
     type AgentTelemetryEvent,
     type ProactiveAlert,
 } from "@mint/core";
+import type { AgentGraphTraversal } from "@mint/core";
 import { sseHub } from "./sseHub";
 
 /**
@@ -147,6 +148,19 @@ export function startTelemetryBridge(): void {
     // Suscripción a telemetría del agente
     const unsubscribeTelemetry = telemetryPublisher.subscribe(handleTelemetryEvent);
     unsubscribers.push(unsubscribeTelemetry);
+    const onGraphTraversal = (event: AgentGraphTraversal) => {
+        sseHub.broadcast({
+            type: "agent_graph_traversal",
+            caseId: event.taskId,
+            agent: event.agentId,
+            action: event.action,
+            details: `El agente recorre ${event.path.length} entidades.`,
+            resultSummary: event.status,
+            payload: event,
+        });
+    };
+    telemetryPublisher.on("agent_graph_traversal", onGraphTraversal);
+    unsubscribers.push(() => telemetryPublisher.off("agent_graph_traversal", onGraphTraversal));
 
     // Suscripción a alertas proactivas
     const onAlert = (alert: ProactiveAlert) => handleProactiveAlert(alert);

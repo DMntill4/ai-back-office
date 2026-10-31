@@ -1,305 +1,522 @@
+import { readdir, readFile } from "node:fs/promises";
+import path from "node:path";
+import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "../db/client";
 import {
-  products,
-  warehouses,
-  suppliers,
-  supplierProducts,
-  purchaseOrders,
-  decisions,
   cases,
+  companies,
+  decisions,
+  inventory,
+  products,
+  purchaseOrders,
+  policyRules,
+  salesHistory,
+  shipments,
+  supplierProducts,
+  suppliers,
+  warehouses,
 } from "../db/schema";
-import { eq, desc } from "drizzle-orm";
-import { MintGraphNode, MintGraphEdge } from "./graph.types";
+import { agentRegistry } from "../agent/registry/agentRegistry";
+import { getObsidianVaultPath } from "../services/obsidianMemoryService";
+import { BASE_AGENT_PERMISSIONS } from "../security/agentPermissionsMatrix";
+import { toMintGraphNodeId, type MintGraphEdge, type MintGraphNode } from "./graph.types";
+
+type IdLookup = Map<string, string>;
+
+function findEntityId(value: unknown, keys: Set<string>, depth = 0): string | undefined {
+  if (!value || typeof value !== "object" || depth > 5) return undefined;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findEntityId(item, keys, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  for (const [key, nested] of Object.entries(value)) {
+    if (keys.has(key) && (typeof nested === "string" || typeof nested === "number")) {
+      return String(nested);
+    }
+  }
+  for (const nested of Object.values(value)) {
+    const found = findEntityId(nested, keys, depth + 1);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function agentNodeId(roleName: string): string {
+  const normalized = roleName.toLowerCase().replace(/^(?:agent[_-])|(?:[_-]?agent|specialist)$/g, "");
+  const roleAliases: Record<string, string> = {
+    coordinador: "orchestrator",
+    orquestador: "orchestrator",
+    inventory: "inventario",
+    purchasing: "compras",
+    procurement: "compras",
+    logistics: "logistica",
+    transporte: "logistica",
+    audit: "auditoria",
+  };
+  const role = roleAliases[normalized] ?? normalized;
+  return toMintGraphNodeId("agent", role);
+}
+
+async function readMarkdownFiles(root: string): Promise<Array<{ filePath: string; content: string }>> {
+  const files: Array<{ filePath: string; content: string }> = [];
+  const visit = async (directory: string): Promise<void> => {
+    let entries;
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw error;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(fullPath);
+      } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+        files.push({ filePath: fullPath, content: await readFile(fullPath, "utf8") });
+      }
+    }
+  };
+  await visit(root);
+  return files;
+}
 
 /**
- * Consulta entidades y relaciones reales desde PostgreSQL.
- * Si la base de datos está inaccesible o vacía, devuelve el grafo operativo base de Santandereana.
+ * Construye el grafo únicamente con filas de la empresa y notas existentes del vault.
+ * Un vault inexistente es válido; los errores de PostgreSQL o de lectura se propagan.
  */
-export async function fetchRawGraphEntities(companyId: string = "comp_default"): Promise<{
+export async function fetchRawGraphEntities(companyId: string): Promise<{
   nodes: MintGraphNode[];
   edges: MintGraphEdge[];
 }> {
+  const [
+    companyRows,
+    warehouseRows,
+    productRows,
+    supplierRows,
+    inventoryRows,
+    supplierProductRows,
+    purchaseOrderRows,
+    decisionRows,
+    caseRows,
+    ruleRows,
+    shipmentRows,
+    salesRows,
+    vaultPath,
+    enabledAgentConfigs,
+  ] = await Promise.all([
+    db.select().from(companies).where(eq(companies.id, companyId)).limit(1),
+    db.select().from(warehouses).where(eq(warehouses.companyId, companyId)),
+    db.select().from(products).where(eq(products.companyId, companyId)),
+    db.select().from(suppliers).where(eq(suppliers.companyId, companyId)),
+    db.select().from(inventory).where(eq(inventory.companyId, companyId)),
+    db.select().from(supplierProducts).where(eq(supplierProducts.companyId, companyId)),
+    db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)),
+    db.select().from(decisions).where(eq(decisions.companyId, companyId)).orderBy(desc(decisions.createdAt)),
+    db.select().from(cases).where(eq(cases.companyId, companyId)).orderBy(desc(cases.createdAt)),
+    db.select().from(policyRules).where(eq(policyRules.companyId, companyId)),
+    db.select().from(shipments).where(eq(shipments.companyId, companyId)),
+    db.select().from(salesHistory).where(and(eq(salesHistory.companyId, companyId), gte(salesHistory.saleDate, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))),
+    getObsidianVaultPath(companyId),
+    agentRegistry.getEnabledAgentsForCompany(companyId),
+  ]);
+  const company = companyRows[0];
   const nodes: MintGraphNode[] = [];
   const edges: MintGraphEdge[] = [];
+  const nodeIds = new Set<string>();
+  const edgeKeys = new Set<string>();
+  const warehouseIds: IdLookup = new Map();
+  const warehouseNames: IdLookup = new Map();
+  const productIds: IdLookup = new Map();
+  const supplierIds: IdLookup = new Map();
+  const purchaseOrderIds: IdLookup = new Map();
+  const caseIds: IdLookup = new Map();
+  const decisionIds: IdLookup = new Map();
 
-  // 1. Nodo Central de Base de Datos
-  nodes.push({
-    id: "db_postgres",
-    type: "database",
-    label: "PostgreSQL: ai_back_office",
-    sublabel: "Fuente Relacional Primaria",
-    status: "active",
-    metadata: {
-      host: "localhost:5432",
-      database: "ai_back_office",
-      tables: ["products", "suppliers", "warehouses", "decisions", "cases", "purchase_orders"],
-    },
-  });
+  const addNode = (node: MintGraphNode): void => {
+    if (nodeIds.has(node.id)) return;
+    nodeIds.add(node.id);
+    nodes.push(node);
+  };
+  const addEdge = (source: string | undefined, target: string | undefined, relation: MintGraphEdge["relation"]): void => {
+    if (!source || !target || source === target || !nodeIds.has(source) || !nodeIds.has(target)) return;
+    const key = `${source}\u0000${target}\u0000${relation}`;
+    if (edgeKeys.has(key)) return;
+    edgeKeys.add(key);
+    edges.push({ id: `edge_${edges.length + 1}`, source, target, relation });
+  };
 
-  // 2. Nodos de Agente y Especialistas
-  nodes.push({
-    id: "agent_coordinator",
+  const resolvedCasesToday = caseRows.filter((item) =>
+    item.status === "resuelto" &&
+    item.updatedAt.toDateString() === new Date().toDateString(),
+  ).length;
+  addNode({
+    id: "agent_orchestrator",
     type: "agent",
-    label: "Mint Coordinator [MAIN]",
-    sublabel: "Director Operativo Autónomo",
-    status: "running",
-    metadata: {
-      role: "Orquestador ReAct y Evaluación de Políticas",
-      model: "grok-4.6",
-      autonomyLimitCop: 5000000,
-    },
+    label: "MINT Orchestrator",
+    sublabel: "Coordinador de tareas y políticas",
+    status: "idle",
+    metadata: { role: "orchestrator" },
   });
-
-  // Conexión Agente -> DB
-  edges.push({
-    id: "edge_agent_db",
-    source: "agent_coordinator",
-    target: "db_postgres",
-    relation: "queries",
-    label: "audita stock e historial",
-  });
-
-  // 3. Herramientas del Agente
-  const toolsList = [
-    { id: "tool_stock", name: "consultar_stock", desc: "Verificación de existencias físicas reales" },
-    { id: "tool_forecast", name: "pronosticar_demanda", desc: "Cálculo de ROP y burn rate diario" },
-    { id: "tool_suppliers", name: "evaluar_proveedores", desc: "Comparador de cotizaciones en COP" },
-    { id: "tool_logistics", name: "calcular_ruta_logistica", desc: "Cartografía vial OSRM y fletes" },
-    { id: "tool_po", name: "crear_orden_compra", desc: "Gatekeeper con validación evaluatePolicy" },
-    { id: "tool_audit", name: "auditar_anomalias", desc: "Detección de sobrecostos y duplicados" },
-  ];
-
-  for (const t of toolsList) {
-    nodes.push({
-      id: t.id,
-      type: "tool",
-      label: t.name,
-      sublabel: t.desc,
-      status: "active",
-    });
-    edges.push({
-      id: `edge_agent_${t.id}`,
-      source: "agent_coordinator",
-      target: t.id,
-      relation: "uses",
+  for (const agentConfig of enabledAgentConfigs) {
+    const agent = agentConfig.agent;
+    const id = toMintGraphNodeId("agent", agent.contract.role);
+    addNode({
+      id,
+      type: "agent",
+      label: agent.contract.name,
+      sublabel: agent.contract.description,
+      status: agentConfig.isEnabled ? "idle" : "warning",
+      metadata: {
+        role: agent.contract.role,
+        enabled: agentConfig.isEnabled,
+        toolsEnabled: agent.contract.allowedTools,
+        acceptedTasks: agent.contract.acceptedTasks,
+        permissions: BASE_AGENT_PERMISSIONS[agent.contract.role],
+        resolvedCasesToday,
+      },
     });
   }
 
-  // 4. Intentar consultar entidades de PostgreSQL (con fallback seguro)
-  try {
-    const [whRows, pRows, sRows, dRows] = await Promise.all([
-      db.select().from(warehouses).where(eq(warehouses.companyId, companyId)).limit(6),
-      db.select().from(products).where(eq(products.companyId, companyId)).limit(12),
-      db.select().from(suppliers).where(eq(suppliers.companyId, companyId)).limit(6),
-      db.select().from(decisions).where(eq(decisions.companyId, companyId)).orderBy(desc(decisions.decidedAt)).limit(6),
-    ]);
+  for (const warehouse of warehouseRows) {
+    const id = toMintGraphNodeId("wh", warehouse.id);
+    warehouseIds.set(warehouse.id, id);
+    warehouseNames.set(warehouse.id, warehouse.name);
+    addNode({
+      id,
+      type: "warehouse",
+      label: warehouse.name,
+      sublabel: [warehouse.city, warehouse.state].filter(Boolean).join(", ") || warehouse.location || undefined,
+      status: "active",
+      metadata: {
+        company: company?.name,
+        city: warehouse.city,
+        address: warehouse.streetAddress,
+        latitude: warehouse.latitude,
+        longitude: warehouse.longitude,
+      },
+    });
+  }
 
-    // Bodegas
-    if (whRows.length > 0) {
-      for (const w of whRows) {
-        const wId = `wh_${w.id}`;
-        nodes.push({
-          id: wId,
-          type: "warehouse",
-          label: w.name,
-          sublabel: `${w.city || "Colombia"} • ${w.location || "Sede"}`,
-          metadata: { capacity: (w as any).capacityM3 || 1500, city: w.city },
-        });
-        edges.push({
-          id: `edge_wh_db_${w.id}`,
-          source: wId,
-          target: "db_postgres",
-          relation: "belongs_to",
-        });
-      }
-    } else {
-      // Fallback a las 3 sedes industriales oficiales
-      const defaultWhs = [
-        { id: "wh_bga", name: "Bodega Matriz Bucaramanga", city: "Bucaramanga", cap: 1200 },
-        { id: "wh_bog", name: "CD Bogotá D.C.", city: "Bogotá", cap: 3500 },
-        { id: "wh_med", name: "CD Medellín", city: "Medellín", cap: 2200 },
-      ];
-      for (const w of defaultWhs) {
-        nodes.push({
-          id: w.id,
-          type: "warehouse",
-          label: w.name,
-          sublabel: `${w.city} (Cap: ${w.cap} m³)`,
-          metadata: w,
-        });
-        edges.push({
-          id: `edge_${w.id}_db`,
-          source: w.id,
-          target: "db_postgres",
-          relation: "belongs_to",
-        });
+  const inventoryByProduct = new Map<string, typeof inventoryRows>();
+  for (const row of inventoryRows) {
+    const list = inventoryByProduct.get(row.productId) ?? [];
+    list.push(row);
+    inventoryByProduct.set(row.productId, list);
+  }
+  const salesByProduct = new Map<string, number>();
+  for (const row of salesRows) {
+    salesByProduct.set(row.productId, (salesByProduct.get(row.productId) ?? 0) + row.quantity);
+  }
+  const productIdsBySku = new Map(productRows.map((product) => [product.sku, toMintGraphNodeId("sku", product.id)]));
+  const casesById = new Map(caseRows.map((item) => [item.id, item]));
+  const ordersById = new Map(purchaseOrderRows.map((order) => [order.id, order]));
+  const activeOrdersBySupplier = new Map<string, number>();
+  const offerLeadTimeBySupplier = new Map<string, { total: number; count: number }>();
+  const shipmentStatsBySupplier = new Map<string, { total: number; delivered: number }>();
+  const ordersByCase = new Map<string, typeof purchaseOrderRows>();
+  const shipmentsByOrder = new Map<string, typeof shipmentRows>();
+  for (const order of purchaseOrderRows) {
+    if (order.caseId) {
+      const orders = ordersByCase.get(order.caseId) ?? [];
+      orders.push(order);
+      ordersByCase.set(order.caseId, orders);
+    }
+    if (order.status === "abierta") {
+      activeOrdersBySupplier.set(order.supplierId, (activeOrdersBySupplier.get(order.supplierId) ?? 0) + 1);
+    }
+  }
+  for (const offer of supplierProductRows) {
+    const stats = offerLeadTimeBySupplier.get(offer.supplierId) ?? { total: 0, count: 0 };
+    stats.total += offer.leadTimeDays;
+    stats.count += 1;
+    offerLeadTimeBySupplier.set(offer.supplierId, stats);
+  }
+  for (const shipment of shipmentRows) {
+    const order = shipment.purchaseOrderId ? ordersById.get(shipment.purchaseOrderId) : undefined;
+    if (!order) continue;
+    const linkedShipments = shipmentsByOrder.get(order.id) ?? [];
+    linkedShipments.push(shipment);
+    shipmentsByOrder.set(order.id, linkedShipments);
+    const stats = shipmentStatsBySupplier.get(order.supplierId) ?? { total: 0, delivered: 0 };
+    stats.total += 1;
+    if (shipment.status === "entregado") stats.delivered += 1;
+    shipmentStatsBySupplier.set(order.supplierId, stats);
+  }
+
+  for (const product of productRows) {
+    const id = toMintGraphNodeId("sku", product.id);
+    productIds.set(product.id, id);
+    const stocks = inventoryByProduct.get(product.id) ?? [];
+    const currentStock = stocks.reduce((total, row) => total + row.stock, 0);
+    const minStock = product.minStock;
+    const stockByWarehouse = stocks.map((row) => ({
+      warehouseName: warehouseNames.get(row.warehouseId) ?? row.warehouseId,
+      stock: row.stock,
+    }));
+    addNode({
+      id,
+      type: "sku",
+      label: product.sku,
+      sublabel: product.name,
+      status: currentStock <= minStock ? "warning" : "active",
+      metadata: {
+        productId: product.id,
+        sku: product.sku,
+        currentStock,
+        minStock,
+        price: product.price,
+        costPrice: product.costPrice,
+        category: product.category,
+        origin: product.origin,
+        stockByWarehouse,
+        averageDailyConsumption: Number(((salesByProduct.get(product.id) ?? 0) / 30).toFixed(2)),
+      },
+    });
+  }
+
+  for (const supplier of supplierRows) {
+    const id = toMintGraphNodeId("supp", supplier.id);
+    supplierIds.set(supplier.id, id);
+    const shipmentStats = shipmentStatsBySupplier.get(supplier.id);
+    const leadTimeStats = offerLeadTimeBySupplier.get(supplier.id);
+    addNode({
+      id,
+      type: "supplier",
+      label: supplier.name,
+      sublabel: [supplier.city, supplier.state].filter(Boolean).join(", ") || undefined,
+      status: "active",
+      metadata: {
+        supplierId: supplier.id,
+        email: supplier.email,
+        phone: supplier.phone,
+        city: supplier.city,
+        origin: supplier.origin,
+        activeOrders: activeOrdersBySupplier.get(supplier.id) ?? 0,
+        reliabilityPct: shipmentStats
+          ? Number(((shipmentStats.delivered / shipmentStats.total) * 100).toFixed(1))
+          : undefined,
+        averageLeadTimeDays: leadTimeStats
+          ? Number((leadTimeStats.total / leadTimeStats.count).toFixed(1))
+          : undefined,
+      },
+    });
+  }
+
+  for (const order of purchaseOrderRows) {
+    const id = toMintGraphNodeId("po", order.id);
+    purchaseOrderIds.set(order.id, id);
+    addNode({
+      id,
+      type: "purchase_order",
+      label: `Orden ${order.id}`,
+      sublabel: order.status,
+      status: order.status === "abierta" ? "warning" : "active",
+      metadata: { quantity: order.quantity, unitPrice: order.unitPrice, totalAmount: order.totalAmount, status: order.status },
+    });
+  }
+
+  for (const item of caseRows) {
+    const id = toMintGraphNodeId("case", item.id);
+    caseIds.set(item.id, id);
+    addNode({
+      id,
+      type: "case",
+      label: item.title,
+      sublabel: item.resultSummary ?? item.status,
+      status: item.status === "en_proceso" ? "running" : item.status === "escalado" ? "warning" : "idle",
+      metadata: { caseId: item.id, status: item.status, priority: item.priority, createdAt: item.createdAt.toISOString() },
+    });
+  }
+
+  for (const decision of decisionRows) {
+    const id = toMintGraphNodeId("dec", decision.id);
+    decisionIds.set(decision.id, id);
+    const relatedCase = casesById.get(decision.caseId);
+    addNode({
+      id,
+      type: "decision",
+      label: decision.title,
+      sublabel: decision.policyDecision,
+      status: decision.policyDecision === "pending_approval" ? "warning" : decision.policyDecision === "rejected" || decision.policyDecision === "blocked" ? "warning" : "active",
+      metadata: {
+        decisionId: decision.id,
+        caseId: decision.caseId,
+        costCop: decision.costMxn,
+        riskScore: decision.riskScore,
+        policyDecision: decision.policyDecision,
+        policyReason: decision.policyReason,
+        proposingAgent: decision.proposingAgent,
+        ...(relatedCase
+          ? {
+              caseCost: relatedCase.totalCost,
+              caseTotalTokens: relatedCase.totalTokens,
+              casePromptTokens: relatedCase.promptTokens,
+              caseCompletionTokens: relatedCase.completionTokens,
+            }
+          : {}),
+      },
+    });
+  }
+
+  for (const shipment of shipmentRows) {
+    const id = toMintGraphNodeId("ship", shipment.id);
+    addNode({
+      id,
+      type: "shipment",
+      label: shipment.trackingNumber,
+      sublabel: `${shipment.carrier} · ${shipment.status}`,
+      status: shipment.status === "retrasado" ? "warning" : shipment.status === "entregado" || shipment.status === "cancelado" ? "idle" : "active",
+      metadata: {
+        shipmentId: shipment.id,
+        carrier: shipment.carrier,
+        status: shipment.status,
+        currentLocation: shipment.currentLocation,
+        destination: shipment.destinationLocation,
+      },
+    });
+  }
+
+  for (const rule of ruleRows) {
+    addNode({
+      id: toMintGraphNodeId("rule", rule.id),
+      type: "document",
+      label: rule.ruleType,
+      sublabel: rule.action,
+      status: rule.isActive ? "active" : "idle",
+      metadata: {
+        ruleId: rule.id,
+        conditions: rule.conditions,
+        active: rule.isActive,
+        createdAt: rule.createdAt.toISOString(),
+      },
+    });
+  }
+
+  for (const row of inventoryRows) {
+    addEdge(warehouseIds.get(row.warehouseId), productIds.get(row.productId), "belongs_to");
+  }
+  for (const offer of supplierProductRows) {
+    addEdge(supplierIds.get(offer.supplierId), productIds.get(offer.productId), "supplies");
+  }
+  for (const order of purchaseOrderRows) {
+    const orderId = purchaseOrderIds.get(order.id);
+    addEdge(orderId, supplierIds.get(order.supplierId), "depends_on");
+    addEdge(orderId, productIds.get(order.productId), "modifies");
+    addEdge(orderId, caseIds.get(order.caseId ?? ""), "belongs_to");
+  }
+  for (const shipment of shipmentRows) {
+    const shipmentId = toMintGraphNodeId("ship", shipment.id);
+    addEdge(purchaseOrderIds.get(shipment.purchaseOrderId ?? ""), shipmentId, "depends_on");
+  }
+  for (const decision of decisionRows) {
+    const decisionId = decisionIds.get(decision.id);
+    addEdge(decisionId, caseIds.get(decision.caseId), "belongs_to");
+    const proposedBy = agentNodeId(decision.proposingAgent);
+    addEdge(proposedBy, decisionId, "generates");
+    const productId = findEntityId(
+      [decision.evidencePayload, decision.riskPayload, casesById.get(decision.caseId)?.inputData],
+      new Set(["productId", "targetProductId", "product_id", "producto_id", "sku"]),
+    );
+    if (productId) addEdge(decisionId, productIds.get(productId) ?? productIdsBySku.get(productId), "modifies");
+    const supplierId = findEntityId(
+      [decision.evidencePayload, decision.riskPayload],
+      new Set(["supplierId", "supplier_id", "proveedor_id"]),
+    );
+    if (supplierId) addEdge(decisionId, supplierIds.get(supplierId), "depends_on");
+    for (const order of ordersByCase.get(decision.caseId) ?? []) {
+      addEdge(decisionId, purchaseOrderIds.get(order.id), "modifies");
+      for (const shipment of shipmentsByOrder.get(order.id) ?? []) {
+        addEdge(decisionId, toMintGraphNodeId("ship", shipment.id), "modifies");
       }
     }
+  }
+  for (const item of caseRows) {
+    const productId = findEntityId(item.inputData, new Set(["productId", "targetProductId", "product_id", "producto_id", "sku"]));
+    const agent = findEntityId(item.inputData, new Set(["agentId", "agentRole", "proposingAgent"]));
+    const caseId = caseIds.get(item.id);
+    if (agent) addEdge(agentNodeId(agent), caseId, "queries");
+    if (productId) {
+      addEdge(
+        caseId,
+        productIds.get(productId) ?? productIdsBySku.get(productId),
+        "modifies",
+      );
+    }
+  }
 
-    // Proveedores
-    if (sRows.length > 0) {
-      for (const s of sRows) {
-        const sId = `supp_${s.id}`;
-        nodes.push({
-          id: sId,
-          type: "supplier",
-          label: s.name,
-          sublabel: s.city || "Distribuidor Homologado",
-          metadata: { email: s.email, city: s.city },
-        });
-        edges.push({
-          id: `edge_tool_supp_${s.id}`,
-          source: "tool_suppliers",
-          target: sId,
-          relation: "queries",
-        });
+  for (const agentConfig of enabledAgentConfigs) {
+    const agent = agentConfig.agent;
+    const agentId = toMintGraphNodeId("agent", agent.contract.role);
+    if (agent.contract.role === "inventario") {
+      for (const row of inventoryRows) {
+        addEdge(agentId, warehouseIds.get(row.warehouseId), "queries");
+        addEdge(agentId, productIds.get(row.productId), "queries");
       }
-    } else {
-      const defaultSupps = [
-        { id: "supp_ferr_bog", name: "Ferreterías Unidas Bogotá", city: "Bogotá" },
-        { id: "supp_dist_san", name: "Distribuidora Industrial Santander", city: "Bucaramanga" },
-      ];
-      for (const s of defaultSupps) {
-        nodes.push({
-          id: s.id,
-          type: "supplier",
-          label: s.name,
-          sublabel: s.city,
-          metadata: s,
-        });
-        edges.push({
-          id: `edge_tool_${s.id}`,
-          source: "tool_suppliers",
-          target: s.id,
-          relation: "queries",
-        });
+    } else if (agent.contract.role === "compras") {
+      for (const offer of supplierProductRows) {
+        addEdge(agentId, supplierIds.get(offer.supplierId), "queries");
+        addEdge(agentId, productIds.get(offer.productId), "queries");
+      }
+    } else if (agent.contract.role === "logistica") {
+      for (const shipment of shipmentRows) addEdge(agentId, toMintGraphNodeId("ship", shipment.id), "queries");
+      for (const order of purchaseOrderRows) {
+        if (shipmentsByOrder.has(order.id)) {
+          addEdge(agentId, productIds.get(order.productId), "queries");
+        }
       }
     }
+  }
+  for (const decision of decisionRows) {
+    const productId = findEntityId(
+      [decision.evidencePayload, decision.riskPayload, casesById.get(decision.caseId)?.inputData],
+      new Set(["productId", "targetProductId", "product_id", "producto_id", "sku"]),
+    );
+    if (productId) addEdge(agentNodeId(decision.proposingAgent), productIds.get(productId) ?? productIdsBySku.get(productId), "queries");
+  }
 
-    // SKUs
-    if (pRows.length > 0) {
-      for (const p of pRows) {
-        const pId = `sku_${p.id}`;
-        const stock = (p as any).currentStock ?? 10;
-        const minStock = p.minStock ?? 5;
-        const price = (p as any).price ?? 50000;
-        nodes.push({
-          id: pId,
-          type: "sku",
-          label: p.sku || p.name,
-          sublabel: p.name,
-          status: stock <= minStock ? "warning" : "active",
-          metadata: {
-            sku: p.sku,
-            currentStock: stock,
-            minStock: minStock,
-            price: price,
-          },
-        });
-        // Relación SKU -> Bodega Bucaramanga por defecto
-        edges.push({
-          id: `edge_sku_wh_${p.id}`,
-          source: pId,
-          target: nodes.find((n) => n.type === "warehouse")?.id || "wh_bga",
-          relation: "belongs_to",
-        });
-        // Relación Herramienta Stock -> SKU
-        edges.push({
-          id: `edge_tool_sku_${p.id}`,
-          source: "tool_stock",
-          target: pId,
-          relation: "queries",
-        });
-      }
-    } else {
-      const defaultSkus = [
-        { id: "sku_sm400", sku: "SKU-MAN-SM400", name: "Martillo Demoledor SDS-Max 1500W", stock: 3, rop: 12 },
-        { id: "sku_disc7", sku: "SKU-COR-DISC7", name: "Disco Diamantado 7' Concreto", stock: 8, rop: 25 },
-        { id: "sku_imp20", sku: "SKU-TAL-IMP20", name: "Taladro de Impacto Inalámbrico 20V", stock: 45, rop: 15 },
-      ];
-      for (const p of defaultSkus) {
-        nodes.push({
-          id: p.id,
-          type: "sku",
-          label: p.sku,
-          sublabel: p.name,
-          status: p.stock <= p.rop ? "warning" : "active",
-          metadata: p,
-        });
-        edges.push({
-          id: `edge_${p.id}_wh`,
-          source: p.id,
-          target: "wh_bga",
-          relation: "belongs_to",
-        });
-        edges.push({
-          id: `edge_tool_${p.id}`,
-          source: "tool_stock",
-          target: p.id,
-          relation: "queries",
-        });
-      }
+  const documents = await readMarkdownFiles(vaultPath);
+  const labels = new Map<string, string>();
+  for (const node of nodes) {
+    labels.set(node.label.toLowerCase(), node.id);
+    if (node.sublabel) labels.set(node.sublabel.toLowerCase(), node.id);
+    labels.set(node.id.toLowerCase(), node.id);
+  }
+  const documentsByName = new Map<string, string>();
+  for (const rule of ruleRows) {
+    documentsByName.set(rule.ruleType.toLowerCase(), toMintGraphNodeId("rule", rule.id));
+    labels.set(rule.id.toLowerCase(), toMintGraphNodeId("rule", rule.id));
+    labels.set(rule.ruleType.toLowerCase(), toMintGraphNodeId("rule", rule.id));
+  }
+  for (const document of documents) {
+    const relativePath = path.relative(vaultPath, document.filePath);
+    const title = path.basename(document.filePath, path.extname(document.filePath));
+    const id = toMintGraphNodeId("doc", relativePath);
+    documentsByName.set(title.toLowerCase(), id);
+    addNode({
+      id,
+      type: "document",
+      label: title,
+      sublabel: path.dirname(relativePath) === "." ? "Memoria operativa" : path.dirname(relativePath),
+      status: "idle",
+      metadata: { relativePath, sizeBytes: Buffer.byteLength(document.content, "utf8") },
+    });
+  }
+  for (const document of documents) {
+    const sourceId = documentsByName.get(path.basename(document.filePath, path.extname(document.filePath)).toLowerCase());
+    if (!sourceId) continue;
+    const links = document.content.matchAll(/\[\[(.*?)\]\]/g);
+    for (const match of links) {
+      const target = match[1].split("|")[0].trim().toLowerCase();
+      const targetId = documentsByName.get(target) ?? labels.get(target);
+      if (targetId) addEdge(sourceId, targetId, "documents");
     }
-
-    // Decisiones HITL
-    if (dRows.length > 0) {
-      for (const d of dRows) {
-        const dId = `dec_${d.id}`;
-        nodes.push({
-          id: dId,
-          type: "decision",
-          label: `Decisión #${d.id.slice(0, 8)}`,
-          sublabel: d.title || "Propuesta de compra",
-          status: d.policyDecision === "pending_approval" ? "warning" : "active",
-          metadata: {
-            costCop: d.costMxn,
-            policyDecision: d.policyDecision,
-            reason: d.policyReason,
-          },
-        });
-        edges.push({
-          id: `edge_agent_dec_${d.id}`,
-          source: "agent_coordinator",
-          target: dId,
-          relation: "generates",
-        });
-        edges.push({
-          id: `edge_dec_po_${d.id}`,
-          source: dId,
-          target: "tool_po",
-          relation: "depends_on",
-        });
-      }
-    } else {
-      const defaultDecId = "dec_7f93a1c8";
-      nodes.push({
-        id: defaultDecId,
-        type: "decision",
-        label: "Propuesta PO #7f93a1c8",
-        sublabel: "$3,780,000 COP • Martillo Demoledor",
-        status: "warning",
-        metadata: {
-          costCop: 3780000,
-          policyDecision: "pending_approval",
-          supplier: "Ferreterías Unidas Bogotá",
-        },
-      });
-      edges.push({
-        id: "edge_agent_dec_default",
-        source: "agent_coordinator",
-        target: defaultDecId,
-        relation: "generates",
-      });
-      edges.push({
-        id: "edge_dec_sku_default",
-        source: defaultDecId,
-        target: "sku_sm400",
-        relation: "modifies",
-      });
-    }
-  } catch (err) {
-    // Cuando PostgreSQL no está en ejecución local, activamos el grafo de topología operativa
-    // de Ferretería Industrial Santandereana S.A.S. de forma silenciosa y limpia.
+    const linkedCaseId = caseRows.find((item) => document.content.includes(item.id));
+    if (linkedCaseId) addEdge(sourceId, caseIds.get(linkedCaseId.id), "documents");
+    const linkedRule = ruleRows.find((rule) => document.content.includes(rule.id));
+    if (linkedRule) addEdge(sourceId, toMintGraphNodeId("rule", linkedRule.id), "documents");
   }
 
   return { nodes, edges };

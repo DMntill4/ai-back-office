@@ -8,6 +8,7 @@ import {
   AgentTelemetryStatus,
   AgentTelemetryCostPayload,
 } from "./telemetry.types";
+import type { AgentGraphTraversal } from "../graph/graph.types";
 
 /**
  * Publicador desacoplado de telemetría del agente (Event Emitter / Observer Pattern).
@@ -44,6 +45,18 @@ export class TelemetryPublisher extends EventEmitter {
     this.emit("telemetry", event);
     this.emit(`action:${event.action}`, event);
     this.emit(`target:${event.target.group}`, event);
+  }
+
+  public publishGraphTraversal(
+    traversal: Omit<AgentGraphTraversal, "type" | "timestamp"> & { timestamp?: number },
+  ): AgentGraphTraversal {
+    const event: AgentGraphTraversal = {
+      ...traversal,
+      type: "agent_graph_traversal",
+      timestamp: traversal.timestamp ?? Date.now(),
+    };
+    this.emit("agent_graph_traversal", event);
+    return event;
   }
 
   /**

@@ -12,7 +12,10 @@ export type MintNodeType =
   | "supplier"
   | "purchase_order"
   | "execution"
-  | "decision";
+  | "decision"
+  | "case"
+  | "shipment"
+  | "document";
 
 export type MintRelationType =
   | "uses"
@@ -21,7 +24,19 @@ export type MintRelationType =
   | "generates"
   | "depends_on"
   | "modifies"
-  | "approved_by";
+  | "approved_by"
+  | "supplies"
+  | "documents"
+  | "almacena"
+  | "suministra"
+  | "monitorea"
+  | "propone"
+  | "afecta"
+  | "documenta"
+  | "depende_de"
+  | "pertenece_a"
+  | "utiliza"
+  | "aprobado_por";
 
 export interface MintGraphNode {
   id: string;
@@ -52,6 +67,26 @@ export interface MintGraphData {
     focusNodeId?: string;
     generatedAt: string;
   };
+}
+
+export interface AgentGraphTraversal {
+  type: "agent_graph_traversal";
+  taskId: string;
+  agentId: string;
+  targetNodeId: string;
+  action: string;
+  path: string[];
+  status: "active" | "warning" | "completed";
+  timestamp: number;
+}
+
+export function toMintGraphNodeId(prefix: string, value: string): string {
+  const normalized = value.trim().replace(/[^a-zA-Z0-9._-]/g, (char) =>
+    Array.from(char)
+      .map((part) => `_${part.codePointAt(0)?.toString(16) ?? "0"}_`)
+      .join(""),
+  );
+  return `${prefix}_${normalized}`;
 }
 
 export interface GraphFilters {

@@ -40,6 +40,23 @@ export interface RequestOptions {
     signal?: AbortSignal;
 }
 
+export interface CanonicalGraphPayload {
+    nodes: Array<{
+        id: string;
+        label: string;
+        type: "agent" | "warehouse" | "product" | "supplier" | "decision" | "document";
+        status?: "idle" | "active" | "warning" | "critical";
+        metrics?: Record<string, unknown>;
+    }>;
+    links: Array<{
+        source: string;
+        target: string;
+        relation: string;
+        weight?: number;
+        active?: boolean;
+    }>;
+}
+
 // ---------------------------------------------------------------------------
 // Núcleo de fetch con timeout
 // ---------------------------------------------------------------------------
@@ -257,6 +274,8 @@ export interface TelemetryCostsResponse {
     session: {
         totalTokens: number;
         totalCostUsd: number;
+        promptTokens: number;
+        completionTokens: number;
         taskCount: number;
     };
     tasks: TelemetryCostTask[];
@@ -599,6 +618,17 @@ export const api = {
     },
 
     graph: {
+        live: (params?: { mode?: string; searchQuery?: string }) => {
+            const qs = new URLSearchParams();
+            if (params?.mode) qs.set("mode", params.mode);
+            if (params?.searchQuery) qs.set("searchQuery", params.searchQuery);
+            const suffix = qs.toString() ? `?${qs.toString()}` : "";
+            return request<CanonicalGraphPayload>(`/graph${suffix}`);
+        },
+        node: (id: string) =>
+            request<{ node: import("../types/graph").MintGraphNode; relatedEdges: import("../types/graph").MintGraphEdge[] }>(
+                `/graph/nodes/${encodeURIComponent(id)}`,
+            ),
         data: (params?: { mode?: string; searchQuery?: string }) => {
             const qs = new URLSearchParams();
             if (params?.mode) qs.set("mode", params.mode);
@@ -631,7 +661,7 @@ export const api = {
         /** Desglose de costo/tokens acumulado por tarea y total de la sesión. */
         costs: () =>
             requestWithFallback<TelemetryCostsResponse>("/telemetry/costs", {
-                session: { totalTokens: 0, totalCostUsd: 0, taskCount: 0 },
+                session: { totalTokens: 0, totalCostUsd: 0, promptTokens: 0, completionTokens: 0, taskCount: 0 },
                 tasks: [],
             }),
         /** Historial de eventos de telemetría (para paneles de logs). */

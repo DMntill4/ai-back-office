@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { User, SlidersHorizontal, BellRing } from "lucide-react";
+import { User, SlidersHorizontal, BellRing, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useUserSettings, getInitials } from "../../hooks/useUserSettings";
 
@@ -47,20 +47,21 @@ export const ProfileMenu: React.FC<Props> = ({ companyName, onSelectTab }) => {
         onClick={() => setIsOpen((v) => !v)}
         aria-haspopup="true"
         aria-expanded={isOpen}
-        className="flex items-center gap-2 pl-1 cursor-pointer group"
+        className="flex h-8 items-center gap-compact pl-1 pr-compact rounded-control hover:bg-raised transition-colors cursor-pointer group"
         title="Cuenta"
       >
-        <div className="w-8 h-8 rounded-pill bg-raised border border-border flex items-center justify-center text-caption font-bold text-brand font-mono">
+        <div className="w-8 h-8 rounded-pill bg-panel border border-brand ring-1 ring-border flex items-center justify-center text-caption font-bold text-brand">
           {getInitials(profile.fullName)}
         </div>
-        <div className="text-left hidden sm:block">
-          <p className="text-caption font-medium text-primary group-hover:text-brand transition-colors leading-tight whitespace-nowrap">
+        <div className="hidden flex-col gap-0.5 text-left sm:flex">
+          <p className="text-caption font-semibold text-primary group-hover:text-brand transition-colors leading-tight whitespace-nowrap">
             {profile.fullName}
           </p>
-          <p className="text-caption text-muted leading-none mt-hairline whitespace-nowrap">
+          <p className="text-caption text-muted leading-none whitespace-nowrap">
             {profile.role}
           </p>
         </div>
+        <ChevronDown className={`hidden sm:block w-3.5 h-3.5 text-secondary transition-transform duration-150 group-hover:text-primary ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       <AnimatePresence>

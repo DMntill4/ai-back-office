@@ -11,7 +11,9 @@ describe("Bucle del Agente (Agent Loop)", () => {
   it("debe resolver el caso cuando las herramientas comprueban existencias y se resuelve exitosamente", async () => {
     // Paso 1: Grok pide consultar stock
     let turn = 0;
-    mockClient.chatCompletion = async () => {
+    const requestOptions: Array<{ maxTokens?: number }> = [];
+    mockClient.chatCompletion = async (options) => {
+      requestOptions.push(options);
       turn++;
       if (turn === 1) {
         return {
@@ -112,6 +114,8 @@ describe("Bucle del Agente (Agent Loop)", () => {
     expect(report.summary).toContain("Stock verificado");
     expect(report.totalSteps).toBe(2);
     expect(report.totalTokens).toBe(155);
+    expect(requestOptions).toHaveLength(2);
+    expect(requestOptions.every((options) => options.maxTokens === 900)).toBe(true);
   });
 
   it("debe escalar el caso a un humano cuando la orden de compra supera el límite de autorización", async () => {
@@ -236,4 +240,3 @@ describe("Bucle del Agente (Agent Loop)", () => {
     await pool.end();
   });
 });
-
