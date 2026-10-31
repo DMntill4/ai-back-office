@@ -11,7 +11,7 @@ import {
     ajustarStockSchema,
     type DynamicInventoryHealth,
 } from "@mint/core";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import { currentSession } from "./auth";
 import { sseHub } from "../events/sseHub";
 
@@ -269,13 +269,24 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
                     warehouseName: wh?.name ?? "Sin almacén",
                     currentStock: totalStock,
                     minStock,
-                    unitPriceCop: 0,
+                    unitPriceCop:
+                        p.costPrice == null && p.price == null
+                            ? null
+                            : safeNumber(p.costPrice ?? p.price),
                     status:
                         totalStock === 0 ? "quiebre" : totalStock < minStock ? "alerta" : "optimo",
                 };
             });
 
-            return { success: true, count: items.length, data: items };
+            const totalRows = await db
+                .select({ value: count() })
+                .from(products)
+                .where(eq(products.companyId, companyId));
+            return {
+                success: true,
+                count: Number(totalRows[0]?.value ?? items.length),
+                data: items,
+            };
         } catch (err: unknown) {
             reply.code(503);
             return {
@@ -307,5 +318,3 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
         }
     });
 }
-
-

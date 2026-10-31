@@ -1,24 +1,24 @@
-import React, { useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { PageHeader } from "../ui/PageHeader";
 import { SegmentedTabs, TabItem } from "../ui/SegmentedTabs";
 import { MetricStrip, MetricItem } from "../ui/MetricStrip";
 import { StatusIndicator } from "../ui/StatusIndicator";
 import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
-import { AgentEventChip } from "../ui/AgentEventChip";
-import { AgentParticleCloud } from "../ui/AgentParticleCloud";
 import { EmptyState } from "../ui/EmptyState";
-import { Calendar, Sparkles, ArrowRight, RefreshCw } from "lucide-react";
-import type { HitlDecision } from "../../types/workflow";
+import { useLenisScroll } from "../../hooks/useLenisScroll";
+import { Calendar, Sparkles, RefreshCw } from "lucide-react";
+import type { PendingDecisionRecord } from "../../services/apiClient";
+import { useInventoryData } from "../../hooks/useInventoryData";
 
 interface DashboardOverviewViewProps {
   onNavigateTo: (tabId: string) => void;
-  onOpenApproval: () => void;
-  /** Decisiones del agente; las pendientes se muestran como "requieren tu firma". */
-  decisions?: HitlDecision[];
+  decisions: PendingDecisionRecord[];
+  pendingDecisionCount: number;
+  decisionsError: string | null;
 }
 
-type AttentionKind = "firma" | "inventario" | "calidad";
+type AttentionKind = "firma" | "inventario";
 
 interface AttentionItem {
   id: string;
@@ -42,32 +42,46 @@ const KIND_FILTERS: { id: "todas" | AttentionKind; label: string }[] = [
   { id: "todas", label: "Todas" },
   { id: "firma", label: "Firmas" },
   { id: "inventario", label: "Inventario" },
-  { id: "calidad", label: "Calidad" },
 ];
 
 const KIND_GLYPH: Record<AttentionKind, { glyph: string; color: string }> = {
   firma: { glyph: "◆", color: "text-state-pending" },
   inventario: { glyph: "▲", color: "text-state-attention" },
-  calidad: { glyph: "■", color: "text-state-error" },
 };
 
-const formatCop = (n: number) => `$${n.toLocaleString("es-CO")} COP`;
+const formatCurrency = (value: number, currency = "COP") =>
+  new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(value);
 
 export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
   onNavigateTo,
-  onOpenApproval,
-  decisions = [],
+  decisions,
+  pendingDecisionCount,
+  decisionsError,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<string>("resumen");
+  const scrollWrapperRef = useRef<HTMLDivElement>(null);
+  const scrollContentRef = useRef<HTMLDivElement>(null);
+  useLenisScroll(scrollWrapperRef, scrollContentRef);
+  const {
+    summary: inventorySummary,
+    ropAlerts,
+    loading: inventoryLoading,
+    error: inventoryError,
+    refresh: refreshInventory,
+  } = useInventoryData();
 
   // Saludo dinámico según la hora del día
   const currentHour = new Date().getHours();
   const greeting =
     currentHour < 12
-      ? "Buenos días, Fernando."
+      ? "Buenos días."
       : currentHour < 19
-      ? "Buenas tardes, Fernando."
-      : "Buenas noches, Fernando.";
+      ? "Buenas tardes."
+      : "Buenas noches.";
 
   // Fecha actual formateada en español
   const formattedDate = new Intl.DateTimeFormat("es-CO", {
@@ -81,58 +95,41 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
     formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
 
 
-  // Cola de atención. Las firmas salen de las decisiones pendientes reales;
-  // inventario y calidad son datos de muestra hasta que el backend los entregue.
-  const attentionItems: AttentionItem[] = [
-    ...decisions
-      .filter((d) => d.status === "pendiente")
-      .map<AttentionItem>((d) => ({
-        id: `firma:${d.id}`,
+  const attentionItems = useMemo<AttentionItem[]>(() => [
+    ...decisions.map<AttentionItem>((decision) => ({
+        id: `firma:${decision.id}`,
         kind: "firma",
-        urgency: d.redFlags.length > 0 ? 1 : 2,
-        reference: d.sku,
-        source: d.supplierName,
+        urgency: 1,
+        reference: decision.caseId,
+        source: decision.proposingAgent ?? "Agente no especificado",
         status: "pending",
         statusLabel: "Requiere tu firma",
-        title: d.title,
-        amount: formatCop(d.totalCostCop),
-        note: d.policyReason,
-        rule: d.redFlags[0],
+        title: decision.title,
+        amount: decision.costMxn == null ? undefined : formatCurrency(decision.costMxn),
+        note: decision.policyReason ?? undefined,
         actionLabel: "Revisar y aprobar",
         actionVariant: "primary",
         targetTab: "aprobaciones",
       })),
-    {
-      id: "inv:rot-001",
+    ...ropAlerts.map<AttentionItem>((alert) => ({
+      id: `inventario:${alert.productId}`,
       kind: "inventario",
-      urgency: 3,
-      reference: "SKU-ROT-001",
-      source: "Bodega Bucaramanga Matriz",
-      status: "attention",
-      statusLabel: "Bajo punto de reorden",
-      title: "Existencia actual: 4 unidades (Mínimo de seguridad: 15)",
-      note: "La tasa de demanda de esta semana es de 1.8 unidades diarias. Se proyecta quiebre en 2 días si no se autoriza la compra o se traslada excedente desde CD Fontibón.",
-      actionLabel: "Simular rebalanceo",
+      urgency: alert.status === "AGOTADO" ? 0 : 2,
+      reference: alert.sku,
+      source: alert.preferredSupplierName ?? alert.warehouseBreakdown[0]?.warehouseName ?? "Inventario",
+      status: alert.status === "AGOTADO" ? "error" : "attention",
+      statusLabel: alert.status === "AGOTADO" ? "Sin existencias" : "Requiere reposición",
+      title: `${alert.totalStock} unidades · mínimo ${alert.minStock} · reorden ${alert.reorderPoint}`,
+      note: alert.dailyBurnRate > 0
+        ? `Consumo promedio registrado: ${alert.dailyBurnRate} unidades por día.`
+        : undefined,
+      actionLabel: "Ver existencias",
       actionVariant: "secondary",
       targetTab: "inventario",
-    } as AttentionItem,
-    {
-      id: "cal:galv-04",
-      kind: "calidad",
-      urgency: 4,
-      reference: "LOTE-GALV-04",
-      source: "Aceros del Oriente S.A.",
-      status: "error",
-      statusLabel: "Retenido en cuarentena",
-      title: "Discrepancia técnica: Calibre 18 recibido vs. Calibre 16 ordenado",
-      actionLabel: "Ver ficha técnica",
-      actionVariant: "secondary",
-      targetTab: "inventario",
-    } as AttentionItem,
-  ].sort((a, b) => a.urgency - b.urgency);
+    })),
+  ].sort((a, b) => a.urgency - b.urgency), [decisions, ropAlerts]);
 
   const [kindFilter, setKindFilter] = useState<"todas" | AttentionKind>("todas");
-  const firmasCount = attentionItems.filter((i) => i.kind === "firma").length;
   const visibleItems =
     kindFilter === "todas"
       ? attentionItems
@@ -199,157 +196,133 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
     );
   };
 
-  // Métricas reales sin tarjetas con el MetricStrip
+  const inventoryValuation = inventorySummary
+    ? formatCurrency(inventorySummary.totalValuation, inventorySummary.currency)
+    : "—";
+  const atRiskCount = inventorySummary
+    ? inventorySummary.skusBelowRop +
+      inventorySummary.skusOutOfStock +
+      inventorySummary.skusAtRisk
+    : 0;
+
   const metricsData: MetricItem[] = [
     {
       id: "capital",
-      value: "$482.5M COP",
-      context: "Capital activo en existencias físicas",
+      value: inventoryValuation,
+      context: inventorySummary
+        ? "Valoración calculada desde inventario y costos registrados"
+        : "Valoración no disponible desde el backend",
       highlightBrand: true,
-      auxiliary: (
-        <span className="text-caption font-medium text-state-ok">(+6.4% mes)</span>
-      ),
     },
     {
       id: "catalogo",
-      value: "338",
-      context: "Referencias activas en 3 sedes",
-      auxiliary: (
-        <StatusIndicator status="ok" label="Catálogo activo" />
+      value: String(inventorySummary?.totalSkus ?? 0),
+      context: "Referencias consultadas en la base de datos",
+      auxiliary: inventoryLoading ? undefined : (
+        <StatusIndicator status={inventoryError ? "error" : "ok"} label={inventoryError ? "Error de consulta" : "Consulta completada"} />
       ),
     },
     {
       id: "reorden",
-      value: "8 SKUs",
-      context: "Bajo punto de reorden (riesgo < 4 días)",
+      value: String(atRiskCount),
+      context: "Referencias con alerta de reposición reportada por el backend",
       auxiliary: (
-        <StatusIndicator status="attention" label="Bajo ROP" />
+        <StatusIndicator status={atRiskCount > 0 ? "attention" : "ok"} label={atRiskCount > 0 ? "Revisar reposición" : "Sin alertas"} />
       ),
     },
     {
       id: "aprobaciones",
-      value: "2",
+      value: String(pendingDecisionCount),
       context: "Compras que requieren tu aprobación",
-      auxiliary: (
-        <StatusIndicator status="pending" label="Requiere firma" />
-      ),
+      auxiliary: decisionsError
+        ? <StatusIndicator status="error" label="No disponible" />
+        : <StatusIndicator status={decisions.length > 0 ? "pending" : "ok"} label={decisions.length > 0 ? "Requiere firma" : "Sin pendientes"} />,
     },
   ];
-
-  // Actividad del agente en vivo
-  const liveEvents = [
-    {
-      time: "10:24",
-      action: "Auditoría de existencias finalizada",
-      reference: "74 SKUs escaneados",
-      timeAgo: "Hace 2 min",
-    },
-    {
-      time: "10:18",
-      action: "Orden propuesta por punto de reorden",
-      reference: "PO-24A190",
-      timeAgo: "Hace 8 min",
-    },
-    {
-      time: "09:45",
-      action: "Monitoreo de tráfico completado",
-      reference: "Corredor Bucaramanga-Bogotá",
-      timeAgo: "Hace 41 min",
-    },
-    {
-      time: "08:30",
-      action: "Conciliación de albarán de entrega",
-      reference: "LOTE-GALV-04",
-      timeAgo: "Hace 2 horas",
-    },
-  ];
-
 
   const showResumen = activeSubTab === "resumen";
   const showAtencion = activeSubTab === "atencion";
   const showActividad = activeSubTab === "actividad";
 
   const activityFeed = (
-    <div className="space-y-compact pt-compact">
-      <div className="flex items-center justify-between pb-compact border-b border-border">
-        <div>
-          <h3 className="text-section-title font-bold text-primary">Actividad del agente en vivo</h3>
-          <p className="text-caption text-secondary mt-hairline">
-            Historial cronológico de vigilancia y conciliación autónoma
-          </p>
-        </div>
-        <StatusIndicator status="ok" label="Transmisión activa" />
-      </div>
-      <Panel className="p-0 divide-y divide-border overflow-hidden">
-        {liveEvents.map((evt, idx) => (
-          <div
-            key={idx}
-            className="flex items-center justify-between px-group py-compact hover:bg-raised/30 transition-colors"
-          >
-            <div className="flex items-center gap-group">
-              <span className="text-caption font-mono text-muted whitespace-nowrap w-12">{evt.time}</span>
-              <AgentEventChip action={evt.action} reference={evt.reference} timeAgo={evt.timeAgo} />
-            </div>
-            <ArrowRight className="w-3.5 h-3.5 text-muted" />
-          </div>
-        ))}
-      </Panel>
-    </div>
+    <EmptyState
+      title="Actividad no disponible"
+      description="No hay un historial operativo conectado a esta vista. No se muestran eventos de ejemplo."
+    />
   );
 
   return (
-    <div className="flex-1 h-full min-w-0 overflow-y-auto bg-canvas text-primary font-sans p-base sm:p-group lg:p-page space-y-group">
-      <PageHeader
-        title="Centro de Operaciones"
-        description="Supervisión autónoma de existencias, compras y gobernanza de obra."
-        actions={
-          <div className="flex items-center gap-compact">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-pill bg-panel border border-border text-caption text-secondary">
-              <Calendar className="w-3.5 h-3.5 text-brand" />
-              <span>{capitalizedDate}</span>
+    <div
+      ref={scrollWrapperRef}
+      className="flex-1 h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain"
+    >
+      <div
+        ref={scrollContentRef}
+        className="min-h-full bg-canvas text-primary font-sans p-base sm:p-group lg:p-page space-y-group"
+      >
+        <PageHeader
+          title="Centro de Operaciones"
+          description="Supervisión autónoma de existencias, compras y gobernanza de obra."
+          actions={
+            <div className="flex items-center gap-compact">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-pill bg-panel border border-border text-caption text-secondary">
+                <Calendar className="w-3.5 h-3.5 text-brand" />
+                <span>{capitalizedDate}</span>
+              </div>
+              <Button
+                variant="secondary"
+                size="table"
+                icon={<RefreshCw className="w-3.5 h-3.5" />}
+                onClick={() => onNavigateTo("agente")}
+              >
+                Ver flujo
+              </Button>
             </div>
-            <Button
-              variant="secondary"
-              size="table"
-              icon={<RefreshCw className="w-3.5 h-3.5" />}
-              onClick={() => onNavigateTo("agente")}
-            >
-              Ver flujo
-            </Button>
-          </div>
-        }
-        filterControl={
-          <SegmentedTabs tabs={subTabs} activeTab={activeSubTab} onChange={setActiveSubTab} />
-        }
-      />
+          }
+          filterControl={
+            <SegmentedTabs tabs={subTabs} activeTab={activeSubTab} onChange={setActiveSubTab} />
+          }
+        />
+
+      {(decisionsError || inventoryError) && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-compact rounded-control border border-state-error/40 bg-state-error-surface px-compact py-compact text-caption text-state-error"
+        >
+          <span>
+            No se pudieron validar todos los datos con el backend.
+            {decisionsError ? ` Aprobaciones: ${decisionsError}.` : ""}
+            {inventoryError ? ` Inventario: ${inventoryError}.` : ""}
+          </span>
+          <Button
+            variant="ghost"
+            size="table"
+            onClick={() => void refreshInventory()}
+          >
+            Reintentar inventario
+          </Button>
+        </div>
+      )}
 
       {/* RESUMEN: saludo, métricas, vista previa de la cola y actividad */}
       {showResumen && (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-group items-center py-compact">
-            <div className="lg:col-span-8 space-y-compact">
+          <div className="py-compact">
+            <div className="space-y-compact">
               <h2 className="text-display font-bold text-primary tracking-tight">{greeting}</h2>
               <p className="text-body-large text-secondary leading-relaxed max-w-2xl">
-                El agente completó la conciliación de existencias en{" "}
-                <strong className="text-primary font-semibold">3 sedes físicas</strong>: se detectaron{" "}
+                La base de datos registra{" "}
+                <strong className="text-primary font-semibold">{inventorySummary?.totalSkus ?? 0} referencias</strong>
+                {" "}y el servicio reporta{" "}
                 <strong className="text-state-attention font-semibold">
-                  8 productos bajo el punto de reorden
+                  {atRiskCount} referencias con alertas de inventario
                 </strong>{" "}
-                y hay{" "}
+                . Además hay{" "}
                 <strong className="text-state-pending font-semibold">
-                  {firmasCount} {firmasCount === 1 ? "compra que requiere" : "compras que requieren"} tu aprobación
-                </strong>{" "}
-                para asegurar el suministro de obra sin exceder los límites de crédito.
+                  {pendingDecisionCount} {pendingDecisionCount === 1 ? "decisión pendiente" : "decisiones pendientes"}
+                </strong>
+                {" "}de aprobación.
               </p>
-            </div>
-            <div className="lg:col-span-4 flex flex-col items-center justify-center p-compact rounded-container bg-panel/50 border border-border">
-              <AgentParticleCloud size={160} state="pensando" />
-              <div className="mt-compact text-center">
-                <span className="text-caption font-medium text-primary block">Agente Autónomo Mint</span>
-                <span className="text-caption text-muted block mt-hairline">
-                  Vigilancia activa de existencias y logística
-                </span>
-              </div>
             </div>
           </div>
 
@@ -360,7 +333,7 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
               <div>
                 <h3 className="text-section-title font-bold text-primary">Lo que requiere tu atención</h3>
                 <p className="text-caption text-secondary mt-hairline">
-                  Las 3 más urgentes de {attentionItems.length}
+                  {Math.min(3, attentionItems.length)} de {attentionItems.length} registros consultados
                 </p>
               </div>
               <Button variant="secondary" size="table" showArrow onClick={() => setActiveSubTab("atencion")}>
@@ -403,7 +376,7 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
           {visibleItems.length === 0 ? (
             <EmptyState
               title="Nada pendiente aquí"
-              description="No hay acciones de este tipo por ahora. El agente te avisará cuando aparezca alguna."
+              description="No hay registros del backend que coincidan con esta categoría."
               actionLabel={kindFilter === "todas" ? undefined : "Ver todas"}
               onAction={() => setKindFilter("todas")}
             />
@@ -415,6 +388,7 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
 
       {/* ACTIVIDAD: solo el feed del agente */}
       {showActividad && activityFeed}
+      </div>
     </div>
   );
 };

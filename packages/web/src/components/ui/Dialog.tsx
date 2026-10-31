@@ -52,6 +52,7 @@ export const Dialog: React.FC<DialogProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.15 }}
+            data-lenis-prevent
             className="relative mx-auto w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-panel border border-white/10 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.75)] p-4 sm:p-6 z-10 space-y-5"
           >
             <div className="flex items-start justify-between gap-3">

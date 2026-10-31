@@ -139,7 +139,7 @@ export const CommandSearch: React.FC<Props> = ({ records = [], onSelectTab }) =>
               Sin resultados para “{query}”.
             </div>
           ) : (
-            <ul className="max-h-[340px] overflow-y-auto custom-scrollbar py-hairline" role="listbox">
+            <ul data-lenis-prevent className="max-h-[340px] overflow-y-auto custom-scrollbar py-hairline" role="listbox">
               {results.map((r, i) => (
                 <li key={r.id} role="option" aria-selected={i === cursor}>
                   <button

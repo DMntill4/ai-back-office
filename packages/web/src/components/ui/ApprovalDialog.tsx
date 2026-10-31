@@ -57,6 +57,7 @@ export const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
+            data-lenis-prevent
             className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl bg-forest-surface border border-forest-borderBright shadow-dialog overflow-hidden z-10"
           >
             {/* Header */}
@@ -82,7 +83,7 @@ export const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
             </div>
 
             {/* Content */}
-            <div className="min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
+            <div data-lenis-prevent className="min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
               {/* Card Resumen de la Orden */}
               <div className="p-4 rounded-xl bg-forest-card border border-forest-border space-y-2.5">
                 <div className="flex flex-col gap-hairline sm:flex-row sm:items-center sm:justify-between">

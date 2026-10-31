@@ -82,7 +82,7 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
       {/* Body: Split View (Steps List on Left, JSON Payload on Right) */}
       {!isCollapsed && <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden">
         {/* Left: Execution Pipeline Steps */}
-        <div className="w-24 sm:w-44 shrink-0 border-r border-border p-element space-y-hairline overflow-y-auto bg-panel">
+        <div data-lenis-prevent className="w-24 sm:w-44 shrink-0 border-r border-border p-element space-y-hairline overflow-y-auto bg-panel">
           {logs.map((step) => {
             const isSelected = selectedStepId === step.id;
             const isRunning = step.status === "running";
@@ -108,7 +108,7 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
         </div>
 
         {/* Right: Formatted JSON Output */}
-        <div className="flex-1 min-w-0 p-element overflow-y-auto flex flex-col justify-between bg-canvas">
+        <div data-lenis-prevent className="flex-1 min-w-0 p-element overflow-y-auto flex flex-col justify-between bg-canvas">
           <div className="flex items-center justify-between pb-compact border-b border-border mb-compact">
             <span className="text-caption font-mono text-secondary">
               Processing node: <span className="text-brand font-semibold">{selectedLog?.label || "Node"}</span>
@@ -131,7 +131,7 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
             </button>
           </div>
 
-          <pre className="flex-1 text-caption font-mono text-secondary overflow-x-auto leading-relaxed select-text">
+          <pre data-lenis-prevent className="flex-1 text-caption font-mono text-secondary overflow-x-auto leading-relaxed select-text">
             {selectedLog?.payload
               ? JSON.stringify(selectedLog.payload, null, 2)
               : "{\n  \"status\": \"idle\"\n}"}

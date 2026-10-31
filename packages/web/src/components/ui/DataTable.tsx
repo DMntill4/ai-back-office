@@ -29,7 +29,7 @@ export function DataTable<T>({
   className = "",
 }: DataTableProps<T>) {
   return (
-    <div className={`w-full min-w-0 overflow-x-auto custom-scrollbar rounded-container border border-border bg-panel ${className}`}>
+    <div data-lenis-prevent className={`w-full min-w-0 overflow-x-auto custom-scrollbar rounded-container border border-border bg-panel ${className}`}>
       <table className="w-full min-w-[640px] text-left border-collapse">
         <thead>
           <tr className="border-b border-border bg-canvas/60">

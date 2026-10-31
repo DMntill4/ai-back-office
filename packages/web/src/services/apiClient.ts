@@ -8,10 +8,7 @@
  *   / `graphData.ts` para que la UI nunca se rompa en desarrollo.
  */
 
-import {
-    INITIAL_STOCK_SKUS,
-    INITIAL_VAULT_NOTES,
-} from "../data/mockData";
+import { INITIAL_VAULT_NOTES } from "../data/mockData";
 import type { MintGraphData } from "../types/graph";
 
 // ---------------------------------------------------------------------------
@@ -31,6 +28,7 @@ export interface ApiResponse<T> {
     /** `true` cuando los datos provienen del fallback estático. */
     isFallback: boolean;
     message?: string;
+    count?: number;
 }
 
 export interface RequestOptions {
@@ -109,13 +107,14 @@ export async function requestWithFallback<T>(
             data: (data ?? fallback) as T,
             isFallback: false,
             message: json?.message,
+            count: typeof json?.count === "number" ? json.count : undefined,
         };
     } catch (err: any) {
         return {
             success: false,
             data: fallback,
             isFallback: true,
-            message: err?.message ?? "Backend no disponible; usando datos locales.",
+            message: err?.message ?? "No fue posible consultar el backend.",
         };
     }
 }
@@ -179,6 +178,38 @@ export interface RopAlert {
         city?: string | null;
         stock: number;
     }>;
+}
+
+export interface InventoryItemRecord {
+    id: string;
+    sku: string;
+    name: string;
+    category: string;
+    warehouseId: string | null;
+    warehouseName: string;
+    currentStock: number;
+    minStock: number;
+    unitPriceCop: number | null;
+    status: "optimo" | "alerta" | "quiebre";
+}
+
+export interface PendingDecisionRecord {
+    id: string;
+    caseId: string;
+    title: string;
+    actionType: string;
+    proposingAgent: string | null;
+    costMxn: number | null;
+    riskScore: number;
+    policyReason: string | null;
+    evidence: Record<string, unknown>;
+    costBreakdown?: {
+        tokens: number;
+        costUsd: number;
+        model: string | null;
+    };
+    evaluation?: Record<string, unknown> | null;
+    createdAt: string;
 }
 
 export interface SupplierSla {
@@ -350,52 +381,6 @@ export const FALLBACK_SHIPMENTS: ShipmentListItem[] = [
         notes: "Entrega confirmada con firma digital.",
     },
 ];
-
-export const FALLBACK_INVENTORY_SUMMARY: InventorySummary = {
-    totalSkus: INITIAL_STOCK_SKUS.length,
-    totalUnits: INITIAL_STOCK_SKUS.reduce((sum, s) => sum + s.currentStock, 0),
-    totalValuation: INITIAL_STOCK_SKUS.reduce((sum, s) => sum + s.currentStock * s.unitPriceCop, 0),
-    currency: "COP",
-    skusBelowRop: INITIAL_STOCK_SKUS.filter((s) => s.currentStock < s.ropThreshold).length,
-    skusOutOfStock: INITIAL_STOCK_SKUS.filter((s) => s.currentStock === 0).length,
-    skusAtRisk: INITIAL_STOCK_SKUS.filter(
-        (s) => s.currentStock >= s.ropThreshold && s.coverageDays < 7,
-    ).length,
-    healthPct: Math.round(
-        (INITIAL_STOCK_SKUS.filter((s) => s.status === "optimo").length /
-            Math.max(1, INITIAL_STOCK_SKUS.length)) *
-        100,
-    ),
-    byStatus: INITIAL_STOCK_SKUS.reduce<Record<string, number>>((acc, s) => {
-        acc[s.status] = (acc[s.status] ?? 0) + 1;
-        return acc;
-    }, {}),
-    generatedAt: new Date().toISOString(),
-};
-
-export const FALLBACK_ROP_ALERTS: RopAlert[] = INITIAL_STOCK_SKUS.filter(
-    (s) => s.currentStock < s.ropThreshold,
-).map((s) => ({
-    productId: s.id,
-    sku: s.sku,
-    name: s.name,
-    category: s.category,
-    totalStock: s.currentStock,
-    minStock: s.minStock,
-    reorderPoint: s.ropThreshold,
-    dailyBurnRate: s.dailyBurnRate,
-    daysOfCoverage: s.coverageDays,
-    suggestedOrderQty: Math.max(0, s.ropThreshold * 2 - s.currentStock),
-    unitCostEstimate: s.unitPriceCop,
-    status: s.currentStock === 0 ? "AGOTADO" : "BAJO",
-    warehouseBreakdown: [
-        {
-            warehouseId: s.warehouseId,
-            warehouseName: s.warehouseName,
-            stock: s.currentStock,
-        },
-    ],
-}));
 
 export const FALLBACK_SUPPLIERS: SupplierListItem[] = [
     {
@@ -595,10 +580,10 @@ export const api = {
 
     inventory: {
         summary: () =>
-            requestWithFallback<InventorySummary>("/inventory/summary", FALLBACK_INVENTORY_SUMMARY),
+            requestWithFallback<InventorySummary | null>("/inventory/summary", null),
         ropAlerts: () =>
-            requestWithFallback<RopAlert[]>("/inventory/rop-alerts", FALLBACK_ROP_ALERTS),
-        items: () => requestWithFallback<any[]>("/inventory/items", []),
+            requestWithFallback<RopAlert[]>("/inventory/rop-alerts", []),
+        items: () => requestWithFallback<InventoryItemRecord[]>("/inventory/items", []),
         adjust: (body: { producto_id: string; cantidad_delta: number; motivo?: string }) =>
             request<any>("/inventory/adjust", { method: "POST", body }),
     },
@@ -671,12 +656,13 @@ export const api = {
 
     decisions: {
         /** Decisiones pendientes de aprobación humana (HITL). */
-        pending: () => requestWithFallback<any[]>("/decisions/pending", []),
+        pending: () => requestWithFallback<PendingDecisionRecord[]>("/decisions/pending", []),
         /** Historial de decisiones resueltas (aprobadas / rechazadas). */
-        history: (params?: { status?: string; limit?: number }) => {
+        history: (params?: { status?: string; limit?: number; offset?: number }) => {
             const qs = new URLSearchParams();
             if (params?.status) qs.set("status", params.status);
             if (params?.limit) qs.set("limit", String(params.limit));
+            if (params?.offset) qs.set("offset", String(params.offset));
             const suffix = qs.toString() ? `?${qs.toString()}` : "";
             return requestWithFallback<any[]>(`/decisions/history${suffix}`, []);
         },

@@ -36,7 +36,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       </div>
 
       {filterControl && (
-        <div className="max-w-full overflow-x-auto custom-scrollbar pt-hairline">
+        <div data-lenis-prevent className="max-w-full overflow-x-auto custom-scrollbar pt-hairline">
           {filterControl}
         </div>
       )}

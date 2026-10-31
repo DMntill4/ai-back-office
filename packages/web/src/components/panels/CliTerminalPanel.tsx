@@ -200,7 +200,7 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
 
         {/* Actions & Minimize Button */}
         <div className="flex items-center gap-compact">
-          <div className="flex items-center gap-hairline overflow-x-auto text-caption font-mono">
+          <div data-lenis-prevent className="flex items-center gap-hairline overflow-x-auto text-caption font-mono">
             {["mint scan", "mint stock", "mint approve", "mint briefing"].map((quickCmd) => (
               <button
                 key={quickCmd}
@@ -224,7 +224,7 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
       </div>
 
       {/* Terminal Output Area */}
-      <div className="flex-1 p-element overflow-y-auto font-mono text-caption space-y-compact select-text">
+      <div data-lenis-prevent className="flex-1 p-element overflow-y-auto font-mono text-caption space-y-compact select-text">
         {history.map((item) => (
           <div key={item.id} className="leading-relaxed">
             {item.type === "command" && (

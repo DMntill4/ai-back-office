@@ -15,9 +15,10 @@ import {
   Menu,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { AgentParticleCloud, AgentVisualState } from "../ui/AgentParticleCloud";
+import { AgentVisualState } from "../ui/AgentParticleCloud";
 import { CliTerminalPanel } from "../panels/CliTerminalPanel";
 import { CostBadge } from "../ui/CostBadge";
+import { MintLogo } from "../ui/MintLogo";
 import { NotificationsPopover, AppNotification } from "./NotificationsPopover";
 import { ProfileMenu } from "./ProfileMenu";
 import { CommandSearch, SearchableRecord } from "./CommandSearch";
@@ -202,11 +203,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             onClick={() => onSelectTab("inicio")}
             className="flex items-center gap-compact cursor-pointer group"
           >
-            {/* Presencia del agente de 24px según Mint-DESIGN.md */}
-            <AgentParticleCloud size={24} state={agentState} />
-            <span className="text-body font-bold tracking-tight text-primary group-hover:text-brand transition-colors">
-              Mint
-            </span>
+            <MintLogo size="sm" showText={false} />
           </div>
 
           <div className="h-4 w-px bg-border" />
@@ -412,7 +409,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
           {!isSidebarCollapsed && (
             <div className="p-compact rounded-control bg-raised/50 border border-border flex items-center justify-between">
-              <span className="hidden xl:inline text-caption font-medium text-secondary">Mint Back Office</span>
+              <MintLogo size="sm" showText={false} className="hidden min-w-0 xl:inline-flex" />
               <span className="text-caption font-mono text-muted">v2.0</span>
             </div>
           )}
@@ -470,7 +467,9 @@ export const AppShell: React.FC<AppShellProps> = ({
               </div>
               {!isTerminalCollapsed && (
                 <div className="flex-1 overflow-hidden p-compact">
-                  <CliTerminalPanel isExpanded={true} />
+                  <div data-lenis-prevent className="h-full">
+                    <CliTerminalPanel isExpanded={true} />
+                  </div>
                 </div>
               )}
             </motion.div>

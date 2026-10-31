@@ -42,7 +42,7 @@ export const AgentSubNav: React.FC<AgentSubNavProps> = ({
   children,
 }) => (
   <div className="flex-1 h-full min-h-0 flex flex-col bg-canvas">
-    <div className="shrink-0 px-group pt-group pb-compact border-b border-border overflow-x-auto">
+    <div data-lenis-prevent className="shrink-0 px-group pt-group pb-compact border-b border-border overflow-x-auto">
       <SegmentedTabs
         tabs={AGENT_SUB_TABS}
         activeTab={activeTab}

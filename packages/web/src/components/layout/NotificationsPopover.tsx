@@ -111,7 +111,7 @@ export const NotificationsPopover: React.FC<Props> = ({ notifications, onSelectT
               </button>
             </div>
 
-            <div className="max-h-[360px] overflow-y-auto custom-scrollbar">
+            <div data-lenis-prevent className="max-h-[360px] overflow-y-auto custom-scrollbar">
               {notifications.length === 0 ? (
                 <div className="px-base py-group text-center text-caption text-muted">
                   No tienes avisos pendientes.

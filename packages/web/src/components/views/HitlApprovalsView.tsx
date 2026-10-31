@@ -5,7 +5,7 @@ import { StatusIndicator, OperationalStatus } from "../ui/StatusIndicator";
 import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
 import { ReasoningStepList, ReasoningStep } from "../ui/ReasoningStepList";
-import { SimulationSlider } from "../ui/SimulationSlider";
+import { Pagination } from "../ui/Pagination";
 import {
   Search,
   Sparkles,
@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   RefreshCw,
 } from "lucide-react";
-import { HitlDecision } from "../../types/workflow";
 import { formatUsd, formatTokens } from "../ui/CostBadge";
 import { EmptyState } from "../ui/EmptyState";
 import { LoadingScreen } from "../ui/LoadingScreen";
@@ -65,10 +64,8 @@ interface EnrichedProposal {
 
 
 export interface HitlApprovalsViewProps {
-  decisions?: HitlDecision[];
   onApprove?: (decisionId: string) => void;
   onReject?: (decisionId: string) => void;
-  onSimulateNew?: () => void;
   onNavigateTo?: (tabId: string) => void;
 }
 
@@ -78,8 +75,15 @@ export interface HitlApprovalsViewProps {
  * los que no existen se dejan vacíos en lugar de inventarse.
  */
 function mapDecisionToProposal(d: any, idx: number): EnrichedProposal {
-  const costMxn = Number(d?.costMxn ?? d?.totalCostCop ?? 0);
-  const riskPct = Number(d?.riskPct ?? Math.round((Number(d?.riskScore ?? 0)) * 100));
+  const evidencePayload = d?.evidence ?? d?.evidencePayload ?? {};
+  const rawCost = d?.costMxn ?? d?.totalCostCop;
+  const costMxn = rawCost == null ? null : Number(rawCost);
+  const rawRisk = d?.riskPct;
+  const riskPct = rawRisk != null
+    ? Number.parseFloat(String(rawRisk).replace("%", ""))
+    : d?.riskScore != null
+      ? Number(d.riskScore) * 100
+      : null;
   const evidence: string[] = Array.isArray(d?.evidence) ? d.evidence.map(String) : [];
 
   const reasoningSteps: ReasoningStep[] = evidence.map((text, i) => ({
@@ -114,22 +118,37 @@ function mapDecisionToProposal(d: any, idx: number): EnrichedProposal {
     : null;
 
   return {
-    id: String(d?.id ?? `dec-${idx}`),
-    orderNumber: String(d?.caseId ?? d?.id ?? `DEC-${idx}`),
-    title: String(d?.title ?? "Decisión sin título"),
-    sku: String(d?.sku ?? "—"),
+    id: String(d?.id ?? `decision-${idx}`),
+    orderNumber: String(d?.caseId ?? d?.id ?? ""),
+    title: String(d?.title ?? d?.actionType ?? "Decisión pendiente"),
+    sku: String(d?.sku ?? evidencePayload?.sku ?? "—"),
     quantity: Number(d?.quantity ?? 0),
     unitPriceCop: Number(d?.unitPriceCop ?? 0),
-    totalCostCop: costMxn,
-    amountFormatted: String(d?.costFormatted ?? `$${costMxn.toLocaleString("es-CO")} COP`),
-    supplier: String(d?.supplierName ?? d?.proposingAgent ?? "—"),
+    totalCostCop: costMxn ?? 0,
+    amountFormatted: String(d?.costFormatted ?? (
+      costMxn === null || !Number.isFinite(costMxn)
+        ? "Costo no disponible"
+        : `$${costMxn.toLocaleString("es-CO")} COP`
+    )),
+    supplier: String(d?.supplierName ?? evidencePayload?.supplierName ?? "Proveedor no especificado"),
     leadTime: d?.leadTimeDays != null ? `${d.leadTimeDays} días` : "—",
-    policyTrigger: String(d?.policyReason ?? "Umbral autónomo superado"),
-    policyCode: String(d?.actionType ?? "POL-APROB"),
+    policyTrigger: String(d?.policyReason ?? "Sin justificación registrada"),
+    policyCode: String(d?.actionType ?? "—"),
     justification: String(d?.policyReason ?? ""),
-    opportunityCost: riskPct > 0 ? `Riesgo estimado ${riskPct}%` : "—",
+    opportunityCost: riskPct !== null && Number.isFinite(riskPct)
+      ? `Riesgo estimado ${riskPct}%`
+      : "Riesgo no disponible",
     hmacSignature: String(d?.hmacSignature ?? d?.signature ?? ""),
-    status: "pendiente",
+    status:
+      d?.policyDecision === "approved" || d?.policyDecision === "auto_executed"
+        ? "aprobado"
+        : d?.policyDecision === "rejected" || d?.policyDecision === "blocked"
+          ? "rechazado"
+          : d?.status === "approved" || d?.status === "aprobado"
+            ? "aprobado"
+            : d?.status === "rejected" || d?.status === "rechazado"
+              ? "rechazado"
+              : "pendiente",
     reasoningSteps,
     evaluation,
     costBreakdown,
@@ -141,9 +160,11 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
   onReject,
 }) => {
   const [proposals, setProposals] = useState<EnrichedProposal[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [selectedId, setSelectedId] = useState<string>("");
   const [activeSubTab, setActiveSubTab] = useState<string>("pendientes");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [page, setPage] = useState(1);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
   const [copiedHmac, setCopiedHmac] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
@@ -154,29 +175,35 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await api.decisions.pending();
+      const res = activeSubTab === "pendientes"
+        ? await api.decisions.pending()
+        : await api.decisions.history({ status: "resolved", limit: 100 });
       const rows = Array.isArray(res?.data) ? res.data : [];
       const mapped = rows.map(mapDecisionToProposal);
       setProposals(mapped);
+      if (activeSubTab === "pendientes") {
+        setPendingCount(res?.count ?? mapped.length);
+      }
       setIsFallback(Boolean(res?.isFallback));
+      if (res?.isFallback || !res?.success) {
+        setError(res?.message ?? "No fue posible consultar las decisiones en la base de datos.");
+      }
       setSelectedId((prev) =>
         mapped.some((p) => p.id === prev) ? prev : mapped[0]?.id ?? ""
       );
-      if (!res?.success && res?.message) setError(res.message);
     } catch (err: any) {
       setError(err?.message || "Error al cargar las decisiones pendientes.");
       setProposals([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeSubTab]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   // Subpestañas oficiales de Aprobaciones según Mint-DESIGN.md
-  const pendingCount = proposals.filter((p) => p.status === "pendiente").length;
   const subTabs: TabItem[] = [
     { id: "pendientes", label: "Pendientes", badge: pendingCount },
     { id: "historial", label: "Historial de aprobaciones" },
@@ -202,14 +229,14 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
   }, [proposals, activeSubTab, searchQuery]);
 
   const selectedProposal =
-    proposals.find((p) => p.id === selectedId) ||
-    filteredProposals[0] ||
-    proposals[0];
+    filteredProposals.find((p) => p.id === selectedId) || filteredProposals[0];
 
-  // Simulación interactiva de cantidad
-  const [simulatedQuantity, setSimulatedQuantity] = useState<number>(
-    selectedProposal?.quantity || 50
-  );
+  useEffect(() => {
+    setPage(1);
+  }, [activeSubTab, searchQuery]);
+
+  const pageSize = 10;
+  const pageProposals = filteredProposals.slice((page - 1) * pageSize, page * pageSize);
 
   const [actionPendingId, setActionPendingId] = useState<string | null>(null);
 
@@ -225,6 +252,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
         prev.map((item) => (item.id === id ? { ...item, status: "aprobado" } : item))
       );
       if (onApprove) onApprove(id);
+      await load();
     } catch (err: any) {
       setError(err?.message || "Error al aprobar la decisión.");
     } finally {
@@ -244,6 +272,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
         prev.map((item) => (item.id === id ? { ...item, status: "rechazado" } : item))
       );
       if (onReject) onReject(id);
+      await load();
     } catch (err: any) {
       setError(err?.message || "Error al rechazar la decisión.");
     } finally {
@@ -308,7 +337,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
 
       {isFallback && (
         <div className="mx-group mt-compact rounded-control border border-state-attention/40 bg-state-attention-surface px-compact py-compact text-caption text-state-attention">
-          El backend no respondió. Se muestra el estado degradado sin decisiones reales.
+          No se muestran decisiones de respaldo: los datos están disponibles solo cuando responde el backend.
         </div>
       )}
 
@@ -327,8 +356,12 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
       ) : proposals.length === 0 ? (
         <div className="flex-1 flex items-center justify-center p-group">
           <EmptyState
-            title="Sin decisiones pendientes"
-            description="No hay compras esperando firma ejecutiva. El agente opera dentro de sus umbrales autónomos."
+            title={activeSubTab === "pendientes" ? "Sin decisiones pendientes" : "Sin historial de decisiones"}
+            description={error
+              ? "No se pudo validar la información en la base de datos."
+              : activeSubTab === "pendientes"
+                ? "No hay decisiones pendientes registradas en la base de datos."
+                : "No hay decisiones resueltas registradas en la base de datos."}
             actionLabel="Actualizar"
             onAction={() => void load()}
           />
@@ -359,8 +392,8 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
                   No hay compras en esta categoría.
                 </div>
               ) : (
-                filteredProposals.map((item) => {
-                  const isSelected = item.id === selectedProposal.id;
+                pageProposals.map((item) => {
+                  const isSelected = item.id === selectedProposal?.id;
                   const statusMeta = getStatusMapping(item.status);
 
                   return (
@@ -368,7 +401,6 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
                       key={item.id}
                       onClick={() => {
                         setSelectedId(item.id);
-                        setSimulatedQuantity(item.quantity);
                       }}
                       className={`p-compact transition-colors cursor-pointer border-l-[3px] ${isSelected
                         ? "bg-raised border-l-brand"
@@ -405,6 +437,14 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
                   );
                 })
               )}
+            </div>
+            <div className="border-t border-border p-compact">
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                totalItems={filteredProposals.length}
+                onPageChange={setPage}
+              />
             </div>
           </aside>
 
@@ -594,24 +634,6 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
                   Razonamiento del agente
                 </h3>
                 <ReasoningStepList steps={selectedProposal.reasoningSteps} />
-              </div>
-
-              {/* Deslizador de Simulación Interactivo (SimulationSlider) */}
-              <div className="space-y-compact">
-                <h3 className="text-section-title font-bold text-primary">
-                  Simulación de escenario
-                </h3>
-                <SimulationSlider
-                  label="Ajustar cantidad a ordenar"
-                  value={simulatedQuantity}
-                  min={10}
-                  max={150}
-                  step={5}
-                  unit="unidades"
-                  unitPriceCop={selectedProposal.unitPriceCop}
-                  dailyConsumption={1.8}
-                  onChange={setSimulatedQuantity}
-                />
               </div>
 
               {/* Detalle Técnico Oculto tras 'Ver detalle técnico' */}

@@ -1,4 +1,5 @@
 import React from "react";
+import { MintLogo } from "./MintLogo";
 
 interface LoadingScreenProps {
   title?: string;
@@ -47,12 +48,8 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
         />
       </svg>
 
-      <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-brand">
-        <svg className="h-8 w-8 fill-current text-action-text" viewBox="0 0 24 24">
-          <rect x="5" y="11" width="3" height="7" rx="1.5" />
-          <rect x="10.5" y="6" width="3" height="12" rx="1.5" />
-          <rect x="16" y="13" width="3" height="5" rx="1.5" />
-        </svg>
+      <div className="relative flex h-20 w-20 items-center justify-center rounded-container bg-panel border border-border">
+        <MintLogo size="md" showText={false} />
       </div>
     </div>
 

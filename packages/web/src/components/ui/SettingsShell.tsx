@@ -148,6 +148,7 @@ export const SettingsShell: React.FC<SettingsShellProps> = ({
                 <nav
                     role="tablist"
                     aria-label="Secciones de configuración"
+                    data-lenis-prevent
                     className="flex items-stretch gap-1 mt-4 -mb-px overflow-x-auto custom-scrollbar"
                 >
                     {SETTINGS_TABS.map((tab) => {
@@ -186,7 +187,7 @@ export const SettingsShell: React.FC<SettingsShellProps> = ({
             {/* ========================================================= */}
             {/* CONTENEDOR MAESTRO DE LA SUB-PESTAÑA                      */}
             {/* ========================================================= */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 min-h-0">
+            <div data-lenis-prevent className="flex-1 overflow-y-auto custom-scrollbar p-6 min-h-0">
                 <motion.div
                     key={activeTab}
                     initial={{ opacity: 0, y: 8 }}

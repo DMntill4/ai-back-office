@@ -10,33 +10,35 @@ import {
   processOutboxQueue,
   getOutboxQueueStats,
 } from "@mint/notifiers";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, ne, count } from "drizzle-orm";
 import { sseHub } from "../events/sseHub";
 import { currentSession } from "./auth";
 
 export async function decisionsRoutes(fastify: FastifyInstance) {
   // 1. Bandeja de decisiones pendientes (HITL)
-  fastify.get("/api/decisions/pending", async (request: FastifyRequest) => {
+  fastify.get("/api/decisions/pending", async (request: FastifyRequest, reply: FastifyReply) => {
     const query = (request.query as any) || {};
     const companyId = query.companyId || currentSession.companyId;
 
     try {
-      const rows = await db
+      const where = and(
+        eq(decisions.companyId, companyId),
+        eq(decisions.policyDecision, "pending_approval"),
+      );
+      const [rows, totalRows] = await Promise.all([
+        db
         .select()
         .from(decisions)
-        .where(
-          and(
-            eq(decisions.companyId, companyId),
-            eq(decisions.policyDecision, "pending_approval"),
-          ),
-        )
+        .where(where)
         .orderBy(desc(decisions.createdAt))
-        .limit(50);
+        .limit(100),
+        db.select({ value: count() }).from(decisions).where(where),
+      ]);
 
       const formatted = rows.map((d) => {
         const evidence = (d.evidencePayload as any) || {};
         const risk = ((d as any).riskAnalysisPayload || (d as any).riskPayload) || {};
-        const costNum = Number(d.costMxn || 0);
+        const costNum = d.costMxn == null ? null : Number(d.costMxn);
 
         // Desglose FinOps de la tarea que originó la decisión (si está disponible)
         const costBreakdown = {
@@ -53,58 +55,75 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
           caseId: d.caseId,
           title: d.title,
           actionType: d.actionType,
-          proposingAgent: d.proposingAgent || "Agente Coordinador Multi-Agente",
+          proposingAgent: d.proposingAgent,
           costMxn: costNum,
-          costFormatted: `$${costNum.toLocaleString("es-CO", { minimumFractionDigits: 0 })} COP`,
+          costFormatted: costNum == null
+            ? null
+            : `$${costNum.toLocaleString("es-CO", { minimumFractionDigits: 0 })} COP`,
           riskScore: Number(d.riskScore || 0),
           riskPct: `${(Number(d.riskScore || 0) * 100).toFixed(0)}%`,
-          reversible: d.reversible ?? true,
+          reversible: d.reversible,
           evidence,
           risk,
           costBreakdown,
           evaluation,
-          policyReason: d.policyReason || "Supera el umbral de $5,000,000 COP y requiere confirmación del operador.",
+          policyReason: d.policyReason,
           createdAt: d.createdAt,
         };
       });
 
       return {
         success: true,
-        count: formatted.length,
+        count: Number(totalRows[0]?.value ?? formatted.length),
         data: formatted,
       };
-    } catch {
-      // Si la base de datos está desconectada, retornar un array limpio o vacío
+    } catch (error) {
+      request.log.error({ err: error }, "Failed to query pending decisions");
+      reply.code(503);
       return {
-        success: true,
+        success: false,
         count: 0,
         data: [],
+        message: "No fue posible consultar las decisiones pendientes en la base de datos.",
       };
     }
   });
 
   // 2. Historial de decisiones (aprobadas, rechazadas, auto-ejecutadas)
-  fastify.get("/api/decisions/history", async (request: FastifyRequest) => {
+  fastify.get("/api/decisions/history", async (request: FastifyRequest, reply: FastifyReply) => {
     const query = (request.query as any) || {};
     const companyId = query.companyId || currentSession.companyId;
-    const limit = Number(query.limit) || 30;
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 30));
+    const offset = Math.max(0, Number(query.offset) || 0);
+    const where = query.status === "resolved"
+      ? and(eq(decisions.companyId, companyId), ne(decisions.policyDecision, "pending_approval"))
+      : eq(decisions.companyId, companyId);
 
     try {
-      const rows = await db
+      const [rows, totalRows] = await Promise.all([
+        db
         .select()
         .from(decisions)
-        .where(eq(decisions.companyId, companyId))
+        .where(where)
         .orderBy(desc(decisions.createdAt))
-        .limit(limit);
+        .limit(limit)
+        .offset(offset),
+        db.select({ value: count() }).from(decisions).where(where),
+      ]);
 
       return {
         success: true,
+        count: Number(totalRows[0]?.value ?? rows.length),
         data: rows,
       };
-    } catch {
+    } catch (error) {
+      request.log.error({ err: error }, "Failed to query decision history");
+      reply.code(503);
       return {
-        success: true,
+        success: false,
+        count: 0,
         data: [],
+        message: "No fue posible consultar el historial de decisiones en la base de datos.",
       };
     }
   });

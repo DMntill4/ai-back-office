@@ -479,7 +479,7 @@ export const AnalyticsReportsView: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-compact overflow-x-auto">
+          <div data-lenis-prevent className="flex items-center gap-compact overflow-x-auto">
             {["Todas", "Financiero", "Inventario", "Logística", "Gobernanza"].map((cat) => (
               <button
                 key={cat}

@@ -3132,5 +3132,215 @@
     "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 493",
     "createdAt": 1793394285695,
     "updatedAt": 1793394285695
+  },
+  {
+    "id": "outbox_3ce1c9a5",
+    "companyId": "comp_auto_a_1793407883820",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_auto_a_1793407883820",
+      "decisionId": "dec_fae1c4cf",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 10u de Compresor Industrial 5HP",
+      "description": "ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "costMxn": 9800,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $9,800.00 USD. Razón: ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2ZhZTFjNGNmIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfYXV0b19hXzE3OTM0MDc4ODM4MjAiLCJleHBpcmVzQXQiOjE3OTM0MTE0ODQxNDUsIm5vbmNlIjoiZTJjNmIyYWMzOGNhZWNhZiJ9.9ba8e8f7944940715a00e6ea796f729279c9082eb9bb4e90d66de237965d52c1",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2ZhZTFjNGNmIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9hdXRvX2FfMTc5MzQwNzg4MzgyMCIsImV4cGlyZXNBdCI6MTc5MzQxMTQ4NDE0NSwibm9uY2UiOiI5ZjcxM2YxODJmMzRlZTk1In0.a3657a4d7bd789bf22bddf4ed296c9e0dfa944a73ef517b3c1f8f32572d40d7e"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793407889683,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 422",
+    "createdAt": 1793407884683,
+    "updatedAt": 1793407884683
+  },
+  {
+    "id": "outbox_3841b2bc",
+    "companyId": "comp_auto_a_1793407883820",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_auto_a_1793407883820",
+      "decisionId": "dec_7d300ef5",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 10u de Compresor Industrial 5HP",
+      "description": "ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "costMxn": 9800,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $9,800.00 USD. Razón: ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzdkMzAwZWY1IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfYXV0b19hXzE3OTM0MDc4ODM4MjAiLCJleHBpcmVzQXQiOjE3OTM0MTE0ODUwMDYsIm5vbmNlIjoiNTU5MmRmOGQwNzU3ZDk4NCJ9.27be1819737e90a5e511a62f226e9d842bd957a07e8c1614a3e4e337fd40c006",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzdkMzAwZWY1IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9hdXRvX2FfMTc5MzQwNzg4MzgyMCIsImV4cGlyZXNBdCI6MTc5MzQxMTQ4NTAwNiwibm9uY2UiOiJjMTkxY2QzM2M1MTU2NWJiIn0.02d3576c2ea06264fa29d7e9dd810818182fb086265c7a9e3adf645720ced24c"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793407890171,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 422",
+    "createdAt": 1793407885171,
+    "updatedAt": 1793407885171
+  },
+  {
+    "id": "outbox_ff363d81",
+    "companyId": "comp_auto_a_1793407883820",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_auto_a_1793407883820",
+      "decisionId": "dec_23ebed3e",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 10u de Compresor Industrial 5HP",
+      "description": "ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "costMxn": 9800,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $9,800.00 USD. Razón: ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzIzZWJlZDNlIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfYXV0b19hXzE3OTM0MDc4ODM4MjAiLCJleHBpcmVzQXQiOjE3OTM0MTE0ODUyNDMsIm5vbmNlIjoiYzMwOTZiM2M4ZTdhNmE2ZCJ9.d66fc8b1519c70a0034c38151658af51281f020390e4bcbab37c1d1a9d975bfe",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzIzZWJlZDNlIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9hdXRvX2FfMTc5MzQwNzg4MzgyMCIsImV4cGlyZXNBdCI6MTc5MzQxMTQ4NTI0Mywibm9uY2UiOiI1MTMyYTczOWRmZmZhMzYxIn0.6c1e54d2ba7419cc5e8adf9d5687e6d0479ccfbf47060be58b8dc0d10a4620be"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793407890418,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 422",
+    "createdAt": 1793407885418,
+    "updatedAt": 1793407885418
+  },
+  {
+    "id": "outbox_bd94fb31",
+    "companyId": "comp_auto_a_1793407883820",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_auto_a_1793407883820",
+      "decisionId": "dec_75215155",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 10u de Compresor Industrial 5HP",
+      "description": "ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "costMxn": 9800,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $9,800.00 USD. Razón: ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzc1MjE1MTU1IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfYXV0b19hXzE3OTM0MDc4ODM4MjAiLCJleHBpcmVzQXQiOjE3OTM0MTE0ODU0NDcsIm5vbmNlIjoiOTkzYmJlMDE4NzI1ZTFiZiJ9.b5a655a2f8d3e82790d9150dfa9a38f8e1894e22fb4e626bf5c278132b3e4775",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzc1MjE1MTU1IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9hdXRvX2FfMTc5MzQwNzg4MzgyMCIsImV4cGlyZXNBdCI6MTc5MzQxMTQ4NTQ0Nywibm9uY2UiOiJhN2IzZDEyNWU5NzhhMThhIn0.7610b327ac71672d9eaac2966bd5f7bd26ed055871d0356564c6aec6f9b91390"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793407890618,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 422",
+    "createdAt": 1793407885618,
+    "updatedAt": 1793407885618
+  },
+  {
+    "id": "outbox_6d4a9380",
+    "companyId": "comp_grande_1793408027805",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_grande_1793408027805",
+      "decisionId": "dec_cd35e54f",
+      "kind": "DECISION_APPROVAL",
+      "title": "Propuesta de Compra: 2u de Servidor Rack 2U a Hardware Global Solutions",
+      "description": "Proveedor 'Hardware Global Solutions' recomendado por mejor precio ($1450.00 USD/u) y plazo de entrega de 7 días. Requiere aprobación humana por ser un compromiso financiero vinculante.",
+      "costMxn": 2900,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $2,900.00 USD. Razón: Proveedor 'Hardware Global Solutions' recomendado por mejor precio ($1450.00 USD/u) y plazo de entrega de 7 días. Requiere aprobación humana por ser un compromiso financiero vinculante.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2NkMzVlNTRmIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZ3JhbmRlXzE3OTM0MDgwMjc4MDUiLCJleHBpcmVzQXQiOjE3OTM0MTE2Mjg0NTgsIm5vbmNlIjoiOTc2ZGVhNDUyN2QxNGJiOSJ9.c88329d49a8e34ba0f5a6f23397b4650b952fc02e3a7dec4d68832eb5f669d49",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2NkMzVlNTRmIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9ncmFuZGVfMTc5MzQwODAyNzgwNSIsImV4cGlyZXNBdCI6MTc5MzQxMTYyODQ1OSwibm9uY2UiOiIzMTg1MjQ5M2MyZWI0OGRlIn0.484191cb684f0a549ddcfa7d3e4c54e8e351dc468083d662e0d14ee73bbe83bd"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793408033635,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 489",
+    "createdAt": 1793408028635,
+    "updatedAt": 1793408028635
+  },
+  {
+    "id": "outbox_a9a88e21",
+    "companyId": "comp_terminal_test",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_terminal_test",
+      "decisionId": "dec_0fa0b670",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 10u de Válvula de Presión Terminal Ultra",
+      "description": "ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana. La orden de compra es una operación financiera vinculante.",
+      "costMxn": 1200,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $1,200.00 USD. Razón: ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana. La orden de compra es una operación financiera vinculante.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzBmYTBiNjcwIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfdGVybWluYWxfdGVzdCIsImV4cGlyZXNBdCI6MTc5MzQxMTYzNjA4MSwibm9uY2UiOiJlZjMwN2M3OTRhMjJhZTBmIn0.ebc0739ec782079682e81e9276eed4f11feb225fa19a46d970f779d9c585e2b1",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzBmYTBiNjcwIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF90ZXJtaW5hbF90ZXN0IiwiZXhwaXJlc0F0IjoxNzkzNDExNjM2MDgxLCJub25jZSI6ImQ3NmZiZjI4ZTJiM2NiYTEifQ.5ed86aff1dbdd323959879fd8634c8bc80aa9f0ff5a63b85f47384efa7719ca1"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793408041588,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 493",
+    "createdAt": 1793408036588,
+    "updatedAt": 1793408036588
+  },
+  {
+    "id": "outbox_4820b806",
+    "companyId": "comp_fbbd72e4",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_fbbd72e4",
+      "decisionId": "dec_a0115378",
+      "kind": "DECISION_APPROVAL",
+      "title": "Propuesta de Compra: 50u de Sensor Térmico ST-200 a Acme Components",
+      "description": "Proveedor 'Acme Components' recomendado por mejor precio ($450.00 MXN/u) y plazo de entrega de 2 días. Requiere aprobación humana por ser un compromiso financiero vinculante.",
+      "costMxn": 22500,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $22,500.00 USD. Razón: Proveedor 'Acme Components' recomendado por mejor precio ($450.00 MXN/u) y plazo de entrega de 2 días. Requiere aprobación humana por ser un compromiso financiero vinculante.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2EwMTE1Mzc4IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZmJiZDcyZTQiLCJleHBpcmVzQXQiOjE3OTM0MTE2NDIxOTgsIm5vbmNlIjoiOGQyNWJiOTcwYzU1YTM4OSJ9.05842e77fe58013ecf6e8281b1ce2cf625b3ccbbb681850f78a873b5172cd487",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2EwMTE1Mzc4IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9mYmJkNzJlNCIsImV4cGlyZXNBdCI6MTc5MzQxMTY0MjE5OCwibm9uY2UiOiJhNzFjZGQyNWIzZDE1Y2FlIn0.df67291e9ea52361184fbca26b62e1cd097321d3ebadf447684a2584f73d27eb"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793408047658,
+    "lastError": "Telegram Bot API Error 400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 477",
+    "createdAt": 1793408042658,
+    "updatedAt": 1793408042658
   }
 ]

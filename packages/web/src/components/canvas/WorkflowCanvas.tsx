@@ -688,7 +688,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
                   {copiedPayload ? "Registro copiado" : "Copiar registro"}
                 </Button>
               </div>
-              <pre className="p-compact rounded-control bg-canvas border border-border font-mono text-caption text-secondary overflow-x-auto">
+              <pre data-lenis-prevent className="p-compact rounded-control bg-canvas border border-border font-mono text-caption text-secondary overflow-x-auto">
                 {JSON.stringify(
                   {
                     cicloOperativo: selectedRun,

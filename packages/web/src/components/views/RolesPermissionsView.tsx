@@ -280,7 +280,7 @@ export const RolesPermissionsView: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div data-lenis-prevent className="overflow-x-auto">
           <table className="w-full text-left text-caption border-collapse min-w-[640px]">
             <thead>
               <tr className="bg-raised border-b border-border text-muted font-mono text-caption">

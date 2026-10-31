@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type InventorySummary, type RopAlert } from "../services/apiClient";
+import {
+    api,
+    type InventoryItemRecord,
+    type InventorySummary,
+    type RopAlert,
+} from "../services/apiClient";
 
 export interface UseInventoryDataOptions {
     enabled?: boolean;
@@ -9,6 +14,7 @@ export interface UseInventoryDataOptions {
 export interface UseInventoryDataResult {
     summary: InventorySummary | null;
     ropAlerts: RopAlert[];
+    items: InventoryItemRecord[];
     loading: boolean;
     error: string | null;
     isFallback: boolean;
@@ -31,6 +37,7 @@ export function useInventoryData(
 
     const [summary, setSummary] = useState<InventorySummary | null>(null);
     const [ropAlerts, setRopAlerts] = useState<RopAlert[]>([]);
+    const [items, setItems] = useState<InventoryItemRecord[]>([]);
     const [loading, setLoading] = useState<boolean>(enabled);
     const [error, setError] = useState<string | null>(null);
     const [isFallback, setIsFallback] = useState<boolean>(false);
@@ -47,15 +54,19 @@ export function useInventoryData(
         setLoading(true);
         setError(null);
         try {
-            const [summaryRes, alertsRes] = await Promise.all([
+            const [summaryRes, alertsRes, itemsRes] = await Promise.all([
                 api.inventory.summary(),
                 api.inventory.ropAlerts(),
+                api.inventory.items(),
             ]);
             if (!mountedRef.current) return;
             setSummary(summaryRes.data ?? null);
             setRopAlerts(alertsRes.data ?? []);
-            setIsFallback(summaryRes.isFallback || alertsRes.isFallback);
-            const msg = summaryRes.message || alertsRes.message;
+            setItems(itemsRes.data ?? []);
+            setIsFallback(
+                summaryRes.isFallback || alertsRes.isFallback || itemsRes.isFallback,
+            );
+            const msg = summaryRes.message || alertsRes.message || itemsRes.message;
             if (msg) setError(msg);
         } catch (err) {
             if (!mountedRef.current) return;
@@ -92,7 +103,7 @@ export function useInventoryData(
         [refresh],
     );
 
-    return { summary, ropAlerts, loading, error, isFallback, refresh, adjustStock };
+    return { summary, ropAlerts, items, loading, error, isFallback, refresh, adjustStock };
 }
 
 export default useInventoryData;

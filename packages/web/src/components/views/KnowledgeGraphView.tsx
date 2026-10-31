@@ -461,7 +461,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
           </div>
 
           {/* Selector unificado de tipo de entidad a la derecha */}
-          <div className="min-w-0 max-w-full flex items-center gap-compact overflow-x-auto custom-scrollbar">
+          <div data-lenis-prevent className="min-w-0 max-w-full flex items-center gap-compact overflow-x-auto custom-scrollbar">
             <SegmentedTabs
               tabs={filterTabs}
               activeTab={activeFilter}
@@ -543,7 +543,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
           )}
 
           {/* Leyenda Inferior en 1 Sola Línea Continua (sin partirse) */}
-          <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 z-10 flex max-w-[calc(100%-12rem)] items-center gap-base overflow-x-auto px-3 py-1.5 rounded-control bg-panel border border-border text-caption text-secondary whitespace-nowrap shadow-popover custom-scrollbar">
+          <div data-lenis-prevent className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 z-10 flex max-w-[calc(100%-12rem)] items-center gap-base overflow-x-auto px-3 py-1.5 rounded-control bg-panel border border-border text-caption text-secondary whitespace-nowrap shadow-popover custom-scrollbar">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-pill bg-brand" />
               <span>Agente Mint</span>
@@ -572,7 +572,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
             aria-label="Cerrar detalles de la entidad"
           />
         )}
-        <aside className={`min-w-0 rounded-container bg-panel border border-border overflow-y-auto p-base space-y-base shrink-0 ${isInspectorOpen ? "fixed right-2 top-[15vh] bottom-[15vh] z-50 w-[min(360px,calc(100vw-5rem))] sm:top-[60px] sm:bottom-2 sm:w-[min(360px,calc(100vw-1rem))]" : "hidden"} xl:static xl:z-auto xl:block xl:w-96 xl:h-full`}>
+        <aside data-lenis-prevent className={`min-w-0 rounded-container bg-panel border border-border overflow-y-auto p-base space-y-base shrink-0 ${isInspectorOpen ? "fixed right-2 top-[15vh] bottom-[15vh] z-50 w-[min(360px,calc(100vw-5rem))] sm:top-[60px] sm:bottom-2 sm:w-[min(360px,calc(100vw-1rem))]" : "hidden"} xl:static xl:z-auto xl:block xl:w-96 xl:h-full`}>
           {!selectedNode && (
             <div className="h-full flex items-center justify-center">
               <EmptyState

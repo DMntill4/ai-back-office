@@ -13,34 +13,36 @@ import { Dialog } from "../ui/Dialog";
 import { EmptyState } from "../ui/EmptyState";
 import { LoadingScreen } from "../ui/LoadingScreen";
 import { useInventoryData } from "../../hooks/useInventoryData";
-import type { RopAlert } from "../../services/apiClient";
+import type { InventoryItemRecord, RopAlert } from "../../services/apiClient";
+import { Pagination } from "../ui/Pagination";
 
 export interface StockInventoryViewProps {
   onTriggerRebalance?: (sku: StockSkuItem) => void;
   onNavigateTo?: (tabId: string) => void;
 }
 
-interface EnrichedSkuItem extends StockSkuItem {
-  locationRack: string;
-  lotNumber: string;
-  demandHistory: number[];
-  demandTrendPct: number;
-  quarantineReason?: string;
+interface EnrichedSkuItem {
+  id: string;
+  sku: string;
+  name: string;
+  category: string;
+  warehouseId: string;
+  warehouseName: string;
+  currentStock: number;
+  minStock: number;
+  safetyStock: number;
+  dailyBurnRate: number;
+  coverageDays: number | null;
+  unitPriceCop: number | null;
+  ropThreshold: number;
+  status: StockSkuItem["status"];
 }
-
-
-const WAREHOUSES = [
-  { id: "all", label: "Todas las sedes" },
-  { id: "wh_bga", label: "Bucaramanga" },
-  { id: "wh_bog", label: "Bogotá" },
-  { id: "wh_med", label: "Medellín" },
-];
 
 const STATUS_VIEW: Record<EnrichedSkuItem["status"], { status: OperationalStatus; label: string }> = {
   quiebre: { status: "error", label: "Se agota pronto" },
   alerta: { status: "attention", label: "Bajo reorden" },
-  cuarentena: { status: "pending", label: "En cuarentena" },
   optimo: { status: "ok", label: "Óptimo" },
+  cuarentena: { status: "attention", label: "Sin clasificar" },
 };
 
 const COVERAGE_RISK_DAYS = 7;
@@ -53,12 +55,14 @@ const formatCopCompact = (value: number) =>
   value >= 1_000_000 ? `$${(value / 1_000_000).toFixed(1)} M` : formatCop(value);
 
 /** Traduce el estado del API al estado de presentación de la vista. */
-function toSkuStatus(status: RopAlert["status"]): StockSkuItem["status"] {
+function toSkuStatus(status: RopAlert["status"] | InventoryItemRecord["status"]): StockSkuItem["status"] {
   switch (status) {
     case "AGOTADO":
+    case "quiebre":
       return "quiebre";
     case "BAJO":
     case "ATENCION_ROP":
+    case "alerta":
       return "alerta";
     default:
       return "optimo";
@@ -66,9 +70,7 @@ function toSkuStatus(status: RopAlert["status"]): StockSkuItem["status"] {
 }
 
 /**
- * Adapta una alerta ROP del API al modelo enriquecido de la vista.
- * Conserva los datos visuales de la semilla (rack, lote, historial) cuando
- * existe una referencia equivalente; si no, sintetiza valores coherentes.
+ * Combina los datos del catálogo con la información de riesgo ROP del backend.
  */
 /** Número finito o el valor por defecto: blinda la vista ante `null`/`NaN` del API. */
 function num(value: unknown, fallback = 0): number {
@@ -76,52 +78,34 @@ function num(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function toEnrichedSku(alert: RopAlert, seed?: EnrichedSkuItem): EnrichedSkuItem {
-  const breakdown = Array.isArray(alert.warehouseBreakdown) ? alert.warehouseBreakdown : [];
-  const primaryWarehouse = breakdown[0];
-  // `daysOfCoverage` es `null` cuando el SKU no tiene historial de ventas:
-  // se muestra 0 días de cobertura en lugar de romper el render.
-  const coverageDays = num(alert.daysOfCoverage, 0);
-  const status = toSkuStatus(alert.status);
-  const minStock = num(alert.minStock);
-  const sku = alert.sku || alert.productId || "SIN-SKU";
-
+function toEnrichedSku(record: InventoryItemRecord, alert?: RopAlert): EnrichedSkuItem {
   return {
-    id: seed?.id ?? alert.productId ?? sku,
-    sku,
-    name: alert.name || sku,
-    category: alert.category || "General",
-    warehouseId: primaryWarehouse?.warehouseId ?? seed?.warehouseId ?? "wh_bga",
-    warehouseName:
-      primaryWarehouse?.warehouseName ??
-      seed?.warehouseName ??
-      "Bodega Matriz Bucaramanga",
-    locationRack:
-      seed?.locationRack ??
-      `${primaryWarehouse?.city ?? "Bucaramanga"} · Sin ubicación asignada`,
-    lotNumber: seed?.lotNumber ?? `LT-${sku.replace(/[^A-Z0-9]/gi, "").slice(-6)}`,
-    currentStock: num(alert.totalStock),
-    minStock,
-    safetyStock: seed?.safetyStock ?? Math.round(minStock * 0.4),
-    dailyBurnRate: num(alert.dailyBurnRate),
-    coverageDays,
-    unitPriceCop: num(alert.unitCostEstimate),
-    ropThreshold: num(alert.reorderPoint),
-    status,
-    demandHistory: seed?.demandHistory ?? [],
-    demandTrendPct: seed?.demandTrendPct ?? 0,
-    quarantineReason: seed?.quarantineReason,
+    id: record.id,
+    sku: record.sku,
+    name: record.name,
+    category: record.category,
+    warehouseId: record.warehouseId ?? "",
+    warehouseName: record.warehouseName,
+    currentStock: num(record.currentStock),
+    minStock: num(record.minStock),
+    safetyStock: num(record.minStock),
+    dailyBurnRate: num(alert?.dailyBurnRate),
+    coverageDays:
+      alert?.daysOfCoverage == null ? null : num(alert.daysOfCoverage),
+    unitPriceCop:
+      record.unitPriceCop == null ? null : num(record.unitPriceCop),
+    ropThreshold: num(alert?.reorderPoint ?? record.minStock),
+    status: toSkuStatus(alert?.status ?? record.status),
   };
 }
 
 export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
   onNavigateTo,
 }) => {
-  const [items, setItems] = useState<EnrichedSkuItem[]>([]);
-
-  // Inventario en vivo desde /api/inventory con degradación segura a la semilla local.
   const {
+    summary,
     ropAlerts,
+    items: inventoryRecords,
     loading: inventoryLoading,
     error: inventoryError,
     isFallback: inventoryIsFallback,
@@ -131,20 +115,16 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
     refreshIntervalMs: 30000,
   });
 
-  // Sincroniza las alertas ROP reales (o el fallback) con el estado local de la vista.
-  // Si el backend responde vacío o con filas corruptas, se conserva el estado
-  // previo en lugar de vaciar la tabla (degradación elegante).
-  useEffect(() => {
-    if (!Array.isArray(ropAlerts) || ropAlerts.length === 0) return;
-    setItems((prev) =>
-      ropAlerts
-        .filter((alert) => alert && typeof alert === "object")
-        .map((alert) => toEnrichedSku(alert, prev.find((s) => s.sku === alert.sku))),
+  const items = useMemo(() => {
+    const alertsByProduct = new Map(ropAlerts.map((alert) => [alert.productId, alert]));
+    return inventoryRecords.map((record) =>
+      toEnrichedSku(record, alertsByProduct.get(record.id)),
     );
-  }, [ropAlerts]);
+  }, [inventoryRecords, ropAlerts]);
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [page, setPage] = useState(1);
   const [copiedSku, setCopiedSku] = useState<string | null>(null);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -172,7 +152,7 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
 
   const handleCalculateReplenishment = () => {
     setIsSimulationOpen(false);
-    showToast(`Simulación calculada para ${atRiskCount} referencias en riesgo.`);
+    showToast("La simulación es informativa y no modifica las existencias.");
   };
 
   // Atajos: Ctrl/Cmd+F busca, R genera órdenes, Esc cierra diálogos
@@ -199,7 +179,7 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-    // handleCalculateReplenishment se recrea en cada render (depende de atRiskCount);
+    // handleCalculateReplenishment se recrea en cada render.
     // se excluye a proposito para no re-suscribir el listener en cada render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adjustModalSku, isSimulationOpen]);
@@ -236,24 +216,6 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
         showToast(`No se pudo ajustar ${target.sku}. Revisa la conexión con el backend.`);
         return;
       }
-      setItems((prev) =>
-        prev.map((i) =>
-          i.sku === target.sku
-            ? {
-              ...i,
-              currentStock: adjustQuantity,
-              status:
-                i.status === "cuarentena"
-                  ? i.status
-                  : adjustQuantity <= i.safetyStock
-                    ? ("quiebre" as const)
-                    : adjustQuantity <= i.ropThreshold
-                      ? ("alerta" as const)
-                      : ("optimo" as const),
-            }
-            : i
-        )
-      );
       setAdjustModalSku(null);
       showToast(
         `Ajuste confirmado para ${target.sku}: ${adjustQuantity} unidades (${delta >= 0 ? `+${delta}` : delta}).`
@@ -264,7 +226,7 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
   };
 
   const handleExportCsv = () => {
-    const header = ["SKU", "Producto", "Categoría", "Sede", "Existencias", "Punto de reorden", "Cobertura (días)", "Valor (COP)", "Estado"];
+    const header = ["SKU", "Producto", "Categoría", "Sede", "Existencias", "Mínimo / reorden", "Cobertura (días)", `Valor (${summary?.currency ?? "COP"})`, "Estado"];
     const rows = filteredItems.map((i) => [
       i.sku,
       i.name,
@@ -272,8 +234,8 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
       i.warehouseName,
       i.currentStock,
       i.ropThreshold,
-      i.coverageDays,
-      i.currentStock * i.unitPriceCop,
+      i.coverageDays ?? "",
+      i.unitPriceCop == null ? "" : i.currentStock * i.unitPriceCop,
       STATUS_VIEW[i.status].label,
     ]);
     const csv = [header, ...rows]
@@ -297,10 +259,17 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
         item.sku.toLowerCase().includes(q) ||
         item.name.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q) ||
-        item.locationRack.toLowerCase().includes(q);
+        item.warehouseName.toLowerCase().includes(q);
       return matchesWarehouse && matchesStatus && matchesSearch;
     });
   }, [items, selectedWarehouse, selectedStatus, searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedWarehouse, selectedStatus, searchQuery]);
+
+  const pageSize = 10;
+  const pageItems = filteredItems.slice((page - 1) * pageSize, page * pageSize);
 
   // Cifras derivadas de los datos en pantalla (sin valores fijos)
   const counts = useMemo(() => {
@@ -312,17 +281,17 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
   }, [items]);
 
   const atRiskCount = counts.quiebre + counts.alerta;
-  const totalValue = items.reduce((sum, i) => sum + i.currentStock * i.unitPriceCop, 0);
+  const totalValue = summary?.totalValuation ?? 0;
 
   // Simulación de aumento de demanda sobre las referencias activas
   const simulation = useMemo(() => {
-    const active = items.filter((i) => i.status !== "cuarentena");
+    const active = items.filter((i) => i.coverageDays !== null);
     const factor = 1 + demandSurgePct / 100;
-    const baseline = active.filter((i) => i.coverageDays < COVERAGE_RISK_DAYS);
-    const projected = active.filter((i) => i.coverageDays / factor < COVERAGE_RISK_DAYS);
+    const baseline = active.filter((i) => i.coverageDays !== null && i.coverageDays < COVERAGE_RISK_DAYS);
+    const projected = active.filter((i) => i.coverageDays !== null && i.coverageDays / factor < COVERAGE_RISK_DAYS);
     const capital = projected.reduce(
       (sum, i) =>
-        sum + Math.max(0, Math.ceil(i.dailyBurnRate * factor * COVERAGE_TARGET_DAYS) - i.currentStock) * i.unitPriceCop,
+        sum + Math.max(0, Math.ceil(i.dailyBurnRate * factor * COVERAGE_TARGET_DAYS) - i.currentStock) * (i.unitPriceCop ?? 0),
       0
     );
     return { baseline: baseline.length, projected: projected.length, capital };
@@ -331,24 +300,21 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
   const metrics: MetricItem[] = [
     {
       id: "referencias",
-      value: String(counts.all),
-      context: "Referencias de la muestra en 3 sedes",
+      value: String(summary?.totalSkus ?? counts.all),
+      context: "Referencias registradas en el catálogo",
     },
     {
       id: "reorden",
       value: String(atRiskCount),
-      context: "Bajo el punto de reorden",
+      context: "Referencias con alerta de reposición en la base de datos",
       auxiliary: <StatusIndicator status={atRiskCount > 0 ? "attention" : "ok"} label={atRiskCount > 0 ? "Requiere compra" : "Al día"} />,
     },
     {
-      id: "cuarentena",
-      value: String(counts.cuarentena),
-      context: "Retenidas para validación de calidad",
-    },
-    {
       id: "valor",
-      value: formatCopCompact(totalValue),
-      context: "Valor de las existencias en pantalla",
+      value: summary?.currency && summary.currency !== "COP"
+        ? totalValue.toLocaleString("es-CO", { style: "currency", currency: summary.currency, notation: "compact", maximumFractionDigits: 1 })
+        : formatCopCompact(totalValue),
+      context: `Valoración del inventario (${summary?.currency ?? "moneda no especificada"})`,
       highlightBrand: true,
     },
   ];
@@ -358,7 +324,6 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
     { id: "quiebre", label: "Se agota pronto", badge: counts.quiebre },
     { id: "alerta", label: "Bajo reorden", badge: counts.alerta },
     { id: "optimo", label: "Óptimo", badge: counts.optimo },
-    { id: "cuarentena", label: "Cuarentena", badge: counts.cuarentena },
   ];
 
   const columns: TableColumn<EnrichedSkuItem>[] = [
@@ -400,7 +365,9 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
           <div className="w-40 space-y-1">
             <div className="flex justify-between items-baseline gap-2 text-caption whitespace-nowrap">
               <span className="font-medium text-primary tabular-nums">{item.currentStock} unidades</span>
-              <span className="text-secondary tabular-nums">Reorden: {item.ropThreshold}</span>
+                  <span className="text-secondary tabular-nums">
+                    {item.ropThreshold === item.minStock ? "Mínimo" : "Reorden"}: {item.ropThreshold}
+                  </span>
             </div>
             <div className="relative w-full h-1.5 rounded-pill bg-raised overflow-hidden">
               <div className={`h-full rounded-pill ${fill}`} style={{ width: `${fillPct}%` }} />
@@ -415,10 +382,12 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
       header: "Cobertura",
       render: (item) => (
         <div>
-          <span className={`block text-body tabular-nums ${item.coverageDays < 4 ? "text-state-attention" : "text-primary"}`}>
-            {item.coverageDays.toFixed(1)} días
+          <span className={`block text-body tabular-nums ${item.coverageDays !== null && item.coverageDays < 4 ? "text-state-attention" : "text-primary"}`}>
+            {item.coverageDays === null ? "Sin historial" : `${item.coverageDays.toFixed(1)} días`}
           </span>
-          <span className="block text-caption text-secondary tabular-nums">{item.dailyBurnRate} u./día</span>
+          <span className="block text-caption text-secondary tabular-nums">
+            {item.dailyBurnRate > 0 ? `${item.dailyBurnRate} u./día` : "Consumo no disponible"}
+          </span>
         </div>
       ),
     },
@@ -428,7 +397,13 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
       align: "right",
       render: (item) => (
         <div>
-          <span className="block text-body text-primary tabular-nums whitespace-nowrap">{formatCop(item.currentStock * item.unitPriceCop)}</span>
+          <span className="block text-body text-primary tabular-nums whitespace-nowrap">
+            {item.unitPriceCop === null
+              ? "Sin costo registrado"
+              : (summary?.currency && summary.currency !== "COP"
+                ? (item.currentStock * item.unitPriceCop).toLocaleString("es-CO", { style: "currency", currency: summary.currency, maximumFractionDigits: 0 })
+                : formatCop(item.currentStock * item.unitPriceCop))}
+          </span>
         </div>
       ),
     },
@@ -500,12 +475,6 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
         filterControl={<SegmentedTabs tabs={inventoryTabs} activeTab="inventario" onChange={(id) => onNavigateTo?.(id)} />}
       />
 
-      {inventoryIsFallback && (
-        <div className="rounded-control border border-state-attention/40 bg-state-attention-surface px-compact py-compact text-caption text-state-attention">
-          El backend de inventario no respondió. Se muestra el último estado conocido.
-        </div>
-      )}
-
       {inventoryError && (
         <div
           role="alert"
@@ -513,7 +482,7 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
         >
           <span>
             {inventoryIsFallback
-              ? "No se pudo conectar con el servicio de inventario. Los datos mostrados son de respaldo."
+              ? `No se pudieron cargar datos reales del servicio de inventario: ${inventoryError}`
               : `El servicio de inventario reportó un problema: ${inventoryError}`}
           </span>
           <Button variant="ghost" size="table" onClick={() => void refreshInventory()} disabled={inventoryLoading}>
@@ -541,9 +510,12 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
             className={selectClass}
             aria-label="Filtrar por sede"
           >
-            {WAREHOUSES.map((wh) => (
-              <option key={wh.id} value={wh.id}>
-                {wh.label}
+            <option value="all">Todas las sedes</option>
+            {Array.from(new Map(items
+              .filter((item) => item.warehouseId)
+              .map((item) => [item.warehouseId, item.warehouseName])).entries()).map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
               </option>
             ))}
           </select>
@@ -567,9 +539,17 @@ export const StockInventoryView: React.FC<StockInventoryViewProps> = ({
       ) : (
         <DataTable
           columns={columns}
-          data={filteredItems}
+          data={pageItems}
           keyExtractor={(i) => i.id}
           emptyMessage="Ninguna referencia coincide con esos filtros. Cambia la sede o el estado, o borra la búsqueda."
+        />
+      )}
+      {!inventoryLoading && filteredItems.length > 0 && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalItems={filteredItems.length}
+          onPageChange={setPage}
         />
       )}
 

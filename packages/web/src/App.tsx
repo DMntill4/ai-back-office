@@ -1,15 +1,13 @@
-import React, { lazy, Suspense, useState, useEffect } from "react";
+import React, { lazy, Suspense, useState, useEffect, useCallback } from "react";
 import { AppShell } from "./components/layout/AppShell";
-import { ApprovalDialog } from "./components/ui/ApprovalDialog";
 import { LoadingScreen } from "./components/ui/LoadingScreen";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AgentSubNav, AGENT_TABS_WITHOUT_OWN_NAV } from "./components/layout/AgentSubNav";
 
-import { HitlDecision } from "./types/workflow";
 import { getUserSettings, useUserSettings } from "./hooks/useUserSettings";
+import { api, type PendingDecisionRecord } from "./services/apiClient";
 import type { AppNotification } from "./components/layout/NotificationsPopover";
 import type { SearchableRecord } from "./components/layout/CommandSearch";
-import { INITIAL_HITL_DECISIONS } from "./data/mockData";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 
 const DashboardOverviewView = lazy(() =>
@@ -166,9 +164,34 @@ const readTabFromLocation = (): string => {
 export const App: React.FC = () => {
   // Pestaña inicial sincrónica con URL hash (e.g. #inventario)
   const [currentTab, setCurrentTab] = useState<string>(readTabFromLocation);
-  const [decisions, setDecisions] = useState<HitlDecision[]>(INITIAL_HITL_DECISIONS);
-  const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState<boolean>(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string>("#OC-402");
+  const [decisions, setDecisions] = useState<PendingDecisionRecord[]>([]);
+  const [pendingDecisionCount, setPendingDecisionCount] = useState(0);
+  const [decisionsError, setDecisionsError] = useState<string | null>(null);
+
+  const refreshDecisions = useCallback(async () => {
+    try {
+      const response = await api.decisions.pending();
+      if (response.isFallback || !response.success) {
+        setDecisions([]);
+        setPendingDecisionCount(0);
+        setDecisionsError(response.message ?? "No fue posible consultar las aprobaciones.");
+        return;
+      }
+      setDecisions(response.data);
+      setPendingDecisionCount(response.count ?? response.data.length);
+      setDecisionsError(null);
+    } catch (error) {
+      setDecisions([]);
+      setPendingDecisionCount(0);
+      setDecisionsError(error instanceof Error ? error.message : "No fue posible consultar las aprobaciones.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshDecisions();
+    const timer = window.setInterval(() => void refreshDecisions(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [refreshDecisions]);
 
   // Sincroniza el estado con el hash del navegador (botones atrás/adelante).
   // Se usa un único listener y se limpia al desmontar para no filtrar memoria.
@@ -194,7 +217,6 @@ export const App: React.FC = () => {
    */
   const handleTabChange = (tab: string) => {
     const nextTab = normalizeTab(tab);
-    setIsApprovalDialogOpen(false);
     setCurrentTab(nextTab);
 
     if (typeof window !== "undefined") {
@@ -207,91 +229,42 @@ export const App: React.FC = () => {
 
   /** Escape global: vuelve al Dashboard desde cualquier punto de la app. */
   const handleResetToDashboard = () => {
-    setIsApprovalDialogOpen(false);
     setCurrentTab(DEFAULT_TAB);
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", `#${DEFAULT_TAB}`);
     }
   };
 
-  const pendingApprovalsCount = decisions.filter((d) => d.status === "pendiente").length;
+  const pendingApprovalsCount = pendingDecisionCount;
 
   // Avisos de la campana según las preferencias del usuario.
-  // Aprobaciones: reales (estado de `decisions`). Stock y agente: muestra local
-  // alineada con el Inicio hasta que el backend entregue el feed.
   const { preferences } = useUserSettings();
-  const notifications: AppNotification[] = [
-    ...(preferences.notifyApprovals
-      ? decisions
-          .filter((d) => d.status === "pendiente")
-          .map<AppNotification>((d) => ({
+  const notifications: AppNotification[] = preferences.notifyApprovals
+      ? decisions.map<AppNotification>((d) => ({
             id: `approval:${d.id}`,
             kind: "approval",
             title: `Requiere tu firma: ${d.title}`,
-            detail: `${d.supplierName} · ${d.totalCostCop.toLocaleString("es-CO")} COP`,
-            time: d.createdAt,
+            detail: [
+              d.proposingAgent ?? "Agente no especificado",
+              d.costMxn == null ? "Costo no disponible" : `$${d.costMxn.toLocaleString("es-CO")} COP`,
+            ].join(" · "),
+            time: Number.isNaN(new Date(d.createdAt).getTime())
+              ? "Fecha no disponible"
+              : new Intl.DateTimeFormat("es-CO", {
+                dateStyle: "short",
+                timeStyle: "short",
+              }).format(new Date(d.createdAt)),
             targetTab: "aprobaciones",
           }))
-      : []),
-    ...(preferences.notifyStock
-      ? [
-          {
-            id: "stock:rotomartillo-rop",
-            kind: "stock" as const,
-            title: "Rotomartillo SDS bajo el punto de reorden",
-            detail: "Quedan 2 unidades; el punto de reorden es 10.",
-            time: "Hoy, 09:40",
-            targetTab: "inventario",
-          },
-          {
-            id: "stock:cuarentena",
-            kind: "stock" as const,
-            title: "Lote retenido en cuarentena",
-            detail: "Revisa el lote antes de liberarlo al inventario.",
-            time: "Hoy, 08:05",
-            targetTab: "inventario",
-          },
-        ]
-      : []),
-    ...(preferences.notifyAgent
-      ? [
-          {
-            id: "agent:ciclo-8849",
-            kind: "agent" as const,
-            title: "Ciclo #8849 del agente en curso",
-            detail: "Vigilancia de existencias y cotización activa.",
-            time: "Hace 3 min",
-            targetTab: "flujo_agente",
-          },
-        ]
-      : []),
-  ];
+      : [];
 
-  const searchRecords: SearchableRecord[] = decisions
-    .filter((d) => d.status === "pendiente")
-    .map((d) => ({
+  const searchRecords: SearchableRecord[] = decisions.map((d) => ({
       id: `rec:${d.id}`,
       label: d.title,
-      hint: `${d.sku} · ${d.supplierName}`,
+      hint: `${d.caseId} · ${d.proposingAgent}`,
       group: "Aprobaciones",
       targetTab: "aprobaciones",
     }));
-
-  const handleApproveDecision = (decisionId: string) => {
-    setDecisions((prev) =>
-      prev.map((d) =>
-        d.id === decisionId ? { ...d, status: "aprobado" } : d
-      )
-    );
-  };
-
-  const handleRejectDecision = (decisionId: string) => {
-    setDecisions((prev) =>
-      prev.map((d) =>
-        d.id === decisionId ? { ...d, status: "rechazado" } : d
-      )
-    );
-  };
 
   const renderContent = () => {
     switch (currentTab) {
@@ -300,8 +273,9 @@ export const App: React.FC = () => {
         return (
           <DashboardOverviewView
             decisions={decisions}
+            pendingDecisionCount={pendingDecisionCount}
+            decisionsError={decisionsError}
             onNavigateTo={handleTabChange}
-            onOpenApproval={() => setIsApprovalDialogOpen(true)}
           />
         );
 
@@ -309,33 +283,8 @@ export const App: React.FC = () => {
       case "aprobaciones":
         return (
           <HitlApprovalsView
-            decisions={decisions}
-            onApprove={handleApproveDecision}
-            onReject={handleRejectDecision}
-            onSimulateNew={() => {
-              const newDecision: HitlDecision = {
-                id: `dec_${Date.now()}`,
-                caseId: `case_${Date.now()}`,
-                title: "Orden de compra consolidada: Bosch Herramientas",
-                productName: "Herramientas de Precisión Bosch",
-                sku: "SKU-BOS-992",
-                quantity: 20,
-                unitPriceCop: 360000,
-                totalCostCop: 7200000,
-                supplierName: "Bosch Herramientas Colombia",
-                supplierCity: "Bucaramanga",
-                leadTimeDays: 2,
-                currentStock: 5,
-                ropThreshold: 25,
-                riskScore: 0.15,
-                redFlags: ["Excede umbral autónomo"],
-                status: "pendiente",
-                policyDecision: "pending_approval",
-                policyReason: "Punto de reorden alcanzado en ferretería Santander.",
-                createdAt: "Hace unos momentos",
-              };
-              setDecisions((prev) => [newDecision, ...prev]);
-            }}
+            onApprove={() => void refreshDecisions()}
+            onReject={() => void refreshDecisions()}
           />
         );
 
@@ -357,7 +306,7 @@ export const App: React.FC = () => {
       case "compras_ordenes":
         return (
           <PurchaseOrdersView
-            onOpenApprovalModal={() => setIsApprovalDialogOpen(true)}
+            onOpenApprovalModal={() => handleTabChange("aprobaciones")}
           />
         );
 
@@ -369,10 +318,7 @@ export const App: React.FC = () => {
         return (
           <WorkflowCanvas
             onNavigateTo={handleTabChange}
-            onOpenApprovalModal={(id) => {
-              setSelectedOrderId(id);
-              setIsApprovalDialogOpen(true);
-            }}
+            onOpenApprovalModal={() => handleTabChange("aprobaciones")}
           />
         );
 
@@ -464,8 +410,9 @@ export const App: React.FC = () => {
         return (
           <DashboardOverviewView
             decisions={decisions}
+            pendingDecisionCount={pendingDecisionCount}
+            decisionsError={decisionsError}
             onNavigateTo={handleTabChange}
-            onOpenApproval={() => setIsApprovalDialogOpen(true)}
           />
         );
     }
@@ -513,26 +460,6 @@ export const App: React.FC = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Diálogo de Aprobación Unificado */}
-        <ApprovalDialog
-          isOpen={isApprovalDialogOpen}
-          onClose={() => setIsApprovalDialogOpen(false)}
-          title="Aprobación de orden de compra"
-          orderNumber={selectedOrderId}
-          amountCop="$6.375.000 COP"
-          supplier="DeWalt Colombia (Mayorista Homologado)"
-          leadTime="3 días hábiles"
-          destinationWarehouse="Bodega Matriz Bucaramanga"
-          impactReason="El inventario actual de Rotomartillo SDS cayó a 2 unidades (bajo el punto de reorden de 10 unidades). La demanda histórica proyecta desabasto en 48 horas. Se consolidó despacho para Santander."
-          onApprove={() => {
-            setIsApprovalDialogOpen(false);
-            alert("Orden #OC-402 autorizada con firma HMAC y registrada en PostgreSQL.");
-          }}
-          onReject={() => {
-            setIsApprovalDialogOpen(false);
-            alert("Propuesta de compra rechazada.");
-          }}
-        />
       </AppShell>
     </MotionConfig>
   );

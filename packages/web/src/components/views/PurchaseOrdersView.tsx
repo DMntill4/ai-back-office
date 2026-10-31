@@ -801,7 +801,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
               )}
             </div>
           ) : (
-            <div className="w-full min-w-0 overflow-x-auto custom-scrollbar rounded-container bg-panel border border-border">
+            <div data-lenis-prevent className="w-full min-w-0 overflow-x-auto custom-scrollbar rounded-container bg-panel border border-border">
               <table className="w-full min-w-[800px] text-left text-caption border-collapse">
                 <thead>
                   <tr className="bg-raised border-b border-border text-muted font-mono text-caption">
@@ -1011,7 +1011,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <pre className="p-base rounded-control bg-raised border border-border text-caption font-mono text-brand overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                  <pre data-lenis-prevent className="p-base rounded-control bg-raised border border-border text-caption font-mono text-brand overflow-x-auto whitespace-pre-wrap leading-relaxed">
                     {JSON.stringify(selectedOrder, null, 2)}
                   </pre>
                 )}

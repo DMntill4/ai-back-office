@@ -285,7 +285,7 @@ export const WebhooksApiView: React.FC = () => {
           </span>
         </div>
 
-        <div className="bg-canvas p-base font-mono text-caption leading-relaxed overflow-x-auto custom-scrollbar">
+        <div data-lenis-prevent className="bg-canvas p-base font-mono text-caption leading-relaxed overflow-x-auto custom-scrollbar">
           {[
             { t: "06:14:02", code: 200, method: "POST", path: "/api/v1/ingest/webhook", ms: 18 },
             { t: "06:14:01", code: 200, method: "GET", path: "/api/v1/stock/health", ms: 14 },
