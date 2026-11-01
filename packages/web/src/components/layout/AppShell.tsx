@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Home,
   Boxes,
@@ -13,31 +13,33 @@ import {
   TerminalSquare,
   X,
   Building2,
-  Menu,
+  Search,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { AgentVisualState } from "../ui/AgentParticleCloud";
 import { CliTerminalPanel } from "../panels/CliTerminalPanel";
-import { CostBadge } from "../ui/CostBadge";
 import { MintLogo } from "../ui/MintLogo";
 import { NotificationsPopover, AppNotification } from "./NotificationsPopover";
 import { ProfileMenu } from "./ProfileMenu";
 import { CommandSearch, SearchableRecord } from "./CommandSearch";
-import { useUserSettings, COMPANIES } from "../../hooks/useUserSettings";
+import { useUserSettings, updatePreferences, COMPANIES } from "../../hooks/useUserSettings";
+import { api } from "../../services/apiClient";
+import { formatUsd, formatTokens } from "../ui/CostBadge";
 
 export interface AppShellProps {
   currentTab: string;
   onSelectTab: (tabId: string) => void;
   pendingApprovalsCount?: number;
   agentStatusText?: string;
-  agentState?: AgentVisualState;
+  agentState?: string;
   /** Costo acumulado en USD de la tarea en curso (Agent FinOps). */
   currentTaskCostUsd?: number;
   /** Tokens consumidos por la tarea en curso. */
   currentTaskTokens?: number;
-  /** Identificador de la tarea en curso, para el tooltip del badge de costo. */
+  /** Identificador de la tarea en curso. */
   currentTaskId?: string;
-  /** Avisos de la campana (ya filtrados por las preferencias del usuario). */
+  /** Avisos de la campana. */
   notifications?: AppNotification[];
   /** Registros dinámicos que encuentra el buscador global. */
   searchRecords?: SearchableRecord[];
@@ -55,27 +57,61 @@ interface NavItem {
 export const AppShell: React.FC<AppShellProps> = ({
   currentTab,
   onSelectTab,
-  pendingApprovalsCount = 2,
-  agentStatusText = "Operativo · 10:24 a. m.",
-  agentState = "reposo",
-  currentTaskCostUsd,
-  currentTaskTokens,
-  currentTaskId,
+  pendingApprovalsCount = 0,
   notifications = [],
   searchRecords = [],
   children,
 }) => {
   const { profile, preferences } = useUserSettings();
-  const [statusTime, setStatusTime] = useState(() =>
-    new Intl.DateTimeFormat("es-CO", { hour: "numeric", minute: "2-digit" }).format(new Date()),
+
+  // 1. Estado de colapso de la barra lateral con persistencia en preferencias
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(
+    () => preferences.sidebarCollapsed || (typeof window !== "undefined" && window.innerWidth < 1024),
   );
+
   const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(preferences.sidebarCollapsed);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(preferences.defaultCompany);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  const [statusTime, setStatusTime] = useState(() =>
+    new Intl.DateTimeFormat("es-CO", { hour: "numeric", minute: "2-digit" }).format(new Date()),
+  );
+
+  // 2. Chequeo real de salud del sistema contra /api/daemon/status
+  const [daemonState, setDaemonState] = useState<{
+    status: "operativo" | "atencion" | "sin_verificar";
+    label: string;
+    detail: string;
+  }>({
+    status: "sin_verificar",
+    label: "Sin verificar",
+    detail: "Consultando servicio...",
+  });
+
+  // 3. Chequeo real de costos acumulados contra /api/telemetry/costs
+  const [sessionCosts, setSessionCosts] = useState<{
+    totalCostUsd: number;
+    totalTokens: number;
+  }>({
+    totalCostUsd: 0,
+    totalTokens: 0,
+  });
+
+  // Auto-colapso si la ventana es angosta (< 1024px)
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window === "undefined") return;
+      if (window.innerWidth < 1024 && !isSidebarCollapsed) {
+        setIsSidebarCollapsed(true);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isSidebarCollapsed]);
+
+  // Actualización de reloj de sincronización
   useEffect(() => {
     const timer = window.setInterval(() => {
       setStatusTime(
@@ -85,179 +121,310 @@ export const AppShell: React.FC<AppShellProps> = ({
     return () => window.clearInterval(timer);
   }, []);
 
-  // Atajo global Ctrl+J / Cmd+J para abrir/cerrar consola de telemetría
+  // Consulta de salud real del demonio autónomo (cada 15s)
+  useEffect(() => {
+    let cancelled = false;
+    const checkDaemon = async () => {
+      try {
+        const res = await fetch("/api/daemon/status");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (cancelled) return;
+        if (json?.daemon?.isRunning && !json.daemon?.isPaused) {
+          setDaemonState({
+            status: "operativo",
+            label: "Operativo",
+            detail: `Ciclos: ${json.daemon.ticksCount ?? 0}`,
+          });
+        } else if (json?.daemon?.isPaused) {
+          setDaemonState({
+            status: "atencion",
+            label: "En pausa",
+            detail: "Vigilancia en pausa",
+          });
+        } else {
+          setDaemonState({
+            status: "sin_verificar",
+            label: "Sin verificar",
+            detail: "Demonio inactivo",
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setDaemonState({
+            status: "sin_verificar",
+            label: "Sin verificar",
+            detail: "Sin conexión al demonio",
+          });
+        }
+      }
+    };
+
+    void checkDaemon();
+    const interval = setInterval(checkDaemon, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Consulta de costos reales de telemetría (cada 15s)
+  useEffect(() => {
+    let cancelled = false;
+    const loadCosts = async () => {
+      try {
+        const res = await api.telemetry.costs();
+        if (!cancelled && res.success && res.data?.session) {
+          setSessionCosts({
+            totalCostUsd: res.data.session.totalCostUsd ?? 0,
+            totalTokens: res.data.session.totalTokens ?? 0,
+          });
+        }
+      } catch {
+        // Fallback seguro
+      }
+    };
+
+    void loadCosts();
+    const interval = setInterval(loadCosts, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Atajos globales: Ctrl+J (Terminal) y Ctrl+K (Buscador)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
+      const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+      if (isCmdOrCtrl && e.key.toLowerCase() === "j") {
         e.preventDefault();
         setIsTerminalOpen((prev) => !prev);
+      } else if (isCmdOrCtrl && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  useEffect(() => {
-    if (!isMobileSidebarOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsMobileSidebarOpen(false);
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [isMobileSidebarOpen]);
+  const toggleSidebar = () => {
+    const nextState = !isSidebarCollapsed;
+    setIsSidebarCollapsed(nextState);
+    updatePreferences({ sidebarCollapsed: nextState });
+  };
 
   const companiesList = COMPANIES;
 
-  // 7 Destinos Principales según Mint-DESIGN.md
-  const navItems: NavItem[] = [
-    {
-      id: "inicio",
-      label: "Inicio",
-      icon: Home,
-      subTabs: ["inicio"],
-    },
-    {
-      id: "aprobaciones",
-      label: "Aprobaciones",
-      icon: CheckCircle2,
-      badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
-      subTabs: ["aprobaciones"],
-    },
-    {
-      id: "inventario",
-      label: "Inventario",
-      icon: Boxes,
-      subTabs: ["inventario", "productos", "rutas_logistica"],
-    },
-    {
-      id: "compras",
-      label: "Compras",
-      icon: FileText,
-      subTabs: ["compras", "compras_ordenes", "proveedores"],
-    },
-    {
-      id: "agente",
-      label: "Agente",
-      icon: Sparkles,
-      subTabs: [
-        "agente",
-        "flujo_agente",
-        "mapa_conocimiento",
-        "memoria_agente",
-        "auditoria_eventos",
-        "reglas_politicas",
-        "modelos",
-        "nodos",
-        "objetivos",
-      ],
-    },
-    {
-      id: "automatizacion",
-      label: "Automatización",
-      icon: TerminalSquare,
-      subTabs: ["automatizacion", "comandos", "deck"],
-    },
-    {
-      id: "reportes",
-      label: "Reportes",
-      icon: BarChart3,
-      subTabs: ["reportes", "analisis_reportes"],
-    },
-    {
-      id: "ajustes",
-      label: "Ajustes",
-      icon: Settings,
-      subTabs: [
-        "ajustes",
-        "mi_perfil",
-        "preferencias",
-        "configuracion_general",
-        "empresas_sucursales",
-        "integraciones",
-        "canales_notificaciones",
-        "webhooks_api",
-        "roles_permisos",
-      ],
-    },
-  ];
+  // 8 Destinos Principales según Mint-DESIGN.md
+  const navItems: NavItem[] = useMemo(
+    () => [
+      {
+        id: "inicio",
+        label: "Inicio",
+        icon: Home,
+        subTabs: ["inicio"],
+      },
+      {
+        id: "aprobaciones",
+        label: "Aprobaciones",
+        icon: CheckCircle2,
+        badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
+        subTabs: ["aprobaciones"],
+      },
+      {
+        id: "inventario",
+        label: "Inventario",
+        icon: Boxes,
+        subTabs: ["inventario", "productos", "rutas_logistica"],
+      },
+      {
+        id: "compras",
+        label: "Compras",
+        icon: FileText,
+        subTabs: ["compras", "compras_ordenes", "proveedores"],
+      },
+      {
+        id: "agente",
+        label: "Agente",
+        icon: Sparkles,
+        subTabs: [
+          "agente",
+          "flujo_agente",
+          "mapa_conocimiento",
+          "memoria_agente",
+          "auditoria_eventos",
+          "reglas_politicas",
+          "modelos",
+          "nodos",
+          "objetivos",
+        ],
+      },
+      {
+        id: "automatizacion",
+        label: "Automatización",
+        icon: TerminalSquare,
+        subTabs: ["automatizacion", "comandos", "deck"],
+      },
+      {
+        id: "reportes",
+        label: "Reportes",
+        icon: BarChart3,
+        subTabs: ["reportes", "analisis_reportes"],
+      },
+      {
+        id: "ajustes",
+        label: "Ajustes",
+        icon: Settings,
+        subTabs: [
+          "ajustes",
+          "mi_perfil",
+          "preferencias",
+          "configuracion_general",
+          "empresas_sucursales",
+          "integraciones",
+          "canales_notificaciones",
+          "webhooks_api",
+          "roles_permisos",
+        ],
+      },
+    ],
+    [pendingApprovalsCount],
+  );
 
   return (
-    <div className="flex h-screen h-dvh w-full max-w-full overflow-x-hidden bg-canvas text-primary font-sans antialiased">
-      {/* 1. Barra Superior de 52px con selector de empresa, rol y presencia del agente */}
-      <header className="fixed top-0 left-0 right-0 h-[52px] bg-panel border-b border-border flex items-center justify-between gap-2 px-2 sm:px-base z-40">
-        {/* Identidad Mint & Selector de Empresa */}
-        <div className="flex min-w-0 items-center gap-compact">
-          <button
-            onClick={() => setIsMobileSidebarOpen(true)}
-            className="md:hidden p-compact rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors cursor-pointer"
-            title="Abrir navegación"
-            aria-label="Abrir navegación"
-            aria-expanded={isMobileSidebarOpen}
-          >
-            <Menu className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="hidden md:flex p-compact rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors cursor-pointer"
-            title="Alternar barra lateral"
-            aria-label="Alternar barra lateral"
-            aria-expanded={!isSidebarCollapsed}
-          >
-            <Menu className="w-4 h-4" />
-          </button>
+    <div className="flex h-screen h-dvh w-full max-w-full overflow-hidden bg-canvas text-primary font-sans antialiased">
+      {/* =========================================================================
+          BARRA LATERAL (Fase 5 - Rediseño Total sin Barra Superior)
+          ========================================================================= */}
+      <aside
+        className={`h-screen h-dvh flex flex-col justify-between border-r border-border bg-panel flex-shrink-0 select-none transition-all duration-200 ease-out z-30 ${
+          isSidebarCollapsed ? "w-[72px] px-2 py-3" : "w-[244px] px-3.5 py-3"
+        }`}
+      >
+        <div className="flex flex-col min-h-0 flex-1">
+          {/* Zona superior con franja Tauri Drag Region */}
+          <div data-tauri-drag-region className="h-2 w-full shrink-0 select-none" aria-hidden="true" />
 
-          <div
-            onClick={() => onSelectTab("inicio")}
-            className="flex items-center gap-compact cursor-pointer group"
-          >
-            <MintLogo size="md" showText={true} />
-          </div>
+          {/* 1. LOGO + "Mint" Y BOTÓN DE COLAPSAR */}
+          {isSidebarCollapsed ? (
+            <div className="flex flex-col items-center gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => onSelectTab("inicio")}
+                className="cursor-pointer transition-transform active:scale-95 p-1"
+                title="Ir a Inicio — Mint Studio"
+                aria-label="Ir a Inicio"
+              >
+                <MintLogo size="md" showText={false} />
+              </button>
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="p-1.5 rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors cursor-pointer"
+                title="Expandir barra lateral"
+                aria-label="Expandir barra lateral"
+              >
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between w-full mb-3 px-1">
+              <button
+                type="button"
+                onClick={() => onSelectTab("inicio")}
+                className="flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-90 text-left"
+                title="Ir a Inicio"
+                aria-label="Ir a Inicio"
+              >
+                <MintLogo size="md" showText={true} />
+              </button>
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="p-1.5 rounded-control text-secondary hover:text-primary hover:bg-raised transition-colors cursor-pointer"
+                title="Contraer barra lateral"
+                aria-label="Contraer barra lateral"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
-          <div className="h-4 w-px bg-border" />
-
-          {/* Selector de Empresa Visible */}
-          <div className="relative">
-            <button
-              onClick={() => setIsCompanyMenuOpen(!isCompanyMenuOpen)}
-              className="flex items-center gap-2 px-3 py-1 rounded-pill text-caption font-medium text-secondary hover:text-primary bg-panel border border-border hover:border-strong transition-colors cursor-pointer"
-              aria-label={`Sede seleccionada: ${selectedCompany}`}
-            >
-              <Building2 className="w-3.5 h-3.5 text-brand" />
-              <span className="hidden sm:inline truncate max-w-[200px]">{selectedCompany}</span>
-              <ChevronDown
-                className={`w-3 h-3 text-secondary transition-transform duration-150 ${isCompanyMenuOpen ? "rotate-180" : ""
+          {/* 2. SELECTOR DE EMPRESA CON EL ROL COMO SUBTÍTULO */}
+          <div className="relative mb-3">
+            {isSidebarCollapsed ? (
+              <button
+                type="button"
+                onClick={() => setIsCompanyMenuOpen((open) => !open)}
+                className="w-10 h-10 mx-auto rounded-control bg-raised hover:bg-panel border border-border hover:border-brand flex items-center justify-center text-brand transition-colors cursor-pointer"
+                title={`${selectedCompany} · ${profile.role}`}
+                aria-label={`Sede actual: ${selectedCompany}, rol: ${profile.role}`}
+                aria-expanded={isCompanyMenuOpen}
+              >
+                <Building2 className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsCompanyMenuOpen((open) => !open)}
+                className="w-full flex items-center justify-between p-2 rounded-container bg-raised/50 hover:bg-raised border border-border hover:border-strong transition-colors cursor-pointer text-left group"
+                aria-label={`Sede actual: ${selectedCompany}, rol: ${profile.role}`}
+                aria-expanded={isCompanyMenuOpen}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-control bg-panel border border-border flex items-center justify-center text-brand shrink-0">
+                    <Building2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-caption font-semibold text-primary group-hover:text-brand transition-colors truncate">
+                      {selectedCompany}
+                    </div>
+                    <div className="text-caption text-muted truncate">
+                      {profile.role}
+                    </div>
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-secondary shrink-0 transition-transform duration-150 group-hover:text-primary ${
+                    isCompanyMenuOpen ? "rotate-180" : ""
                   }`}
-              />
-            </button>
+                />
+              </button>
+            )}
 
+            {/* Menú flotante de empresas */}
             <AnimatePresence>
               {isCompanyMenuOpen && (
                 <motion.div
-                  initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.12 }}
-                  className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-7rem)] rounded-container bg-raised border border-strong shadow-popover p-compact z-50"
+                  className={`absolute z-50 w-64 rounded-container bg-raised border border-strong shadow-popover p-compact ${
+                    isSidebarCollapsed ? "left-full top-0 ml-2" : "left-0 top-full mt-1.5"
+                  }`}
                 >
-                  <div className="text-caption font-medium text-muted px-2.5 py-1">
+                  <div className="text-caption font-medium text-muted px-2.5 py-1 border-b border-border mb-1">
                     Sedes y Empresas
                   </div>
                   {companiesList.map((comp) => (
                     <button
                       key={comp}
+                      type="button"
                       onClick={() => {
                         setSelectedCompany(comp);
                         setIsCompanyMenuOpen(false);
                       }}
-                      className={`w-full text-left px-2.5 py-2 rounded-control text-caption transition-colors flex items-center justify-between cursor-pointer ${selectedCompany === comp
-                        ? "bg-panel text-brand font-medium border border-border"
-                        : "text-secondary hover:bg-panel/70 hover:text-primary"
-                        }`}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-control text-caption transition-colors flex items-center justify-between cursor-pointer ${
+                        selectedCompany === comp
+                          ? "bg-panel text-brand font-medium border border-border"
+                          : "text-secondary hover:bg-panel/70 hover:text-primary"
+                      }`}
                     >
                       <span className="truncate">{comp}</span>
-                      {selectedCompany === comp && (
-                        <span className="w-1.5 h-1.5 rounded-pill bg-brand" />
-                      )}
+                      {selectedCompany === comp && <span className="w-1.5 h-1.5 rounded-pill bg-brand shrink-0" />}
                     </button>
                   ))}
                 </motion.div>
@@ -265,166 +432,227 @@ export const AppShell: React.FC<AppShellProps> = ({
             </AnimatePresence>
           </div>
 
-          {/* Rol del usuario siempre visible */}
-          <span className="hidden 2xl:inline text-caption text-secondary font-medium whitespace-nowrap">
-            · {profile.role}
-          </span>
-        </div>
-
-        {/* Buscador global (Ctrl/Cmd + K) */}
-        <div className="hidden lg:flex items-center max-w-sm min-w-0 flex-1 mx-group">
-          <CommandSearch records={searchRecords} onSelectTab={onSelectTab} />
-        </div>
-
-        {/* Acciones de la Derecha */}
-        <div className="flex shrink-0 items-center gap-1 sm:gap-compact">
-          {/* Indicador de estado del agente */}
-        <div className="flex lg:hidden items-center justify-center w-8 h-8 rounded-control bg-raised border border-border" title={`${agentStatusText} · ${statusTime}`} aria-label={`${agentStatusText} · ${statusTime}`}>
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-pill bg-brand opacity-75 animate-ping" />
-              <span className="relative inline-flex h-2 w-2 rounded-pill bg-brand-lime" />
-            </span>
-          </div>
-        <div className="hidden lg:flex h-8 items-center gap-2 px-3 rounded-pill bg-raised border border-border">
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="absolute inline-flex h-full w-full rounded-pill bg-brand opacity-75 animate-ping" />
-            <span className="relative inline-flex h-2 w-2 rounded-pill bg-brand-lime" />
-            </span>
-          <span className="text-caption text-secondary font-medium whitespace-nowrap">
-            {agentStatusText.split("·")[0].trim()}
-          </span>
-          <span className="text-muted" aria-hidden="true">·</span>
-          <span className="text-caption text-muted whitespace-nowrap">{statusTime}</span>
-        </div>
-
-          {/* Insignia de costo de la tarea y total de sesión (Agent FinOps) */}
-          {preferences.showCostBadge && (
-          <CostBadge
-            taskCostUsd={currentTaskCostUsd}
-            taskTokens={currentTaskTokens}
-            taskId={currentTaskId}
-            className="hidden sm:flex"
-          />
-          )}
-
-          {/* Botón Discreto Telemetría (Ctrl+J) */}
-          <button
-            onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-            className={`w-8 h-8 rounded-control bg-raised border border-border flex items-center justify-center transition-all active:scale-95 cursor-pointer ${isTerminalOpen ? "text-brand border-brand" : "text-secondary hover:text-primary hover:bg-panel"
-              }`}
-            title="Abrir consola interactiva (Ctrl+J)"
-            aria-label="Abrir consola interactiva"
-            aria-pressed={isTerminalOpen}
-          >
-            <Terminal className="w-4 h-4" />
-          </button>
-
-          {/* Notificaciones: lista con destino propio por aviso */}
-          <NotificationsPopover notifications={notifications} onSelectTab={onSelectTab} />
-
-          <div className="h-4 w-px bg-border/60 mx-1" />
-
-          {/* Perfil de usuario con menú */}
-          <ProfileMenu companyName={selectedCompany} onSelectTab={onSelectTab} />
-        </div>
-      </header>
-
-      {/* 2. Barra Lateral de 232px (colapsable a 64px) con 7 Destinos */}
-      <AnimatePresence>
-        {isMobileSidebarOpen && (
-          <motion.button
-            type="button"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-x-0 top-[52px] bottom-0 z-30 bg-black/60 md:hidden"
-            onClick={() => setIsMobileSidebarOpen(false)}
-            aria-label="Cerrar navegación"
-          />
-        )}
-      </AnimatePresence>
-      <aside
-        className={`fixed left-0 top-[52px] bottom-0 z-30 w-[232px] border-r border-border bg-panel flex flex-col justify-between p-compact flex-shrink-0 overflow-y-auto transition-transform duration-200 ease-out md:static md:mt-[52px] md:h-[calc(100dvh-52px)] md:translate-x-0 ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:w-16 xl:translate-x-0 ${isSidebarCollapsed ? "xl:w-16" : "xl:w-[232px]"}`}
-      >
-        <div className="space-y-hairline">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isSelected =
-              currentTab === item.id ||
-              (item.subTabs && item.subTabs.includes(currentTab));
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onSelectTab(item.id);
-                  setIsMobileSidebarOpen(false);
-                }}
-                aria-current={isSelected ? "page" : undefined}
-                className={`relative w-full flex items-center justify-between md:max-xl:justify-center px-3 py-2 rounded-control text-body transition-colors duration-150 cursor-pointer ${isSelected
-                  ? "bg-raised text-primary font-medium border border-border"
-                  : "text-secondary hover:text-primary hover:bg-raised/40 font-normal"
-                  }`}
-                title={item.label}
-              >
-                {isSelected && (
-                  <motion.span
-                    layoutId="sidebar-active-indicator"
-                    className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-brand"
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                    aria-hidden="true"
-                  />
-                )}
-                <div className="flex items-center gap-compact truncate md:max-xl:justify-center">
-                  <Icon
-                    className={`w-4 h-4 flex-shrink-0 transition-colors ${isSelected ? "text-brand" : "text-secondary"
-                      }`}
-                  />
-                  <span className="truncate md:max-xl:hidden xl:hidden">
-                    {item.label}
-                  </span>
-                  {!isSidebarCollapsed && (
-                    <span className="hidden xl:block truncate">{item.label}</span>
-                  )}
-                </div>
-
-                {!isSidebarCollapsed && item.badge !== undefined && (
-                  <span className="hidden xl:inline px-1.5 py-0.2 rounded-pill bg-canvas text-caption font-mono font-medium text-state-pending border border-state-pending/30">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Pie de Barra Lateral: Sistema UI (solo dev) y Versión */}
-        <div className="pt-compact border-t border-border space-y-compact">
-          {(import.meta as any).env?.DEV && !isSidebarCollapsed && (
+          {/* 3. BOTÓN DE BÚSQUEDA "Buscar o ir a… Ctrl K" */}
+          {isSidebarCollapsed ? (
             <button
-              onClick={() => onSelectTab("componentes")}
-              className={`w-full text-left px-3 py-1.5 rounded-control text-caption flex items-center gap-2 cursor-pointer ${currentTab === "componentes"
-                ? "bg-raised text-brand font-medium border border-border"
-                : "text-muted hover:text-secondary"
-                }`}
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              className="w-10 h-10 mx-auto rounded-control bg-raised/40 hover:bg-raised border border-border hover:border-strong text-secondary hover:text-primary flex items-center justify-center transition-colors cursor-pointer mb-3.5"
+              title="Buscar o ir a… (Ctrl K)"
+              aria-label="Buscar o ir a…"
             >
-              <Sparkles className="w-3.5 h-3.5 text-brand" />
-              <span className="hidden xl:inline">Sistema UI (Dev)</span>
+              <Search className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-control bg-raised/40 hover:bg-raised border border-border hover:border-strong text-caption text-secondary hover:text-primary transition-colors cursor-pointer group mb-3.5"
+              aria-label="Buscar o ir a… (Ctrl K)"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Search className="w-3.5 h-3.5 text-muted group-hover:text-primary shrink-0" />
+                <span className="truncate text-caption">Buscar o ir a…</span>
+              </div>
+              <kbd className="text-caption font-mono px-1.5 py-0.2 rounded bg-canvas border border-border text-muted shrink-0">
+                Ctrl K
+              </kbd>
             </button>
           )}
 
-          {!isSidebarCollapsed && (
-            <div className="p-compact rounded-control bg-raised/50 border border-border flex items-center justify-between">
-              <MintLogo size="sm" showText={true} className="hidden min-w-0 xl:inline-flex" />
-              <span className="text-caption font-mono text-muted">v2.0</span>
+          {/* 4. NAVEGACIÓN ACTUAL (8 Destinos con píldora verde translúcida activa) */}
+          <nav className="space-y-1 flex-1 overflow-y-auto custom-scrollbar pr-0.5" aria-label="Navegación principal">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isSelected =
+                currentTab === item.id ||
+                Boolean(item.subTabs && item.subTabs.includes(currentTab));
+
+              if (isSidebarCollapsed) {
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onSelectTab(item.id)}
+                    aria-current={isSelected ? "page" : undefined}
+                    aria-label={item.label}
+                    title={item.label}
+                    className={`relative w-10 h-10 mx-auto rounded-pill flex items-center justify-center transition-colors cursor-pointer ${
+                      isSelected
+                        ? "bg-brand/15 text-brand border border-brand/30"
+                        : "text-secondary hover:text-primary hover:bg-raised/40 border border-transparent"
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 transition-colors ${isSelected ? "text-brand" : "text-secondary"}`} />
+                    {item.badge !== undefined && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-3.5 rounded-pill bg-state-pending text-canvas text-caption font-mono font-bold flex items-center justify-center px-1">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelectTab(item.id)}
+                  aria-current={isSelected ? "page" : undefined}
+                  title={item.label}
+                  className={`relative w-full flex items-center justify-between px-3 py-2 rounded-pill text-caption transition-colors duration-150 cursor-pointer ${
+                    isSelected
+                      ? "bg-brand/12 text-brand font-medium border border-brand/20"
+                      : "text-secondary hover:text-primary hover:bg-raised/40 font-normal border border-transparent"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    <Icon
+                      className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                        isSelected ? "text-brand" : "text-secondary"
+                      }`}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+
+                  {item.badge !== undefined && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded-pill text-caption font-mono font-medium ${
+                        isSelected
+                          ? "bg-brand/20 text-brand"
+                          : "bg-canvas text-state-pending border border-state-pending/30"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* 5. ESPACIO FLEXIBLE Y SECCIÓN INFERIOR */}
+        <div className="pt-2 mt-auto border-t border-border flex flex-col">
+          {/* 6. FILA DE UTILIDADES: Botón de terminal y Notificaciones */}
+          {isSidebarCollapsed ? (
+            <div className="flex flex-col items-center gap-2 mb-2.5">
+              <button
+                type="button"
+                onClick={() => setIsTerminalOpen((open) => !open)}
+                className={`w-10 h-10 rounded-control border flex items-center justify-center transition-colors cursor-pointer ${
+                  isTerminalOpen
+                    ? "bg-brand/15 text-brand border-brand/30"
+                    : "bg-raised border-border text-secondary hover:text-primary hover:bg-panel"
+                }`}
+                title="Consola interactiva de telemetría (Ctrl+J)"
+                aria-label="Abrir consola interactiva"
+                aria-pressed={isTerminalOpen}
+              >
+                <Terminal className="w-4 h-4" />
+              </button>
+
+              <NotificationsPopover
+                notifications={notifications}
+                onSelectTab={onSelectTab}
+                position="side"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 mb-2.5 px-0.5">
+              <button
+                type="button"
+                onClick={() => setIsTerminalOpen((open) => !open)}
+                className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-control border text-caption transition-colors cursor-pointer ${
+                  isTerminalOpen
+                    ? "bg-brand/15 text-brand border-brand/30"
+                    : "bg-raised border-border text-secondary hover:text-primary hover:bg-panel"
+                }`}
+                title="Consola interactiva de telemetría (Ctrl+J)"
+                aria-label="Abrir consola de telemetría"
+                aria-pressed={isTerminalOpen}
+              >
+                <TerminalSquare className="w-3.5 h-3.5" />
+                <span className="font-mono text-caption">Consola</span>
+              </button>
+
+              <NotificationsPopover
+                notifications={notifications}
+                onSelectTab={onSelectTab}
+                position="up"
+              />
             </div>
           )}
+
+          {/* 7. TARJETA DE ESTADO: Punto semántico + Estado real del sistema + Costo de sesión */}
+          {isSidebarCollapsed ? (
+            <div
+              className="mx-auto mb-2.5 flex items-center justify-center w-8 h-8 rounded-control bg-raised/40 border border-border cursor-help"
+              title={`Sistema: ${daemonState.label} · Sincronizado: ${statusTime}\nCosto sesión: ${formatUsd(sessionCosts.totalCostUsd)} · ${formatTokens(sessionCosts.totalTokens)} tokens`}
+              aria-label={`Estado del sistema: ${daemonState.label}`}
+            >
+              <span className="relative flex h-2 w-2">
+                {daemonState.status === "operativo" ? (
+                  <>
+                    <span className="absolute inline-flex h-full w-full rounded-pill bg-brand opacity-75 animate-ping" />
+                    <span className="relative inline-flex h-2 w-2 rounded-pill bg-brand-lime" />
+                  </>
+                ) : daemonState.status === "atencion" ? (
+                  <span className="relative inline-flex h-2 w-2 rounded-pill bg-state-attention" />
+                ) : (
+                  <span className="relative inline-flex h-2 w-2 rounded-pill bg-muted" />
+                )}
+              </span>
+            </div>
+          ) : (
+            <div className="mb-2.5 p-2 rounded-container bg-raised/40 border border-border">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  {daemonState.status === "operativo" ? (
+                    <>
+                      <span className="absolute inline-flex h-full w-full rounded-pill bg-brand opacity-75 animate-ping" />
+                      <span className="relative inline-flex h-2 w-2 rounded-pill bg-brand-lime" />
+                    </>
+                  ) : daemonState.status === "atencion" ? (
+                    <span className="relative inline-flex h-2 w-2 rounded-pill bg-state-attention" />
+                  ) : (
+                    <span className="relative inline-flex h-2 w-2 rounded-pill bg-muted" />
+                  )}
+                </span>
+                <span className="text-caption font-medium text-primary leading-tight">
+                  {daemonState.label}
+                </span>
+                <span className="text-muted text-caption">·</span>
+                <span className="text-caption text-muted">{statusTime}</span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-border/40 text-caption font-mono">
+                <span className="text-muted text-caption font-sans">Costo sesión</span>
+                <span className="text-primary font-medium">
+                  {formatUsd(sessionCosts.totalCostUsd)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* 8. FILA DE USUARIO: Avatar, Nombre, Rol y Menú desplegable */}
+          <div className="w-full">
+            <ProfileMenu
+              companyName={selectedCompany}
+              onSelectTab={onSelectTab}
+              position={isSidebarCollapsed ? "side" : "up"}
+              isCollapsed={isSidebarCollapsed}
+            />
+          </div>
         </div>
       </aside>
 
-      {/* 3. Área de Trabajo Principal */}
-      <div className="flex-1 min-w-0 max-w-full mt-[52px] h-[calc(100dvh-52px)] flex flex-col relative overflow-hidden bg-canvas">
+      {/* =========================================================================
+          ÁREA DE TRABAJO PRINCIPAL (Limpia, a pantalla completa, sin franja superior de 52px)
+          ========================================================================= */}
+      <div className="flex-1 min-w-0 max-w-full h-screen h-dvh flex flex-col relative overflow-hidden bg-canvas">
+        {/* Franja superior de arrastre de ventana nativa Tauri */}
+        <div data-tauri-drag-region className="h-2 w-full shrink-0 select-none bg-canvas" aria-hidden="true" />
+
         <main className="flex-1 min-w-0 max-w-full overflow-y-auto overflow-x-hidden flex flex-col">
           {children}
         </main>
@@ -437,7 +665,9 @@ export const AppShell: React.FC<AppShellProps> = ({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className={`absolute bottom-0 left-0 right-0 ${isTerminalCollapsed ? "h-12" : "h-48 sm:h-72"} z-30 bg-panel border-t border-strong shadow-dialog flex flex-col`}
+              className={`absolute bottom-0 left-0 right-0 ${
+                isTerminalCollapsed ? "h-12" : "h-48 sm:h-72"
+              } z-40 bg-panel border-t border-strong shadow-dialog flex flex-col`}
             >
               <div className="flex min-w-0 items-center justify-between gap-compact px-compact sm:px-base py-compact bg-raised border-b border-border">
                 <div className="flex min-w-0 items-center gap-compact">
@@ -451,6 +681,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 </div>
                 <div className="flex shrink-0 items-center gap-hairline">
                   <button
+                    type="button"
                     onClick={() => setIsTerminalCollapsed((collapsed) => !collapsed)}
                     className="p-1 rounded-control text-secondary hover:text-primary hover:bg-panel transition-colors cursor-pointer"
                     title={isTerminalCollapsed ? "Expandir consola" : "Contraer consola"}
@@ -463,6 +694,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     )}
                   </button>
                   <button
+                    type="button"
                     onClick={() => setIsTerminalOpen(false)}
                     className="p-1 rounded-control text-secondary hover:text-primary hover:bg-panel transition-colors cursor-pointer"
                     title="Cerrar consola"
@@ -483,6 +715,16 @@ export const AppShell: React.FC<AppShellProps> = ({
           )}
         </AnimatePresence>
       </div>
+
+      {/* =========================================================================
+          PALETA FLOTANTE DE COMANDOS (Command Search Modal)
+          ========================================================================= */}
+      <CommandSearch
+        records={searchRecords}
+        onSelectTab={onSelectTab}
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+      />
     </div>
   );
 };

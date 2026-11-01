@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, CornerDownLeft } from "lucide-react";
+import { Search, CornerDownLeft, X, Layers, Sparkles, CheckCircle2 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 export interface SearchableRecord {
   id: string;
@@ -9,79 +10,89 @@ export interface SearchableRecord {
   targetTab: string;
 }
 
-/** Destinos de la app (misma lista que las rutas válidas de App.tsx). */
+/** Destinos canónicos de la aplicación Mint según Mint-DESIGN.md */
 export const NAV_DESTINATIONS: SearchableRecord[] = [
-  { id: "d_inicio", label: "Inicio", hint: "Resumen del día y lo que requiere tu atención", group: "Secciones", targetTab: "inicio" },
-  { id: "d_aprobaciones", label: "Aprobaciones", hint: "Firmas y órdenes pendientes", group: "Secciones", targetTab: "aprobaciones" },
-  { id: "d_inventario", label: "Inventario", hint: "Existencias, puntos de reorden", group: "Secciones", targetTab: "inventario" },
-  { id: "d_productos", label: "Catálogo de productos", hint: "SKUs", group: "Secciones", targetTab: "productos" },
-  { id: "d_rutas", label: "Rutas y logística", hint: "Envíos y despachos", group: "Secciones", targetTab: "rutas_logistica" },
-  { id: "d_ordenes", label: "Órdenes de compra", hint: "Compras", group: "Secciones", targetTab: "compras_ordenes" },
-  { id: "d_proveedores", label: "Proveedores", group: "Secciones", targetTab: "proveedores" },
-  { id: "d_flujo", label: "Flujo del agente", hint: "Ciclos en vivo", group: "Agente", targetTab: "flujo_agente" },
-  { id: "d_mapa", label: "Mapa de conocimiento", group: "Agente", targetTab: "mapa_conocimiento" },
-  { id: "d_memoria", label: "Memoria del agente", group: "Agente", targetTab: "memoria_agente" },
-  { id: "d_historial", label: "Historial de decisiones", hint: "Auditoría de eventos", group: "Agente", targetTab: "auditoria_eventos" },
-  { id: "d_reglas", label: "Reglas y políticas", group: "Agente", targetTab: "reglas_politicas" },
-  { id: "d_modelos", label: "Modelos de IA", hint: "Costos y latencias", group: "Agente", targetTab: "modelos" },
-  { id: "d_nodos", label: "Biblioteca de nodos", group: "Agente", targetTab: "nodos" },
-  { id: "d_objetivos", label: "Objetivos", group: "Agente", targetTab: "objetivos" },
-  { id: "d_automatizacion", label: "Automatización (Command Deck)", hint: "Slash commands, temas, diagnósticos y demonio", group: "Secciones", targetTab: "automatizacion" },
-  { id: "d_reportes", label: "Reportes y análisis", group: "Secciones", targetTab: "analisis_reportes" },
-  { id: "d_perfil", label: "Mi perfil", hint: "Nombre, cargo, contacto", group: "Ajustes", targetTab: "mi_perfil" },
-  { id: "d_prefs", label: "Preferencias", hint: "Vista inicial, avisos, interfaz", group: "Ajustes", targetTab: "preferencias" },
-  { id: "d_general", label: "Configuración general", hint: "Motor de IA y autonomía", group: "Ajustes", targetTab: "configuracion_general" },
-  { id: "d_empresas", label: "Empresas y sucursales", group: "Ajustes", targetTab: "empresas_sucursales" },
-  { id: "d_integraciones", label: "Integraciones", group: "Ajustes", targetTab: "integraciones" },
-  { id: "d_canales", label: "Canales de alerta", hint: "Telegram, Slack, correo", group: "Ajustes", targetTab: "canales_notificaciones" },
-  { id: "d_webhooks", label: "Webhooks y API", group: "Ajustes", targetTab: "webhooks_api" },
-  { id: "d_roles", label: "Roles y permisos", group: "Ajustes", targetTab: "roles_permisos" },
+  { id: "d_inicio", label: "Inicio", hint: "Centro de operaciones y lo que requiere tu atención", group: "Secciones", targetTab: "inicio" },
+  { id: "d_aprobaciones", label: "Aprobaciones", hint: "Decisiones y compras que requieren tu firma", group: "Gobernanza", targetTab: "aprobaciones" },
+  { id: "d_inventario", label: "Inventario", hint: "Existencias, almacenes y puntos de reorden", group: "Operaciones", targetTab: "inventario" },
+  { id: "d_productos", label: "Catálogo de productos", hint: "Consulta de referencias y SKUs", group: "Operaciones", targetTab: "productos" },
+  { id: "d_rutas", label: "Rutas y logística", hint: "Envíos en tránsito y seguimiento de flota", group: "Operaciones", targetTab: "rutas_logistica" },
+  { id: "d_ordenes", label: "Órdenes de compra", hint: "Historial y emisión de compras a proveedores", group: "Operaciones", targetTab: "compras_ordenes" },
+  { id: "d_proveedores", label: "Proveedores", hint: "Directorio comercial y desempeño logístico", group: "Operaciones", targetTab: "proveedores" },
+  { id: "d_flujo", label: "Flujo del agente", hint: "Ciclos de razonamiento en vivo del agente", group: "Agente", targetTab: "flujo_agente" },
+  { id: "d_mapa", label: "Mapa de conocimiento", hint: "Relaciones operativas y entidades del sistema", group: "Agente", targetTab: "mapa_conocimiento" },
+  { id: "d_memoria", label: "Memoria del agente", hint: "Notas contextuales y directivas del vault", group: "Agente", targetTab: "memoria_agente" },
+  { id: "d_historial", label: "Historial de decisiones", hint: "Auditoría inmutable de eventos", group: "Agente", targetTab: "auditoria_eventos" },
+  { id: "d_reglas", label: "Reglas y políticas", hint: "Parámetros y umbrales de autonomía", group: "Agente", targetTab: "reglas_politicas" },
+  { id: "d_modelos", label: "Modelos de IA", hint: "Costos, latencias y consumo de tokens", group: "Agente", targetTab: "modelos" },
+  { id: "d_nodos", label: "Biblioteca de nodos", hint: "Capacidades operativas del orquestador", group: "Agente", targetTab: "nodos" },
+  { id: "d_objetivos", label: "Objetivos autónomos", hint: "Metas estratégicas de optimización", group: "Agente", targetTab: "objetivos" },
+  { id: "d_automatizacion", label: "Automatización (Command Deck)", hint: "Slash commands, diagnósticos y control del demonio", group: "Automatización", targetTab: "automatizacion" },
+  { id: "d_reportes", label: "Reportes y análisis", hint: "Métricas consolidadas de inventario y compras", group: "Reportes", targetTab: "analisis_reportes" },
+  { id: "d_perfil", label: "Mi perfil", hint: "Nombre, cargo e información de cuenta", group: "Ajustes", targetTab: "mi_perfil" },
+  { id: "d_prefs", label: "Preferencias", hint: "Vista inicial, notificaciones y tema", group: "Ajustes", targetTab: "preferencias" },
+  { id: "d_general", label: "Configuración general", hint: "Motor de IA, base de datos y autonomía", group: "Ajustes", targetTab: "configuracion_general" },
+  { id: "d_empresas", label: "Empresas y sucursales", hint: "Gestión de sedes territoriales", group: "Ajustes", targetTab: "empresas_sucursales" },
+  { id: "d_integraciones", label: "Integraciones", hint: "Conectores SQL, REST y ERP", group: "Ajustes", targetTab: "integraciones" },
+  { id: "d_canales", label: "Canales de alerta", hint: "Telegram, Slack y despacho de alertas", group: "Ajustes", targetTab: "canales_notificaciones" },
+  { id: "d_webhooks", label: "Webhooks y API", hint: "Puntos de enlace y eventos externos", group: "Ajustes", targetTab: "webhooks_api" },
+  { id: "d_roles", label: "Roles y permisos", hint: "Gobernanza y control de acceso", group: "Ajustes", targetTab: "roles_permisos" },
 ];
 
 const norm = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-interface Props {
-  /** Registros dinámicos (p. ej. aprobaciones pendientes). */
+export interface CommandSearchProps {
+  /** Registros dinámicos (aprobaciones pendientes, órdenes, SKUs). */
   records?: SearchableRecord[];
   onSelectTab: (tabId: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 /**
- * Buscador global. Antes el campo no hacía nada: ahora salta a cualquier
- * sección y encuentra aprobaciones por título, SKU o proveedor.
- * Atajo: Ctrl/Cmd + K.
+ * Paleta de Comandos Flotante (CommandSearch).
+ *
+ * Se abre con Ctrl+K o desde el botón de búsqueda de la barra lateral.
+ * Flota sobre la interfaz con fondo oscuro, campo con autofoco, navegación por
+ * flechas y salto inmediato a cualquier sección o aprobación.
  */
-export const CommandSearch: React.FC<Props> = ({ records = [], onSelectTab }) => {
+export const CommandSearch: React.FC<CommandSearchProps> = ({
+  records = [],
+  onSelectTab,
+  isOpen,
+  onClose,
+}) => {
   const [query, setQuery] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    if (isOpen) {
+      setQuery("");
+      setCursor(0);
+      const timer = setTimeout(() => inputRef.current?.focus(), 40);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
         e.preventDefault();
-        inputRef.current?.focus();
-        setIsOpen(true);
+        onClose();
       }
     };
-    const onDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setIsOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onDown);
-    };
-  }, []);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
 
   const results = useMemo(() => {
     const all = [...records, ...NAV_DESTINATIONS];
     const q = norm(query.trim());
-    if (!q) return NAV_DESTINATIONS.slice(0, 7);
+    if (!q) return NAV_DESTINATIONS.slice(0, 8);
     return all
       .filter((r) => norm(`${r.label} ${r.hint ?? ""} ${r.group}`).includes(q))
       .slice(0, 10);
@@ -90,9 +101,7 @@ export const CommandSearch: React.FC<Props> = ({ records = [], onSelectTab }) =>
   useEffect(() => setCursor(0), [query]);
 
   const choose = (r: SearchableRecord) => {
-    setIsOpen(false);
-    setQuery("");
-    inputRef.current?.blur();
+    onClose();
     onSelectTab(r.targetTab);
   };
 
@@ -106,67 +115,118 @@ export const CommandSearch: React.FC<Props> = ({ records = [], onSelectTab }) =>
     } else if (e.key === "Enter" && results[cursor]) {
       e.preventDefault();
       choose(results[cursor]);
-    } else if (e.key === "Escape") {
-      setIsOpen(false);
-      inputRef.current?.blur();
     }
   };
 
   return (
-    <div className="relative w-full" ref={rootRef}>
-      <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-      <input
-        ref={inputRef}
-        type="text"
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setIsOpen(true);
-        }}
-        onFocus={() => setIsOpen(true)}
-        onKeyDown={onInputKey}
-        placeholder="Ir a una sección o buscar una aprobación..."
-        aria-label="Buscador global"
-        className="w-full bg-panel border border-strong focus:border-brand rounded-control pl-8 pr-14 py-1.5 text-caption text-primary placeholder:text-muted focus:outline-none transition-colors"
-      />
-      <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-caption font-mono px-1 py-0.2 rounded-control bg-raised border border-border text-muted pointer-events-none">
-        Ctrl K
-      </kbd>
-
+    <AnimatePresence>
       {isOpen && (
-        <div className="absolute left-0 right-0 mt-2 rounded-container bg-raised border border-strong shadow-popover z-50 overflow-hidden">
-          {results.length === 0 ? (
-            <div className="px-base py-group text-center text-caption text-muted">
-              Sin resultados para “{query}”.
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4 bg-black/60"
+          onClick={(e) => {
+            if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+              onClose();
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Paleta de comandos y búsqueda"
+        >
+          <motion.div
+            ref={modalRef}
+            initial={{ opacity: 0, scale: 0.97, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: -6 }}
+            transition={{ duration: 0.14, ease: "easeOut" }}
+            className="w-full max-w-xl rounded-container bg-raised border border-strong shadow-dialog overflow-hidden flex flex-col"
+          >
+            {/* Cabecera del buscador */}
+            <div className="flex items-center gap-compact px-base py-3 border-b border-border bg-panel">
+              <Search className="w-4 h-4 text-brand shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onInputKey}
+                placeholder="Buscar o ir a una sección, SKU o aprobación..."
+                aria-label="Término de búsqueda"
+                className="w-full bg-transparent text-body text-primary placeholder:text-muted focus:outline-none"
+              />
+              <button
+                onClick={onClose}
+                className="p-1 rounded-control text-muted hover:text-primary hover:bg-raised transition-colors cursor-pointer"
+                aria-label="Cerrar paleta de comandos"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          ) : (
-            <ul data-lenis-prevent className="max-h-[340px] overflow-y-auto custom-scrollbar py-hairline" role="listbox">
-              {results.map((r, i) => (
-                <li key={r.id} role="option" aria-selected={i === cursor}>
-                  <button
-                    onMouseEnter={() => setCursor(i)}
-                    onClick={() => choose(r)}
-                    className={`w-full text-left flex items-center justify-between gap-compact px-base py-2 cursor-pointer ${
-                      i === cursor ? "bg-panel" : ""
-                    }`}
-                  >
-                    <span className="min-w-0">
-                      <span className="block text-caption text-primary truncate">{r.label}</span>
-                      {r.hint && (
-                        <span className="block text-caption text-muted truncate">{r.hint}</span>
-                      )}
-                    </span>
-                    <span className="flex items-center gap-1 shrink-0 text-caption font-mono text-muted">
-                      {r.group}
-                      {i === cursor && <CornerDownLeft className="w-3 h-3" />}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+
+            {/* Lista de resultados */}
+            <div className="max-h-[380px] overflow-y-auto p-1.5 custom-scrollbar" role="listbox">
+              {results.length === 0 ? (
+                <div className="px-base py-group text-center text-caption text-muted">
+                  Sin coincidencias para “{query}”.
+                </div>
+              ) : (
+                <ul className="space-y-hairline">
+                  {results.map((r, i) => {
+                    const isSelected = i === cursor;
+                    return (
+                      <li key={r.id} role="option" aria-selected={isSelected}>
+                        <button
+                          type="button"
+                          onMouseEnter={() => setCursor(i)}
+                          onClick={() => choose(r)}
+                          className={`w-full text-left flex items-center justify-between gap-compact px-3 py-2 rounded-control text-caption transition-colors cursor-pointer ${
+                            isSelected
+                              ? "bg-panel text-primary border border-border"
+                              : "text-secondary hover:text-primary hover:bg-panel/40"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {r.group === "Agente" ? (
+                              <Sparkles className="w-3.5 h-3.5 text-brand shrink-0" />
+                            ) : r.group === "Gobernanza" ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-state-pending shrink-0" />
+                            ) : (
+                              <Layers className="w-3.5 h-3.5 text-secondary shrink-0" />
+                            )}
+                            <div className="min-w-0 truncate">
+                              <span className="font-medium text-primary truncate block">
+                                {r.label}
+                              </span>
+                              {r.hint && (
+                                <span className="text-caption text-muted truncate block">
+                                  {r.hint}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-caption font-mono text-muted">
+                              {r.group}
+                            </span>
+                            {isSelected && (
+                              <CornerDownLeft className="w-3 h-3 text-brand" />
+                            )}
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {/* Pie con indicaciones de atajos */}
+            <div className="px-base py-2 border-t border-border bg-panel flex items-center justify-between text-caption text-muted">
+              <span>Navega con ↑↓ y presiona Enter para abrir</span>
+              <span className="font-mono text-caption text-muted">ESC para cerrar</span>
+            </div>
+          </motion.div>
         </div>
       )}
-    </div>
+    </AnimatePresence>
   );
 };

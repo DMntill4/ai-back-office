@@ -29,14 +29,20 @@ const KIND_COLOR: Record<NotificationKind, string> = {
 interface Props {
   notifications: AppNotification[];
   onSelectTab: (tabId: string) => void;
+  position?: "up" | "side" | "down";
+  className?: string;
 }
 
 /**
- * Campana con lista real de avisos. Antes el botón solo saltaba a Aprobaciones;
- * ahora abre un panel, cada aviso lleva a su propio destino y se puede marcar
- * como leído.
+ * Campana con lista real de avisos.
+ * Abre un panel flotante hacia arriba o al lateral según su posición en la barra lateral.
  */
-export const NotificationsPopover: React.FC<Props> = ({ notifications, onSelectTab }) => {
+export const NotificationsPopover: React.FC<Props> = ({
+  notifications,
+  onSelectTab,
+  position = "up",
+  className = "",
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const rootRef = useRef<HTMLDivElement>(null);
@@ -71,7 +77,7 @@ export const NotificationsPopover: React.FC<Props> = ({ notifications, onSelectT
   };
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div className={`relative ${className}`} ref={rootRef}>
       <button
         onClick={() => setIsOpen((v) => !v)}
         aria-haspopup="true"
@@ -93,11 +99,17 @@ export const NotificationsPopover: React.FC<Props> = ({ notifications, onSelectT
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            initial={{ opacity: 0, y: position === "down" ? -4 : 4, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            exit={{ opacity: 0, y: position === "down" ? -4 : 4, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute right-0 mt-2 w-[360px] max-w-[92vw] rounded-container bg-raised border border-strong shadow-popover z-50 overflow-hidden"
+            className={`absolute z-50 w-[340px] max-w-[calc(100vw-32px)] rounded-container bg-raised border border-strong shadow-popover overflow-hidden ${
+              position === "side"
+                ? "left-full bottom-0 ml-3"
+                : position === "down"
+                ? "right-0 mt-2"
+                : "left-0 bottom-full mb-2"
+            }`}
           >
             <div className="flex items-center justify-between px-base py-compact border-b border-border">
               <span className="text-label font-semibold text-primary">Notificaciones</span>
