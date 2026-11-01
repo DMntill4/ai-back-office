@@ -233,36 +233,107 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
         className="relative min-h-full bg-canvas text-primary font-sans p-base sm:p-group lg:p-page space-y-group overflow-hidden"
       >
         {/* =========================================================================
-            FASE 1: Atmósfera y tokens (Sin coste GPU para Tauri)
+            FASE 1: Atmósfera decorativa de fondo minimalista (según referencia: ondas de luz esmeralda)
             ========================================================================= */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden select-none z-0" aria-hidden="true">
-          {/* Fondo con degradado verde sutil arriba a la izquierda */}
-          <div className="absolute -top-28 -left-28 w-[580px] h-[460px] rounded-full bg-ambient-mint opacity-90 pointer-events-none" />
+          {/* 1. Halo ambiental sutil superior izquierdo */}
+          <div className="absolute -top-32 -left-32 w-[580px] h-[480px] rounded-full bg-ambient-mint opacity-80 pointer-events-none" />
 
-          {/* Hoja decorativa translúcida a la derecha (SVG estático) */}
+          {/* 2. Resplandor difuso esmeralda en el cuadrante superior derecho */}
+          <div className="absolute top-0 right-0 w-[780px] h-[560px] bg-[radial-gradient(ellipse_at_80%_35%,rgba(43,182,86,0.18)_0%,rgba(15,22,18,0)_70%)] pointer-events-none" />
+
+          {/* 3. Ondas y velos curvos translúcidos en SVG estático (cero coste GPU, nítido y sin lag en Tauri) */}
           <svg
-            className="absolute top-2 -right-12 w-80 h-96 sm:w-96 sm:h-[460px] text-brand opacity-[0.04] pointer-events-none"
-            viewBox="0 0 320 400"
+            className="absolute top-0 right-0 w-full h-[660px] max-w-[1150px] pointer-events-none"
+            viewBox="0 0 1150 660"
             fill="none"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            preserveAspectRatio="xMaxYMin meet"
           >
+            <defs>
+              {/* Gradiente de la cinta principal */}
+              <linearGradient id="mintWaveRibbon1" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#0F1612" stopOpacity="0" />
+                <stop offset="25%" stopColor="#1B4D3E" stopOpacity="0.14" />
+                <stop offset="60%" stopColor="#2BB656" stopOpacity="0.25" />
+                <stop offset="85%" stopColor="#9DE342" stopOpacity="0.32" />
+                <stop offset="100%" stopColor="#9DE342" stopOpacity="0.08" />
+              </linearGradient>
+
+              {/* Borde luminoso de la cinta principal */}
+              <linearGradient id="mintWaveEdge1" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#2BB656" stopOpacity="0" />
+                <stop offset="25%" stopColor="#2BB656" stopOpacity="0.25" />
+                <stop offset="55%" stopColor="#9DE342" stopOpacity="0.8" />
+                <stop offset="85%" stopColor="#9DE342" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="#2BB656" stopOpacity="0" />
+              </linearGradient>
+
+              {/* Gradiente de la cinta cruzada secundaria */}
+              <linearGradient id="mintWaveRibbon2" x1="100%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#2DD4BF" stopOpacity="0.22" />
+                <stop offset="35%" stopColor="#2BB656" stopOpacity="0.15" />
+                <stop offset="70%" stopColor="#153624" stopOpacity="0.06" />
+                <stop offset="100%" stopColor="#0F1612" stopOpacity="0" />
+              </linearGradient>
+
+              {/* Borde luminoso de la cinta cruzada */}
+              <linearGradient id="mintWaveEdge2" x1="100%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#2DD4BF" stopOpacity="0" />
+                <stop offset="30%" stopColor="#2DD4BF" stopOpacity="0.7" />
+                <stop offset="70%" stopColor="#2BB656" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="#0F1612" stopOpacity="0" />
+              </linearGradient>
+
+              {/* Velo de profundidad suave */}
+              <linearGradient id="mintWaveVeil" x1="20%" y1="0%" x2="80%" y2="100%">
+                <stop offset="0%" stopColor="#2BB656" stopOpacity="0.1" />
+                <stop offset="50%" stopColor="#163C2A" stopOpacity="0.05" />
+                <stop offset="100%" stopColor="#0F1612" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+
+            {/* Velo difuso posterior */}
             <path
-              d="M160 20 C240 60, 300 160, 270 280 C240 370, 160 395, 160 395 C160 395, 80 370, 50 280 C20 160, 80 60, 160 20 Z"
-              fill="currentColor"
-              fillOpacity="0.12"
+              d="M 480, 540 C 640, 410 800, 240 990, 155 C 1070, 120 1150, 145 1150, 145 L 1150, 600 C 1080, 550 930, 480 800, 540 C 660, 610 540, 590 480, 540 Z"
+              fill="url(#mintWaveVeil)"
             />
-            <path d="M160 20 L160 395" strokeWidth="1.8" />
-            <path d="M160 90 C195 105, 235 125, 255 155" />
-            <path d="M160 90 C125 105, 85 125, 65 155" />
-            <path d="M160 160 C205 180, 245 205, 265 240" />
-            <path d="M160 160 C115 180, 75 205, 55 240" />
-            <path d="M160 230 C195 250, 230 275, 245 310" />
-            <path d="M160 230 C125 250, 90 275, 75 310" />
-            <path d="M160 300 C185 315, 210 335, 220 360" />
-            <path d="M160 300 C135 315, 110 335, 100 360" />
+
+            {/* Cinta 1: Ondulación curvada principal */}
+            <path
+              d="M 540, 520 C 670, 400 840, 210 1020, 135 C 1090, 105 1150, 125 1150, 125 L 1150, 340 C 1080, 290 980, 300 850, 390 C 720, 480 600, 550 540, 520 Z"
+              fill="url(#mintWaveRibbon1)"
+            />
+
+            {/* Borde afilado luminoso de Cinta 1 */}
+            <path
+              d="M 540, 520 C 670, 400 840, 210 1020, 135 C 1090, 105 1150, 125 1150, 125"
+              stroke="url(#mintWaveEdge1)"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+
+            {/* Cinta 2: Ondulación cruzada en abanico */}
+            <path
+              d="M 1150, 50 C 1000, 150 830, 320 740, 500 C 700, 570 670, 620 630, 650 C 690, 640 770, 590 840, 510 C 950, 390 1060, 250 1150, 180 Z"
+              fill="url(#mintWaveRibbon2)"
+            />
+
+            {/* Borde afilado luminoso de Cinta 2 */}
+            <path
+              d="M 1150, 50 C 1000, 150 830, 320 740, 500 C 700, 570 670, 620 630, 650"
+              stroke="url(#mintWaveEdge2)"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            />
+
+            {/* Filete secundario de acento */}
+            <path
+              d="M 680, 460 C 810, 320 970, 230 1110, 190"
+              stroke="url(#mintWaveEdge1)"
+              strokeWidth="0.8"
+              strokeOpacity="0.4"
+              strokeLinecap="round"
+            />
           </svg>
         </div>
 
