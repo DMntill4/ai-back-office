@@ -24,7 +24,7 @@ receipts/
 scratch/
 receipts/
 reports/
-resources/
+!resources/img/
 vault/Preguntas/
 vault/Decisiones/
 vault/Auditoria/
