@@ -26,6 +26,7 @@ export const NAV_DESTINATIONS: SearchableRecord[] = [
   { id: "d_modelos", label: "Modelos de IA", hint: "Costos y latencias", group: "Agente", targetTab: "modelos" },
   { id: "d_nodos", label: "Biblioteca de nodos", group: "Agente", targetTab: "nodos" },
   { id: "d_objetivos", label: "Objetivos", group: "Agente", targetTab: "objetivos" },
+  { id: "d_automatizacion", label: "Automatización (Command Deck)", hint: "Slash commands, temas, diagnósticos y demonio", group: "Secciones", targetTab: "automatizacion" },
   { id: "d_reportes", label: "Reportes y análisis", group: "Secciones", targetTab: "analisis_reportes" },
   { id: "d_perfil", label: "Mi perfil", hint: "Nombre, cargo, contacto", group: "Ajustes", targetTab: "mi_perfil" },
   { id: "d_prefs", label: "Preferencias", hint: "Vista inicial, avisos, interfaz", group: "Ajustes", targetTab: "preferencias" },

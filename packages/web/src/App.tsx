@@ -100,6 +100,11 @@ const ObjectivesView = lazy(() =>
     default: module.ObjectivesView,
   }))
 );
+const CommandDeckView = lazy(() =>
+  import("./components/views/CommandDeckView").then((module) => ({
+    default: module.CommandDeckView,
+  }))
+);
 
 /**
  * Mapa canónico de rutas → vista.
@@ -113,6 +118,8 @@ const TAB_ALIASES: Record<string, string> = {
   compras: "compras_ordenes",
   reportes: "analisis_reportes",
   ajustes: "configuracion_general",
+  comandos: "automatizacion",
+  deck: "automatizacion",
 };
 
 const KNOWN_TABS = new Set<string>([
@@ -131,6 +138,9 @@ const KNOWN_TABS = new Set<string>([
   "modelos",
   "nodos",
   "objetivos",
+  "automatizacion",
+  "comandos",
+  "deck",
   "analisis_reportes",
   "configuracion_general",
   "mi_perfil",
@@ -349,6 +359,12 @@ export const App: React.FC = () => {
       // Objetivos del orquestador (stock, margen, tiempo de entrega)
       case "objetivos":
         return <ObjectivesView />;
+
+      // AUTOMATIZACIÓN (Command Deck / Slash-Ops)
+      case "automatizacion":
+      case "comandos":
+      case "deck":
+        return <CommandDeckView onNavigateTo={handleTabChange} />;
 
       // 6. REPORTES (Análisis)
       case "analisis_reportes":

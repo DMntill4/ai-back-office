@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Terminal,
+  TerminalSquare,
   X,
   Building2,
   Menu,
@@ -149,6 +150,12 @@ export const AppShell: React.FC<AppShellProps> = ({
         "nodos",
         "objetivos",
       ],
+    },
+    {
+      id: "automatizacion",
+      label: "Automatización",
+      icon: TerminalSquare,
+      subTabs: ["automatizacion", "comandos", "deck"],
     },
     {
       id: "reportes",

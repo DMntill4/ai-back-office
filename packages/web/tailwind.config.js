@@ -13,6 +13,11 @@ export default {
         canvas: "var(--color-canvas)",
         panel: "var(--color-panel)",
         raised: "var(--color-raised)",
+        card: {
+          DEFAULT: "var(--color-card, var(--color-panel))",
+          raised: "var(--color-card-raised, var(--color-raised))",
+          surface: "var(--color-card-surface, var(--color-panel))",
+        },
         border: {
           DEFAULT: "var(--color-border)",
           strong: "var(--color-border-strong)",
@@ -90,7 +95,12 @@ export default {
       borderRadius: {
         control: "var(--radius-control)",     // 0.5rem = 8px
         container: "var(--radius-container)", // 0.75rem = 12px
+        "card-sm": "var(--radius-card-sm, 1rem)", // 16px
+        card: "var(--radius-card, 1.25rem)",  // 20px
         pill: "var(--radius-pill)",           // 9999px
+      },
+      backgroundImage: {
+        "ambient-mint": "var(--gradient-ambient-mint)",
       },
       boxShadow: {
         popover: "var(--shadow-popover)",

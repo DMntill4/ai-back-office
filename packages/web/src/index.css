@@ -75,7 +75,17 @@ html.lenis body {
     /* Radios */
     --radius-control: 0.5rem;
     --radius-container: 0.75rem;
+    --radius-card-sm: 1rem;
+    --radius-card: 1.25rem;
     --radius-pill: 9999px;
+
+    /* Superficies de tarjeta táctil para Inicio */
+    --color-card: #111915;
+    --color-card-raised: #16221C;
+    --color-card-surface: rgba(17, 25, 21, 0.85);
+
+    /* Degradé de atmósfera superior izquierda */
+    --gradient-ambient-mint: radial-gradient(ellipse 70% 50% at 0% 0%, rgba(43, 182, 86, 0.08) 0%, rgba(43, 182, 86, 0.02) 45%, transparent 75%);
 
     /* Sombras Funcionales */
     --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);

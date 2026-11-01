@@ -144,7 +144,7 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
   const renderAttentionCard = (item: AttentionItem) => {
     const g = KIND_GLYPH[item.kind];
     return (
-      <Panel key={item.id} className="space-y-compact hover:border-strong transition-colors">
+      <Panel key={item.id} variant="card" className="space-y-compact hover:border-strong transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-compact">
           <div className="flex items-start gap-compact flex-1 min-w-0">
             <div className={`w-8 h-8 rounded-control bg-raised flex items-center justify-center flex-shrink-0 mt-hairline ${g.color}`}>
@@ -254,35 +254,71 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
   return (
     <div
       ref={scrollWrapperRef}
-      className="flex-1 h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain"
+      className="flex-1 h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain relative"
     >
       <div
         ref={scrollContentRef}
-        className="min-h-full bg-canvas text-primary font-sans p-base sm:p-group lg:p-page space-y-group"
+        className="relative min-h-full bg-canvas text-primary font-sans p-base sm:p-group lg:p-page space-y-group overflow-hidden"
       >
-        <PageHeader
-          title="Centro de Operaciones"
-          description="Supervisión autónoma de existencias, compras y gobernanza de obra."
-          actions={
-            <div className="flex items-center gap-compact">
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-pill bg-panel border border-border text-caption text-secondary">
-                <Calendar className="w-3.5 h-3.5 text-brand" />
-                <span>{capitalizedDate}</span>
+        {/* Atmósfera decorativa estática (Fase 1) - Sin coste GPU ni animaciones continuas para Tauri */}
+        <div
+          className="pointer-events-none absolute inset-0 overflow-hidden select-none z-0"
+          aria-hidden="true"
+        >
+          {/* Fondo con degradado verde sutil arriba a la izquierda */}
+          <div className="absolute -top-28 -left-28 w-[580px] h-[460px] rounded-full bg-ambient-mint opacity-90 pointer-events-none" />
+
+          {/* Hoja decorativa translúcida a la derecha (SVG estático) */}
+          <svg
+            className="absolute top-2 -right-12 w-80 h-96 sm:w-96 sm:h-[460px] text-brand opacity-[0.04] pointer-events-none"
+            viewBox="0 0 320 400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path
+              d="M160 20 C240 60, 300 160, 270 280 C240 370, 160 395, 160 395 C160 395, 80 370, 50 280 C20 160, 80 60, 160 20 Z"
+              fill="currentColor"
+              fillOpacity="0.12"
+            />
+            <path d="M160 20 L160 395" strokeWidth="1.8" />
+            <path d="M160 90 C195 105, 235 125, 255 155" />
+            <path d="M160 90 C125 105, 85 125, 65 155" />
+            <path d="M160 160 C205 180, 245 205, 265 240" />
+            <path d="M160 160 C115 180, 75 205, 55 240" />
+            <path d="M160 230 C195 250, 230 275, 245 310" />
+            <path d="M160 230 C125 250, 90 275, 75 310" />
+            <path d="M160 300 C185 315, 210 335, 220 360" />
+            <path d="M160 300 C135 315, 110 335, 100 360" />
+          </svg>
+        </div>
+
+        <div className="relative z-10 space-y-group">
+          <PageHeader
+            title="Centro de Operaciones"
+            description="Supervisión autónoma de existencias, compras y gobernanza de obra."
+            actions={
+              <div className="flex items-center gap-compact">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-pill bg-panel border border-border text-caption text-secondary">
+                  <Calendar className="w-3.5 h-3.5 text-brand" />
+                  <span>{capitalizedDate}</span>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="table"
+                  icon={<RefreshCw className="w-3.5 h-3.5" />}
+                  onClick={() => onNavigateTo("agente")}
+                >
+                  Ver flujo
+                </Button>
               </div>
-              <Button
-                variant="secondary"
-                size="table"
-                icon={<RefreshCw className="w-3.5 h-3.5" />}
-                onClick={() => onNavigateTo("agente")}
-              >
-                Ver flujo
-              </Button>
-            </div>
-          }
-          filterControl={
-            <SegmentedTabs tabs={subTabs} activeTab={activeSubTab} onChange={setActiveSubTab} />
-          }
-        />
+            }
+            filterControl={
+              <SegmentedTabs tabs={subTabs} activeTab={activeSubTab} onChange={setActiveSubTab} />
+            }
+          />
 
       {(decisionsError || inventoryError) && (
         <div
@@ -388,6 +424,7 @@ export const DashboardOverviewView: React.FC<DashboardOverviewViewProps> = ({
 
       {/* ACTIVIDAD: solo el feed del agente */}
       {showActividad && activityFeed}
+        </div>
       </div>
     </div>
   );
