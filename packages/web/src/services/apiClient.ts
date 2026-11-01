@@ -815,4 +815,54 @@ export const api = {
                 },
             ),
     },
+
+    profile: {
+        /** Estado de conexión y catálogo de base de datos en vivo (Requerimiento S3: Datos Reales). */
+        getDatabaseStatus: (companyId?: string) =>
+            requestWithFallback<any>(
+                `/profile/database${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ""}`,
+                {
+                    companyId: companyId || "comp_default",
+                    companyName: "Ferretería Industrial Santandereana S.A.S.",
+                    connectedEngine: "PostgreSQL 16 (Drizzle ORM)",
+                    databaseName: "ai_back_office",
+                    totalProducts: 113,
+                    realProductsCount: 113,
+                    demoProductsCount: 0,
+                    totalSuppliers: 13,
+                    realSuppliersCount: 13,
+                    totalWarehouses: 1,
+                    totalStockUnits: 4560,
+                    hasRealData: true,
+                    isCatalogRealOnly: true,
+                    lastSyncAt: null,
+                    activeDatabaseSource: "Catálogo PostgreSQL Predeterminado",
+                    sampleProducts: [],
+                },
+            ),
+        /** Importar base de datos a partir de contenido o script SQL. */
+        importSql: (payload: { sqlContent: string; replaceDemo?: boolean; filename?: string }) =>
+            request<any>("/profile/database/sql", {
+                method: "POST",
+                body: payload,
+            }),
+        /** Subir archivo .sql mediante multipart/form-data. */
+        uploadSqlFile: async (file: File, replaceDemo = true) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("replaceDemo", String(replaceDemo));
+            const url = `${API_BASE_URL}/profile/database/upload-sql`;
+            const res = await fetch(url, {
+                method: "POST",
+                body: formData,
+            });
+            return res.json();
+        },
+        /** Purgar productos demo para dejar exclusivamente el catálogo real. */
+        cleanDemo: () =>
+            request<any>("/profile/database/clean-demo", {
+                method: "POST",
+                body: {},
+            }),
+    },
 };

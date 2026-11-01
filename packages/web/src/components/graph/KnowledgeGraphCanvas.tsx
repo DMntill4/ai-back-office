@@ -98,6 +98,13 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
   const draggedNodeId = useRef<string | null>(null);
   const lastMousePos = useRef({ x: 0, y: 0 });
 
+  const logoImg = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const img = new Image();
+    img.src = "/assets/mint-logo.png";
+    return img;
+  }, []);
+
   const fitCamera = useCallback(() => {
     const canvas = canvasRef.current;
     const nodes = Array.from(simNodesRef.current.values());
@@ -621,21 +628,33 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           ctx.strokeStyle = isSelected ? "#9DE342" : "#2BB656";
           ctx.stroke();
 
-          // Nube de puntos de la Guanábana mediana dentro del nodo
-          AGENT_CLOUD_PARTICLES.forEach((p) => {
-            const breathe = Math.sin(time + p.phase) * 1.8;
-            const angle = p.baseAngle + Math.cos(time * 0.5 + p.phase) * 0.08;
-            // Contorno acorazonado de guanábana
-            const soursopScale = 1 + 0.14 * Math.sin(angle * 2);
-            const dist = p.baseRadius * (radius - 6) * soursopScale + breathe;
-            const px = node.x + Math.cos(angle) * dist;
-            const py = node.y + Math.sin(angle) * dist * 1.08;
+          // Renderizado del logo oficial de Mint en el nodo del agente
+          if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+            const imgSize = radius * 1.5;
+            ctx.drawImage(
+              logoImg,
+              node.x - imgSize / 2,
+              node.y - imgSize / 2,
+              imgSize,
+              imgSize
+            );
+          } else {
+            // Nube de puntos de la Guanábana mediana dentro del nodo (fallback determinista)
+            AGENT_CLOUD_PARTICLES.forEach((p) => {
+              const breathe = Math.sin(time + p.phase) * 1.8;
+              const angle = p.baseAngle + Math.cos(time * 0.5 + p.phase) * 0.08;
+              // Contorno acorazonado de guanábana
+              const soursopScale = 1 + 0.14 * Math.sin(angle * 2);
+              const dist = p.baseRadius * (radius - 6) * soursopScale + breathe;
+              const px = node.x + Math.cos(angle) * dist;
+              const py = node.y + Math.sin(angle) * dist * 1.08;
 
-            ctx.beginPath();
-            ctx.arc(px, py, p.size, 0, Math.PI * 2);
-            ctx.fillStyle = p.color;
-            ctx.fill();
-          });
+              ctx.beginPath();
+              ctx.arc(px, py, p.size, 0, Math.PI * 2);
+              ctx.fillStyle = p.color;
+              ctx.fill();
+            });
+          }
 
           ctx.restore();
         } else {
