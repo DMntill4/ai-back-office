@@ -29,9 +29,14 @@ export default defineConfig({
   define: {
     "process.env": {},
   },
+  clearScreen: false,
   server: {
     port: 3000,
     host: true,
+    strictPort: true,
+    watch: {
+      ignored: ["**/src-tauri/**"],
+    },
     proxy: {
       "/api": {
         target: "http://localhost:3001",

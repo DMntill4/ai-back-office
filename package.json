@@ -40,8 +40,8 @@
                     "studio":  "npm run dev --workspace=@mint/web",
                     "design:check":  "tsx scripts/check-design.ts",
                     "lint:emojis":  "tsx scripts/check_no_emojis.ts",
-                    "desktop":  "npm run tauri:dev --workspace=@mint/web",
-                    "desktop:build":  "npm run tauri:build --workspace=@mint/web"
+                    "desktop":  "node scripts/run-tauri.mjs dev",
+                    "desktop:build":  "node scripts/run-tauri.mjs build"
                 },
     "repository":  {
                        "type":  "git",

@@ -6,3 +6,4 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running Mint Studio desktop application");
 }
+
