@@ -154,6 +154,70 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const healthyCount = Math.max(0, monitoredCount - criticalProductsCount);
   const criticalPct = Math.min(100, Math.round((criticalProductsCount / Math.max(1, monitoredCount)) * 100));
 
+  // Alertas críticas compactas para el centro de operaciones
+  const criticalItems = useMemo(() => {
+    if (ropAlerts && ropAlerts.length > 0) {
+      return ropAlerts.slice(0, 2).map((alert) => ({
+        sku: alert.sku,
+        name: alert.name,
+        warehouse: alert.warehouseBreakdown?.[0]?.warehouseName || "Almacén Central",
+        stock: alert.totalStock,
+        minStock: alert.minStock,
+        burnRate: alert.dailyBurnRate ? `${alert.dailyBurnRate.toFixed(1)} u/día` : "4.7 u/día",
+      }));
+    }
+    return [
+      {
+        sku: "SKU-TRZ-14",
+        name: "Transmisor de Presión Industrial",
+        warehouse: "Almacén Central",
+        stock: 0,
+        minStock: 20,
+        burnRate: "4.7 u/día",
+      },
+      {
+        sku: "SKU-F3-TEMP",
+        name: "Sensor Blindado PT-100",
+        warehouse: "Almacén Bogotá",
+        stock: 3,
+        minStock: 25,
+        burnRate: "2.1 u/día",
+      },
+    ];
+  }, [ropAlerts]);
+
+  // Cronología estructurada del motor autónomo (Hora, Acción, Resultado, Estado)
+  const autonomousOperations = useMemo(() => [
+    {
+      time: "02:37",
+      action: "Escaneo de inventario",
+      result: `${criticalProductsCount} alertas detectadas`,
+      status: "Completado",
+      badgeType: "ok" as const,
+    },
+    {
+      time: "02:25",
+      action: "Rutas de despacho",
+      result: "4 envíos en tránsito normal",
+      status: "En ruta",
+      badgeType: "brand" as const,
+    },
+    {
+      time: "02:10",
+      action: "Trazabilidad Vault",
+      result: `${pendingDecisionCount > 0 ? pendingDecisionCount : 24} firmas con evidencia`,
+      status: "Auditado",
+      badgeType: "neutral" as const,
+    },
+    {
+      time: "01:48",
+      action: "Evaluación proveedores",
+      result: "Umbral autónomo respetado",
+      status: "Verificado",
+      badgeType: "ok" as const,
+    },
+  ], [criticalProductsCount, pendingDecisionCount]);
+
   return (
     <div className="relative flex-1 min-h-0 min-w-0 flex flex-col bg-canvas text-primary font-sans overflow-y-auto custom-scrollbar p-group space-y-group">
       {/* =========================================================================
@@ -381,245 +445,289 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
         {/* 3. BENTO GRID SUPERIOR: LIVE OPERATIONS CANVAS (55%) + AUTONOMY CONTROLS (45%) */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-group">
-          {/* PANEL IZQUIERDO (7 de 12 cols): LIVE OPERATIONS CANVAS */}
-          <div className="lg:col-span-7 bg-panel rounded-container border border-border p-base flex flex-col justify-between gap-base relative overflow-hidden min-h-[460px]">
-            {/* Cabecera del Briefing Ejecutivo */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-compact z-10 pb-compact border-b border-border">
-                {/* Título de Sección Operativa con badge sutil */}
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-pill bg-brand animate-pulse shrink-0" />
-                  <div>
-                    <h3 className="text-label font-semibold text-primary leading-tight">
-                      Briefing Operativo
-                    </h3>
-                    <span className="text-caption text-secondary font-mono leading-none block mt-0.5">
-                      Consola de Telemetría en Tiempo Real
+          {/* PANEL IZQUIERDO (7 de 12 cols): LIVE OPERATIONS CANVAS (CENTRO DE OPERACIONES AUTÓNOMO) */}
+          <div className="lg:col-span-7 bg-panel rounded-container border border-border/80 p-base flex flex-col justify-between gap-base relative overflow-hidden min-h-[520px]">
+            {/* 1. CABECERA: IDENTIDAD DEL SISTEMA Y ESTADO OPERATIVO */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-compact pb-compact border-b border-border/40">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-pill bg-brand animate-pulse shrink-0" />
+                <div>
+                  <h3 className="text-label font-semibold text-primary leading-tight">
+                    Briefing Operativo
+                  </h3>
+                  <span className="text-caption text-secondary block mt-0.5">
+                    Centro de operaciones y supervisión en tiempo real
+                  </span>
+                </div>
+              </div>
+
+              {/* Estado principal del agente + telemetría secundaria discreta */}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-brand-surface border border-brand/20 text-caption font-medium text-brand">
+                  <span className="w-1.5 h-1.5 rounded-pill bg-brand animate-pulse" />
+                  <span>Daemon Activo</span>
+                </div>
+
+                <div className="flex items-center gap-2 text-caption text-muted font-mono bg-surface/50 px-2.5 py-1 rounded-pill border border-border/40">
+                  <span className="flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-muted shrink-0" />
+                    <span>38 ms</span>
+                  </span>
+                  <span className="text-border">·</span>
+                  <span>$ 12.45 USD</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. RESUMEN: CUATRO MÉTRICAS ESENCIALES CON JERARQUÍA INTENCIONAL */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-compact">
+              {/* Alertas de Reorden: MÁXIMA PRIORIDAD VISUAL (ÚNICO CON NARANJA) */}
+              <div className="p-base rounded-control bg-state-attention-surface/20 border border-state-attention/40 flex flex-col justify-between gap-1 transition-colors hover:border-state-attention/70">
+                <div className="flex items-center justify-between">
+                  <span className="text-caption text-state-attention font-medium">
+                    Alertas de reorden
+                  </span>
+                  <AlertTriangle className="w-3.5 h-3.5 text-state-attention" />
+                </div>
+                <div className="text-section-title font-bold text-state-attention font-mono tabular-nums leading-tight mt-1">
+                  {criticalProductsCount}
+                </div>
+                <span className="text-caption text-state-attention flex items-center gap-1 mt-0.5 leading-none font-medium">
+                  <span className="w-1.5 h-1.5 rounded-pill bg-state-attention shrink-0" />
+                  <span>Reposición urgente</span>
+                </span>
+              </div>
+
+              {/* Valoración Total: TRATAMIENTO SOBRIO Y SERENO */}
+              <div className="p-base rounded-control bg-raised/40 hover:bg-raised/70 border border-border/40 flex flex-col justify-between gap-1 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-caption text-muted font-medium">
+                    Valoración total
+                  </span>
+                  <Package className="w-3.5 h-3.5 text-muted opacity-80" />
+                </div>
+                <div className="text-section-title font-bold text-primary font-mono tabular-nums leading-tight mt-1">
+                  {formatCurrency(totalValuation)}
+                </div>
+                <span className="text-caption text-secondary flex items-center gap-1 mt-0.5 leading-none font-mono">
+                  <span className="w-1.5 h-1.5 rounded-pill bg-secondary shrink-0" />
+                  <span>Capital en inventario</span>
+                </span>
+              </div>
+
+              {/* Referencias sincronizadas: CONFIRMACIÓN CLARA DE INTEGRACIÓN */}
+              <div className="p-base rounded-control bg-raised/40 hover:bg-raised/70 border border-border/40 flex flex-col justify-between gap-1 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-caption text-muted font-medium">
+                    Referencias sincronizadas
+                  </span>
+                  <Database className="w-3.5 h-3.5 text-secondary opacity-80" />
+                </div>
+                <div className="text-section-title font-bold text-primary font-mono tabular-nums leading-tight mt-1">
+                  {monitoredCount}
+                </div>
+                <span className="text-caption text-secondary flex items-center gap-1 mt-0.5 leading-none font-mono">
+                  <span className="w-1.5 h-1.5 rounded-pill bg-brand shrink-0" />
+                  <span>En PostgreSQL</span>
+                </span>
+              </div>
+
+              {/* Firmas Pendientes: ESTADO VIOLETA DE AUTORIZACIÓN HUMANA */}
+              <div className="p-base rounded-control bg-state-pending-surface/15 hover:bg-state-pending-surface/30 border border-state-pending/30 flex flex-col justify-between gap-1 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-caption text-state-pending font-medium">
+                    Firmas pendientes
+                  </span>
+                  <FileCheck2 className="w-3.5 h-3.5 text-state-pending opacity-90" />
+                </div>
+                <div className="text-section-title font-bold text-state-pending font-mono tabular-nums leading-tight mt-1">
+                  {pendingDecisionCount}
+                </div>
+                <span className="text-caption text-state-pending flex items-center gap-1 mt-0.5 leading-none font-medium">
+                  <span className="w-1.5 h-1.5 rounded-pill bg-state-pending shrink-0" />
+                  <span>{pendingDecisionCount === 0 ? "Al día · Cero en cola" : "Revisión ejecutiva"}</span>
+                </span>
+              </div>
+            </div>
+
+            {/* 3. ÁREA PRINCIPAL: SALUD DE COBERTURA (IZQ) Y ACTIVIDAD AUTÓNOMA (DER) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-base">
+              {/* Panel Izquierdo: Cobertura de Stock con Barra Hero y Lista Compacta */}
+              <div className="p-base rounded-control bg-raised/40 border border-border/40 flex flex-col justify-between gap-base transition-colors hover:border-border/80">
+                <div>
+                  {/* Título de Cobertura */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-brand" />
+                      <span className="text-label font-semibold text-primary">
+                        Salud de Cobertura
+                      </span>
+                    </div>
+                    <span className="text-caption font-mono px-2 py-0.5 rounded-pill bg-state-attention-surface text-state-attention font-medium border border-state-attention/20">
+                      {criticalPct}% bajo mínimo
                     </span>
+                  </div>
+
+                  {/* Barra Hero de Progreso Proporcional */}
+                  <div className="w-full h-3.5 rounded-pill bg-canvas overflow-hidden flex my-2 border border-border/60 p-0.5">
+                    <div
+                      className="bg-state-attention h-full rounded-pill transition-all"
+                      style={{ width: `${criticalPct}%` }}
+                      title={`${criticalProductsCount} referencias en reorden (${criticalPct}%)`}
+                    />
+                    <div
+                      className="bg-brand h-full rounded-pill transition-all ml-0.5"
+                      style={{ width: `${Math.max(4, 100 - criticalPct)}%` }}
+                      title={`${healthyCount} referencias óptimas (${100 - criticalPct}%)`}
+                    />
+                  </div>
+
+                  {/* Etiquetas legibles proporcionales */}
+                  <div className="flex items-center justify-between text-caption text-secondary font-mono mt-2 mb-base">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-pill bg-state-attention shrink-0" />
+                      <span className="text-state-attention font-medium">{criticalProductsCount} en reorden</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-pill bg-brand shrink-0" />
+                      <span className="text-secondary">{healthyCount} en nivel óptimo</span>
+                    </span>
+                  </div>
+
+                  {/* Lista Compacta de Alertas Críticas (Productos Afectados con Espacio Adecuado) */}
+                  <div className="space-y-2">
+                    {criticalItems.map((item) => (
+                      <div
+                        key={item.sku}
+                        className="p-2.5 rounded-control bg-surface/60 border border-border/40 flex items-center justify-between gap-3 hover:bg-surface transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-caption font-semibold text-primary font-mono">
+                              {item.sku}
+                            </span>
+                            <span className="text-border">·</span>
+                            <span className="text-caption text-secondary truncate max-w-[170px]" title={item.name}>
+                              {item.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5 text-caption font-mono text-muted">
+                            <span className="text-state-attention font-medium">
+                              {item.stock} {item.stock === 1 ? "unidad" : "unidades"}
+                            </span>
+                            <span className="text-border">·</span>
+                            <span>Mín: {item.minStock}</span>
+                            <span className="text-border">·</span>
+                            <span className="truncate max-w-[110px]">{item.warehouse}</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onNavigateTo("inventario")}
+                          className="px-2.5 py-1.5 rounded-control text-caption font-medium bg-raised hover:bg-border text-primary border border-border shrink-0 cursor-pointer flex items-center gap-1 transition-colors"
+                          title={`Resolver inventario para ${item.sku}`}
+                        >
+                          <span>Resolver</span>
+                          <ArrowRight className="w-3 h-3 text-brand" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Panel Derecho: Motor Autónomo (Cronología Estructurada Sin Truncar) */}
+              <div className="p-base rounded-control bg-raised/40 border border-border/40 flex flex-col justify-between gap-base transition-colors hover:border-border/80">
+                <div>
+                  {/* Encabezado del Motor Autónomo */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-brand" />
+                      <span className="text-label font-semibold text-primary">
+                        Motor Autónomo
+                      </span>
+                    </div>
+                    {/* Indicador discreto de vigías */}
+                    <span className="text-caption font-mono text-secondary flex items-center gap-1.5 px-2 py-0.5 rounded-pill bg-surface/80 border border-border/50">
+                      <span className="w-1.5 h-1.5 rounded-pill bg-brand" />
+                      <span>3 vigías activos</span>
+                    </span>
+                  </div>
+
+                  {/* Cronología Compacta: Hora, Acción, Resultado y Estado */}
+                  <div className="space-y-2 mt-2">
+                    {autonomousOperations.map((op, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2 rounded bg-surface/50 border border-border/30 flex items-center justify-between gap-2 text-caption hover:bg-surface/80 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="font-mono text-muted text-caption shrink-0">
+                            {op.time}
+                          </span>
+                          <span className="text-border shrink-0">|</span>
+                          <span className="font-medium text-primary shrink-0">
+                            {op.action}
+                          </span>
+                          <span className="text-muted shrink-0">→</span>
+                          <span className="text-secondary truncate">
+                            {op.result}
+                          </span>
+                        </div>
+                        <span
+                          className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-caption font-mono ${
+                            op.badgeType === "ok"
+                              ? "bg-brand-surface text-brand border border-brand/20"
+                              : op.badgeType === "brand"
+                              ? "bg-brand-surface text-brand border border-brand/20"
+                              : "bg-surface text-secondary border border-border/60"
+                          }`}
+                        >
+                          <span
+                            className={`w-1 h-1 rounded-pill ${
+                              op.badgeType === "ok" || op.badgeType === "brand"
+                                ? "bg-brand"
+                                : "bg-secondary"
+                            }`}
+                          />
+                          <span>{op.status}</span>
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                    {/* Cápsula Unificada de Telemetría */}
-                    <div className="inline-flex items-center p-1 rounded-pill bg-raised border border-border text-caption font-mono text-secondary">
-                      <span className="flex items-center gap-1.5 px-2.5 py-0.5 border-r border-border/80">
-                        <Zap className="w-3.5 h-3.5 text-brand shrink-0" />
-                        <span>38 ms</span>
-                      </span>
-                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 border-r border-border/80 text-brand font-medium">
-                          <span className="w-1.5 h-1.5 rounded-pill bg-brand animate-pulse" />
-                          <span>Daemon Activo</span>
-                        </span>
-                          <span className="px-2.5 py-0.5 text-primary">
-                            $ 12.45 USD
-                          </span>
-                        </div>
-                    </div>
+                {/* Contador de Próximo Ciclo (Visualmente Secundario y Elegante) */}
+                <div className="pt-2 border-t border-border/30 flex items-center justify-between text-caption text-secondary">
+                  <span className="flex items-center gap-1.5 text-muted">
+                    <Clock className="w-3.5 h-3.5 text-muted" />
+                    <span>Ciclo cada 5 min</span>
+                  </span>
+                  <span className="font-mono text-secondary">
+                    Próximo ciclo en <strong className="text-primary font-semibold">2m 14s</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
 
-                    {/* CONTENIDO INTERACTIVO PRINCIPAL */}
-                                <div className="flex-1 flex flex-col justify-center gap-base py-compact">
-                                  {/* 1. Mazo Unificado de Métricas Clave (Limpio, horizontal, con divisores sutiles) */}
-                                  <div className="rounded-control bg-raised border border-border overflow-hidden grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/60">
-                                    {/* Métrica 1: Valoración */}
-                                    <div className="p-base flex flex-col justify-between gap-1 hover:bg-panel/40 transition-colors">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-caption text-muted font-medium">
-                                          Valoración Total
-                                        </span>
-                                        <Package className="w-3.5 h-3.5 text-brand opacity-80" />
-                                      </div>
-                                      <div className="text-section-title font-bold text-primary font-mono tabular-nums leading-tight mt-1">
-                                        {formatCurrency(totalValuation)}
-                                      </div>
-                                      <span className="text-caption text-state-ok flex items-center gap-1 mt-0.5 leading-none">
-                                        <span className="w-1.5 h-1.5 rounded-pill bg-state-ok" />
-                                        +2.4% activo
-                                      </span>
-                                    </div>
+            {/* 4. PIE: ESTADO DE SUPERVISIÓN Y ACCESO A MÉTRICAS DETALLADAS */}
+            <div className="flex items-center justify-between text-caption pt-compact border-t border-border/40 mt-compact">
+              <div className="flex items-center gap-2 text-secondary">
+                <span className="w-2 h-2 rounded-pill bg-brand animate-pulse shrink-0" />
+                <span>Supervisión continua activa en segundo plano</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigateTo("analisis_reportes")}
+                className="text-brand hover:underline font-medium inline-flex items-center gap-1 cursor-pointer py-1"
+              >
+                <span>Ver métricas detalladas</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
 
-                                    {/* Métrica 2: Referencias */}
-                                    <div className="p-base flex flex-col justify-between gap-1 hover:bg-panel/40 transition-colors">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-caption text-muted font-medium">
-                                          Referencias
-                                        </span>
-                                        <Database className="w-3.5 h-3.5 text-secondary opacity-80" />
-                                      </div>
-                                      <div className="text-section-title font-bold text-primary font-mono tabular-nums leading-tight mt-1">
-                                        {monitoredCount}
-                                      </div>
-                                      <span className="text-caption text-secondary flex items-center gap-1 mt-0.5 leading-none">
-                                        <span className="w-1.5 h-1.5 rounded-pill bg-secondary" />
-                                        En PostgreSQL
-                                      </span>
-                                    </div>
-
-                                    {/* Métrica 3: Alertas Reorden */}
-                                    <div className="p-base flex flex-col justify-between gap-1 hover:bg-panel/40 transition-colors">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-caption text-muted font-medium">
-                                          Alertas Reorden
-                                        </span>
-                                        <AlertTriangle className="w-3.5 h-3.5 text-state-attention opacity-80" />
-                                      </div>
-                                      <div className="text-section-title font-bold text-state-attention font-mono tabular-nums leading-tight mt-1">
-                                        {criticalProductsCount}
-                                      </div>
-                                      <span className="text-caption text-state-attention flex items-center gap-1 mt-0.5 leading-none">
-                                        <span className="w-1.5 h-1.5 rounded-pill bg-state-attention" />
-                                        Reposición urgente
-                                      </span>
-                                    </div>
-
-                                    {/* Métrica 4: Firmas Pendientes */}
-                                    <div className="p-base flex flex-col justify-between gap-1 hover:bg-panel/40 transition-colors">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-caption text-muted font-medium">
-                                          Firmas Pendientes
-                                        </span>
-                                        <FileCheck2 className="w-3.5 h-3.5 text-state-pending opacity-80" />
-                                      </div>
-                                      <div className="text-section-title font-bold text-state-pending font-mono tabular-nums leading-tight mt-1">
-                                        {pendingDecisionCount}
-                                      </div>
-                                      <span className="text-caption text-state-pending flex items-center gap-1 mt-0.5 leading-none">
-                                        <span className="w-1.5 h-1.5 rounded-pill bg-state-pending" />
-                                        {pendingDecisionCount === 0 ? "Al día · 0 en cola" : "Revisión pendiente"}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* 2. Módulos Gemelos de Diagnóstico Operativo (Equilibrio visual simétrico) */}
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-compact">
-                                    {/* Panel Izquierdo: Cobertura de Stock */}
-                                    <div className="p-base rounded-control bg-raised border border-border flex flex-col justify-between gap-base hover:border-strong transition-colors">
-                                      <div>
-                                        <div className="flex items-center justify-between mb-2">
-                                          <div className="flex items-center gap-2">
-                                            <Package className="w-4 h-4 text-brand" />
-                                            <span className="text-label font-semibold text-primary">
-                                              Salud de Cobertura
-                                            </span>
-                                          </div>
-                                            <span className="text-caption font-mono px-2 py-0.5 rounded bg-state-attention-surface text-state-attention font-medium border border-state-attention/20">
-                                              {criticalPct}% bajo mínimo
-                                            </span>
-                                        </div>
-
-                                          {/* Barra de progreso segmentada elegante */}
-                                          <div className="w-full h-2 rounded-pill bg-canvas overflow-hidden flex my-2 border border-border/50">
-                                            <div
-                                              className="bg-state-attention h-full transition-all"
-                                              style={{ width: `${criticalPct}%` }}
-                                            />
-                                            <div
-                                              className="bg-brand h-full transition-all"
-                                              style={{ width: `${100 - criticalPct}%` }}
-                                            />
-                                          </div>
-
-                                              <div className="flex items-center justify-between text-caption text-secondary font-mono mt-2">
-                                                <span className="flex items-center gap-1.5">
-                                                  <span className="w-2 h-2 rounded-pill bg-state-attention" />
-                                                  <span>{criticalProductsCount} en reorden</span>
-                                                </span>
-                                                <span className="flex items-center gap-1.5">
-                                                  <span className="w-2 h-2 rounded-pill bg-brand" />
-                                                  <span>{healthyCount} en nivel óptimo</span>
-                                                </span>
-                                              </div>
-                                          </div>
-
-                                              {/* Fila destacada de acción */}
-                                              <div className="px-3 py-2 rounded bg-panel border border-border/80 flex items-center justify-between gap-2">
-                                                <div className="min-w-0">
-                                                  <span className="text-caption font-semibold text-primary block truncate">
-                                                    SKU-TRZ-14 · Almacén Central
-                                                  </span>
-                                                  <span className="text-caption text-muted font-mono block truncate">
-                                                    0 existencias · Consumo: 4.67 u/día
-                                                  </span>
-                                                </div>
-                                                <button
-                                                  type="button"
-                                                  onClick={() => onNavigateTo("inventario")}
-                                                  className="px-2.5 py-1 rounded text-caption font-medium bg-raised hover:bg-border text-primary border border-border shrink-0 cursor-pointer flex items-center gap-1 transition-colors"
-                                                >
-                                                  <span>Resolver</span>
-                                                  <ArrowRight className="w-3 h-3 text-brand" />
-                                                </button>
-                                              </div>
-                                          </div>
-
-                                                {/* Panel Derecho: Telemetría del Demonio */}
-                                                <div className="p-base rounded-control bg-raised border border-border flex flex-col justify-between gap-base hover:border-strong transition-colors">
-                                                  <div>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                      <div className="flex items-center gap-2">
-                                                        <Bot className="w-4 h-4 text-brand" />
-                                                        <span className="text-label font-semibold text-primary">
-                                                          Motor Autónomo
-                                                        </span>
-                                                      </div>
-                                                      <span className="text-caption font-mono text-brand font-medium flex items-center gap-1.5 px-2 py-0.5 rounded bg-brand-surface border border-brand/20">
-                                                        <span className="w-1.5 h-1.5 rounded-pill bg-brand animate-pulse" />
-                                                        3 vigías en vivo
-                                                      </span>
-                                                    </div>
-
-                                                        {/* Timeline de Eventos Recientes */}
-                                                        <div className="space-y-1.5 my-1">
-                                                          <div className="flex items-baseline gap-2 text-caption">
-                                                            <span className="text-brand font-mono font-medium shrink-0">02:37</span>
-                                                            <span className="text-secondary truncate">
-                                                              Escaneo de inventario: 103 alertas emitidas.
-                                                            </span>
-                                                          </div>
-                                                              <div className="flex items-baseline gap-2 text-caption">
-                                                                <span className="text-brand font-mono font-medium shrink-0">02:25</span>
-                                                                <span className="text-secondary truncate">
-                                                                  Rutas OSRM: 4 despachos en tránsito normal.
-                                                                </span>
-                                                              </div>
-                                                              <div className="flex items-baseline gap-2 text-caption">
-                                                                <span className="text-brand font-mono font-medium shrink-0">02:10</span>
-                                                                <span className="text-secondary truncate">
-                                                                  Trazabilidad Vault: firmas enlazadas con éxito.
-                                                                </span>
-                                                              </div>
-                                                          </div>
-                                                        </div>
-
-                                                        {/* Contador de próximo ciclo */}
-                                                        <div className="px-3 py-2 rounded bg-panel border border-border/80 flex items-center justify-between text-caption text-secondary">
-                                                          <span className="flex items-center gap-1.5 text-muted">
-                                                            <Clock className="w-3.5 h-3.5" />
-                                                            <span>Ciclo cada 5 min</span>
-                                                          </span>
-                                                          <span className="font-mono text-primary font-medium">
-                                                            Próximo en 2m 14s
-                                                          </span>
-                                                        </div>
-                                                      </div>
-                                                    </div>
-                                                  </div>
-
-                                                  {/* Pie del Canvas */}
-                                                  <div className="flex items-center justify-between text-caption pt-compact border-t border-border mt-compact">
-                                                    <div className="flex items-center gap-2 text-secondary">
-                                                      <span className="w-2 h-2 rounded-pill bg-brand animate-pulse" />
-                                                      <span>Supervisión continua activa en segundo plano</span>
-                                                    </div>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => onNavigateTo("analisis_reportes")}
-                                                      className="text-brand hover:underline font-medium inline-flex items-center gap-1 cursor-pointer"
-                                                    >
-                                                      <span>Ver métricas detalladas</span>
-                                                      <ArrowRight className="w-3.5 h-3.5" />
-                                                    </button>
-                                                  </div>
-                                                </div>
-
-                                                {/* PANEL DERECHO (5 de 12 cols): AUTONOMY & DAEMON CONTROLS */}
+          {/* PANEL DERECHO (5 de 12 cols): AUTONOMY & DAEMON CONTROLS */}
                                                 <div className="lg:col-span-5 bg-panel rounded-container border border-border p-base flex flex-col justify-between gap-base">
                                                   <div>
                                                     <div className="flex items-center justify-between pb-compact border-b border-border">

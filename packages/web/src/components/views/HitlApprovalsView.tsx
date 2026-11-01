@@ -192,7 +192,11 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
         mapped.some((p) => p.id === prev) ? prev : mapped[0]?.id ?? ""
       );
     } catch (err: any) {
-      setError(err?.message || "Error al cargar las decisiones pendientes.");
+      const msg = String(err?.message || "");
+      const cleanMsg = msg.includes("<!DOCTYPE") || msg.includes("Unexpected token") || msg.includes("JSON")
+        ? "El servidor backend no está respondiendo. Verifique que el servicio esté activo."
+        : msg || "Error al cargar las decisiones pendientes.";
+      setError(cleanMsg);
       setProposals([]);
     } finally {
       setLoading(false);
@@ -341,7 +345,7 @@ export const HitlApprovalsView: React.FC<HitlApprovalsViewProps> = ({
         </div>
       )}
 
-      {error && (
+      {error && !isFallback && (
         <div className="mx-group mt-compact rounded-control border border-state-error/40 bg-state-error-surface px-compact py-compact text-caption text-state-error">
           {error}
         </div>

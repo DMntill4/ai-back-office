@@ -23,8 +23,11 @@ export function isTauriEnvironment(): boolean {
         (window as any).__TAURI_INTERNALS__ ||
         (window as any).__TAURI__ ||
         window.location.protocol === "tauri:" ||
+        window.location.protocol === "file:" ||
         window.location.hostname === "tauri.localhost" ||
-        window.location.origin.includes("tauri.localhost")
+        window.location.origin.includes("tauri.localhost") ||
+        (window.location.hostname === "localhost" && window.location.port !== "3000") ||
+        (typeof navigator !== "undefined" && navigator.userAgent.includes("Tauri"))
     );
 }
 
@@ -107,18 +110,21 @@ async function rawRequest<T>(path: string, options: RequestOptions = {}): Promis
         }
 
         const contentType = res.headers.get("content-type") || "";
-        if (!contentType.includes("application/json")) {
-            const preview = await res.text();
+        const rawText = await res.text();
+
+        if (!contentType.includes("application/json") || rawText.trim().startsWith("<")) {
             throw new Error(
-                `Respuesta inesperada del servidor (HTTP ${res.status}, no JSON). ${
-                    preview.startsWith("<!DOCTYPE")
-                        ? "Verifique la conexión con el backend."
-                        : preview.slice(0, 80)
-                }`
+                rawText.trim().startsWith("<!DOCTYPE") || rawText.trim().startsWith("<html")
+                    ? "El servicio backend no devolvió JSON (respondió con HTML). Verifique que el servidor API esté activo en el puerto 3001."
+                    : `Respuesta inesperada del servidor (HTTP ${res.status}): ${rawText.slice(0, 80)}`
             );
         }
 
-        return (await res.json()) as T;
+        try {
+            return JSON.parse(rawText) as T;
+        } catch {
+            throw new Error("La respuesta del servidor no tiene un formato JSON válido.");
+        }
     } finally {
         clearTimeout(timeout);
     }

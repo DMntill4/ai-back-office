@@ -1,1 +1,242 @@
-[]
+[
+  {
+    "id": "outbox_8371f620",
+    "companyId": "comp_grande_1793548685625",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_grande_1793548685625",
+      "decisionId": "dec_27b31909",
+      "kind": "DECISION_APPROVAL",
+      "title": "Propuesta de Compra: 2u de Servidor Rack 2U a Hardware Global Solutions",
+      "description": "Proveedor 'Hardware Global Solutions' recomendado por mejor precio ($1450.00 USD/u) y plazo de entrega de 7 días. Requiere aprobación humana por ser un compromiso financiero vinculante.",
+      "costMxn": 2900,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $2,900.00 USD. Razón: Proveedor 'Hardware Global Solutions' recomendado por mejor precio ($1450.00 USD/u) y plazo de entrega de 7 días. Requiere aprobación humana por ser un compromiso financiero vinculante.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzI3YjMxOTA5IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZ3JhbmRlXzE3OTM1NDg2ODU2MjUiLCJleHBpcmVzQXQiOjE3OTM1NTIyODcwMjIsIm5vbmNlIjoiYWI3ZDhmODMwMWZhZDllNiJ9.aef558d071ac24551b24159c7c3adbabb809c3472a2214de992e5c68f5e5a561",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzI3YjMxOTA5IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9ncmFuZGVfMTc5MzU0ODY4NTYyNSIsImV4cGlyZXNBdCI6MTc5MzU1MjI4NzAyMiwibm9uY2UiOiJmY2M3YmVhYmFkMGFiMzc5In0.cbf95256d2ca08017e78c22a49fa88b61cf5840e981ec990e19ccca950a204c3"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793548692489,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793548687489,
+    "updatedAt": 1793548687489
+  },
+  {
+    "id": "outbox_4922c202",
+    "companyId": "comp_auto_a_1793548690235",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_auto_a_1793548690235",
+      "decisionId": "dec_52977cd8",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 10u de Compresor Industrial 5HP",
+      "description": "ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "costMxn": 9800,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $9,800.00 USD. Razón: ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzUyOTc3Y2Q4IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfYXV0b19hXzE3OTM1NDg2OTAyMzUiLCJleHBpcmVzQXQiOjE3OTM1NTIyOTAzNjgsIm5vbmNlIjoiZGFhNTQ4ZTZhMmUxOGIxOCJ9.9eb2afa298123cf2f386982cc006dc815a9bec086d1dbfd3913cefe5debd451f",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzUyOTc3Y2Q4IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9hdXRvX2FfMTc5MzU0ODY5MDIzNSIsImV4cGlyZXNBdCI6MTc5MzU1MjI5MDM2OCwibm9uY2UiOiI4MmY5MDVlZGU0MzMxMjE4In0.ec85cc37306b2fe4de831021b469184458e3e80ca3659fe62d574c583a69dcfd"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793548696467,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793548691467,
+    "updatedAt": 1793548691467
+  },
+  {
+    "id": "outbox_875ce6cf",
+    "companyId": "comp_auto_a_1793548690235",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_auto_a_1793548690235",
+      "decisionId": "dec_d4310989",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 10u de Compresor Industrial 5HP",
+      "description": "ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "costMxn": 9800,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $9,800.00 USD. Razón: ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2Q0MzEwOTg5IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfYXV0b19hXzE3OTM1NDg2OTAyMzUiLCJleHBpcmVzQXQiOjE3OTM1NTIyOTE1MDYsIm5vbmNlIjoiMDMwNDk3OGZiYTdlYzUyNiJ9.43f0865710879cd4d59bcfaef8e1f45fe4fbb9a7ffb8a7f1b3755bb686ce357a",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2Q0MzEwOTg5IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9hdXRvX2FfMTc5MzU0ODY5MDIzNSIsImV4cGlyZXNBdCI6MTc5MzU1MjI5MTUwNiwibm9uY2UiOiIxOTQ1NmZkNGQ0YjE4ZjI2In0.acbe0e4b2b2b42589c00347e759b2ecb2bac8cd4ace85f5fd7e309c77fa32842"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793548696975,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793548691975,
+    "updatedAt": 1793548691975
+  },
+  {
+    "id": "outbox_9e5620e6",
+    "companyId": "comp_auto_a_1793548690235",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_auto_a_1793548690235",
+      "decisionId": "dec_12c40a84",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 10u de Compresor Industrial 5HP",
+      "description": "ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "costMxn": 9800,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $9,800.00 USD. Razón: ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzEyYzQwYTg0IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfYXV0b19hXzE3OTM1NDg2OTAyMzUiLCJleHBpcmVzQXQiOjE3OTM1NTIyOTIwMzIsIm5vbmNlIjoiMTQxNGI3MjIzZDY3NDQyMyJ9.9918364d9bba60ed1b62ca6d2a168f3fd1ebdad954efc5cd59c3ddcacc797324",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzEyYzQwYTg0IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9hdXRvX2FfMTc5MzU0ODY5MDIzNSIsImV4cGlyZXNBdCI6MTc5MzU1MjI5MjAzMiwibm9uY2UiOiJhNzFkNTJkNzJhZDJiYzU1In0.2a95c9b5f493acfa0d41c9d3e66bd9e3208456fc7a0b3ceb0cd017b9b5af6a83"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793548697487,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793548692487,
+    "updatedAt": 1793548692487
+  },
+  {
+    "id": "outbox_a691708b",
+    "companyId": "comp_auto_a_1793548690235",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_auto_a_1793548690235",
+      "decisionId": "dec_620a64c1",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 10u de Compresor Industrial 5HP",
+      "description": "ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "costMxn": 9800,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $9,800.00 USD. Razón: ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzYyMGE2NGMxIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfYXV0b19hXzE3OTM1NDg2OTAyMzUiLCJleHBpcmVzQXQiOjE3OTM1NTIyOTI1MTYsIm5vbmNlIjoiNWU5OWIwNDRmYzNmNWFmMiJ9.06c8dd65c36116ae721d984db96c777cea9861176d47927738cf03204f9ecfcc",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzYyMGE2NGMxIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9hdXRvX2FfMTc5MzU0ODY5MDIzNSIsImV4cGlyZXNBdCI6MTc5MzU1MjI5MjUxNiwibm9uY2UiOiI5MjkzZTliZmQ5ODhkYWE0In0.d97bfd9ba9ebda150c1e5781c5b755835709d90f29accaa7c5635a2aa93ab39e"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793548697956,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793548692956,
+    "updatedAt": 1793548692956
+  },
+  {
+    "id": "outbox_6b6b6404",
+    "companyId": "comp_b569a248",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_b569a248",
+      "decisionId": "dec_6d05f9a7",
+      "kind": "DECISION_APPROVAL",
+      "title": "Propuesta de Compra: 50u de Sensor Térmico ST-200 a Acme Components",
+      "description": "Proveedor 'Acme Components' recomendado por mejor precio ($450.00 MXN/u) y plazo de entrega de 2 días. Requiere aprobación humana por ser un compromiso financiero vinculante.",
+      "costMxn": 22500,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $22,500.00 USD. Razón: Proveedor 'Acme Components' recomendado por mejor precio ($450.00 MXN/u) y plazo de entrega de 2 días. Requiere aprobación humana por ser un compromiso financiero vinculante.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzZkMDVmOWE3IiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfYjU2OWEyNDgiLCJleHBpcmVzQXQiOjE3OTM1NTIyOTY0OTYsIm5vbmNlIjoiNDgwYjFhNzljNWNiZWY4ZiJ9.55457e3b4496b62aaa8473a59ff6e573dfce6bae1119facadb4f136819e8fe84",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzZkMDVmOWE3IiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9iNTY5YTI0OCIsImV4cGlyZXNBdCI6MTc5MzU1MjI5NjQ5Niwibm9uY2UiOiIzNzg1MjUwOTcwY2MyZWYwIn0.32227ec9be36b72f4a41ff8a8c23375eb0fb4c6284e591753337b089abd2f31a"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793548702508,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793548697508,
+    "updatedAt": 1793548697508
+  },
+  {
+    "id": "outbox_e4c8605f",
+    "companyId": "comp_terminal_test",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_terminal_test",
+      "decisionId": "dec_18b8bc90",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 10u de Válvula de Presión Terminal Ultra",
+      "description": "ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana. La orden de compra es una operación financiera vinculante.",
+      "costMxn": 1200,
+      "currency": "USD",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $1,200.00 USD. Razón: ESCALADO A BANDEJA DE DECISIONES: No hay limite de aprobacion configurado para la empresa; MINT no asume ninguno y requiere aprobacion humana. La orden de compra es una operación financiera vinculante.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjXzE4YjhiYzkwIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfdGVybWluYWxfdGVzdCIsImV4cGlyZXNBdCI6MTc5MzU1MjI5ODgyMSwibm9uY2UiOiJhODA3NzhhMzAxYmU5MTk2In0.63f76f6306314ece5dd316087d989718f307d15d017b11dd48b7c93137c60f62",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjXzE4YjhiYzkwIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF90ZXJtaW5hbF90ZXN0IiwiZXhwaXJlc0F0IjoxNzkzNTUyMjk4ODIxLCJub25jZSI6IjVjMDcwZjRkZTNlZmI4ZDUifQ.1753180aec9668400998942ef7d0eaab982074461b2372401fbb7add985f5c2c"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793548704891,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793548699891,
+    "updatedAt": 1793548699891
+  },
+  {
+    "id": "outbox_d0788122",
+    "companyId": "comp_default",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_default",
+      "decisionId": "dec_a19e2783",
+      "kind": "DECISION_APPROVAL",
+      "title": "Reabastecimiento: 25u de Sensor de Nivel de Tanque E2E",
+      "description": "BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "costMxn": 10500,
+      "currency": "COP",
+      "proposingAgent": "compras_agent",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $10,500.00 COP. Razón: BLOQUEO: Se detectó una orden de compra idéntica activa o en proceso dentro de las últimas 72 horas.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoiZGVjX2ExOWUyNzgzIiwiYWN0aW9uIjoiYXBwcm92ZSIsImNvbXBhbnlJZCI6ImNvbXBfZGVmYXVsdCIsImV4cGlyZXNBdCI6MTc5MzU1MjMxMzUzMCwibm9uY2UiOiI0N2JlYWZkMzllMWIyZjgxIn0.fdb6130d963b9e641f7fed5e2d7d8377a42c0df5760157ef3b4696a75d7a9154",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoiZGVjX2ExOWUyNzgzIiwiYWN0aW9uIjoicmVqZWN0IiwiY29tcGFueUlkIjoiY29tcF9kZWZhdWx0IiwiZXhwaXJlc0F0IjoxNzkzNTUyMzEzNTMwLCJub25jZSI6ImE5MzFlNDVjNjQzNWExMWQifQ.7d1077ed0d200d516968da1a0e73683e2c4a0aa44d83c21d058831115b73391f"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793548719544,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793548714544,
+    "updatedAt": 1793548714544
+  }
+]
