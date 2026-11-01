@@ -28,6 +28,5 @@ resources/
 vault/Preguntas/
 vault/Decisiones/
 vault/Auditoria/
-.claude/*
-!.claude/skills/
+.claude/
 
