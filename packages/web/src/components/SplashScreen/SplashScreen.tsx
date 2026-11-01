@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { useSplashPhases, SPLASH_STRINGS, type SplashPhase } from "./useSplashPhases";
+import { useSplashPhases, SPLASH_STRINGS } from "./useSplashPhases";
 
 export interface SplashScreenProps {
   onComplete?: () => void;
@@ -35,8 +35,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
     const centerX = width / 2;
     const centerY = height / 2;
 
-    // Colores oficiales de la marca Mint
-    const colors = ["#2BB656", "#2BB656", "#9DE342", "#2BB656", "#9DE342", "#EEF2EC"];
+    // Destellos blancos, lima de marca y menta brillante para el estallido
+    const colors = ["#FFFFFF", "#FFFFFF", "#9DE342", "#C8F570", "#EEF2EC", "#9DE342"];
     const count = 56;
     const particles: Particle[] = [];
 
@@ -108,26 +108,29 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
   return (
     <aside
       aria-label="Cargando Mint Studio"
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-canvas select-none overflow-hidden transition-opacity duration-400 ease-out ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center select-none overflow-hidden transition-opacity duration-400 ease-out ${
         isExiting ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
+      style={{
+        background: "radial-gradient(ellipse at 50% 45%, #32C960 0%, #2BB656 45%, #209345 75%, #167433 100%)",
+      }}
     >
-      {/* 1. Atmósfera luminosa verde Mint (Ambient Glow & Radial Halo) */}
+      {/* 1. Atmósfera luminosa: Halo y resplandor sutil detrás del centro */}
       <div
-        className="absolute w-[520px] h-[520px] rounded-pill bg-brand/20 blur-[100px] pointer-events-none transition-all duration-700"
+        className="absolute w-[560px] h-[560px] rounded-pill bg-white/20 blur-[100px] pointer-events-none transition-all duration-700"
         style={{
           transform: isBurst ? "scale(2.2)" : "scale(1)",
-          opacity: isBurst ? 0.45 : 0.28,
+          opacity: isBurst ? 0.45 : 0.25,
         }}
         aria-hidden="true"
       />
 
       <div
-        className="absolute w-[360px] h-[360px] rounded-pill bg-brand-lime/10 blur-[80px] pointer-events-none"
+        className="absolute w-[380px] h-[380px] rounded-pill bg-brand-lime/30 blur-[70px] pointer-events-none"
         aria-hidden="true"
       />
 
-      {/* 2. Contenedor Central: Círculo Verde de Marca y Anillos */}
+      {/* 2. Contenedor Central: Círculo de Marca, Guanábana y Anillos */}
       <div className="relative flex items-center justify-center w-56 h-56">
         {/* Canvas de Estallido Radial de Rayos */}
         {!prefersReducedMotion && (
@@ -148,8 +151,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
               isBurst ? "scale-130 opacity-0" : "scale-100 opacity-100"
             }`}
           >
-            {/* Anillo exterior estático tenue con tono verde sutil */}
-            <svg className="w-48 h-48 text-brand/20" viewBox="0 0 100 100">
+            {/* Anillo exterior estático en blanco tenue */}
+            <svg className="w-48 h-48 text-white/35" viewBox="0 0 100 100">
               <circle
                 cx="50"
                 cy="50"
@@ -161,13 +164,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
               />
             </svg>
 
-            {/* Arco giratorio en Verde Mint con resplandor */}
+            {/* Arco giratorio en blanco brillante con resplandor */}
             <svg
-              className="absolute w-48 h-48 text-brand animate-spin"
+              className="absolute w-48 h-48 text-white animate-spin"
               style={{
                 animationDuration: "2.4s",
                 animationTimingFunction: "linear",
-                filter: "drop-shadow(0 0 8px rgba(43, 182, 86, 0.6))",
+                filter: "drop-shadow(0 0 10px rgba(255, 255, 255, 0.8))",
               }}
               viewBox="0 0 100 100"
             >
@@ -177,14 +180,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
                 r="46"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2.4"
+                strokeWidth="2.8"
                 strokeLinecap="round"
                 strokeDasharray="48 240"
               />
             </svg>
 
             {/* Segundo anillo interior fino */}
-            <svg className="absolute w-40 h-40 text-brand/30" viewBox="0 0 100 100">
+            <svg className="absolute w-40 h-40 text-white/20" viewBox="0 0 100 100">
               <circle
                 cx="50"
                 cy="50"
@@ -192,15 +195,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1"
-                className="opacity-50"
               />
             </svg>
           </div>
         )}
 
-        {/* Círculo sólido en VERDE DE LA MARCA con gradiente, resplandor y logo */}
+        {/* Círculo sólido central que "respira" */}
         <div
-          className={`relative z-10 w-28 h-28 rounded-pill bg-gradient-to-br from-brand via-brand to-brand/80 border-2 border-brand-lime/50 flex items-center justify-center shadow-xl transition-all ${
+          className={`relative z-10 w-28 h-28 rounded-pill border-2 border-brand-lime/80 flex items-center justify-center shadow-2xl transition-all ${
             prefersReducedMotion
               ? ""
               : isBurst
@@ -208,9 +210,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
               : "duration-1000 ease-in-out animate-pulse"
           }`}
           style={{
+            background: "radial-gradient(circle, #103A1F 0%, #0B2416 100%)",
             boxShadow: isBurst
               ? "none"
-              : "0 0 35px 6px rgba(43, 182, 86, 0.5), 0 0 65px 12px rgba(43, 182, 86, 0.25), inset 0 2px 4px rgba(255, 255, 255, 0.3)",
+              : "0 12px 35px 0 rgba(0, 0, 0, 0.35), 0 0 30px 4px rgba(157, 227, 66, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2)",
           }}
         >
           {/* Logo oficial de la guanábana de Mint */}
@@ -226,16 +229,16 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
 
       {/* 3. Textos Informativos */}
       <div className="mt-7 flex flex-col items-center text-center px-6 max-w-sm z-10">
-        <h2 className="text-section-title font-semibold text-primary font-sans tracking-tight transition-all duration-300">
+        <h2 className="text-section-title font-semibold text-white font-sans tracking-tight transition-all duration-300 drop-shadow-sm">
           {isTextReady ? SPLASH_STRINGS.ready : SPLASH_STRINGS.title}
         </h2>
-        <p className="text-caption text-secondary font-sans text-center mt-1 leading-relaxed transition-opacity duration-300">
+        <p className="text-caption text-white/90 font-sans text-center mt-1 leading-relaxed transition-opacity duration-300 drop-shadow-sm">
           {isTextReady ? "Sincronización completa" : SPLASH_STRINGS.subtitle}
         </p>
 
-        {/* Micro-indicador de estado en verde Mint */}
-        <div className="flex items-center gap-1.5 mt-3 text-caption text-brand font-mono font-medium">
-          <span className="w-1.5 h-1.5 rounded-pill bg-brand animate-pulse" />
+        {/* Micro-indicador de estado en píldora con contraste óptimo */}
+        <div className="flex items-center gap-1.5 mt-3 text-caption text-white font-mono font-medium bg-black/25 px-3 py-1 rounded-pill border border-white/20 shadow-sm">
+          <span className="w-1.5 h-1.5 rounded-pill bg-brand-lime animate-pulse" />
           <span>{isTextReady ? "100%" : "Conectando..."}</span>
         </div>
       </div>
