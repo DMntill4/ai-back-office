@@ -224,3 +224,4 @@ export const HealthChecklistWidget: React.FC = () => {
     </div>
   );
 };
+

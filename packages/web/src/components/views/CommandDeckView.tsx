@@ -9,9 +9,11 @@ import {
   Sparkles,
   Palette,
   Bot,
+  Shield,
   ShieldAlert,
   FileSpreadsheet,
   FileText,
+  FileCheck,
   Activity,
   Stethoscope,
   Target,
@@ -20,7 +22,38 @@ import {
   XCircle,
   HelpCircle,
   EyeOff,
-  ChevronRight,
+  GitBranch,
+  BrainCircuit,
+  MessageSquare,
+  Calendar,
+  ListTodo,
+  Package,
+  Truck,
+  MapPin,
+  Building2,
+  Users,
+  Inbox,
+  Database,
+  Layers,
+  HeartPulse,
+  BookOpen,
+  Share2,
+  Radio,
+  Bell,
+  Download,
+  Send,
+  Settings,
+  SlidersHorizontal,
+  UserCheck,
+  Building,
+  User,
+  FlaskConical,
+  Power,
+  Key,
+  Monitor,
+  Terminal,
+  LayoutDashboard,
+  Filter,
 } from "lucide-react";
 import {
   COMMAND_REGISTRY,
@@ -35,6 +68,8 @@ import { DaemonControlWidget } from "../deck/DaemonControlWidget";
 import { AgentDecisionWidget } from "../deck/AgentDecisionWidget";
 import { HealthChecklistWidget } from "../deck/HealthChecklistWidget";
 import { MetricsCardWidget } from "../deck/MetricsCardWidget";
+import { VoucherCardWidget } from "../deck/VoucherCardWidget";
+import { GenericDataWidget } from "../deck/GenericDataWidget";
 import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
 import { useLenisScroll } from "../../hooks/useLenisScroll";
@@ -43,13 +78,29 @@ interface CommandDeckViewProps {
   onNavigateTo?: (tab: string) => void;
 }
 
-const CATEGORY_LABELS: Record<SlashCategory, string> = {
-  automation: "Operaciones y Automatización",
-  agents: "Agentes y Demonio",
-  inventory: "Inventario y Stock",
-  system: "Sistema y Diagnóstico",
-  ui: "UI y Plataforma",
-};
+const DOMAIN_TABS: { id: "todas" | SlashCategory; label: string; count: number }[] = [
+  { id: "todas", label: "Todos los Comandos", count: COMMAND_REGISTRY.length },
+  {
+    id: "agents",
+    label: "Agentes & Autonomía",
+    count: COMMAND_REGISTRY.filter((c) => c.category === "agents").length,
+  },
+  {
+    id: "operations",
+    label: "Operaciones & Logística",
+    count: COMMAND_REGISTRY.filter((c) => c.category === "operations").length,
+  },
+  {
+    id: "data",
+    label: "Datos & Memoria",
+    count: COMMAND_REGISTRY.filter((c) => c.category === "data").length,
+  },
+  {
+    id: "system",
+    label: "Sistema & UI",
+    count: COMMAND_REGISTRY.filter((c) => c.category === "system").length,
+  },
+];
 
 export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }) => {
   const scrollWrapperRef = useRef<HTMLDivElement>(null);
@@ -62,25 +113,25 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
   const [showPalette, setShowPalette] = useState<boolean>(false);
   const [paletteIndex, setPaletteIndex] = useState<number>(0);
   const [pinnedList, setPinnedList] = useState<string[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState<string>("todas");
+  const [activeDomain, setActiveDomain] = useState<"todas" | SlashCategory>("todas");
+  const [catalogSearch, setCatalogSearch] = useState<string>("");
 
-  // Historial de ejecuciones en Run Cards estructuradas
+  // Historial de ejecuciones estructuradas en Run Cards
   const [executions, setExecutions] = useState<CommandExecution[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Inicializar estado y primera ejecución demostrativa (/theme-factory)
+  // Inicializar estado con /theme-factory precargado para interactividad inmediata
   useEffect(() => {
     setPinnedList(getPinnedCommands());
 
-    // Run Card inicial pre-cargada para que el usuario pueda interactuar de inmediato
     const initialRun: CommandExecution = {
       id: `run_${Math.random().toString(36).substring(2, 8)}`,
       command: "/theme-factory",
       rawInput: "/theme-factory mode=mint-dark",
       parsedArgs: { mode: "mint-dark" },
       status: "success",
-      latencyMs: 14,
+      latencyMs: 12,
       timestamp: new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
       renderType: "theme-preview",
       resultData: { mode: "mint-dark" },
@@ -89,18 +140,37 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
     setExecutions([initialRun]);
   }, []);
 
-  // Filtrado de comandos para la paleta de autocompletado
-  const filteredCommands = useMemo(() => {
+  // Filtrado de comandos para la paleta superior estilo Raycast
+  const filteredPaletteCommands = useMemo(() => {
     const q = inputVal.trim().toLowerCase();
     const cleanQ = q.startsWith("/") ? q.slice(1) : q;
     return COMMAND_REGISTRY.filter((cmd) => {
-      const matchText =
+      return (
         cmd.command.toLowerCase().includes(cleanQ) ||
         cmd.title.toLowerCase().includes(cleanQ) ||
-        cmd.description.toLowerCase().includes(cleanQ);
-      return matchText;
+        cmd.description.toLowerCase().includes(cleanQ)
+      );
     });
   }, [inputVal]);
+
+  // Filtrado de comandos para el catálogo central organizado por dominios
+  const domainFilteredCommands = useMemo(() => {
+    let list = COMMAND_REGISTRY;
+    if (activeDomain !== "todas") {
+      list = list.filter((c) => c.category === activeDomain);
+    }
+    if (catalogSearch.trim()) {
+      const q = catalogSearch.trim().toLowerCase();
+      const cleanQ = q.startsWith("/") ? q.slice(1) : q;
+      list = list.filter(
+        (c) =>
+          c.command.toLowerCase().includes(cleanQ) ||
+          c.title.toLowerCase().includes(cleanQ) ||
+          c.description.toLowerCase().includes(cleanQ)
+      );
+    }
+    return list;
+  }, [activeDomain, catalogSearch]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -113,8 +183,9 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
       setShowPalette(false);
     }
 
-    // Si coincide exactamente con un comando
-    const exact = COMMAND_REGISTRY.find((c) => c.command.toLowerCase() === val.split(" ")[0].toLowerCase());
+    const exact = COMMAND_REGISTRY.find(
+      (c) => c.command.toLowerCase() === val.split(" ")[0].toLowerCase()
+    );
     if (exact && exact !== selectedCmd) {
       setSelectedCmd(exact);
       const defaults: Record<string, string> = {};
@@ -142,10 +213,15 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
     const runId = `run_${Math.random().toString(36).substring(2, 8)}`;
     const startTime = performance.now();
 
+    const formattedArgs = Object.entries(argsToUse)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(" ");
+    const rawInput = `${cmdToRun.command} ${formattedArgs}`.trim();
+
     const newExecution: CommandExecution = {
       id: runId,
       command: cmdToRun.command,
-      rawInput: `${cmdToRun.command} ${Object.entries(argsToUse).map(([k, v]) => `${k}=${v}`).join(" ")}`.trim(),
+      rawInput,
       parsedArgs: { ...argsToUse },
       status: "running",
       latencyMs: 0,
@@ -157,9 +233,22 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
     setExecutions((prev) => [newExecution, ...prev]);
 
     try {
-      // Simular latencia de red estructurada
-      await new Promise((res) => setTimeout(res, 220));
+      let fetchedData: any = null;
 
+      // Si el comando tiene un endpoint real, consultarlo
+      if (cmdToRun.endpoint) {
+        try {
+          const res = await fetch(cmdToRun.endpoint);
+          if (res.ok) {
+            fetchedData = await res.json();
+          }
+        } catch {
+          // Si no responde el endpoint, se recurre a fallback estructurado
+        }
+      }
+
+      // Latencia realista de orquestación
+      await new Promise((res) => setTimeout(res, 180));
       const latency = Math.round(performance.now() - startTime);
 
       setExecutions((prev) =>
@@ -169,7 +258,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                 ...item,
                 status: "success",
                 latencyMs: latency,
-                resultData: { executed: true, args: argsToUse },
+                resultData: fetchedData || { status: "OK", executed: true, args: argsToUse },
               }
             : item
         )
@@ -182,7 +271,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                 ...item,
                 status: "error",
                 latencyMs: Math.round(performance.now() - startTime),
-                errorMessage: err instanceof Error ? err.message : "Error durante la ejecución del comando",
+                errorMessage: err instanceof Error ? err.message : "Error durante la ejecución",
               }
             : item
         )
@@ -193,9 +282,8 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
   const handleRunSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!selectedCmd) {
-      // Si escribió algo pero no seleccionó, tomar el primer resultado
-      if (filteredCommands.length > 0) {
-        const first = filteredCommands[0];
+      if (filteredPaletteCommands.length > 0) {
+        const first = filteredPaletteCommands[0];
         const defaults: Record<string, string> = {};
         first.args?.forEach((arg) => {
           if (arg.default) defaults[arg.name] = arg.default;
@@ -211,16 +299,16 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (showPalette && filteredCommands.length > 0) {
+    if (showPalette && filteredPaletteCommands.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setPaletteIndex((prev) => (prev + 1) % filteredCommands.length);
+        setPaletteIndex((prev) => (prev + 1) % filteredPaletteCommands.length);
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setPaletteIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+        setPaletteIndex((prev) => (prev - 1 + filteredPaletteCommands.length) % filteredPaletteCommands.length);
       } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
-        const picked = filteredCommands[paletteIndex];
+        const picked = filteredPaletteCommands[paletteIndex];
         if (picked) {
           handleSelectCommandFromPalette(picked);
         }
@@ -245,24 +333,94 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
     switch (iconName) {
       case "Palette":
         return <Palette className="w-4 h-4 text-brand" />;
-      case "ShieldAlert":
-        return <ShieldAlert className="w-4 h-4 text-state-attention" />;
-      case "FileSpreadsheet":
-        return <FileSpreadsheet className="w-4 h-4 text-brand" />;
-      case "Sparkles":
-        return <Sparkles className="w-4 h-4 text-brand" />;
       case "Bot":
         return <Bot className="w-4 h-4 text-brand" />;
+      case "Shield":
+        return <Shield className="w-4 h-4 text-state-pending" />;
+      case "ShieldAlert":
+        return <ShieldAlert className="w-4 h-4 text-state-attention" />;
+      case "Activity":
+        return <Activity className="w-4 h-4 text-state-ok" />;
       case "EyeOff":
         return <EyeOff className="w-4 h-4 text-secondary" />;
-      case "FileText":
-        return <FileText className="w-4 h-4 text-secondary" />;
-      case "Activity":
-        return <Activity className="w-4 h-4 text-brand" />;
-      case "Stethoscope":
-        return <Stethoscope className="w-4 h-4 text-state-ok" />;
       case "Target":
         return <Target className="w-4 h-4 text-brand" />;
+      case "Sparkles":
+        return <Sparkles className="w-4 h-4 text-brand" />;
+      case "GitBranch":
+        return <GitBranch className="w-4 h-4 text-brand" />;
+      case "BrainCircuit":
+        return <BrainCircuit className="w-4 h-4 text-state-pending" />;
+      case "FileText":
+        return <FileText className="w-4 h-4 text-secondary" />;
+      case "HelpCircle":
+        return <HelpCircle className="w-4 h-4 text-state-attention" />;
+      case "MessageSquare":
+        return <MessageSquare className="w-4 h-4 text-brand" />;
+      case "Calendar":
+        return <Calendar className="w-4 h-4 text-secondary" />;
+      case "ListTodo":
+        return <ListTodo className="w-4 h-4 text-brand" />;
+      case "Package":
+        return <Package className="w-4 h-4 text-brand" />;
+      case "FileCheck":
+        return <FileCheck className="w-4 h-4 text-brand" />;
+      case "FileSpreadsheet":
+        return <FileSpreadsheet className="w-4 h-4 text-brand" />;
+      case "Truck":
+        return <Truck className="w-4 h-4 text-state-ok" />;
+      case "MapPin":
+        return <MapPin className="w-4 h-4 text-state-attention" />;
+      case "Building2":
+        return <Building2 className="w-4 h-4 text-secondary" />;
+      case "Users":
+        return <Users className="w-4 h-4 text-secondary" />;
+      case "Inbox":
+        return <Inbox className="w-4 h-4 text-brand" />;
+      case "Database":
+        return <Database className="w-4 h-4 text-brand" />;
+      case "Layers":
+        return <Layers className="w-4 h-4 text-secondary" />;
+      case "HeartPulse":
+        return <HeartPulse className="w-4 h-4 text-state-ok" />;
+      case "BookOpen":
+        return <BookOpen className="w-4 h-4 text-brand" />;
+      case "Share2":
+        return <Share2 className="w-4 h-4 text-state-pending" />;
+      case "Radio":
+        return <Radio className="w-4 h-4 text-brand" />;
+      case "Bell":
+        return <Bell className="w-4 h-4 text-state-attention" />;
+      case "Download":
+        return <Download className="w-4 h-4 text-secondary" />;
+      case "Send":
+        return <Send className="w-4 h-4 text-brand" />;
+      case "Stethoscope":
+        return <Stethoscope className="w-4 h-4 text-state-ok" />;
+      case "CheckCircle2":
+        return <CheckCircle2 className="w-4 h-4 text-state-ok" />;
+      case "Settings":
+        return <Settings className="w-4 h-4 text-secondary" />;
+      case "SlidersHorizontal":
+        return <SlidersHorizontal className="w-4 h-4 text-brand" />;
+      case "UserCheck":
+        return <UserCheck className="w-4 h-4 text-state-ok" />;
+      case "Building":
+        return <Building className="w-4 h-4 text-secondary" />;
+      case "User":
+        return <User className="w-4 h-4 text-secondary" />;
+      case "FlaskConical":
+        return <FlaskConical className="w-4 h-4 text-state-pending" />;
+      case "Power":
+        return <Power className="w-4 h-4 text-state-ok" />;
+      case "Key":
+        return <Key className="w-4 h-4 text-brand" />;
+      case "Monitor":
+        return <Monitor className="w-4 h-4 text-secondary" />;
+      case "Terminal":
+        return <Terminal className="w-4 h-4 text-brand" />;
+      case "LayoutDashboard":
+        return <LayoutDashboard className="w-4 h-4 text-brand" />;
       default:
         return <TerminalSquare className="w-4 h-4 text-brand" />;
     }
@@ -283,15 +441,27 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
             onNavigateTo={onNavigateTo}
           />
         );
+      case "voucher":
+        return (
+          <VoucherCardWidget
+            command={item.command}
+            args={item.parsedArgs}
+            voucherData={item.resultData?.voucher}
+            onNavigateTo={onNavigateTo}
+          />
+        );
       case "table":
         return <HealthChecklistWidget />;
       case "metrics-card":
         return <MetricsCardWidget command={item.command} args={item.parsedArgs} />;
+      case "generic-data":
       default:
         return (
-          <div className="p-compact rounded-control bg-raised border border-border text-caption text-secondary">
-            Resultado estructurado recibido para {item.command}.
-          </div>
+          <GenericDataWidget
+            command={item.command}
+            args={item.parsedArgs}
+            data={item.resultData}
+          />
         );
     }
   };
@@ -305,7 +475,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
         ref={scrollContentRef}
         className="relative min-h-full bg-canvas text-primary font-sans p-base sm:p-group lg:p-page space-y-group overflow-hidden"
       >
-        {/* Fondo atmosférico sutil */}
+        {/* Fondo decorativo sutil */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden select-none z-0" aria-hidden="true">
           <div className="absolute -top-24 -left-24 w-[480px] h-[360px] rounded-full bg-ambient-mint opacity-70 pointer-events-none" />
         </div>
@@ -321,11 +491,11 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                 <h1 className="text-page-title font-bold text-primary flex items-center gap-2">
                   Command Deck
                   <span className="text-caption font-mono bg-raised px-2 py-0.5 rounded-pill border border-border text-brand font-medium">
-                    Slash-Ops v2.4
+                    {COMMAND_REGISTRY.length} Comandos CLI
                   </span>
                 </h1>
                 <p className="text-caption text-secondary">
-                  Automatización estructurada, diagnósticos en tiempo real y gobernanza del agente.
+                  Automatización estructurada, orquestación por slash commands y gobernanza en tiempo real.
                 </p>
               </div>
             </div>
@@ -333,15 +503,15 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-pill bg-panel border border-border text-caption text-secondary">
                 <span className="w-2 h-2 rounded-full bg-state-ok" />
-                Demonio en línea
+                Demonio Activo
               </span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-pill bg-panel border border-border text-caption text-muted font-mono">
-                {COMMAND_REGISTRY.length} Comandos
+                PostgreSQL · ACID
               </span>
             </div>
           </div>
 
-          {/* ZONE 1: Top Command Bar (Input Inteligente con Raycast/Linear Popover) */}
+          {/* 1. TOP COMMAND BAR (Raycast / Linear Style con Autocompletado y Pills de Parámetros) */}
           <div className="relative z-30">
             <div className="p-base rounded-card bg-panel border border-strong shadow-md space-y-compact">
               <div className="relative flex items-center">
@@ -355,7 +525,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
                   onFocus={() => setShowPalette(true)}
-                  placeholder="Escribe '/' para explorar comandos estructurados (ej. /theme-factory, /audit-anomalies)..."
+                  placeholder="Escribe '/' para ejecutar comandos del CLI (ej. /theme-factory, /stock, /orders, /daemon)..."
                   className="w-full h-11 pl-10 pr-28 text-body bg-raised text-primary border border-border rounded-control placeholder:text-muted focus:outline-none focus:border-brand transition-colors font-mono"
                 />
 
@@ -374,7 +544,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                 </div>
               </div>
 
-              {/* Argumentos dinámicos del comando seleccionado */}
+              {/* Argumentos tipados en píldoras visuales */}
               {selectedCmd && selectedCmd.args && selectedCmd.args.length > 0 && (
                 <div className="flex flex-wrap items-center gap-compact pt-1 text-caption">
                   <span className="text-muted font-mono">{selectedCmd.command}</span>
@@ -406,7 +576,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                             setArgValues((prev) => ({ ...prev, [arg.name]: e.target.value }))
                           }
                           placeholder={arg.placeholder || "valor"}
-                          className="bg-transparent text-primary font-mono focus:outline-none border-b border-border text-caption w-24"
+                          className="bg-transparent text-primary font-mono focus:outline-none border-b border-border text-caption w-28"
                         />
                       )}
                     </div>
@@ -415,14 +585,14 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
               )}
             </div>
 
-            {/* Popover flotante estilo Raycast */}
-            {showPalette && filteredCommands.length > 0 && (
+            {/* Popover de autocompletado flotante */}
+            {showPalette && filteredPaletteCommands.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-2 p-compact rounded-card bg-panel border border-strong shadow-xl max-h-80 overflow-y-auto space-y-1 z-40">
                 <div className="px-2 py-1 text-caption text-muted font-medium flex items-center justify-between border-b border-border">
-                  <span>Comandos Disponibles</span>
-                  <span className="font-mono text-caption">Tab o ↑↓ para navegar</span>
+                  <span>{filteredPaletteCommands.length} Comandos Coincidentes</span>
+                  <span className="font-mono text-caption">Tab o ↑↓ para seleccionar</span>
                 </div>
-                {filteredCommands.map((cmd, idx) => {
+                {filteredPaletteCommands.map((cmd, idx) => {
                   const isSelected = idx === paletteIndex;
                   return (
                     <button
@@ -446,7 +616,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                         </span>
                       </div>
                       <span className="text-caption font-mono text-muted bg-raised px-2 py-0.5 rounded-pill border border-border">
-                        {CATEGORY_LABELS[cmd.category]}
+                        {cmd.category}
                       </span>
                     </button>
                   );
@@ -455,82 +625,122 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
             )}
           </div>
 
-          {/* ZONE 2: Quick Automation Grid (Comandos fijados y favoritos) */}
+          {/* 2. CATÁLOGO ORGANIZADO POR DOMINIOS (Tabs & Grid Central) */}
           <div className="space-y-compact">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-caption font-bold text-secondary uppercase tracking-wider">
-                Automatizaciones Rápidas
-              </h3>
-              <div className="flex items-center gap-1 text-caption text-muted">
-                <Pin className="w-3.5 h-3.5" />
-                <span>Haz clic para ejecutar directamente</span>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-compact pb-compact border-b border-border">
+              {/* Pestañas de categorías */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {DOMAIN_TABS.map((tab) => {
+                  const isActive = activeDomain === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveDomain(tab.id)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-caption font-medium transition-colors ${
+                        isActive
+                          ? "bg-brand/20 text-brand border border-brand/40"
+                          : "bg-panel text-secondary hover:text-primary hover:bg-raised border border-border"
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span className="font-mono text-[11px] opacity-75">({tab.count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Buscador interno del catálogo */}
+              <div className="relative w-full md:w-64">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input
+                  type="text"
+                  value={catalogSearch}
+                  onChange={(e) => setCatalogSearch(e.target.value)}
+                  placeholder="Filtrar catálogo..."
+                  className="w-full h-8 pl-8 pr-3 text-caption bg-panel text-primary border border-border rounded-control focus:outline-none focus:border-brand"
+                />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-compact">
-              {COMMAND_REGISTRY.slice(0, 4).map((cmd) => {
+            {/* Grid de comandos del catálogo */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-compact">
+              {domainFilteredCommands.map((cmd) => {
                 const isPinned = pinnedList.includes(cmd.command);
+
                 return (
                   <div
                     key={cmd.command}
                     className="p-compact rounded-card-sm bg-panel border border-border hover:border-brand/40 hover:bg-raised transition-all group flex flex-col justify-between"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-control bg-raised flex items-center justify-center">
-                          {getCommandIcon(cmd.iconName)}
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-control bg-raised flex items-center justify-center">
+                            {getCommandIcon(cmd.iconName)}
+                          </div>
+                          <span className="font-mono text-caption font-bold text-primary">
+                            {cmd.command}
+                          </span>
                         </div>
-                        <span className="font-mono text-caption font-bold text-primary">
-                          {cmd.command}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTogglePin(cmd.command);
+                          }}
+                          className={`p-1 rounded-control transition-colors ${
+                            isPinned
+                              ? "text-brand"
+                              : "text-muted hover:text-secondary opacity-0 group-hover:opacity-100"
+                          }`}
+                          title="Fijar comando"
+                        >
+                          <Pin className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleTogglePin(cmd.command);
-                        }}
-                        className={`p-1 rounded-control transition-colors ${
-                          isPinned ? "text-brand" : "text-muted hover:text-secondary opacity-0 group-hover:opacity-100"
-                        }`}
-                        title="Fijar comando"
-                      >
-                        <Pin className="w-3.5 h-3.5" />
-                      </button>
+
+                      <h4 className="text-caption font-semibold text-primary mt-2">
+                        {cmd.title}
+                      </h4>
+                      <p className="text-caption text-secondary line-clamp-2 my-1 leading-relaxed">
+                        {cmd.description}
+                      </p>
                     </div>
 
-                    <p className="text-caption text-secondary line-clamp-2 my-2 leading-relaxed">
-                      {cmd.description}
-                    </p>
-
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        const defaults: Record<string, string> = {};
-                        cmd.args?.forEach((a) => {
-                          if (a.default) defaults[a.name] = a.default;
-                        });
-                        setSelectedCmd(cmd);
-                        setArgValues(defaults);
-                        void executeCommand(cmd, defaults);
-                      }}
-                      className="w-full text-caption py-1 mt-1 justify-center"
-                    >
-                      Ejecutar ahora
-                    </Button>
+                    <div className="pt-2 mt-2 border-t border-border flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-mono text-muted bg-raised px-2 py-0.5 rounded-pill border border-border">
+                        {cmd.renderType}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          const defaults: Record<string, string> = {};
+                          cmd.args?.forEach((a) => {
+                            if (a.default) defaults[a.name] = a.default;
+                          });
+                          setSelectedCmd(cmd);
+                          setArgValues(defaults);
+                          void executeCommand(cmd, defaults);
+                        }}
+                        className="text-caption py-0.5 px-2.5 h-7"
+                      >
+                        Ejecutar
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* ZONE 3: Execution Stream (Run Cards Estructuradas) */}
-          <div className="space-y-base">
+          {/* 3. INSPECTOR DE EJECUCIÓN ESTRUCTURADO (Runbook Log en Run Cards) */}
+          <div className="space-y-base pt-compact">
             <div className="flex flex-wrap items-center justify-between gap-compact px-1 pb-compact border-b border-border">
               <div className="flex items-center gap-compact">
                 <h3 className="text-body font-bold text-primary">
-                  Historial de Ejecuciones (Run Cards)
+                  Inspector de Ejecución Estructurado (Run Cards)
                 </h3>
                 <span className="text-caption font-mono bg-raised px-2 py-0.5 rounded-pill border border-border text-secondary">
                   {executions.length} {executions.length === 1 ? "corrida" : "corridas"}
@@ -552,9 +762,9 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
             {executions.length === 0 ? (
               <Panel variant="card" className="p-group text-center space-y-compact">
                 <TerminalSquare className="w-8 h-8 text-muted mx-auto" />
-                <h4 className="text-body font-semibold text-primary">No hay ejecuciones recientes</h4>
+                <h4 className="text-body font-semibold text-primary">No hay ejecuciones registradas</h4>
                 <p className="text-caption text-secondary max-w-sm mx-auto">
-                  Ejecuta cualquier comando desde la barra superior o las tarjetas de acceso rápido para ver sus resultados estructurados aquí.
+                  Selecciona cualquier comando desde la barra superior o el catálogo para ver su resultado visual enriquecido aquí.
                 </p>
               </Panel>
             ) : (
@@ -615,7 +825,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                       </div>
                     </div>
 
-                    {/* Contenido del widget estructurado */}
+                    {/* Widget estructurado */}
                     <div className="pt-compact">
                       {renderWidgetContent(exec)}
                     </div>

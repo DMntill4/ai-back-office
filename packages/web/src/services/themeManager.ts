@@ -162,3 +162,4 @@ export function initTheme(): ThemePreset {
   const currentId = getCurrentThemeId();
   return applyTheme(currentId);
 }
+

@@ -169,3 +169,4 @@ export const DaemonControlWidget: React.FC<DaemonControlWidgetProps> = ({
     </div>
   );
 };
+
