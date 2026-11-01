@@ -28,6 +28,8 @@ scratch/
 receipts/
 reports/
 !resources/img/
+Mint-Studio-Package/
+*.zip
 vault/Preguntas/
 vault/Decisiones/
 vault/Auditoria/
