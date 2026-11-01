@@ -146,7 +146,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           setDaemonState({
             status: "sin_verificar",
             label: "Sin verificar",
-            detail: "Demonio inactivo",
+            detail: "Supervisión inactiva",
           });
         }
       } catch {
@@ -154,7 +154,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           setDaemonState({
             status: "sin_verificar",
             label: "Sin verificar",
-            detail: "Sin conexión al demonio",
+            detail: "Servicio de vigilancia desconectado",
           });
         }
       }

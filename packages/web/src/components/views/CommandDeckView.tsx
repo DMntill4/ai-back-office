@@ -503,10 +503,10 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-pill bg-panel border border-border text-caption text-secondary">
                 <span className="w-2 h-2 rounded-full bg-state-ok" />
-                Demonio Activo
+                Vigilancia activa
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-pill bg-panel border border-border text-caption text-muted font-mono">
-                PostgreSQL · ACID
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-pill bg-panel border border-border text-caption text-secondary">
+                Base de datos conectada
               </span>
             </div>
           </div>

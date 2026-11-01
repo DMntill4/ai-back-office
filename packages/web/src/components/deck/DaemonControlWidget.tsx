@@ -59,10 +59,10 @@ export const DaemonControlWidget: React.FC<DaemonControlWidgetProps> = ({
         const json = await res.json();
         if (action === "pause") {
           setDaemonState((prev) => ({ ...prev, paused: true }));
-          setActionMessage("Demonio pausado: los watchers proactivos están en suspensión.");
+          setActionMessage("Vigilancia en segundo plano pausada: las revisiones proactivas están en pausa.");
         } else if (action === "resume") {
           setDaemonState((prev) => ({ ...prev, paused: false }));
-          setActionMessage("Demonio reanudado: vigilancia de desabastos y compras reactivada.");
+          setActionMessage("Vigilancia en segundo plano reanudada: supervisión de inventario y compras reactivada.");
         } else if (action === "tick") {
           setDaemonState((prev) => ({
             ...prev,
@@ -88,7 +88,7 @@ export const DaemonControlWidget: React.FC<DaemonControlWidgetProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h4 className="text-body font-semibold text-primary">Demonio de Automatización Proactiva</h4>
+              <h4 className="text-body font-semibold text-primary">Servicio de Vigilancia Autónoma</h4>
               <span
                 className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill text-caption font-medium border ${
                   daemonState.paused

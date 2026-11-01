@@ -32,7 +32,7 @@ export const HealthChecklistWidget: React.FC = () => {
     },
     {
       id: "daemon",
-      name: "Demonio de Automatización y Watchers",
+      name: "Supervisión Continua en Segundo Plano",
       category: "daemon",
       status: "checking",
       message: "Inspeccionando ciclo de vida del proceso en segundo plano...",
@@ -82,12 +82,12 @@ export const HealthChecklistWidget: React.FC = () => {
         },
         {
           id: "daemon",
-          name: "Demonio de Automatización",
+          name: "Supervisión en Segundo Plano",
           category: "daemon",
           status: daemonRes?.state?.isPaused ? "warning" : "ok",
           latencyMs: 8,
           message: daemonRes?.state?.isPaused
-            ? "Demonio pausado por el usuario. No inspecciona automáticamente."
+            ? "Supervisión pausada por el usuario. No inspecciona automáticamente."
             : "Activo y vigilando catálogo de inventario (intervalo: 60s).",
           detail: `Ciclos acumulados: ${daemonRes?.state?.cyclesCount ?? 42}.`,
         },

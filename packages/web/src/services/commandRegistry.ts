@@ -84,7 +84,7 @@ export const COMMAND_REGISTRY: SlashCommand[] = [
   {
     command: "/daemon",
     category: "agents",
-    title: "Control del Demonio Proactivo",
+    title: "Supervisión en Segundo Plano",
     description: "Supervisa o interviene los ciclos de inspección autónoma y vigilancia de inventario.",
     args: [
       { name: "action", type: "select", options: ["status", "pause", "resume", "trigger-now", "watch", "plan"], default: "status" },
