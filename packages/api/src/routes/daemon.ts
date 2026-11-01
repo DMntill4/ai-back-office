@@ -3,6 +3,13 @@ import { apiDaemonRunner } from "../daemon/daemonRunner";
 
 export async function daemonRoutes(fastify: FastifyInstance) {
   // 1. Estado del daemon en el proceso de la API
+  fastify.get("/api/daemon", async () => {
+    return {
+      success: true,
+      daemon: apiDaemonRunner.getStatus(),
+    };
+  });
+
   fastify.get("/api/daemon/status", async () => {
     return {
       success: true,

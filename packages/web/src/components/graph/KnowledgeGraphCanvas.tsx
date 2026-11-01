@@ -88,6 +88,7 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
   const animationFrameId = useRef<number | null>(null);
   const activeTraversalsRef = useRef(activeTraversals);
   activeTraversalsRef.current = activeTraversals;
+  const alphaRef = useRef<number>(1.0);
 
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
   const cameraRef = useRef(camera);
@@ -150,8 +151,19 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
 
   // 1. Inicializar nodos y aristas en la simulación física
   useEffect(() => {
+    alphaRef.current = 1.0;
     const currentSimNodes = simNodesRef.current;
     const newSimNodes = new Map<string, SimNode>();
+
+    // Contadores por categoría para distribución radial armónica
+    const specialistAgents = rawNodes.filter((n) => n.type === "agent" && n.id !== "agent_orchestrator");
+    const warehouses = rawNodes.filter((n) => n.type === "warehouse");
+    const suppliers = rawNodes.filter((n) => n.type === "supplier");
+    const skus = rawNodes.filter((n) => n.type === "sku");
+    let specIdx = 0;
+    let whIdx = 0;
+    let suppIdx = 0;
+    let skuIdx = 0;
 
     rawNodes.forEach((node, index) => {
       const existing = currentSimNodes.get(node.id);
@@ -170,29 +182,51 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           radius,
         });
       } else {
-        // El agente se ubica en el centro; los demás se distribuyen en una corona amplia
-        if (node.type === "agent") {
-          newSimNodes.set(node.id, {
-            ...node,
-            x: 0,
-            y: 0,
-            vx: 0,
-            vy: 0,
-            radius,
-          });
+        // Distribución inicial armónica por clusters según el rol de negocio
+        let x = 0;
+        let y = 0;
+
+        if (node.id === "agent_orchestrator") {
+          x = 0;
+          y = 0;
+        } else if (node.type === "agent") {
+          const totalSpec = Math.max(1, specialistAgents.length);
+          const angle = (specIdx++ / totalSpec) * Math.PI * 2 - Math.PI / 2;
+          x = Math.cos(angle) * 140;
+          y = Math.sin(angle) * 140;
+        } else if (node.type === "warehouse") {
+          const totalWh = Math.max(1, warehouses.length);
+          const angle = Math.PI * 0.8 + (whIdx++ / totalWh) * Math.PI * 0.65;
+          const dist = 280 + (whIdx % 2) * 45;
+          x = Math.cos(angle) * dist;
+          y = Math.sin(angle) * dist;
+        } else if (node.type === "supplier") {
+          const totalSupp = Math.max(1, suppliers.length);
+          const angle = -Math.PI * 0.45 + (suppIdx++ / totalSupp) * Math.PI * 0.65;
+          const dist = 310 + (suppIdx % 2) * 50;
+          x = Math.cos(angle) * dist;
+          y = Math.sin(angle) * dist;
+        } else if (node.type === "sku") {
+          const totalSkus = Math.max(1, skus.length);
+          const angle = (skuIdx++ / totalSkus) * Math.PI * 2;
+          const dist = 220 + (skuIdx % 4) * 55;
+          x = Math.cos(angle) * dist;
+          y = Math.sin(angle) * dist;
         } else {
-          const nonAgentCount = Math.max(1, rawNodes.length - 1);
-          const angle = ((index - 1) / nonAgentCount) * Math.PI * 2 - Math.PI / 2;
-          const initialDist = 175 + (index % 2) * 85;
-          newSimNodes.set(node.id, {
-            ...node,
-            x: Math.cos(angle) * initialDist * 1.25,
-            y: Math.sin(angle) * initialDist * 0.9,
-            vx: 0,
-            vy: 0,
-            radius,
-          });
+          const angle = ((index) / Math.max(1, rawNodes.length)) * Math.PI * 2;
+          const dist = 380 + (index % 3) * 60;
+          x = Math.cos(angle) * dist;
+          y = Math.sin(angle) * dist;
         }
+
+        newSimNodes.set(node.id, {
+          ...node,
+          x,
+          y,
+          vx: 0,
+          vy: 0,
+          radius,
+        });
       }
     });
 
@@ -293,9 +327,13 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
         (traversal) => currentTime - traversal.timestamp < 8000,
       );
 
-      // A. Simulación de fuerzas
-      const cellSize = 420;
-      if (motionAllowed) {
+      // A. Simulación de fuerzas con enfriamiento progresivo (Alpha decay)
+      const alpha = alphaRef.current;
+      if (alpha > 0.003 && motionAllowed) {
+        // Enfriar la simulación exponencialmente para llegar a reposo perfecto y silencioso
+        alphaRef.current *= 0.965;
+
+        const cellSize = 380;
         const spatialBuckets = new Map<string, Array<{ node: SimNode; index: number }>>();
         nodes.forEach((node, index) => {
           const cellX = Math.floor(node.x / cellSize);
@@ -305,106 +343,141 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           bucket.push({ node, index });
           spatialBuckets.set(key, bucket);
         });
+
+        // Repulsión espacial suave acotada
         for (let i = 0; i < nodes.length; i++) {
-        const n1 = nodes[i];
-        const cellX = Math.floor(n1.x / cellSize);
-        const cellY = Math.floor(n1.y / cellSize);
-        for (let offsetX = -1; offsetX <= 1; offsetX++) {
-          for (let offsetY = -1; offsetY <= 1; offsetY++) {
-            const nearby = spatialBuckets.get(`${cellX + offsetX},${cellY + offsetY}`) ?? [];
-            for (const candidate of nearby) {
-              if (candidate.index <= i) continue;
-              const n2 = candidate.node;
-              const dx = n2.x - n1.x;
-              const dy = n2.y - n1.y;
-              const distSq = dx * dx + dy * dy || 1;
-              const dist = Math.sqrt(distSq);
-              if (dist >= cellSize) continue;
+          const n1 = nodes[i];
+          const cellX = Math.floor(n1.x / cellSize);
+          const cellY = Math.floor(n1.y / cellSize);
+          for (let offsetX = -1; offsetX <= 1; offsetX++) {
+            for (let offsetY = -1; offsetY <= 1; offsetY++) {
+              const nearby = spatialBuckets.get(`${cellX + offsetX},${cellY + offsetY}`) ?? [];
+              for (const candidate of nearby) {
+                if (candidate.index <= i) continue;
+                const n2 = candidate.node;
+                const dx = n2.x - n1.x;
+                const dy = n2.y - n1.y;
+                const distSq = dx * dx + dy * dy;
+                if (distSq >= cellSize * cellSize) continue;
 
-              const force = repulsion / distSq;
-              const fx = (dx / dist) * force;
-              const fy = (dy / dist) * force;
-              if (!n1.isDragging) {
-                n1.vx -= fx;
-                n1.vy -= fy;
-              }
-              if (!n2.isDragging) {
-                n2.vx += fx;
-                n2.vy += fy;
-              }
+                // Evitar división por cero o distancias ínfimas que causan disparos a infinito
+                const safeDistSq = Math.max(900, distSq);
+                const dist = Math.sqrt(safeDistSq);
 
-              if (dist < MIN_NODE_DISTANCE && dist > 0.001) {
-                const overlap = (MIN_NODE_DISTANCE - dist) * 0.5;
-                const nx = dx / dist;
-                const ny = dy / dist;
-                if (!n1.isDragging) {
-                  n1.x -= nx * overlap;
-                  n1.y -= ny * overlap;
+                const force = Math.min(22, repulsion / safeDistSq) * alpha;
+                const fx = (dx / dist) * force;
+                const fy = (dy / dist) * force;
+
+                if (!n1.isDragging && n1.id !== "agent_orchestrator") {
+                  n1.vx -= fx;
+                  n1.vy -= fy;
                 }
-                if (!n2.isDragging) {
-                  n2.x += nx * overlap;
-                  n2.y += ny * overlap;
+                if (!n2.isDragging && n2.id !== "agent_orchestrator") {
+                  n2.vx += fx;
+                  n2.vy += fy;
+                }
+
+                // Separación suave de colisión (impulso elástico en velocidad en lugar de salto posicional instantáneo)
+                if (dist < MIN_NODE_DISTANCE) {
+                  const push = ((MIN_NODE_DISTANCE - dist) / MIN_NODE_DISTANCE) * 8 * alpha;
+                  const nx = dx / dist;
+                  const ny = dy / dist;
+                  if (!n1.isDragging && n1.id !== "agent_orchestrator") {
+                    n1.vx -= nx * push;
+                    n1.vy -= ny * push;
+                  }
+                  if (!n2.isDragging && n2.id !== "agent_orchestrator") {
+                    n2.vx += nx * push;
+                    n2.vy += ny * push;
+                  }
                 }
               }
             }
           }
         }
-        }
-      }
 
-      if (motionAllowed) for (const edge of edges) {
-        const s = edge.source;
-        const t = edge.target;
-        const dx = t.x - s.x;
-        const dy = t.y - s.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const displacement = dist - springLength;
-        const force = displacement * linkStrength;
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
+        // Fuerzas de resorte en aristas escaladas por alpha
+        for (const edge of edges) {
+          const s = edge.source;
+          const t = edge.target;
+          const dx = t.x - s.x;
+          const dy = t.y - s.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const displacement = dist - springLength;
+          const force = Math.min(14, displacement * linkStrength) * alpha;
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
 
-        if (!s.isDragging) {
-          s.vx += fx;
-          s.vy += fy;
+          if (!s.isDragging && s.id !== "agent_orchestrator") {
+            s.vx += fx;
+            s.vy += fy;
+          }
+          if (!t.isDragging && t.id !== "agent_orchestrator") {
+            t.vx -= fx;
+            t.vy -= fy;
+          }
         }
-        if (!t.isDragging) {
-          t.vx -= fx;
-          t.vy -= fy;
-        }
-      }
 
-      for (const n of nodes) {
-        if (!motionAllowed) {
-          n.vx = 0;
-          n.vy = 0;
-        } else if (!n.isDragging) {
-          if (n.type === "agent") {
+        // Integración de velocidad y amortiguación
+        for (const n of nodes) {
+          if (!n.isDragging) {
+            if (n.id === "agent_orchestrator") {
+              n.x = 0;
+              n.y = 0;
+              n.vx = 0;
+              n.vy = 0;
+            } else if (n.type === "agent") {
+              // Especialistas gravitan suavemente hacia su órbita
+              const curDist = Math.hypot(n.x, n.y) || 1;
+              const orbitPull = (curDist - 140) * 0.04 * alpha;
+              n.vx -= (n.x / curDist) * orbitPull;
+              n.vy -= (n.y / curDist) * orbitPull;
+              n.vx *= damping;
+              n.vy *= damping;
+              n.x += n.vx;
+              n.y += n.vy;
+            } else {
+              n.vx -= n.x * gravity;
+              n.vy -= n.y * gravity;
+              n.vx *= damping;
+              n.vy *= damping;
+
+              // Limitar velocidad máxima para evitar expulsiones fuera de pantalla
+              const speed = Math.hypot(n.vx, n.vy);
+              const maxSpeed = 16 * Math.max(0.15, alpha);
+              if (speed > maxSpeed) {
+                n.vx = (n.vx / speed) * maxSpeed;
+                n.vy = (n.vy / speed) * maxSpeed;
+              }
+              n.x += n.vx;
+              n.y += n.vy;
+            }
+          }
+
+          // Guarda anti-NaN: una coordenada corrupta envenenaría toda la
+          // simulación (los nodos se vuelven invisibles y el bucle no converge).
+          if (
+            !Number.isFinite(n.x) ||
+            !Number.isFinite(n.y) ||
+            !Number.isFinite(n.vx) ||
+            !Number.isFinite(n.vy)
+          ) {
             n.x = 0;
             n.y = 0;
             n.vx = 0;
             n.vy = 0;
-          } else {
-            n.vx -= n.x * gravity;
-            n.vy -= n.y * gravity;
-            n.vx *= damping;
-            n.vy *= damping;
-            n.x += n.vx;
-            n.y += n.vy;
           }
         }
-
-        // Guarda anti-NaN: una coordenada corrupta envenenaría toda la
-        // simulación (los nodos se vuelven invisibles y el bucle no converge).
-        if (
-          !Number.isFinite(n.x) ||
-          !Number.isFinite(n.y) ||
-          !Number.isFinite(n.vx) ||
-          !Number.isFinite(n.vy)
-        ) {
-          n.x = 0;
-          n.y = 0;
+      } else {
+        // En reposo: detener velocidades para cero consumo de CPU
+        alphaRef.current = 0;
+        for (const n of nodes) {
           n.vx = 0;
           n.vy = 0;
+          if (n.id === "agent_orchestrator") {
+            n.x = 0;
+            n.y = 0;
+          }
         }
       }
 
@@ -828,6 +901,7 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
         hitNode.isDragging = true;
         hitNode.vx = 0;
         hitNode.vy = 0;
+        alphaRef.current = 0.35;
         onSelectNode(hitNode.id);
       } else {
         isDraggingCanvas.current = true;
@@ -860,6 +934,7 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           node.y = worldY;
           node.vx = 0;
           node.vy = 0;
+          alphaRef.current = Math.max(alphaRef.current, 0.25);
         }
       } else if (isDraggingCanvas.current) {
         const dx = e.clientX - lastMousePos.current.x;

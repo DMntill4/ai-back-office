@@ -336,29 +336,51 @@ export const App: React.FC = () => {
         return <KnowledgeGraphView onNavigateTo={handleTabChange} />;
 
       case "memoria_agente":
-        return <MemoryVaultView />;
+        return (
+          <AgentSubNav activeTab="memoria_agente" onNavigateTo={handleTabChange}>
+            <MemoryVaultView />
+          </AgentSubNav>
+        );
 
       case "auditoria_eventos":
-        return <HistoryView />;
+        return (
+          <AgentSubNav activeTab="auditoria_eventos" onNavigateTo={handleTabChange}>
+            <HistoryView />
+          </AgentSubNav>
+        );
 
       case "reglas_politicas":
-        return <PoliciesRulesView />;
+        return (
+          <AgentSubNav activeTab="reglas_politicas" onNavigateTo={handleTabChange}>
+            <PoliciesRulesView />
+          </AgentSubNav>
+        );
 
       // Modelos de IA configurados (FinOps / latencias / estado de API keys)
       case "modelos":
-        return <ModelsView />;
+        return (
+          <AgentSubNav activeTab="modelos" onNavigateTo={handleTabChange}>
+            <ModelsView />
+          </AgentSubNav>
+        );
 
       // Biblioteca de nodos / especialistas / herramientas del agente
       case "nodos":
         return (
-          <NodeLibraryView
-            onAddNode={(_type, _title) => handleTabChange("flujo_agente")}
-          />
+          <AgentSubNav activeTab="nodos" onNavigateTo={handleTabChange}>
+            <NodeLibraryView
+              onAddNode={(_type, _title) => handleTabChange("flujo_agente")}
+            />
+          </AgentSubNav>
         );
 
       // Objetivos del orquestador (stock, margen, tiempo de entrega)
       case "objetivos":
-        return <ObjectivesView />;
+        return (
+          <AgentSubNav activeTab="objetivos" onNavigateTo={handleTabChange}>
+            <ObjectivesView />
+          </AgentSubNav>
+        );
 
       // AUTOMATIZACIÓN (Command Deck / Slash-Ops)
       case "automatizacion":

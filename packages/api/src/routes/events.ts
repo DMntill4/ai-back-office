@@ -10,6 +10,17 @@ export async function eventsRoutes(fastify: FastifyInstance) {
   });
 
   // 2. Últimos eventos en memoria (Polling fallback o carga inicial)
+  fastify.get("/api/events", async (request: FastifyRequest) => {
+    const query = (request.query as any) || {};
+    const limit = Number(query.limit) || 50;
+
+    return {
+      success: true,
+      count: sseHub.getRecentHistory(limit).length,
+      data: sseHub.getRecentHistory(limit),
+    };
+  });
+
   fastify.get("/api/events/live", async (request: FastifyRequest) => {
     const query = (request.query as any) || {};
     const limit = Number(query.limit) || 30;

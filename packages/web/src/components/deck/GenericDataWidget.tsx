@@ -126,3 +126,4 @@ export const GenericDataWidget: React.FC<GenericDataWidgetProps> = ({
     </div>
   );
 };
+

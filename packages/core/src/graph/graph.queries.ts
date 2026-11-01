@@ -113,11 +113,11 @@ export async function fetchRawGraphEntities(companyId: string): Promise<{
     db.select().from(suppliers).where(eq(suppliers.companyId, companyId)),
     db.select().from(inventory).where(eq(inventory.companyId, companyId)),
     db.select().from(supplierProducts).where(eq(supplierProducts.companyId, companyId)),
-    db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)),
-    db.select().from(decisions).where(eq(decisions.companyId, companyId)).orderBy(desc(decisions.createdAt)),
-    db.select().from(cases).where(eq(cases.companyId, companyId)).orderBy(desc(cases.createdAt)),
-    db.select().from(policyRules).where(eq(policyRules.companyId, companyId)),
-    db.select().from(shipments).where(eq(shipments.companyId, companyId)),
+    db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)).orderBy(desc(purchaseOrders.createdAt)).limit(50),
+    db.select().from(decisions).where(eq(decisions.companyId, companyId)).orderBy(desc(decisions.createdAt)).limit(30),
+    db.select().from(cases).where(eq(cases.companyId, companyId)).orderBy(desc(cases.createdAt)).limit(25),
+    db.select().from(policyRules).where(eq(policyRules.companyId, companyId)).limit(30),
+    db.select().from(shipments).where(eq(shipments.companyId, companyId)).orderBy(desc(shipments.createdAt)).limit(30),
     db.select().from(salesHistory).where(and(eq(salesHistory.companyId, companyId), gte(salesHistory.saleDate, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))),
     getObsidianVaultPath(companyId),
     agentRegistry.getEnabledAgentsForCompany(companyId),
@@ -477,7 +477,8 @@ export async function fetchRawGraphEntities(companyId: string): Promise<{
     if (productId) addEdge(agentNodeId(decision.proposingAgent), productIds.get(productId) ?? productIdsBySku.get(productId), "queries");
   }
 
-  const documents = await readMarkdownFiles(vaultPath);
+  const allDocs = await readMarkdownFiles(vaultPath);
+  const documents = allDocs.slice(0, 30);
   const labels = new Map<string, string>();
   for (const node of nodes) {
     labels.set(node.label.toLowerCase(), node.id);

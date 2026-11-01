@@ -218,3 +218,4 @@ export const VoucherCardWidget: React.FC<VoucherCardWidgetProps> = ({
     </div>
   );
 };
+
