@@ -9,8 +9,8 @@ export const SPLASH_STRINGS = {
 } as const;
 
 export const SPLASH_TIMINGS = {
-  minLoadingMs: 2200,
-  burstMs: 800,
+  minLoadingMs: 2000,
+  burstMs: 700,
   exitMs: 400,
 } as const;
 
@@ -20,10 +20,11 @@ export interface UseSplashPhasesOptions {
 }
 
 export function useSplashPhases(options: UseSplashPhasesOptions = {}) {
-  const { onComplete, isReady = true } = options;
+  const { onComplete } = options;
   const [phase, setPhase] = useState<SplashPhase>("loading");
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const startTimeRef = useRef<number>(Date.now());
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   // Detección de preferencia de movimiento reducido
   useEffect(() => {
@@ -36,53 +37,46 @@ export function useSplashPhases(options: UseSplashPhasesOptions = {}) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  // Máquina de estados de las fases del Splash
+  // Máquina de estados determinista sin condiciones de carrera
   useEffect(() => {
-    // Si prefiere movimiento reducido, transición rápida y directa
     if (prefersReducedMotion) {
-      const timer = setTimeout(() => {
-        setPhase("exiting");
-        setTimeout(() => {
-          setPhase("finished");
-          onComplete?.();
-        }, SPLASH_TIMINGS.exitMs);
+      const t1 = setTimeout(() => setPhase("exiting"), 800);
+      const t2 = setTimeout(() => {
+        setPhase("finished");
+        onCompleteRef.current?.();
       }, 1200);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
     }
 
-    let burstTimer: NodeJS.Timeout | null = null;
-    let exitTimer: NodeJS.Timeout | null = null;
-    let finishTimer: NodeJS.Timeout | null = null;
+    // Cronograma determinista:
+    // 1. loading -> burst a los minLoadingMs
+    const tBurst = setTimeout(() => {
+      setPhase("burst");
+    }, SPLASH_TIMINGS.minLoadingMs);
 
-    // Verificar si se ha cumplido el tiempo mínimo de carga
-    const checkMinLoadingInterval = setInterval(() => {
-      const elapsed = Date.now() - startTimeRef.current;
-      if (elapsed >= SPLASH_TIMINGS.minLoadingMs && isReady && phase === "loading") {
-        clearInterval(checkMinLoadingInterval);
-        setPhase("burst");
+    // 2. burst -> exiting a los (minLoadingMs + burstMs)
+    const tExit = setTimeout(() => {
+      setPhase("exiting");
+    }, SPLASH_TIMINGS.minLoadingMs + SPLASH_TIMINGS.burstMs);
 
-        burstTimer = setTimeout(() => {
-          setPhase("exiting");
-
-          exitTimer = setTimeout(() => {
-            setPhase("finished");
-            onComplete?.();
-          }, SPLASH_TIMINGS.exitMs);
-        }, SPLASH_TIMINGS.burstMs);
-      }
-    }, 50);
+    // 3. exiting -> finished a los (minLoadingMs + burstMs + exitMs)
+    const tFinish = setTimeout(() => {
+      setPhase("finished");
+      onCompleteRef.current?.();
+    }, SPLASH_TIMINGS.minLoadingMs + SPLASH_TIMINGS.burstMs + SPLASH_TIMINGS.exitMs);
 
     return () => {
-      clearInterval(checkMinLoadingInterval);
-      if (burstTimer) clearTimeout(burstTimer);
-      if (exitTimer) clearTimeout(exitTimer);
-      if (finishTimer) clearTimeout(finishTimer);
+      clearTimeout(tBurst);
+      clearTimeout(tExit);
+      clearTimeout(tFinish);
     };
-  }, [prefersReducedMotion, isReady, onComplete, phase]);
+  }, [prefersReducedMotion]);
 
   return {
     phase,
     prefersReducedMotion,
   };
 }
-
