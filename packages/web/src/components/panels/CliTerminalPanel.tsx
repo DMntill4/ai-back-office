@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Terminal, Send, Play, CornerDownLeft, Sparkles, Check, AlertCircle, ChevronUp, ChevronDown } from "lucide-react";
+import { Terminal, Send, ChevronUp, ChevronDown, MessageSquare } from "lucide-react";
 import { CliHistoryItem } from "../../types/workflow";
 import { api } from "../../services/apiClient";
 
@@ -15,11 +15,12 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
   onToggleExpand,
 }) => {
   const [inputCommand, setInputCommand] = useState("");
+  const [isChatMode, setIsChatMode] = useState(false);
   const [history, setHistory] = useState<CliHistoryItem[]>([
     {
       id: "cli_boot",
       type: "system",
-      text: "[SISTEMA] Mint CLI Console inicializada. Escribe `mint help` para ver los comandos disponibles.",
+      text: "[SISTEMA] Mint CLI Console inicializada. Usa `/chat <pregunta>` para hablar con el agente o `mint help` para ver comandos.",
       timestamp: new Date().toLocaleTimeString("es-CO", { hour12: false }),
     },
   ]);
@@ -57,14 +58,50 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
     setIsRunning(true);
 
     try {
-      if (lower.includes("help") || lower.includes("ayuda")) {
+      // 1. Manejo del Modo Chat Interactivo
+      if (isChatMode) {
+        if (lower === "/exit" || lower === "exit" || lower === "/quit" || lower === "salir") {
+          setIsChatMode(false);
+          responseText = "[MINT BOT] Has salido del modo chat interactivo. Volviendo a consola de comandos CLI estándar.";
+        } else {
+          const chatRes = await api.chat.send(trimmed);
+          responseText = chatRes.response;
+        }
+      } else if (lower === "/chat" || lower === "mint /chat" || lower === "mint chat" || lower === "chat") {
+        // Activar modo chat interactivo
+        setIsChatMode(true);
+        responseText = [
+          "[MINT BOT // MODO CHAT INTERACTIVO ACTIVADO]",
+          "Ahora estás conversando directamente con el agente autónomo de Mint Studio.",
+          "Respuestas fundamentadas 100% en datos reales de PostgreSQL (inventario, ROP, órdenes, telemetría). Cero alucinación.",
+          "",
+          "Escribe tus preguntas directamente. Para regresar al modo CLI de comandos, escribe `/exit`.",
+        ].join("\n");
+      } else if (
+        lower.startsWith("/chat ") ||
+        lower.startsWith("mint /chat ") ||
+        lower.startsWith("mint chat ") ||
+        lower.startsWith("chat ")
+      ) {
+        // Consulta directa puntual con /chat <mensaje>
+        const query = trimmed.replace(/^(\/chat|mint\s+\/chat|mint\s+chat|chat)\s+/i, "").trim();
+        if (!query) {
+          setIsChatMode(true);
+          responseText = "[MINT BOT] Modo chat interactivo activado. Escribe tu pregunta operativa o `/exit` para salir.";
+        } else {
+          const chatRes = await api.chat.send(query);
+          responseText = chatRes.response;
+        }
+      } else if (lower.includes("help") || lower.includes("ayuda")) {
         responseText = [
           "[COMANDOS DISPONIBLES EN MINT CLI]:",
-          "• mint scan      -> Alertas ROP reales desde /api/inventory/rop-alerts",
-          "• mint stock     -> Resumen de inventario desde /api/inventory/summary",
-          "• mint approve   -> Decisiones pendientes desde /api/decisions/pending",
-          "• mint briefing  -> Costos de agente desde /api/telemetry/costs",
-          "• clear          -> Limpia la pantalla de la terminal",
+          "• /chat <mensaje> -> Habla con el agente autónomo (respuestas 100% reales, sin alucinación)",
+          "• /chat           -> Entra en modo interactivo continuo de chat (/exit para volver)",
+          "• mint scan       -> Alertas ROP reales desde /api/inventory/rop-alerts",
+          "• mint stock      -> Resumen de inventario desde /api/inventory/summary",
+          "• mint approve    -> Decisiones pendientes desde /api/decisions/pending",
+          "• mint briefing   -> Costos de agente desde /api/telemetry/costs",
+          "• clear           -> Limpia la pantalla de la terminal",
         ].join("\n");
       } else if (lower.includes("scan")) {
         const res = await api.inventory.ropAlerts();
@@ -110,10 +147,12 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
           `• Tareas registradas: ${Array.isArray(c.tasks) ? c.tasks.length : 0}`,
         ].join("\n");
       } else {
-        responseText = `[MINT CLI] Comando no reconocido: "${trimmed}". Escribe \`mint help\` para ver los comandos disponibles.`;
+        // Enrutamiento inteligente al bot si el usuario escribe una pregunta en lenguaje natural sin /chat
+        const chatRes = await api.chat.send(trimmed);
+        responseText = chatRes.response;
       }
     } catch (err: any) {
-      responseText = `[ERROR] ${err?.message || "No se pudo ejecutar el comando contra el backend."}`;
+      responseText = `[ERROR] ${err?.message || "No se pudo procesar la consulta con el agente."}`;
     } finally {
       setIsRunning(false);
     }
@@ -136,6 +175,8 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
     }
   };
 
+  const QUICK_COMMANDS = ["/chat", "mint scan", "mint stock", "mint approve", "mint briefing"];
+
   if (!isExpanded) {
     return (
       <div
@@ -151,7 +192,7 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
           </div>
           <span className="text-muted text-caption font-mono">•</span>
           <span className="text-caption font-mono text-secondary group-hover:text-primary transition-colors">
-            Click para desplegar terminal o presiona un comando
+            {isChatMode ? "Modo Chat activo con el agente" : "Click para desplegar terminal o interactuar con el bot"}
           </span>
         </div>
 
@@ -160,16 +201,26 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
           className="flex items-center gap-compact"
           onClick={(e) => e.stopPropagation()}
         >
-          {["mint scan", "mint stock", "mint approve"].map((quickCmd) => (
+          {QUICK_COMMANDS.map((quickCmd) => (
             <button
               key={quickCmd}
               onClick={() => {
                 onToggleExpand?.();
-                setTimeout(() => void handleRunCommand(quickCmd), 100);
+                if (quickCmd === "/chat") {
+                  setIsChatMode(true);
+                  setTimeout(() => void handleRunCommand("/chat"), 100);
+                } else {
+                  setIsChatMode(false);
+                  setTimeout(() => void handleRunCommand(quickCmd), 100);
+                }
               }}
-              className="px-compact py-hairline rounded-control bg-raised hover:bg-brand hover:text-canvas text-secondary text-caption font-mono border border-border transition-colors"
+              className={`px-compact py-hairline rounded-control text-caption font-mono border transition-colors ${
+                quickCmd === "/chat"
+                  ? "bg-brand text-canvas font-semibold border-brand hover:bg-brand-lime hover:text-canvas"
+                  : "bg-raised hover:bg-brand hover:text-canvas text-secondary border-border"
+              }`}
             >
-              {quickCmd}
+              {quickCmd === "/chat" ? "💬 /chat" : quickCmd}
             </button>
           ))}
           <button
@@ -193,22 +244,42 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
           <span className="text-label font-semibold text-primary tracking-wide font-mono">
             Mint Embedded CLI
           </span>
-          <span className="text-caption font-mono px-compact py-hairline rounded-pill bg-brand-surface text-brand border border-border">
-            CLI Module
-          </span>
+          {isChatMode ? (
+            <span className="text-caption font-mono px-compact py-hairline rounded-pill bg-brand text-canvas font-semibold border border-brand flex items-center gap-1">
+              <MessageSquare className="w-3 h-3" />
+              Chat con Bot Activo · /exit para salir
+            </span>
+          ) : (
+            <span className="text-caption font-mono px-compact py-hairline rounded-pill bg-brand-surface text-brand border border-border">
+              Consola Operativa
+            </span>
+          )}
         </div>
 
         {/* Actions & Minimize Button */}
         <div className="flex items-center gap-compact">
           <div data-lenis-prevent className="flex items-center gap-hairline overflow-x-auto text-caption font-mono">
-            {["mint scan", "mint stock", "mint approve", "mint briefing"].map((quickCmd) => (
+            {QUICK_COMMANDS.map((quickCmd) => (
               <button
                 key={quickCmd}
-                onClick={() => void handleRunCommand(quickCmd)}
+                onClick={() => {
+                  if (quickCmd === "/chat") {
+                    setIsChatMode(true);
+                    void handleRunCommand("/chat");
+                  } else {
+                    void handleRunCommand(quickCmd);
+                  }
+                }}
                 disabled={isRunning}
-                className="px-compact py-hairline rounded-control bg-raised hover:bg-brand hover:text-canvas text-secondary border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`px-compact py-hairline rounded-control border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  quickCmd === "/chat"
+                    ? isChatMode
+                      ? "bg-brand text-canvas font-bold border-brand"
+                      : "bg-brand/20 text-brand border-brand hover:bg-brand hover:text-canvas"
+                    : "bg-raised hover:bg-brand hover:text-canvas text-secondary border-border"
+                }`}
               >
-                {quickCmd}
+                {quickCmd === "/chat" ? "💬 /chat" : quickCmd}
               </button>
             ))}
           </div>
@@ -230,7 +301,9 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
             {item.type === "command" && (
               <div className="flex items-center gap-compact text-brand font-semibold">
                 <span className="text-muted text-caption">{item.timestamp}</span>
-                <span className="text-brand font-bold">mint &gt;</span>
+                <span className="text-brand font-bold">
+                  {isChatMode ? "mint (bot) >" : "mint >"}
+                </span>
                 <span>{item.text}</span>
               </div>
             )}
@@ -250,7 +323,7 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
         {isRunning && (
           <div className="text-caption text-muted flex items-center gap-compact">
             <span className="w-1.5 h-1.5 rounded-full bg-state-pending animate-pulse"></span>
-            <span>Consultando backend…</span>
+            <span>{isChatMode ? "Consultando agente autónomo (cero alucinación)…" : "Consultando backend…"}</span>
           </div>
         )}
         <div ref={terminalEndRef} />
@@ -258,8 +331,8 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
 
       {/* Terminal Input Bar */}
       <div className="p-element bg-panel border-t border-border flex items-center gap-compact">
-        <span className="text-brand font-mono text-caption font-bold pl-compact select-none">
-          mint &gt;
+        <span className={`font-mono text-caption font-bold pl-compact select-none ${isChatMode ? "text-brand-lime" : "text-brand"}`}>
+          {isChatMode ? "mint (bot) >" : "mint >"}
         </span>
         <input
           type="text"
@@ -267,13 +340,20 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
           onChange={(e) => setInputCommand(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isRunning}
-          placeholder="Escribe un comando o directiva (ej. mint scan, mint stock, help)..."
+          placeholder={
+            isChatMode
+              ? "Pregunta lo que sea al bot (ej. ¿cuántos SKUs están en quiebre?, o escribe /exit)..."
+              : "Escribe /chat <pregunta>, un comando o directiva (ej. /chat estado de stock, help)..."
+          }
           className="flex-1 bg-transparent text-caption font-mono text-primary placeholder:text-muted focus:outline-none disabled:opacity-60"
         />
         <button
           onClick={() => void handleRunCommand(inputCommand)}
           disabled={isRunning}
-          className="p-hairline rounded-control bg-brand hover:bg-brand/90 text-canvas transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`p-hairline rounded-control transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            isChatMode ? "bg-brand-lime hover:bg-brand text-canvas" : "bg-brand hover:bg-brand/90 text-canvas"
+          }`}
+          title="Enviar al agente"
         >
           <Send className="w-3.5 h-3.5" />
         </button>

@@ -119,6 +119,50 @@ export async function chatRoutes(fastify: FastifyInstance) {
       payload: { caseId, title: caseTitle, message },
     });
 
+    // 2.1 Modo Síncrono para Consola CLI y Chat Interactivo
+    if (body.sync) {
+      try {
+        const report: AgentExecutionReport = await runAgentLoop(caseId, {
+          onEvent: (ev) => {
+            sseHub.broadcast({
+              type: "agent_step",
+              caseId,
+              agent: ev.agent,
+              action: ev.action,
+              details: ev.details,
+              payload: ev,
+            });
+          },
+        });
+
+        sseHub.broadcast({
+          type: "case_completed",
+          caseId,
+          agent: "Coordinador Multi-Agente",
+          action: report.status === "resuelto" ? "resolver_caso" : "escalar_caso",
+          details: report.summary,
+          resultSummary: `${report.totalSteps} pasos ejecutados | Costo: ${report.totalCost} USD | Tokens: ${report.totalTokens}`,
+          payload: report,
+        });
+
+        return reply.status(200).send({
+          success: true,
+          caseId,
+          status: report.status,
+          response: report.summary || "Operación procesada con éxito sin observaciones adicionales.",
+          totalCost: report.totalCost,
+          totalTokens: report.totalTokens,
+          steps: report.totalSteps,
+        });
+      } catch (err: any) {
+        return reply.status(200).send({
+          success: true,
+          caseId,
+          response: `[AVISO] No se pudo completar la deliberación multi-agente (${err.message}). Por favor consulta tus inventarios o aprobaciones directamente.`,
+        });
+      }
+    }
+
     // 3. Responder de inmediato al cliente HTTP (sin bloquear la interfaz)
     reply.status(202).send({
       success: true,

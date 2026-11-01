@@ -276,10 +276,11 @@ program
     return inboxCommand(action, id, options);
   });
 
-// 22. mint chat
+// 22. mint chat / mint /chat
 program
-  .command("chat <message...>")
-  .description("Envía una consulta operativa al Agente Autónomo Mint")
+  .command("chat [message...]")
+  .alias("/chat")
+  .description("Envía una consulta operativa o conversa directamente con el Agente Autónomo Mint")
   .option("--json", "Salida en formato JSON")
   .action((words, options) => {
     const { chatCommand } = require("./commands/chat");

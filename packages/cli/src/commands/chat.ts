@@ -11,7 +11,41 @@ export async function chatCommand(message: string, options: { json?: boolean; no
   const companyId = session?.companyId || "comp_default";
   const trimmedMsg = (message || "").trim();
 
-  // 0. Guardrail de entrada vacía o teclazos sin sentido antes de crear casos en base de datos
+  // 0. Modo Conversacional Interactivo en Terminal si no se pasan argumentos
+  if (!trimmedMsg) {
+    console.log("");
+    console.log(theme.mintBold("  ╔══════════════════════════════════════════════════════════════════╗"));
+    console.log(theme.mintBold("  ║     MINT BOT — MODO CONVERSACIONAL DIRECTO CON EL AGENTE        ║"));
+    console.log(theme.mintBold("  ╚══════════════════════════════════════════════════════════════════╝"));
+    console.log(theme.dim("  Escribe tus consultas sobre inventario, ROP, compras o reportes. Escribe `exit` para salir.\n"));
+
+    const readline = await import("node:readline");
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      prompt: theme.mintBold("  mint (bot) > "),
+    });
+
+    rl.prompt();
+    for await (const line of rl) {
+      const q = line.trim();
+      if (!q) {
+        rl.prompt();
+        continue;
+      }
+      if (q.toLowerCase() === "exit" || q.toLowerCase() === "/exit" || q.toLowerCase() === "quit") {
+        console.log(theme.dim("  Saliendo del modo chat interactivo."));
+        rl.close();
+        return;
+      }
+      await chatCommand(q, { noExit: true });
+      console.log("");
+      rl.prompt();
+    }
+    return;
+  }
+
+  // 0.1 Guardrail de entrada vacía o teclazos sin sentido antes de crear casos en base de datos
   if (isInvalidOrGibberishInput(trimmedMsg)) {
     const config = await getCompanyConfig(companyId).catch(() => null);
     const isEn = config?.botLanguage === "en";
