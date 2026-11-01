@@ -17,8 +17,29 @@ import type { MintGraphData } from "../types/graph";
 
 const RAW_BASE = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
 
-/** Base normalizada, sin barra final. Por defecto `/api`. */
-export const API_BASE_URL = (RAW_BASE || "/api").replace(/\/+$/, "");
+export function isTauriEnvironment(): boolean {
+    if (typeof window === "undefined") return false;
+    return Boolean(
+        (window as any).__TAURI_INTERNALS__ ||
+        (window as any).__TAURI__ ||
+        window.location.protocol === "tauri:" ||
+        window.location.hostname === "tauri.localhost" ||
+        window.location.origin.includes("tauri.localhost")
+    );
+}
+
+export function resolveApiBaseUrl(): string {
+    if (RAW_BASE && RAW_BASE.trim()) {
+        return RAW_BASE.trim().replace(/\/+$/, "");
+    }
+    if (isTauriEnvironment()) {
+        return "http://127.0.0.1:3001/api";
+    }
+    return "/api";
+}
+
+/** Base normalizada, sin barra final. En Tauri redirige a http://127.0.0.1:3001/api. */
+export const API_BASE_URL = resolveApiBaseUrl();
 
 const DEFAULT_TIMEOUT_MS = 8000;
 
@@ -61,7 +82,8 @@ export interface CanonicalGraphPayload {
 
 async function rawRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const { method = "GET", body, timeoutMs = DEFAULT_TIMEOUT_MS, signal } = options;
-    const url = `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+    const baseUrl = resolveApiBaseUrl();
+    const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -82,6 +104,18 @@ async function rawRequest<T>(path: string, options: RequestOptions = {}): Promis
 
         if (!res.ok) {
             throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        }
+
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+            const preview = await res.text();
+            throw new Error(
+                `Respuesta inesperada del servidor (HTTP ${res.status}, no JSON). ${
+                    preview.startsWith("<!DOCTYPE")
+                        ? "Verifique la conexión con el backend."
+                        : preview.slice(0, 80)
+                }`
+            );
         }
 
         return (await res.json()) as T;

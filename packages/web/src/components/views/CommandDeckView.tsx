@@ -63,6 +63,7 @@ import {
   togglePinCommand,
   SlashCategory,
 } from "../../services/commandRegistry";
+import { API_BASE_URL } from "../../services/apiClient";
 import { ThemeFactoryWidget } from "../deck/ThemeFactoryWidget";
 import { DaemonControlWidget } from "../deck/DaemonControlWidget";
 import { AgentDecisionWidget } from "../deck/AgentDecisionWidget";
@@ -255,7 +256,8 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
       // Si el comando tiene un endpoint real, consultarlo
       if (cmdToRun.endpoint) {
         try {
-          const res = await fetch(cmdToRun.endpoint);
+          const endpointUrl = cmdToRun.endpoint.startsWith("/api") ? `${API_BASE_URL}${cmdToRun.endpoint.slice(4)}` : cmdToRun.endpoint;
+          const res = await fetch(endpointUrl);
           if (res.ok) {
             fetchedData = await res.json();
           }

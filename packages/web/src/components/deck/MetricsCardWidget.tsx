@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { TrendingUp, Target, Package, AlertTriangle, ShieldCheck, DollarSign } from "lucide-react";
+import { API_BASE_URL } from "../../services/apiClient";
 
 interface MetricsCardWidgetProps {
   command: string;
@@ -32,7 +33,7 @@ export const MetricsCardWidget: React.FC<MetricsCardWidgetProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    fetch("/api/inventory/summary")
+    fetch(`${API_BASE_URL}/inventory/summary`)
       .then((r) => r.json())
       .then((res) => {
         if (!isMounted) return;

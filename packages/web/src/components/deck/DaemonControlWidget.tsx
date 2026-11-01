@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Play, Pause, RefreshCw, Shield, Bot, CheckCircle2 } from "lucide-react";
 import { Button } from "../ui/Button";
+import { API_BASE_URL } from "../../services/apiClient";
 
 interface DaemonControlWidgetProps {
   initialAction?: string;
@@ -27,7 +28,7 @@ export const DaemonControlWidget: React.FC<DaemonControlWidgetProps> = ({
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch("/api/daemon/status");
+      const res = await fetch(`${API_BASE_URL}/daemon/status`);
       if (res.ok) {
         const json = await res.json();
         if (json?.daemon) {
@@ -53,7 +54,7 @@ export const DaemonControlWidget: React.FC<DaemonControlWidgetProps> = ({
     setLoading(true);
     setActionMessage(null);
     try {
-      const endpoint = action === "tick" ? "/api/daemon/tick" : `/api/daemon/${action}`;
+      const endpoint = action === "tick" ? `${API_BASE_URL}/daemon/tick` : `${API_BASE_URL}/daemon/${action}`;
       const res = await fetch(endpoint, { method: "POST" });
       if (res.ok) {
         const json = await res.json();

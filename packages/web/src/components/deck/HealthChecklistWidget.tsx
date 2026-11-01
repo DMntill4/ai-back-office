@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle2, AlertCircle, RefreshCw, Database, Cpu, Activity, ShieldCheck, Clock } from "lucide-react";
 import { Button } from "../ui/Button";
+import { API_BASE_URL } from "../../services/apiClient";
 
 interface HealthCheckItem {
   id: string;
@@ -52,14 +53,14 @@ export const HealthChecklistWidget: React.FC = () => {
 
     try {
       // 1. Probar estado de DB
-      const dbRes = await fetch("/api/db/status").then((r) => r.json()).catch(() => null);
+      const dbRes = await fetch(`${API_BASE_URL}/db/status`).then((r) => r.json()).catch(() => null);
       const dbLatency = Math.round(performance.now() - start);
 
       // 2. Probar estado de Daemon
-      const daemonRes = await fetch("/api/daemon").then((r) => r.json()).catch(() => null);
+      const daemonRes = await fetch(`${API_BASE_URL}/daemon`).then((r) => r.json()).catch(() => null);
 
       // 3. Probar datos / auditoría
-      const healthRes = await fetch("/api/data-health/audit").then((r) => r.json()).catch(() => null);
+      const healthRes = await fetch(`${API_BASE_URL}/data-health/audit`).then((r) => r.json()).catch(() => null);
 
       setChecks([
         {

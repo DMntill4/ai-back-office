@@ -24,7 +24,7 @@ import { NotificationsPopover, AppNotification } from "./NotificationsPopover";
 import { ProfileMenu } from "./ProfileMenu";
 import { CommandSearch, SearchableRecord } from "./CommandSearch";
 import { useUserSettings, updatePreferences, COMPANIES } from "../../hooks/useUserSettings";
-import { api } from "../../services/apiClient";
+import { api, API_BASE_URL } from "../../services/apiClient";
 import { formatUsd, formatTokens } from "../ui/CostBadge";
 
 export interface AppShellProps {
@@ -126,7 +126,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     let cancelled = false;
     const checkDaemon = async () => {
       try {
-        const res = await fetch("/api/daemon/status");
+        const res = await fetch(`${API_BASE_URL}/daemon/status`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         if (cancelled) return;
