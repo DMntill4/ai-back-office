@@ -30,6 +30,8 @@ reports/
 !resources/img/
 Mint-Studio-Package/
 *.zip
+*.exe
+*.pdb
 vault/Preguntas/
 vault/Decisiones/
 vault/Auditoria/
