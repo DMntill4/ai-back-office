@@ -165,7 +165,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     server.register(fastifyStatic, {
       root: resolvedStaticPath,
       prefix: "/",
-      wildcard: false,
+      wildcard: true,
       setHeaders: (res, filePath) => {
         if (filePath.endsWith("index.html")) {
           res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

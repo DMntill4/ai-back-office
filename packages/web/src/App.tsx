@@ -10,117 +10,117 @@ import type { AppNotification } from "./components/layout/NotificationsPopover";
 import type { SearchableRecord } from "./components/layout/CommandSearch";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 
-const DashboardOverviewView = lazy(() =>
-  import("./components/views/DashboardOverviewView").then((module) => ({
-    default: module.DashboardOverviewView,
-  }))
-);
-const StockInventoryView = lazy(() =>
-  import("./components/views/StockInventoryView").then((module) => ({
-    default: module.StockInventoryView,
-  }))
-);
-const LogisticsRoutesView = lazy(() =>
-  import("./components/views/LogisticsRoutesView").then((module) => ({
-    default: module.LogisticsRoutesView,
-  }))
-);
-const SuppliersView = lazy(() =>
-  import("./components/views/SuppliersView").then((module) => ({
-    default: module.SuppliersView,
-  }))
-);
-const PurchaseOrdersView = lazy(() =>
-  import("./components/views/PurchaseOrdersView").then((module) => ({
-    default: module.PurchaseOrdersView,
-  }))
-);
-const ProductsCatalogView = lazy(() =>
-  import("./components/views/ProductsCatalogView").then((module) => ({
-    default: module.ProductsCatalogView,
-  }))
-);
-const HitlApprovalsView = lazy(() =>
-  import("./components/views/HitlApprovalsView").then((module) => ({
-    default: module.HitlApprovalsView,
-  }))
-);
-const HistoryView = lazy(() =>
-  import("./components/views/HistoryView").then((module) => ({
-    default: module.HistoryView,
-  }))
-);
-const PoliciesRulesView = lazy(() =>
-  import("./components/views/PoliciesRulesView").then((module) => ({
-    default: module.PoliciesRulesView,
-  }))
-);
-const WorkflowCanvas = lazy(() =>
-  import("./components/canvas/WorkflowCanvas").then((module) => ({
-    default: module.WorkflowCanvas,
-  }))
-);
-const KnowledgeGraphView = lazy(() =>
-  import("./components/views/KnowledgeGraphView").then((module) => ({
-    default: module.KnowledgeGraphView,
-  }))
-);
-const MemoryVaultView = lazy(() =>
-  import("./components/views/MemoryVaultView").then((module) => ({
-    default: module.MemoryVaultView,
-  }))
-);
-const AnalyticsReportsView = lazy(() =>
-  import("./components/views/AnalyticsReportsView").then((module) => ({
-    default: module.AnalyticsReportsView,
-  }))
-);
-const SettingsView = lazy(() =>
-  import("./components/views/SettingsView").then((module) => ({
-    default: module.SettingsView,
-  }))
-);
-const ComponentShowcaseView = lazy(() =>
-  import("./components/views/ComponentShowcaseView").then((module) => ({
-    default: module.ComponentShowcaseView,
-  }))
-);
-const ModelsView = lazy(() =>
-  import("./components/views/ModelsView").then((module) => ({
-    default: module.ModelsView,
-  }))
-);
-const NodeLibraryView = lazy(() =>
-  import("./components/views/NodeLibraryView").then((module) => ({
-    default: module.NodeLibraryView,
-  }))
-);
-const ObjectivesView = lazy(() =>
-  import("./components/views/ObjectivesView").then((module) => ({
-    default: module.ObjectivesView,
-  }))
-);
-const CommandDeckView = lazy(() =>
-  import("./components/views/CommandDeckView").then((module) => ({
-    default: module.CommandDeckView,
-  }))
-);
+    const DashboardOverviewView = lazy(() =>
+      import("./components/views/DashboardOverviewView").then((module) => ({
+        default: module.DashboardOverviewView,
+      }))
+    );
+    const StockInventoryView = lazy(() =>
+      import("./components/views/StockInventoryView").then((module) => ({
+        default: module.StockInventoryView,
+      }))
+    );
+    const LogisticsRoutesView = lazy(() =>
+      import("./components/views/LogisticsRoutesView").then((module) => ({
+        default: module.LogisticsRoutesView,
+      }))
+    );
+    const SuppliersView = lazy(() =>
+      import("./components/views/SuppliersView").then((module) => ({
+        default: module.SuppliersView,
+      }))
+    );
+    const PurchaseOrdersView = lazy(() =>
+      import("./components/views/PurchaseOrdersView").then((module) => ({
+        default: module.PurchaseOrdersView,
+      }))
+    );
+    const ProductsCatalogView = lazy(() =>
+      import("./components/views/ProductsCatalogView").then((module) => ({
+        default: module.ProductsCatalogView,
+      }))
+    );
+    const HitlApprovalsView = lazy(() =>
+      import("./components/views/HitlApprovalsView").then((module) => ({
+        default: module.HitlApprovalsView,
+      }))
+    );
+    const HistoryView = lazy(() =>
+      import("./components/views/HistoryView").then((module) => ({
+        default: module.HistoryView,
+      }))
+    );
+    const PoliciesRulesView = lazy(() =>
+      import("./components/views/PoliciesRulesView").then((module) => ({
+        default: module.PoliciesRulesView,
+      }))
+    );
+    const WorkflowCanvas = lazy(() =>
+      import("./components/canvas/WorkflowCanvas").then((module) => ({
+        default: module.WorkflowCanvas,
+      }))
+    );
+    const KnowledgeGraphView = lazy(() =>
+      import("./components/views/KnowledgeGraphView").then((module) => ({
+        default: module.KnowledgeGraphView,
+      }))
+    );
+    const MemoryVaultView = lazy(() =>
+      import("./components/views/MemoryVaultView").then((module) => ({
+        default: module.MemoryVaultView,
+      }))
+    );
+    const AnalyticsReportsView = lazy(() =>
+      import("./components/views/AnalyticsReportsView").then((module) => ({
+        default: module.AnalyticsReportsView,
+      }))
+    );
+    const SettingsView = lazy(() =>
+      import("./components/views/SettingsView").then((module) => ({
+        default: module.SettingsView,
+      }))
+    );
+    const ComponentShowcaseView = lazy(() =>
+      import("./components/views/ComponentShowcaseView").then((module) => ({
+        default: module.ComponentShowcaseView,
+      }))
+    );
+    const ModelsView = lazy(() =>
+      import("./components/views/ModelsView").then((module) => ({
+        default: module.ModelsView,
+      }))
+    );
+    const NodeLibraryView = lazy(() =>
+      import("./components/views/NodeLibraryView").then((module) => ({
+        default: module.NodeLibraryView,
+      }))
+    );
+    const ObjectivesView = lazy(() =>
+      import("./components/views/ObjectivesView").then((module) => ({
+        default: module.ObjectivesView,
+      }))
+    );
+    const CommandDeckView = lazy(() =>
+      import("./components/views/CommandDeckView").then((module) => ({
+        default: module.CommandDeckView,
+      }))
+    );
 
-/**
- * Mapa canónico de rutas → vista.
- *
- * Cualquier alias (p. ej. `agente`, `compras`, `ajustes`) se resuelve a una
- * única vista estable. Esto evita que un id desconocido o desincronizado deje
- * la interfaz en un estado ambiguo y rompa el historial de navegación.
- */
-const TAB_ALIASES: Record<string, string> = {
-  agente: "flujo_agente",
-  compras: "compras_ordenes",
-  reportes: "analisis_reportes",
-  ajustes: "configuracion_general",
-  comandos: "automatizacion",
-  deck: "automatizacion",
-};
+    /**
+     * Mapa canónico de rutas → vista.
+     *
+     * Cualquier alias (p. ej. `agente`, `compras`, `ajustes`) se resuelve a una
+     * única vista estable. Esto evita que un id desconocido o desincronizado deje
+     * la interfaz en un estado ambiguo y rompa el historial de navegación.
+     */
+    const TAB_ALIASES: Record<string, string> = {
+    agente: "flujo_agente",
+    compras: "compras_ordenes",
+    reportes: "analisis_reportes",
+    ajustes: "configuracion_general",
+    comandos: "automatizacion",
+    deck: "automatizacion",
+  };
 
 const KNOWN_TABS = new Set<string>([
   "inicio",
@@ -250,31 +250,31 @@ export const App: React.FC = () => {
   // Avisos de la campana según las preferencias del usuario.
   const { preferences } = useUserSettings();
   const notifications: AppNotification[] = preferences.notifyApprovals
-      ? decisions.map<AppNotification>((d) => ({
-            id: `approval:${d.id}`,
-            kind: "approval",
-            title: `Requiere tu firma: ${d.title}`,
-            detail: [
-              d.proposingAgent ?? "Agente no especificado",
-              d.costMxn == null ? "Costo no disponible" : `$${d.costMxn.toLocaleString("es-CO")} COP`,
-            ].join(" · "),
-            time: Number.isNaN(new Date(d.createdAt).getTime())
-              ? "Fecha no disponible"
-              : new Intl.DateTimeFormat("es-CO", {
-                dateStyle: "short",
-                timeStyle: "short",
-              }).format(new Date(d.createdAt)),
-            targetTab: "aprobaciones",
-          }))
-      : [];
+    ? decisions.map<AppNotification>((d) => ({
+      id: `approval:${d.id}`,
+      kind: "approval",
+      title: `Requiere tu firma: ${d.title}`,
+      detail: [
+        d.proposingAgent ?? "Agente no especificado",
+        d.costMxn == null ? "Costo no disponible" : `$${d.costMxn.toLocaleString("es-CO")} COP`,
+      ].join(" · "),
+      time: Number.isNaN(new Date(d.createdAt).getTime())
+        ? "Fecha no disponible"
+        : new Intl.DateTimeFormat("es-CO", {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(new Date(d.createdAt)),
+      targetTab: "aprobaciones",
+    }))
+    : [];
 
   const searchRecords: SearchableRecord[] = decisions.map((d) => ({
-      id: `rec:${d.id}`,
-      label: d.title,
-      hint: `${d.caseId} · ${d.proposingAgent}`,
-      group: "Aprobaciones",
-      targetTab: "aprobaciones",
-    }));
+    id: `rec:${d.id}`,
+    label: d.title,
+    hint: `${d.caseId} · ${d.proposingAgent}`,
+    group: "Aprobaciones",
+    targetTab: "aprobaciones",
+  }));
 
   const renderContent = () => {
     switch (currentTab) {
@@ -336,51 +336,29 @@ export const App: React.FC = () => {
         return <KnowledgeGraphView onNavigateTo={handleTabChange} />;
 
       case "memoria_agente":
-        return (
-          <AgentSubNav activeTab="memoria_agente" onNavigateTo={handleTabChange}>
-            <MemoryVaultView />
-          </AgentSubNav>
-        );
+        return <MemoryVaultView />;
 
       case "auditoria_eventos":
-        return (
-          <AgentSubNav activeTab="auditoria_eventos" onNavigateTo={handleTabChange}>
-            <HistoryView />
-          </AgentSubNav>
-        );
+        return <HistoryView />;
 
       case "reglas_politicas":
-        return (
-          <AgentSubNav activeTab="reglas_politicas" onNavigateTo={handleTabChange}>
-            <PoliciesRulesView />
-          </AgentSubNav>
-        );
+        return <PoliciesRulesView />;
 
       // Modelos de IA configurados (FinOps / latencias / estado de API keys)
       case "modelos":
-        return (
-          <AgentSubNav activeTab="modelos" onNavigateTo={handleTabChange}>
-            <ModelsView />
-          </AgentSubNav>
-        );
+        return <ModelsView />;
 
       // Biblioteca de nodos / especialistas / herramientas del agente
       case "nodos":
         return (
-          <AgentSubNav activeTab="nodos" onNavigateTo={handleTabChange}>
-            <NodeLibraryView
-              onAddNode={(_type, _title) => handleTabChange("flujo_agente")}
-            />
-          </AgentSubNav>
+          <NodeLibraryView
+            onAddNode={(_type, _title) => handleTabChange("flujo_agente")}
+          />
         );
 
       // Objetivos del orquestador (stock, margen, tiempo de entrega)
       case "objetivos":
-        return (
-          <AgentSubNav activeTab="objetivos" onNavigateTo={handleTabChange}>
-            <ObjectivesView />
-          </AgentSubNav>
-        );
+        return <ObjectivesView />;
 
       // AUTOMATIZACIÓN (Command Deck / Slash-Ops)
       case "automatizacion":

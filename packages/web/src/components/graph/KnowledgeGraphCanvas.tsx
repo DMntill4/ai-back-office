@@ -37,6 +37,30 @@ const AGENT_CLOUD_PARTICLES = Array.from({ length: 42 }, (_, i) => {
   };
 });
 
+// Centros espaciales regionales por constelación operativa (Arquitectura Multi-Galaxia Mint)
+export const REGIONAL_CLUSTERS: Record<string, { x: number; y: number }> = {
+  agent_orchestrator: { x: 0, y: 0 },
+  agent_inventario: { x: -520, y: -280 },
+  agent_compras: { x: -520, y: 280 },
+  agent_logistica: { x: 520, y: 240 },
+  agent_auditoria: { x: 520, y: -280 },
+  agent_notificaciones: { x: 0, y: 460 },
+  agent_datos_integraciones: { x: 0, y: -460 },
+};
+
+export function getNodeClusterCenter(node: { id: string; type: string; status?: string }): { x: number; y: number } {
+  if (node.id === "agent_orchestrator") return REGIONAL_CLUSTERS.agent_orchestrator;
+  if (node.type === "agent") return REGIONAL_CLUSTERS[node.id] || { x: 0, y: 0 };
+  if (node.type === "warehouse") return REGIONAL_CLUSTERS.agent_inventario;
+  if (node.type === "supplier") return REGIONAL_CLUSTERS.agent_compras;
+  if (node.type === "decision" || node.type === "purchase_order") return REGIONAL_CLUSTERS.agent_auditoria;
+  if (node.type === "tool" || node.type === "database" || node.type === "execution") return REGIONAL_CLUSTERS.agent_logistica;
+  if (node.type === "sku") {
+    return node.status === "warning" ? REGIONAL_CLUSTERS.agent_compras : REGIONAL_CLUSTERS.agent_inventario;
+  }
+  return { x: 0, y: 0 };
+}
+
 export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
   nodes: passedNodes,
   data,
@@ -155,34 +179,53 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
     const currentSimNodes = simNodesRef.current;
     const newSimNodes = new Map<string, SimNode>();
 
-    // Contadores por categoría para distribución radial armónica
-    const specialistAgents = rawNodes.filter((n) => n.type === "agent" && n.id !== "agent_orchestrator");
+    // Centros regionales por constelación de negocio (arquitectura multigalaxia desacoplada)
+    const REGIONAL_CLUSTERS: Record<string, { x: number; y: number }> = {
+      agent_orchestrator: { x: 0, y: 0 },
+      agent_inventario: { x: -520, y: -280 },
+      agent_compras: { x: -520, y: 280 },
+      agent_logistica: { x: 520, y: 240 },
+      agent_auditoria: { x: 520, y: -280 },
+      agent_notificaciones: { x: 0, y: 460 },
+      agent_datos_integraciones: { x: 0, y: -460 },
+    };
+
     const warehouses = rawNodes.filter((n) => n.type === "warehouse");
     const suppliers = rawNodes.filter((n) => n.type === "supplier");
-    const skus = rawNodes.filter((n) => n.type === "sku");
-    let specIdx = 0;
+    const decisions = rawNodes.filter((n) => n.type === "decision" || n.type === "purchase_order");
+    const infrastructure = rawNodes.filter((n) => n.type === "tool" || n.type === "database" || n.type === "execution");
     let whIdx = 0;
     let suppIdx = 0;
-    let skuIdx = 0;
+    let decIdx = 0;
+    let infraIdx = 0;
+    let invSkuIdx = 0;
+    let compSkuIdx = 0;
 
     rawNodes.forEach((node, index) => {
       const existing = currentSimNodes.get(node.id);
       const degree = node.degree || 1;
       const baseRadius =
-        node.type === "agent" ? 30 : node.type === "warehouse" ? 18 : 14;
+        node.type === "agent" ? 30 : node.type === "warehouse" ? 20 : 14;
       const radius =
         node.type === "agent"
           ? 32
           : Math.min(26, baseRadius + Math.sqrt(degree) * 2);
 
-      if (existing) {
+      // Si el nodo ya existía pero estaba atrapado en el centro (<200px) sin ser el orquestador,
+      // lo reposicionamos en su constelación regional correspondiente.
+      const isClumpedInCenter = existing && node.id !== "agent_orchestrator" && Math.hypot(existing.x, existing.y) < 180;
+
+      if (existing && !isClumpedInCenter) {
         newSimNodes.set(node.id, {
           ...existing,
           ...node,
           radius,
+          // Amortiguar velocidades para evitar latigazos si el filtro cambió
+          vx: existing.vx * 0.15,
+          vy: existing.vy * 0.15,
         });
       } else {
-        // Distribución inicial armónica por clusters según el rol de negocio
+        // Distribución armónica inicial anclada a su respectivo centro regional
         let x = 0;
         let y = 0;
 
@@ -190,31 +233,53 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           x = 0;
           y = 0;
         } else if (node.type === "agent") {
-          const totalSpec = Math.max(1, specialistAgents.length);
-          const angle = (specIdx++ / totalSpec) * Math.PI * 2 - Math.PI / 2;
-          x = Math.cos(angle) * 140;
-          y = Math.sin(angle) * 140;
+          const home = REGIONAL_CLUSTERS[node.id] || { x: 0, y: 0 };
+          x = home.x;
+          y = home.y;
         } else if (node.type === "warehouse") {
-          const totalWh = Math.max(1, warehouses.length);
-          const angle = Math.PI * 0.8 + (whIdx++ / totalWh) * Math.PI * 0.65;
-          const dist = 280 + (whIdx % 2) * 45;
-          x = Math.cos(angle) * dist;
-          y = Math.sin(angle) * dist;
+          // Constelación de Inventario (Noroeste)
+          const angle = (whIdx++ / Math.max(1, warehouses.length)) * Math.PI * 2;
+          const dist = 120 + (whIdx % 2) * 50;
+          x = -520 + Math.cos(angle) * dist;
+          y = -280 + Math.sin(angle) * dist;
         } else if (node.type === "supplier") {
-          const totalSupp = Math.max(1, suppliers.length);
-          const angle = -Math.PI * 0.45 + (suppIdx++ / totalSupp) * Math.PI * 0.65;
-          const dist = 310 + (suppIdx % 2) * 50;
-          x = Math.cos(angle) * dist;
-          y = Math.sin(angle) * dist;
+          // Constelación de Compras y Abastecimiento (Suroeste)
+          const angle = (suppIdx++ / Math.max(1, suppliers.length)) * Math.PI * 2;
+          const dist = 130 + (suppIdx % 2) * 60;
+          x = -520 + Math.cos(angle) * dist;
+          y = 280 + Math.sin(angle) * dist;
+        } else if (node.type === "decision" || node.type === "purchase_order") {
+          // Constelación de Gobernanza y Auditoría (Noreste)
+          const angle = (decIdx++ / Math.max(1, decisions.length)) * Math.PI * 2;
+          const dist = 110 + (decIdx % 3) * 45;
+          x = 520 + Math.cos(angle) * dist;
+          y = -280 + Math.sin(angle) * dist;
+        } else if (node.type === "tool" || node.type === "database" || node.type === "execution") {
+          // Constelación de Logística y Rutas (Sureste)
+          const angle = (infraIdx++ / Math.max(1, infrastructure.length)) * Math.PI * 2;
+          const dist = 110 + (infraIdx % 2) * 40;
+          x = 520 + Math.cos(angle) * dist;
+          y = 240 + Math.sin(angle) * dist;
         } else if (node.type === "sku") {
-          const totalSkus = Math.max(1, skus.length);
-          const angle = (skuIdx++ / totalSkus) * Math.PI * 2;
-          const dist = 220 + (skuIdx % 4) * 55;
-          x = Math.cos(angle) * dist;
-          y = Math.sin(angle) * dist;
+          // Distribuir SKUs armónicamente en su galaxia operativa (críticos en compras, normales en inventario)
+          const isWarning = node.status === "warning";
+          const phi = 2.399963;
+          if (isWarning) {
+            const angle = compSkuIdx * phi;
+            const dist = 80 + Math.sqrt(compSkuIdx) * 28;
+            compSkuIdx++;
+            x = -520 + Math.cos(angle) * dist;
+            y = 280 + Math.sin(angle) * dist;
+          } else {
+            const angle = invSkuIdx * phi;
+            const dist = 80 + Math.sqrt(invSkuIdx) * 28;
+            invSkuIdx++;
+            x = -520 + Math.cos(angle) * dist;
+            y = -280 + Math.sin(angle) * dist;
+          }
         } else {
-          const angle = ((index) / Math.max(1, rawNodes.length)) * Math.PI * 2;
-          const dist = 380 + (index % 3) * 60;
+          const angle = (index / Math.max(1, rawNodes.length)) * Math.PI * 2;
+          const dist = 280 + (index % 3) * 50;
           x = Math.cos(angle) * dist;
           y = Math.sin(angle) * dist;
         }
@@ -256,8 +321,17 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
 
     let frameId = requestAnimationFrame(fitCamera);
     const canvas = canvasRef.current;
+
+    // Segundo encuadre automático a los 450ms cuando los nodos se han expandido en su constelación
+    const settleTimer = setTimeout(() => {
+      fitCamera();
+    }, 450);
+
     if (!canvas || typeof ResizeObserver === "undefined") {
-      return () => cancelAnimationFrame(frameId);
+      return () => {
+        cancelAnimationFrame(frameId);
+        clearTimeout(settleTimer);
+      };
     }
 
     const resizeObserver = new ResizeObserver(() => {
@@ -268,6 +342,7 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
 
     return () => {
       cancelAnimationFrame(frameId);
+      clearTimeout(settleTimer);
       resizeObserver.disconnect();
     };
   }, [rawNodes, fitCamera]);
@@ -297,16 +372,14 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
     const motionAllowed = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const {
-      repulsion = 5200,
-      springLength = 235,
-      gravity = 0.005,
-      damping = 0.82,
+      repulsion = 18000,
+      springLength = 260,
+      gravity = 0.0004,
+      damping = 0.85,
       showGrid = true,
       showAllLabels = false,
     } = physicsSettings;
-    const linkStrength = 0.032;
-    // Distancia mínima de colisión entre centros de nodos (px de simulación).
-    const MIN_NODE_DISTANCE = 96;
+    const linkStrength = 0.024;
     // Padding mínimo entre centros de etiquetas adyacentes (px).
     const LABEL_COLLISION_PADDING = 24;
 
@@ -330,10 +403,10 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
       // A. Simulación de fuerzas con enfriamiento progresivo (Alpha decay)
       const alpha = alphaRef.current;
       if (alpha > 0.003 && motionAllowed) {
-        // Enfriar la simulación exponencialmente para llegar a reposo perfecto y silencioso
-        alphaRef.current *= 0.965;
+        // Enfriamiento suave de ~200 fotogramas para una transición armónica sin vibraciones
+        alphaRef.current *= 0.982;
 
-        const cellSize = 380;
+        const cellSize = 650;
         const spatialBuckets = new Map<string, Array<{ node: SimNode; index: number }>>();
         nodes.forEach((node, index) => {
           const cellX = Math.floor(node.x / cellSize);
@@ -344,7 +417,7 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           spatialBuckets.set(key, bucket);
         });
 
-        // Repulsión espacial suave acotada
+        // Repulsión espacial amplia para evitar cúmulos densos
         for (let i = 0; i < nodes.length; i++) {
           const n1 = nodes[i];
           const cellX = Math.floor(n1.x / cellSize);
@@ -360,33 +433,34 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
                 const distSq = dx * dx + dy * dy;
                 if (distSq >= cellSize * cellSize) continue;
 
-                // Evitar división por cero o distancias ínfimas que causan disparos a infinito
-                const safeDistSq = Math.max(900, distSq);
+                const safeDistSq = Math.max(1600, distSq);
                 const dist = Math.sqrt(safeDistSq);
 
-                const force = Math.min(22, repulsion / safeDistSq) * alpha;
+                const force = Math.min(26, repulsion / safeDistSq) * alpha;
                 const fx = (dx / dist) * force;
                 const fy = (dy / dist) * force;
 
-                if (!n1.isDragging && n1.id !== "agent_orchestrator") {
+                if (!n1.isDragging && n1.type !== "agent") {
                   n1.vx -= fx;
                   n1.vy -= fy;
                 }
-                if (!n2.isDragging && n2.id !== "agent_orchestrator") {
+                if (!n2.isDragging && n2.type !== "agent") {
                   n2.vx += fx;
                   n2.vy += fy;
                 }
 
-                // Separación suave de colisión (impulso elástico en velocidad en lugar de salto posicional instantáneo)
-                if (dist < MIN_NODE_DISTANCE) {
-                  const push = ((MIN_NODE_DISTANCE - dist) / MIN_NODE_DISTANCE) * 8 * alpha;
+                // Separación elástica estricta: evita completamente solapamientos y cúmulos densos
+                const isAnchor = n1.type === "agent" || n1.type === "warehouse" || n2.type === "agent" || n2.type === "warehouse";
+                const minDist = isAnchor ? 120 : 68;
+                if (dist < minDist) {
+                  const push = ((minDist - dist) / minDist) * 14 * alpha;
                   const nx = dx / dist;
                   const ny = dy / dist;
-                  if (!n1.isDragging && n1.id !== "agent_orchestrator") {
+                  if (!n1.isDragging && n1.type !== "agent") {
                     n1.vx -= nx * push;
                     n1.vy -= ny * push;
                   }
-                  if (!n2.isDragging && n2.id !== "agent_orchestrator") {
+                  if (!n2.isDragging && n2.type !== "agent") {
                     n2.vx += nx * push;
                     n2.vy += ny * push;
                   }
@@ -396,23 +470,30 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
           }
         }
 
-        // Fuerzas de resorte en aristas escaladas por alpha
+        // Fuerzas de resorte en aristas adaptativas
         for (const edge of edges) {
           const s = edge.source;
           const t = edge.target;
           const dx = t.x - s.x;
           const dy = t.y - s.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const displacement = dist - springLength;
-          const force = Math.min(14, displacement * linkStrength) * alpha;
+          const isAgentLink = s.type === "agent" || t.type === "agent";
+          const isWhLink = s.type === "warehouse" || t.type === "warehouse";
+          // Distancia de reposo: amplia entre agentes, contenida en hojas locales
+          const targetLength = isAgentLink
+            ? (s.type === "agent" && t.type === "agent" ? 540 : 160)
+            : (isWhLink ? 130 : 90);
+          const displacement = dist - targetLength;
+          const force = Math.max(-8, Math.min(8, displacement * linkStrength)) * alpha;
           const fx = (dx / dist) * force;
           const fy = (dy / dist) * force;
 
-          if (!s.isDragging && s.id !== "agent_orchestrator") {
+          // Los agentes permanecen en su centro y NO son deformados por los cientos de hijos
+          if (!s.isDragging && s.type !== "agent") {
             s.vx += fx;
             s.vy += fy;
           }
-          if (!t.isDragging && t.id !== "agent_orchestrator") {
+          if (!t.isDragging && t.type !== "agent") {
             t.vx -= fx;
             t.vy -= fy;
           }
@@ -427,24 +508,34 @@ export const KnowledgeGraphCanvas: React.FC<KnowledgeGraphCanvasProps> = ({
               n.vx = 0;
               n.vy = 0;
             } else if (n.type === "agent") {
-              // Especialistas gravitan suavemente hacia su órbita
-              const curDist = Math.hypot(n.x, n.y) || 1;
-              const orbitPull = (curDist - 140) * 0.04 * alpha;
-              n.vx -= (n.x / curDist) * orbitPull;
-              n.vy -= (n.y / curDist) * orbitPull;
+              // Especialistas se anclan elásticamente a su base regional
+              const home = REGIONAL_CLUSTERS[n.id] || { x: 0, y: 0 };
+              const dx = home.x - n.x;
+              const dy = home.y - n.y;
+              n.vx += dx * 0.12 * alpha;
+              n.vy += dy * 0.12 * alpha;
               n.vx *= damping;
               n.vy *= damping;
               n.x += n.vx;
               n.y += n.vy;
             } else {
-              n.vx -= n.x * gravity;
-              n.vy -= n.y * gravity;
+              // Gravedad orbital suave orientada a su propia constelación de negocio,
+              // NUNCA hacia el centro global (0, 0)
+              const home = getNodeClusterCenter(n);
+              const dx = n.x - home.x;
+              const dy = n.y - home.y;
+              const distFromCluster = Math.hypot(dx, dy) || 1;
+              if (distFromCluster > 260) {
+                const pull = (distFromCluster - 260) * 0.002 * alpha;
+                n.vx -= (dx / distFromCluster) * pull;
+                n.vy -= (dy / distFromCluster) * pull;
+              }
               n.vx *= damping;
               n.vy *= damping;
 
               // Limitar velocidad máxima para evitar expulsiones fuera de pantalla
               const speed = Math.hypot(n.vx, n.vy);
-              const maxSpeed = 16 * Math.max(0.15, alpha);
+              const maxSpeed = 12 * Math.max(0.18, alpha);
               if (speed > maxSpeed) {
                 n.vx = (n.vx / speed) * maxSpeed;
                 n.vy = (n.vy / speed) * maxSpeed;

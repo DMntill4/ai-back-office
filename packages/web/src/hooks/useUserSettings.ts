@@ -41,9 +41,9 @@ export const LANDING_OPTIONS = [
 
 const DEFAULT_SETTINGS: UserSettings = {
   profile: {
-    fullName: "Usuario Mint",
+    fullName: "Andres Administrador",
     role: "Administrador",
-    email: "",
+    email: "operaciones@ferreteriasantander.com.co",
     phone: "",
   },
   preferences: {

@@ -230,7 +230,7 @@ export const NotificationChannelsView: React.FC = () => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className={`fixed top-6 right-8 z-50 px-compact py-compact rounded-pill flex items-center gap-compact border shadow-popover ${
+            className={`fixed top-6 right-8 z-50 px-3 py-2 rounded-pill flex items-center gap-compact border shadow-popover ${
               toastType === "ok"
                 ? "bg-panel border-brand/40 text-brand"
                 : toastType === "attention"
@@ -239,14 +239,14 @@ export const NotificationChannelsView: React.FC = () => {
             }`}
           >
             <div
-              className={`w-2 h-2 rounded-pill animate-ping ${
+              className={`w-2 h-2 rounded-pill ${
                 toastType === "ok" ? "bg-brand" : toastType === "attention" ? "bg-state-attention" : "bg-state-error"
               }`}
             />
-            <span className="text-label font-mono font-medium">{toastMessage}</span>
+            <span className="text-caption font-medium">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-muted hover:text-primary text-label ml-hairline"
+              className="text-muted hover:text-primary text-caption ml-hairline cursor-pointer"
             >
               ✕
             </button>
@@ -266,7 +266,7 @@ export const NotificationChannelsView: React.FC = () => {
           <div>
             <h2 className="text-label font-semibold text-primary">Matriz de Canales Telemáticos</h2>
             <p className="text-caption text-secondary">
-              Validación criptográfica en vivo según variables en <code>.env</code> y base de datos.
+              Validación criptográfica en vivo según variables en <code className="text-primary font-mono bg-raised px-1 py-0.5 rounded">.env</code> y base de datos.
             </p>
           </div>
         </div>
@@ -274,7 +274,7 @@ export const NotificationChannelsView: React.FC = () => {
         <button
           onClick={() => void load()}
           disabled={loading}
-          className="px-compact py-hairline rounded-control border border-border hover:bg-raised text-caption text-secondary hover:text-primary font-mono flex items-center gap-hairline cursor-pointer disabled:opacity-50"
+          className="px-3 py-1.5 rounded-control border border-border hover:bg-raised text-caption text-secondary hover:text-primary font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           <span>Sincronizar Entorno</span>
@@ -286,125 +286,123 @@ export const NotificationChannelsView: React.FC = () => {
         {channels.map((ch) => {
           const isEmail = ch.type === "email" || ch.type === "gmail";
           const isAvailable = ch.available && ch.isActive;
-          const pingTone = isAvailable
-            ? "bg-state-ok/15 text-state-ok border-state-ok/30"
-            : "bg-panel text-muted border-border";
-
-          const missingLabel = ch.missingCredentials && ch.missingCredentials.length > 0
-            ? `Falta ${ch.missingCredentials[0]} en .env`
-            : "Sin credenciales en .env";
+          const missingKey = ch.missingCredentials && ch.missingCredentials.length > 0
+            ? ch.missingCredentials[0]
+            : null;
 
           return (
             <div
               key={ch.id}
-              className={`bg-panel rounded-container p-base border flex flex-col justify-between transition-colors ${
+              className={`bg-panel rounded-container p-base border flex flex-col justify-between gap-base transition-colors ${
                 isAvailable
-                  ? "border-border hover:border-brand/30"
-                  : "border-border opacity-75"
+                  ? "border-border hover:border-border-strong"
+                  : "border-border opacity-85"
               }`}
             >
-              <div>
-                <div className="flex items-start justify-between gap-compact pb-compact border-b border-border">
-                  <div className="flex items-center gap-compact min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-control flex items-center justify-center shrink-0 ${
-                        isAvailable
-                          ? "bg-brand-surface text-brand"
-                          : "bg-raised text-muted"
-                      }`}
-                    >
-                      {isEmail ? <Mail className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-label font-semibold text-primary truncate">{ch.name}</h3>
-                      <span className="text-caption text-muted font-mono truncate block">
-                        {ch.destination}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Switch Táctil */}
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={isAvailable}
-                    aria-label={`Activar ${ch.name}`}
-                    onClick={() => void handleToggleChannel(ch)}
-                    className={`relative w-11 h-6 rounded-pill shrink-0 transition-colors duration-200 border cursor-pointer ${
+              {/* Encabezado: Icono, Título, Estado y Switch */}
+              <div className="flex items-start justify-between gap-compact">
+                <div className="flex items-center gap-compact min-w-0">
+                  <div
+                    className={`w-9 h-9 rounded-control flex items-center justify-center shrink-0 ${
                       isAvailable
-                        ? "bg-brand border-brand"
-                        : "bg-raised border-border-strong opacity-80"
+                        ? "bg-brand-surface text-brand"
+                        : "bg-raised text-muted"
                     }`}
                   >
-                    <span
-                      className={`absolute top-0.5 rounded-pill transition-all duration-200 ${
-                        isAvailable ? "left-[22px] bg-canvas" : "left-0.5 bg-muted"
-                      }`}
-                      style={{ width: 18, height: 18 }}
-                    />
-                  </button>
+                    {isEmail ? <Mail className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-hairline flex-wrap">
+                      <h3 className="text-label font-semibold text-primary truncate">{ch.name}</h3>
+                      {isAvailable ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-pill text-caption font-medium bg-brand-surface text-brand">
+                          <span className="w-1.5 h-1.5 rounded-pill bg-brand" />
+                          Operativo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-pill text-caption text-muted bg-raised">
+                          <span className="w-1.5 h-1.5 rounded-pill bg-muted" />
+                          Sin configurar
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-caption text-muted truncate mt-0.5">
+                      {isAvailable ? ch.destination : `Requiere ${missingKey || "credencial"} en .env`}
+                    </p>
+                  </div>
                 </div>
 
-                <p className="text-caption text-secondary mt-compact leading-relaxed">{ch.description}</p>
+                {/* Switch Táctil */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isAvailable}
+                  aria-label={`Activar ${ch.name}`}
+                  onClick={() => void handleToggleChannel(ch)}
+                  className={`relative w-11 h-6 rounded-pill shrink-0 transition-colors duration-200 border cursor-pointer ${
+                    isAvailable
+                      ? "bg-brand border-brand"
+                      : "bg-raised border-border-strong opacity-80"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-[18px] h-[18px] rounded-pill transition-all duration-200 ${
+                      isAvailable ? "left-[22px] bg-canvas" : "left-0.5 bg-muted"
+                    }`}
+                  />
+                </button>
               </div>
 
-              {/* Sub-caja Well con Estado, Eventos y Botón de Prueba */}
-              <div className="bg-raised rounded-control p-compact mt-base border border-border space-y-compact">
-                <div className="flex items-center justify-between gap-compact flex-wrap">
-                  <div className="flex items-center gap-hairline flex-wrap">
+              {/* Descripción */}
+              <p className="text-caption text-secondary leading-relaxed">
+                {ch.description}
+              </p>
+
+              {/* Eventos Suscritos */}
+              <div>
+                <span className="text-caption text-muted block mb-1.5 font-medium">
+                  Eventos Suscritos
+                </span>
+                <div className="flex flex-wrap items-center gap-hairline">
+                  {ch.subscribedEvents.map((evt, idx) => (
                     <span
-                      className={`inline-flex items-center gap-hairline px-compact py-hairline rounded text-caption font-mono border ${pingTone}`}
+                      key={idx}
+                      className="px-2 py-0.5 rounded-pill bg-raised text-caption text-secondary border border-border"
                     >
-                      <Zap className="w-2.5 h-2.5" />
-                      {isAvailable ? `${ch.latencyMs || 42} ms` : "Sin conexión"}
+                      {evt}
                     </span>
-
-                    {isAvailable ? (
-                      <span className="inline-flex items-center gap-hairline px-compact py-hairline rounded text-caption font-mono bg-brand-surface text-brand border border-brand/25">
-                        <CheckCircle2 className="w-2.5 h-2.5" />
-                        Token válido (entorno)
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-hairline px-compact py-hairline rounded text-caption font-mono bg-state-attention/15 text-state-attention border border-state-attention/30">
-                        <ShieldAlert className="w-2.5 h-2.5" />
-                        {missingLabel}
-                      </span>
-                    )}
-
-                    <span className="inline-flex items-center gap-hairline px-compact py-hairline rounded text-caption font-mono bg-panel text-secondary border border-border">
-                      {ch.eventsCount} envíos
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => void handleSendTest(ch)}
-                    disabled={testingId === ch.id || !isAvailable}
-                    className={`text-caption font-medium flex items-center gap-hairline shrink-0 ${
-                      isAvailable
-                        ? "text-brand hover:text-brand cursor-pointer"
-                        : "text-muted cursor-not-allowed opacity-50"
-                    }`}
-                  >
-                    <span>{testingId === ch.id ? "Probando..." : "Probar"}</span>
-                    <Send className={`w-3 h-3 ${testingId === ch.id ? "animate-pulse" : ""}`} />
-                  </button>
+                  ))}
                 </div>
+              </div>
 
-                <div className="pt-compact border-t border-border">
-                  <span className="text-caption font-mono text-muted block mb-hairline">
-                    Eventos Suscritos
-                  </span>
-                  <div className="flex flex-wrap items-center gap-hairline">
-                    {ch.subscribedEvents.map((evt, idx) => (
-                      <span
-                        key={idx}
-                        className="px-compact py-hairline rounded bg-panel border border-border text-caption text-secondary font-mono"
-                      >
-                        {evt}
+              {/* Barra Inferior de Métricas o Guía de Configuración */}
+              <div className="pt-compact border-t border-border flex items-center justify-between gap-compact text-caption">
+                {isAvailable ? (
+                  <>
+                    <div className="flex items-center gap-compact text-secondary">
+                      <span className="inline-flex items-center gap-1 font-mono">
+                        <Zap className="w-3 h-3 text-brand" />
+                        {ch.latencyMs || 42} ms
                       </span>
-                    ))}
+                      <span>·</span>
+                      <span className="font-mono">{ch.eventsCount} envíos</span>
+                    </div>
+
+                    <button
+                      onClick={() => void handleSendTest(ch)}
+                      disabled={testingId === ch.id}
+                      className="text-brand hover:underline font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <span>{testingId === ch.id ? "Probando..." : "Probar conexión"}</span>
+                      <Send className={`w-3 h-3 ${testingId === ch.id ? "animate-pulse" : ""}`} />
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-muted">
+                    <ShieldAlert className="w-3.5 h-3.5 text-state-attention" />
+                    <span>Configurar variable en el entorno para habilitar este canal</span>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           );

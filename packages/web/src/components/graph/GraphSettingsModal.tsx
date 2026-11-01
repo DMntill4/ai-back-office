@@ -53,15 +53,15 @@ export const GraphSettingsModal: React.FC<GraphSettingsModalProps> = ({
             </div>
             <input
               type="range"
-              min="100"
-              max="900"
-              step="20"
+              min="4000"
+              max="32000"
+              step="1000"
               value={settings.repulsion}
               onChange={(e) => onUpdateSettings({ repulsion: Number(e.target.value) })}
               className="w-full accent-brand bg-raised h-1.5 rounded-control cursor-pointer"
             />
             <p className="text-caption text-muted mt-hairline">
-              Fuerza con la que los nodos se alejan unos de otros (Coulomb).
+              Fuerza con la que los nodos se repelen para mantener espacio legible.
             </p>
           </div>
 
@@ -73,15 +73,15 @@ export const GraphSettingsModal: React.FC<GraphSettingsModalProps> = ({
             </div>
             <input
               type="range"
-              min="50"
-              max="240"
-              step="10"
+              min="140"
+              max="420"
+              step="20"
               value={settings.springLength}
               onChange={(e) => onUpdateSettings({ springLength: Number(e.target.value) })}
               className="w-full accent-brand bg-raised h-1.5 rounded-control cursor-pointer"
             />
             <p className="text-caption text-muted mt-hairline">
-              Distancia de reposo natural de las aristas conectadas (Hooke).
+              Distancia de reposo natural de las aristas conectadas.
             </p>
           </div>
 
@@ -90,14 +90,14 @@ export const GraphSettingsModal: React.FC<GraphSettingsModalProps> = ({
             <div className="flex justify-between items-center mb-hairline">
               <label className="font-semibold text-secondary">Gravedad Central</label>
               <span className="font-mono text-brand text-caption">
-                {Math.round(settings.gravity * 1000) / 1000}
+                {Math.round(settings.gravity * 10000) / 10000}
               </span>
             </div>
             <input
               type="range"
-              min="0.01"
-              max="0.12"
-              step="0.005"
+              min="0.0001"
+              max="0.002"
+              step="0.0001"
               value={settings.gravity}
               onChange={(e) => onUpdateSettings({ gravity: Number(e.target.value) })}
               className="w-full accent-brand bg-raised h-1.5 rounded-control cursor-pointer"

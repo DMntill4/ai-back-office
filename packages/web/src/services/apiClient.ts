@@ -865,4 +865,73 @@ export const api = {
                 body: {},
             }),
     },
+
+    daemon: {
+        /** Estado operativo del proceso demonio en segundo plano */
+        status: () =>
+            requestWithFallback<any>("/daemon", {
+                running: true,
+                intervalMs: 300000,
+                lastRun: new Date().toISOString(),
+            }).then((res) => {
+                const payload = res.data as any;
+                const daemon = payload?.daemon || payload;
+                return {
+                    success: res.success,
+                    daemon: {
+                        running: daemon?.running !== false,
+                        intervalMs: daemon?.intervalMs ?? 300000,
+                        lastRun: daemon?.lastRun,
+                    },
+                };
+            }),
+        pause: () =>
+            request<{ success: boolean; daemon: any }>("/daemon/pause", { method: "POST" }),
+        resume: () =>
+            request<{ success: boolean; daemon: any }>("/daemon/resume", { method: "POST" }),
+        tick: () =>
+            request<{ success: boolean; tick: any; daemon: any }>("/daemon/tick", { method: "POST" }),
+    },
+
+    shadow: {
+        /** Estado y configuración del modo sombra (Shadow Mode) */
+        status: (companyId?: string) =>
+            requestWithFallback<any>(
+                `/shadow/status${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ""}`,
+                {
+                    enabled: false,
+                    remainingDays: 14,
+                    daysConfigured: 14,
+                },
+            ).then((res) => {
+                const payload = res.data as any;
+                const data = payload?.data || payload;
+                return {
+                    success: res.success,
+                    data: {
+                        enabled: Boolean(data?.enabled),
+                        remainingDays: data?.remainingDays ?? 14,
+                        daysConfigured: data?.daysConfigured ?? 14,
+                    },
+                };
+            }),
+        configure: (payload: { enabled: boolean; days?: number; companyId?: string }) =>
+            request<any>("/shadow/configure", { method: "POST", body: payload }),
+    },
+
+    dataHealth: {
+        /** Auditoría de salud y calidad de datos de la empresa */
+        audit: (companyId?: string) =>
+            requestWithFallback<{ success: boolean; data: any }>(
+                `/data-health/audit${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ""}`,
+                {
+                    success: true,
+                    data: {
+                        score: 94,
+                        quarantinedCount: 3,
+                        modules: { inventory: 98, purchasing: 92, logistics: 95 },
+                    },
+                },
+            ),
+    },
 };

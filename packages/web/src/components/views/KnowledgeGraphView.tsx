@@ -13,8 +13,11 @@ import {
   ChevronDown,
   ChevronRight,
   ShieldCheck,
+  Box,
+  Layers,
 } from "lucide-react";
 import { KnowledgeGraphCanvas } from "../graph/KnowledgeGraphCanvas";
+import { ObsidianGraph3D } from "../graph/ObsidianGraph3D";
 import { PageHeader } from "../ui/PageHeader";
 import { SegmentedTabs, TabItem } from "../ui/SegmentedTabs";
 import { StatusIndicator, OperationalStatus } from "../ui/StatusIndicator";
@@ -128,6 +131,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [graphMode, setGraphMode] = useState<"3d" | "2d">("3d");
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [freshNode, setFreshNode] = useState<MintGraphNode | null>(null);
@@ -173,23 +177,36 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   }, [graphNodes, selectedNodeId]);
 
   const physicsSettings: GraphPhysicsSettings = useMemo(() => ({
-    repulsion: 3200,
-    springLength: 215,
-    gravity: 0.005,
-    damping: 0.82,
+    repulsion: 18000,
+    springLength: 260,
+    gravity: 0.0004,
+    damping: 0.85,
     showGrid: true,
-    showAllLabels: true,
+    showAllLabels: false,
   }), []);
 
+  const categoryCounts = useMemo(() => {
+    let warehouses = 0;
+    let skus = 0;
+    let suppliers = 0;
+    let decisions = 0;
+    graphNodes.forEach((node) => {
+      if (node.type === "warehouse") warehouses++;
+      else if (node.type === "sku") skus++;
+      else if (node.type === "supplier") suppliers++;
+      else if (node.type === "decision" || node.type === "purchase_order") decisions++;
+    });
+    return { warehouses, skus, suppliers, decisions };
+  }, [graphNodes]);
 
-  // Un solo control de filtros por categoría
-  const filterTabs: TabItem[] = [
+  // Un solo control de filtros por categoría con contadores reales de la base de datos
+  const filterTabs: TabItem[] = useMemo(() => [
     { id: "all", label: "Todos", badge: graphNodes.length },
-    { id: "warehouse", label: "Bodegas" },
-    { id: "sku", label: "Productos" },
-    { id: "supplier", label: "Proveedores" },
-    { id: "purchase_order", label: "Compras y firmas" },
-  ];
+    { id: "warehouse", label: "Bodegas", badge: categoryCounts.warehouses },
+    { id: "sku", label: "Productos", badge: categoryCounts.skus },
+    { id: "supplier", label: "Proveedores", badge: categoryCounts.suppliers },
+    { id: "purchase_order", label: "Compras y firmas", badge: categoryCounts.decisions },
+  ], [graphNodes.length, categoryCounts]);
 
   const filteredData = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -420,6 +437,37 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
           }
           actions={
             <div className="flex items-center gap-compact">
+              <div className="flex items-center gap-hairline p-0.5 rounded-control bg-panel border border-border">
+                <button
+                  type="button"
+                  onClick={() => setGraphMode("3d")}
+                  className={`flex items-center gap-1.5 px-compact py-1 rounded-control text-caption font-medium transition-colors cursor-pointer ${
+                    graphMode === "3d"
+                      ? "bg-brand text-canvas font-semibold"
+                      : "text-secondary hover:text-primary"
+                  }`}
+                  title="Modo tridimensional inmersivo tipo Obsidian"
+                  aria-pressed={graphMode === "3d"}
+                >
+                  <Box className="w-3.5 h-3.5" />
+                  <span>3D Obsidian</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGraphMode("2d")}
+                  className={`flex items-center gap-1.5 px-compact py-1 rounded-control text-caption font-medium transition-colors cursor-pointer ${
+                    graphMode === "2d"
+                      ? "bg-brand text-canvas font-semibold"
+                      : "text-secondary hover:text-primary"
+                  }`}
+                  title="Modo bidimensional de constelaciones desacopladas"
+                  aria-pressed={graphMode === "2d"}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>2D Constelación</span>
+                </button>
+              </div>
+
               <Button
                 variant="secondary"
                 size="md"
@@ -525,6 +573,20 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
                 }}
               />
             </div>
+          ) : graphMode === "3d" ? (
+            <ObsidianGraph3D
+              data={filteredData}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={(nodeId) => {
+                if (nodeId) {
+                  setSelectedNodeId(nodeId);
+                  setFocusNodeId(nodeId);
+                  setIsInspectorOpen(true);
+                }
+              }}
+              activeTraversals={traversals}
+              focusNodeId={focusNodeId}
+            />
           ) : (
             <KnowledgeGraphCanvas
               data={filteredData}

@@ -18,6 +18,8 @@ export default defineConfig({
       "lucide-react",
       "motion/react",
       "react-force-graph-2d",
+      "three",
+      "three/examples/jsm/controls/OrbitControls.js",
     ],
   },
   // Algunas librerías compartidas asumen un entorno Node y leen

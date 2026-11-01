@@ -45,6 +45,7 @@ const PHASE_FILES = [
   "packages/web/src/components/ui/ReasoningStepList.tsx",
   "packages/web/src/components/ui/SimulationSlider.tsx",
   "packages/web/src/components/views/DashboardOverviewView.tsx",
+  "packages/web/src/components/views/HomeView.tsx",
   "packages/web/src/components/views/HitlApprovalsView.tsx",
   "packages/web/src/components/canvas/WorkflowCanvas.tsx",
   "packages/web/src/components/views/KnowledgeGraphView.tsx",

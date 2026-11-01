@@ -12,6 +12,15 @@ export async function healthRoutes(fastify: FastifyInstance) {
     };
   });
 
+  fastify.get("/api/health", async () => {
+    return {
+      status: "ok",
+      service: "@mint/api",
+      version: "2.5.0",
+      timestamp: new Date().toISOString(),
+    };
+  });
+
   // 2. Estado de conexión con PostgreSQL / Supabase
   fastify.get("/api/db/status", async () => {
     const health = await checkDatabaseHealth();

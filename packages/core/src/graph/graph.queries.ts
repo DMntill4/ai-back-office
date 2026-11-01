@@ -160,6 +160,7 @@ export async function fetchRawGraphEntities(companyId: string): Promise<{
     status: "idle",
     metadata: { role: "orchestrator" },
   });
+
   for (const agentConfig of enabledAgentConfigs) {
     const agent = agentConfig.agent;
     const id = toMintGraphNodeId("agent", agent.contract.role);
@@ -445,6 +446,23 @@ export async function fetchRawGraphEntities(companyId: string): Promise<{
         "modifies",
       );
     }
+  }
+
+  // Conectar MINT Orchestrator central con todos los agentes y la gobernanza del sistema
+  for (const agentConfig of enabledAgentConfigs) {
+    const agentId = toMintGraphNodeId("agent", agentConfig.agent.contract.role);
+    addEdge("agent_orchestrator", agentId, "depends_on");
+  }
+  for (const rule of ruleRows) {
+    addEdge("agent_orchestrator", toMintGraphNodeId("rule", rule.id), "depends_on");
+  }
+  for (const c of caseRows.slice(0, 20)) {
+    const caseId = caseIds.get(c.id);
+    if (caseId) addEdge("agent_orchestrator", caseId, "queries");
+  }
+  for (const d of decisionRows.slice(0, 15)) {
+    const decId = decisionIds.get(d.id);
+    if (decId) addEdge("agent_orchestrator", decId, "queries");
   }
 
   for (const agentConfig of enabledAgentConfigs) {

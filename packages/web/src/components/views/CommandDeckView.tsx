@@ -120,6 +120,18 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
   const [executions, setExecutions] = useState<CommandExecution[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar la paleta de sugerencias al hacer clic fuera o presionar Escape
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowPalette(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Inicializar estado con /theme-factory precargado para interactividad inmediata
   useEffect(() => {
@@ -144,6 +156,11 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
   const filteredPaletteCommands = useMemo(() => {
     const q = inputVal.trim().toLowerCase();
     const cleanQ = q.startsWith("/") ? q.slice(1) : q;
+    if (!cleanQ) {
+      // Sugerencias principales por defecto (máximo 6 para no saturar la pantalla ni cortar elementos)
+      const featured = ["/theme-factory", "/agents", "/stock", "/orders", "/autonomy", "/daemon"];
+      return COMMAND_REGISTRY.filter((c) => featured.includes(c.command));
+    }
     return COMMAND_REGISTRY.filter((cmd) => {
       return (
         cmd.command.toLowerCase().includes(cleanQ) ||
@@ -512,7 +529,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
           </div>
 
           {/* 1. TOP COMMAND BAR (Raycast / Linear Style con Autocompletado y Pills de Parámetros) */}
-          <div className="relative z-30">
+          <div ref={searchContainerRef} className="relative z-30">
             <div className="p-base rounded-card bg-panel border border-strong shadow-md space-y-compact">
               <div className="relative flex items-center">
                 <div className="absolute left-3.5 pointer-events-none text-brand">
@@ -524,9 +541,11 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                   value={inputVal}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
-                  onFocus={() => setShowPalette(true)}
+                  onFocus={() => {
+                    if (inputVal.trim().length > 0) setShowPalette(true);
+                  }}
                   placeholder="Escribe '/' para ejecutar comandos del CLI (ej. /theme-factory, /stock, /orders, /daemon)..."
-                  className="w-full h-11 pl-10 pr-28 text-body bg-raised text-primary border border-border rounded-control placeholder:text-muted focus:outline-none focus:border-brand transition-colors font-mono"
+                  className="w-full h-11 pl-10 pr-24 sm:pr-28 text-caption sm:text-body bg-raised text-primary border border-border rounded-control placeholder:text-muted focus:outline-none focus:border-brand transition-colors font-mono"
                 />
 
                 <div className="absolute right-2 flex items-center gap-1.5">
@@ -585,42 +604,52 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
               )}
             </div>
 
-            {/* Popover de autocompletado flotante */}
-            {showPalette && filteredPaletteCommands.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 p-compact rounded-card bg-panel border border-strong shadow-xl max-h-80 overflow-y-auto space-y-1 z-40">
+            {/* Popover de autocompletado flotante con aislamiento nítido */}
+            {showPalette && (
+              <div className="absolute top-full left-0 right-0 mt-2 p-compact rounded-card bg-panel border border-border shadow-popover max-h-72 overflow-y-auto custom-scrollbar space-y-1 z-50">
                 <div className="px-2 py-1 text-caption text-muted font-medium flex items-center justify-between border-b border-border">
-                  <span>{filteredPaletteCommands.length} Comandos Coincidentes</span>
-                  <span className="font-mono text-caption">Tab o ↑↓ para seleccionar</span>
+                  <span>
+                    {inputVal.trim().startsWith("/") && inputVal.trim().length > 1
+                      ? `${filteredPaletteCommands.length} Comandos Coincidentes`
+                      : "Comandos sugeridos"}
+                  </span>
+                  <span className="font-mono text-caption hidden sm:inline">Tab o ↑↓ para seleccionar · Esc para cerrar</span>
                 </div>
-                {filteredPaletteCommands.map((cmd, idx) => {
-                  const isSelected = idx === paletteIndex;
-                  return (
-                    <button
-                      key={cmd.command}
-                      type="button"
-                      onClick={() => handleSelectCommandFromPalette(cmd)}
-                      onMouseEnter={() => setPaletteIndex(idx)}
-                      className={`w-full text-left px-3 py-2 rounded-control flex items-center justify-between gap-compact transition-colors ${
-                        isSelected
-                          ? "bg-brand/15 border border-brand/30 text-primary"
-                          : "text-secondary hover:bg-raised"
-                      }`}
-                    >
-                      <div className="flex items-center gap-compact min-w-0">
-                        {getCommandIcon(cmd.iconName)}
-                        <span className="font-mono text-body font-semibold text-primary">
-                          {cmd.command}
+                {filteredPaletteCommands.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-caption text-muted">
+                    No se encontraron comandos coincidentes para "{inputVal}"
+                  </div>
+                ) : (
+                  filteredPaletteCommands.map((cmd, idx) => {
+                    const isSelected = idx === paletteIndex;
+                    return (
+                      <button
+                        key={cmd.command}
+                        type="button"
+                        onClick={() => handleSelectCommandFromPalette(cmd)}
+                        onMouseEnter={() => setPaletteIndex(idx)}
+                        className={`w-full text-left px-3 py-2 rounded-control flex items-center justify-between gap-compact transition-colors ${
+                          isSelected
+                            ? "bg-brand/15 border border-brand/30 text-primary"
+                            : "text-secondary hover:bg-raised border border-transparent"
+                        }`}
+                      >
+                        <div className="flex items-center gap-compact min-w-0">
+                          {getCommandIcon(cmd.iconName)}
+                          <span className="font-mono text-caption sm:text-body font-semibold text-primary shrink-0">
+                            {cmd.command}
+                          </span>
+                          <span className="text-caption text-secondary truncate hidden sm:inline">
+                            — {cmd.title}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-mono text-muted bg-raised px-2 py-0.5 rounded-pill border border-border shrink-0">
+                          {cmd.category}
                         </span>
-                        <span className="text-caption text-secondary truncate hidden md:inline">
-                          — {cmd.title}
-                        </span>
-                      </div>
-                      <span className="text-caption font-mono text-muted bg-raised px-2 py-0.5 rounded-pill border border-border">
-                        {cmd.category}
-                      </span>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })
+                )}
               </div>
             )}
           </div>
@@ -628,8 +657,8 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
           {/* 2. CATÁLOGO ORGANIZADO POR DOMINIOS (Tabs & Grid Central) */}
           <div className="space-y-compact">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-compact pb-compact border-b border-border">
-              {/* Pestañas de categorías */}
-              <div className="flex flex-wrap items-center gap-1.5">
+              {/* Pestañas de categorías con scroll horizontal suave */}
+              <div data-lenis-prevent className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full custom-scrollbar">
                 {DOMAIN_TABS.map((tab) => {
                   const isActive = activeDomain === tab.id;
                   return (

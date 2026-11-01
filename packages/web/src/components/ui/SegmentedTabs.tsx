@@ -35,7 +35,7 @@ export const SegmentedTabs: React.FC<SegmentedTabsProps> = ({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(tab.id)}
-            className={`relative px-3.5 py-1.5 rounded-pill text-caption font-medium transition-colors duration-150 active:scale-[0.98] cursor-pointer select-none flex items-center gap-1.5 ${
+            className={`relative px-3.5 py-1.5 rounded-pill text-caption font-medium whitespace-nowrap transition-colors duration-150 active:scale-[0.98] cursor-pointer select-none flex items-center gap-1.5 shrink-0 ${
               isActive
                 ? "text-primary"
                 : "text-secondary hover:text-primary hover:bg-raised/40"
