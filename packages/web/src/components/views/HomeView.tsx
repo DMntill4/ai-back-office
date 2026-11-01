@@ -479,91 +479,94 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
             </div>
 
-            {/* 2. RESUMEN: CUATRO MÉTRICAS ESENCIALES CON JERARQUÍA INTENCIONAL */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-compact">
+            {/* 2. RESUMEN: CUATRO MÉTRICAS ESENCIALES CON RESPONSIVE REFINADO */}
+            <div className="grid grid-cols-2 2xl:grid-cols-4 gap-compact">
               {/* Alertas de Reorden: MÁXIMA PRIORIDAD VISUAL (ÚNICO CON NARANJA) */}
-              <div className="p-base rounded-control bg-state-attention-surface/20 border border-state-attention/40 flex flex-col justify-between gap-1 transition-colors hover:border-state-attention/70">
-                <div className="flex items-center justify-between">
-                  <span className="text-caption text-state-attention font-medium">
+              <div className="p-compact sm:p-base rounded-control bg-state-attention-surface/20 border border-state-attention/40 flex flex-col justify-between gap-1 transition-colors hover:border-state-attention/70 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-caption text-state-attention font-medium truncate">
                     Alertas de reorden
                   </span>
-                  <AlertTriangle className="w-3.5 h-3.5 text-state-attention" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-state-attention shrink-0" />
                 </div>
-                <div className="text-section-title font-bold text-state-attention font-mono tabular-nums leading-tight mt-1">
+                <div className="text-label sm:text-section-title font-bold text-state-attention font-mono tabular-nums leading-tight mt-1 whitespace-nowrap">
                   {criticalProductsCount}
                 </div>
-                <span className="text-caption text-state-attention flex items-center gap-1 mt-0.5 leading-none font-medium">
+                <span className="text-caption text-state-attention flex items-center gap-1 mt-0.5 leading-none font-medium truncate">
                   <span className="w-1.5 h-1.5 rounded-pill bg-state-attention shrink-0" />
-                  <span>Reposición urgente</span>
+                  <span className="truncate">Reposición urgente</span>
                 </span>
               </div>
 
               {/* Valoración Total: TRATAMIENTO SOBRIO Y SERENO */}
-              <div className="p-base rounded-control bg-raised/40 hover:bg-raised/70 border border-border/40 flex flex-col justify-between gap-1 transition-colors">
-                <div className="flex items-center justify-between">
-                  <span className="text-caption text-muted font-medium">
+              <div className="p-compact sm:p-base rounded-control bg-raised/40 hover:bg-raised/70 border border-border/40 flex flex-col justify-between gap-1 transition-colors min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-caption text-muted font-medium truncate">
                     Valoración total
                   </span>
-                  <Package className="w-3.5 h-3.5 text-muted opacity-80" />
+                  <Package className="w-3.5 h-3.5 text-muted opacity-80 shrink-0" />
                 </div>
-                <div className="text-section-title font-bold text-primary font-mono tabular-nums leading-tight mt-1">
+                <div
+                  className="text-label sm:text-section-title font-bold text-primary font-mono tabular-nums leading-tight mt-1 whitespace-nowrap overflow-hidden text-ellipsis"
+                  title={formatCurrency(totalValuation)}
+                >
                   {formatCurrency(totalValuation)}
                 </div>
-                <span className="text-caption text-secondary flex items-center gap-1 mt-0.5 leading-none font-mono">
+                <span className="text-caption text-secondary flex items-center gap-1 mt-0.5 leading-none font-mono truncate">
                   <span className="w-1.5 h-1.5 rounded-pill bg-secondary shrink-0" />
-                  <span>Capital en inventario</span>
+                  <span className="truncate">Capital inventario</span>
                 </span>
               </div>
 
               {/* Referencias sincronizadas: CONFIRMACIÓN CLARA DE INTEGRACIÓN */}
-              <div className="p-base rounded-control bg-raised/40 hover:bg-raised/70 border border-border/40 flex flex-col justify-between gap-1 transition-colors">
-                <div className="flex items-center justify-between">
-                  <span className="text-caption text-muted font-medium">
-                    Referencias sincronizadas
+              <div className="p-compact sm:p-base rounded-control bg-raised/40 hover:bg-raised/70 border border-border/40 flex flex-col justify-between gap-1 transition-colors min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-caption text-muted font-medium truncate">
+                    Referencias sinc.
                   </span>
-                  <Database className="w-3.5 h-3.5 text-secondary opacity-80" />
+                  <Database className="w-3.5 h-3.5 text-secondary opacity-80 shrink-0" />
                 </div>
-                <div className="text-section-title font-bold text-primary font-mono tabular-nums leading-tight mt-1">
+                <div className="text-label sm:text-section-title font-bold text-primary font-mono tabular-nums leading-tight mt-1 whitespace-nowrap">
                   {monitoredCount}
                 </div>
-                <span className="text-caption text-secondary flex items-center gap-1 mt-0.5 leading-none font-mono">
+                <span className="text-caption text-secondary flex items-center gap-1 mt-0.5 leading-none font-mono truncate">
                   <span className="w-1.5 h-1.5 rounded-pill bg-brand shrink-0" />
-                  <span>En PostgreSQL</span>
+                  <span className="truncate">En PostgreSQL</span>
                 </span>
               </div>
 
               {/* Firmas Pendientes: ESTADO VIOLETA DE AUTORIZACIÓN HUMANA */}
-              <div className="p-base rounded-control bg-state-pending-surface/15 hover:bg-state-pending-surface/30 border border-state-pending/30 flex flex-col justify-between gap-1 transition-colors">
-                <div className="flex items-center justify-between">
-                  <span className="text-caption text-state-pending font-medium">
+              <div className="p-compact sm:p-base rounded-control bg-state-pending-surface/15 hover:bg-state-pending-surface/30 border border-state-pending/30 flex flex-col justify-between gap-1 transition-colors min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-caption text-state-pending font-medium truncate">
                     Firmas pendientes
                   </span>
-                  <FileCheck2 className="w-3.5 h-3.5 text-state-pending opacity-90" />
+                  <FileCheck2 className="w-3.5 h-3.5 text-state-pending opacity-90 shrink-0" />
                 </div>
-                <div className="text-section-title font-bold text-state-pending font-mono tabular-nums leading-tight mt-1">
+                <div className="text-label sm:text-section-title font-bold text-state-pending font-mono tabular-nums leading-tight mt-1 whitespace-nowrap">
                   {pendingDecisionCount}
                 </div>
-                <span className="text-caption text-state-pending flex items-center gap-1 mt-0.5 leading-none font-medium">
+                <span className="text-caption text-state-pending flex items-center gap-1 mt-0.5 leading-none font-medium truncate">
                   <span className="w-1.5 h-1.5 rounded-pill bg-state-pending shrink-0" />
-                  <span>{pendingDecisionCount === 0 ? "Al día · Cero en cola" : "Revisión ejecutiva"}</span>
+                  <span className="truncate">{pendingDecisionCount === 0 ? "Al día · Cero en cola" : "Revisión ejecutiva"}</span>
                 </span>
               </div>
             </div>
 
             {/* 3. ÁREA PRINCIPAL: SALUD DE COBERTURA (IZQ) Y ACTIVIDAD AUTÓNOMA (DER) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-base">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-base">
               {/* Panel Izquierdo: Cobertura de Stock con Barra Hero y Lista Compacta */}
-              <div className="p-base rounded-control bg-raised/40 border border-border/40 flex flex-col justify-between gap-base transition-colors hover:border-border/80">
+              <div className="p-base rounded-control bg-raised/40 border border-border/40 flex flex-col justify-between gap-base transition-colors hover:border-border/80 min-w-0">
                 <div>
                   {/* Título de Cobertura */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-4 h-4 text-brand" />
-                      <span className="text-label font-semibold text-primary">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="w-4 h-4 text-brand shrink-0" />
+                      <span className="text-label font-semibold text-primary truncate">
                         Salud de Cobertura
                       </span>
                     </div>
-                    <span className="text-caption font-mono px-2 py-0.5 rounded-pill bg-state-attention-surface text-state-attention font-medium border border-state-attention/20">
+                    <span className="text-caption font-mono px-2 py-0.5 rounded-pill bg-state-attention-surface text-state-attention font-medium border border-state-attention/20 shrink-0">
                       {criticalPct}% bajo mínimo
                     </span>
                   </div>
@@ -583,48 +586,52 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   </div>
 
                   {/* Etiquetas legibles proporcionales */}
-                  <div className="flex items-center justify-between text-caption text-secondary font-mono mt-2 mb-base">
-                    <span className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between gap-2 text-caption text-secondary font-mono mt-2 mb-base flex-wrap">
+                    <span className="flex items-center gap-1.5 shrink-0">
                       <span className="w-2 h-2 rounded-pill bg-state-attention shrink-0" />
                       <span className="text-state-attention font-medium">{criticalProductsCount} en reorden</span>
                     </span>
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1.5 shrink-0">
                       <span className="w-2 h-2 rounded-pill bg-brand shrink-0" />
                       <span className="text-secondary">{healthyCount} en nivel óptimo</span>
                     </span>
                   </div>
 
-                  {/* Lista Compacta de Alertas Críticas (Productos Afectados con Espacio Adecuado) */}
+                  {/* Lista Compacta de Alertas Críticas (Productos Afectados sin Desbordamiento) */}
                   <div className="space-y-2">
                     {criticalItems.map((item) => (
                       <div
                         key={item.sku}
-                        className="p-2.5 rounded-control bg-surface/60 border border-border/40 flex items-center justify-between gap-3 hover:bg-surface transition-colors"
+                        className="p-2.5 rounded-control bg-surface/60 border border-border/40 flex items-center justify-between gap-2.5 hover:bg-surface transition-colors overflow-hidden"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-caption font-semibold text-primary font-mono">
+                          <div className="flex items-center gap-1.5 overflow-hidden">
+                            <span className="text-caption font-semibold text-primary font-mono shrink-0">
                               {item.sku}
                             </span>
-                            <span className="text-border">·</span>
-                            <span className="text-caption text-secondary truncate max-w-[170px]" title={item.name}>
+                            <span className="text-border/60 shrink-0">·</span>
+                            <span className="text-caption text-secondary truncate" title={item.name}>
                               {item.name}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1.5 mt-0.5 text-caption font-mono text-muted">
-                            <span className="text-state-attention font-medium">
-                              {item.stock} {item.stock === 1 ? "unidad" : "unidades"}
+                          <div className="flex items-center gap-1.5 mt-1 text-caption font-mono text-muted overflow-hidden">
+                            <span className="text-state-attention font-medium whitespace-nowrap shrink-0">
+                              {item.stock} {item.stock === 1 ? "ud." : "uds."}
                             </span>
-                            <span className="text-border">·</span>
-                            <span>Mín: {item.minStock}</span>
-                            <span className="text-border">·</span>
-                            <span className="truncate max-w-[110px]">{item.warehouse}</span>
+                            <span className="text-border/60 shrink-0">·</span>
+                            <span className="whitespace-nowrap shrink-0">
+                              Mín: {item.minStock}
+                            </span>
+                            <span className="text-border/60 shrink-0">·</span>
+                            <span className="truncate text-secondary" title={item.warehouse}>
+                              {item.warehouse}
+                            </span>
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => onNavigateTo("inventario")}
-                          className="px-2.5 py-1.5 rounded-control text-caption font-medium bg-raised hover:bg-border text-primary border border-border shrink-0 cursor-pointer flex items-center gap-1 transition-colors"
+                          className="px-2.5 py-1.5 rounded-control text-caption font-medium bg-raised hover:bg-border text-primary border border-border shrink-0 cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
                           title={`Resolver inventario para ${item.sku}`}
                         >
                           <span>Resolver</span>
@@ -636,49 +643,49 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 </div>
               </div>
 
-              {/* Panel Derecho: Motor Autónomo (Cronología Estructurada Sin Truncar) */}
-              <div className="p-base rounded-control bg-raised/40 border border-border/40 flex flex-col justify-between gap-base transition-colors hover:border-border/80">
+              {/* Panel Derecho: Motor Autónomo (Cronología Estructurada Sin Truncar Ni Solapar) */}
+              <div className="p-base rounded-control bg-raised/40 border border-border/40 flex flex-col justify-between gap-base transition-colors hover:border-border/80 min-w-0">
                 <div>
                   {/* Encabezado del Motor Autónomo */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Bot className="w-4 h-4 text-brand" />
-                      <span className="text-label font-semibold text-primary">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Bot className="w-4 h-4 text-brand shrink-0" />
+                      <span className="text-label font-semibold text-primary truncate">
                         Motor Autónomo
                       </span>
                     </div>
                     {/* Indicador discreto de vigías */}
-                    <span className="text-caption font-mono text-secondary flex items-center gap-1.5 px-2 py-0.5 rounded-pill bg-surface/80 border border-border/50">
+                    <span className="text-caption font-mono text-secondary flex items-center gap-1.5 px-2 py-0.5 rounded-pill bg-surface/80 border border-border/50 shrink-0">
                       <span className="w-1.5 h-1.5 rounded-pill bg-brand" />
-                      <span>3 vigías activos</span>
+                      <span>3 vigías</span>
                     </span>
                   </div>
 
-                  {/* Cronología Compacta: Hora, Acción, Resultado y Estado */}
+                  {/* Cronología Compacta: Hora, Acción, Resultado y Estado (Alineación Estable) */}
                   <div className="space-y-2 mt-2">
                     {autonomousOperations.map((op, idx) => (
                       <div
                         key={idx}
-                        className="p-2 rounded bg-surface/50 border border-border/30 flex items-center justify-between gap-2 text-caption hover:bg-surface/80 transition-colors"
+                        className="p-2 rounded bg-surface/50 border border-border/30 flex items-center justify-between gap-2 text-caption hover:bg-surface/80 transition-colors overflow-hidden"
                       >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
                           <span className="font-mono text-muted text-caption shrink-0">
                             {op.time}
                           </span>
-                          <span className="text-border shrink-0">|</span>
-                          <span className="font-medium text-primary shrink-0">
+                          <span className="text-border/60 shrink-0">·</span>
+                          <span
+                            className="font-medium text-primary truncate"
+                            title={`${op.action} → ${op.result}`}
+                          >
                             {op.action}
-                          </span>
-                          <span className="text-muted shrink-0">→</span>
-                          <span className="text-secondary truncate">
-                            {op.result}
+                            <span className="text-muted font-normal ml-1">
+                              → {op.result}
+                            </span>
                           </span>
                         </div>
                         <span
                           className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-caption font-mono ${
-                            op.badgeType === "ok"
-                              ? "bg-brand-surface text-brand border border-brand/20"
-                              : op.badgeType === "brand"
+                            op.badgeType === "ok" || op.badgeType === "brand"
                               ? "bg-brand-surface text-brand border border-brand/20"
                               : "bg-surface text-secondary border border-border/60"
                           }`}
@@ -690,21 +697,21 @@ export const HomeView: React.FC<HomeViewProps> = ({
                                 : "bg-secondary"
                             }`}
                           />
-                          <span>{op.status}</span>
+                          <span className="whitespace-nowrap">{op.status}</span>
                         </span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Contador de Próximo Ciclo (Visualmente Secundario y Elegante) */}
-                <div className="pt-2 border-t border-border/30 flex items-center justify-between text-caption text-secondary">
-                  <span className="flex items-center gap-1.5 text-muted">
+                {/* Contador de Próximo Ciclo (Alineado Sin Saltos) */}
+                <div className="pt-2 border-t border-border/30 flex items-center justify-between gap-2 text-caption text-secondary flex-wrap">
+                  <span className="flex items-center gap-1.5 text-muted shrink-0">
                     <Clock className="w-3.5 h-3.5 text-muted" />
-                    <span>Ciclo cada 5 min</span>
+                    <span>Ciclo 5 min</span>
                   </span>
-                  <span className="font-mono text-secondary">
-                    Próximo ciclo en <strong className="text-primary font-semibold">2m 14s</strong>
+                  <span className="font-mono text-secondary shrink-0">
+                    Próximo: <strong className="text-primary font-semibold">2m 14s</strong>
                   </span>
                 </div>
               </div>
