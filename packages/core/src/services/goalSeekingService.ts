@@ -116,7 +116,7 @@ export async function executeGoalSeekingEngine(
     throw new Error(`La empresa '${companyId}' no tiene productos registrados en la base de datos. Ejecuta 'mint db sync' o carga un catálogo antes de calcular objetivos.`);
   }
 
-  const currency = compRecord?.currency || "COP";
+  const currency = compRecord?.currency || "MXN";
 
   // 3. Mapear inventario físico real y precios por producto
   const stockByProd = new Map<string, number>();

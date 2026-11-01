@@ -99,7 +99,7 @@ export async function channelsRoutes(fastify: FastifyInstance) {
           name: "Correo Electrónico Corporativo",
           description: "Envío formal de remisiones y órdenes de compra firmadas a proveedores.",
           destination: hasEmail
-            ? "compras@ferreteriasantander.com (SMTP Seguro)"
+            ? "compras@mint.mx (SMTP Seguro)"
             : "No configurado (falta RESEND_API_KEY o SMTP_HOST en .env)",
           isActive: hasEmail,
           available: hasEmail,

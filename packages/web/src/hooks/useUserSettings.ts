@@ -25,10 +25,10 @@ export interface UserSettings {
 const STORAGE_KEY = "mint.user-settings";
 
 export const COMPANIES = [
-  "Mint Colombia",
-  "Bogotá D.C.",
-  "Bucaramanga",
-  "Medellín",
+  "Mint México",
+  "Ciudad de México (CDMX)",
+  "Guadalajara",
+  "Monterrey",
 ] as const;
 
 export const LANDING_OPTIONS = [
@@ -43,7 +43,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   profile: {
     fullName: "Andres Administrador",
     role: "Administrador",
-    email: "operaciones@ferreteriasantander.com.co",
+    email: "operaciones@mint.mx",
     phone: "",
   },
   preferences: {

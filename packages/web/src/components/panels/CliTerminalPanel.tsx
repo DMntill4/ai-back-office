@@ -20,8 +20,8 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
     {
       id: "cli_boot",
       type: "system",
-      text: "[SISTEMA] Mint CLI Console inicializada. Usa `/chat <pregunta>` para hablar con el agente o `mint help` para ver comandos.",
-      timestamp: new Date().toLocaleTimeString("es-CO", { hour12: false }),
+      text: "[SISTEMA] Mint CLI Console inicializada (CDMX · UTC-6). Usa `/chat <pregunta>` para hablar con el agente o `mint help` para ver comandos.",
+      timestamp: new Date().toLocaleTimeString("es-MX", { timeZone: "America/Mexico_City", hour12: false }),
     },
   ]);
   const [isRunning, setIsRunning] = useState(false);
@@ -36,7 +36,7 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
     const trimmed = cmdText.trim();
     if (!trimmed || isRunning) return;
 
-    const time = new Date().toLocaleTimeString("es-CO", { hour12: false });
+    const time = new Date().toLocaleTimeString("es-MX", { timeZone: "America/Mexico_City", hour12: false });
     const userItem: CliHistoryItem = {
       id: `cli_${Date.now()}`,
       type: "command",
@@ -124,7 +124,7 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
           `• SKUs totales: ${s.totalSkus ?? s.total ?? 0}`,
           `• Bajo stock: ${s.lowStock ?? 0}`,
           `• Críticos: ${s.criticalStock ?? s.critical ?? 0}`,
-          `• Valor total: $${Number(s.totalValueCop ?? s.totalValue ?? 0).toLocaleString("es-CO")} COP`,
+          `• Valor total: $${Number(s.totalValueCop ?? s.totalValue ?? 0).toLocaleString("es-MX")} MXN`,
         ].join("\n");
         if (res?.isFallback) responseText += "\n[AVISO] Backend no disponible: datos degradados.";
       } else if (lower.includes("approve") || lower.includes("aprobar")) {
@@ -141,8 +141,8 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
         const c: any = res?.data ?? {};
         responseText = [
           "[BRIEFING OPERATIVO]",
-          `• Fecha: ${new Date().toLocaleDateString("es-CO")}`,
-          `• Tokens consumidos: ${Number(c.totalTokens ?? 0).toLocaleString("es-CO")}`,
+          `• Fecha: ${new Date().toLocaleDateString("es-MX", { timeZone: "America/Mexico_City" })} (CDMX)`,
+          `• Tokens consumidos: ${Number(c.totalTokens ?? 0).toLocaleString("es-MX")}`,
           `• Costo acumulado: $${Number(c.totalCostUsd ?? 0).toFixed(4)} USD`,
           `• Tareas registradas: ${Array.isArray(c.tasks) ? c.tasks.length : 0}`,
         ].join("\n");
@@ -161,7 +161,7 @@ export const CliTerminalPanel: React.FC<CliTerminalPanelProps> = ({
       id: `cli_${Date.now() + 1}`,
       type: "output",
       text: responseText,
-      timestamp: new Date().toLocaleTimeString("es-CO", { hour12: false }),
+      timestamp: new Date().toLocaleTimeString("es-MX", { timeZone: "America/Mexico_City", hour12: false }),
     };
 
     setHistory((prev) => [...prev, responseItem]);

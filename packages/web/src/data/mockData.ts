@@ -10,8 +10,8 @@ export const INITIAL_HITL_DECISIONS: HitlDecision[] = [
     quantity: 9,
     unitPriceCop: 420000,
     totalCostCop: 3780000,
-    supplierName: "Ferreterías Unidas Bogotá",
-    supplierCity: "Bogotá D.C.",
+    supplierName: "Ferreterías Unidas Ciudad de México",
+    supplierCity: "Ciudad de México D.C.",
     leadTimeDays: 2,
     currentStock: 3,
     ropThreshold: 12,
@@ -19,7 +19,7 @@ export const INITIAL_HITL_DECISIONS: HitlDecision[] = [
     redFlags: [],
     status: "pendiente",
     policyDecision: "pending_approval",
-    policyReason: "Propuesta de compra formulada por $3,780,000 COP en modo asistido. Escalada a /inbox para autorización del operador.",
+    policyReason: "Propuesta de compra formulada por $3,780,000 MXN en modo asistido. Escalada a /inbox para autorización del operador.",
     hmacSignature: "hmac_sha256_9f81a7b640192e",
     createdAt: "Hoy, 10:14",
   },
@@ -32,16 +32,16 @@ export const INITIAL_HITL_DECISIONS: HitlDecision[] = [
     quantity: 50,
     unitPriceCop: 145000,
     totalCostCop: 7250000,
-    supplierName: "Distribuciones Industriales de Santander",
-    supplierCity: "Bucaramanga",
+    supplierName: "Distribuciones Industriales de Monterrey",
+    supplierCity: "Monterrey",
     leadTimeDays: 1,
     currentStock: 5,
     ropThreshold: 20,
     riskScore: 0.28,
-    redFlags: ["Monto excede el umbral autónomo de $5,000,000 COP"],
+    redFlags: ["Monto excede el umbral autónomo de $5,000,000 MXN"],
     status: "pendiente",
     policyDecision: "pending_approval",
-    policyReason: "El monto ($7,250,000 COP) excede el umbral de autonomía autorizado de $5,000,000 COP. Exige firma explícita del director de compras.",
+    policyReason: "El monto ($7,250,000 MXN) excede el umbral de autonomía autorizado de $5,000,000 MXN. Exige firma explícita del director de compras.",
     hmacSignature: "hmac_sha256_31a89c02ff1e92",
     createdAt: "Hoy, 08:30",
   },
@@ -72,7 +72,7 @@ export const PREDEFINED_OBJECTIVES: WorkflowObjective[] = [
     id: "obj_cross_docking",
     title: "Torre Logística y Rebalanceo Inter-Sedes",
     badge: "LOGÍSTICA",
-    description: "Evalúa transferencias inter-almacén (Bucaramanga, Bogotá, Medellín) con rutas OSRM para evitar compras externas.",
+    description: "Evalúa transferencias inter-almacén (Monterrey, Ciudad de México, Guadalajara) con rutas OSRM para evitar compras externas.",
     recommendedModel: "grok-beta",
     defaultMaxIterations: 10,
     activeTools: ["tool_db_lookup", "tool_landed_cost", "tool_shipments"],
@@ -82,11 +82,11 @@ export const PREDEFINED_OBJECTIVES: WorkflowObjective[] = [
     id: "obj_hitl_guardian",
     title: "Guardián Presupuestal y Gatekeeper de Aprobación",
     badge: "GOBERNANZA",
-    description: "Inspección matemática determinista sobre órdenes de compra: bloqueo de duplicados 72h y tope de $5,000,000 COP.",
+    description: "Inspección matemática determinista sobre órdenes de compra: bloqueo de duplicados 72h y tope de $5,000,000 MXN.",
     recommendedModel: "grok-4.6",
     defaultMaxIterations: 5,
     activeTools: ["tool_db_lookup", "tool_purchase_order", "tool_anomaly_audit"],
-    systemGoal: "Garantizar estricto cumplimiento del Motor de Políticas: 0 compras unilaterales por encima de $5,000,000 COP.",
+    systemGoal: "Garantizar estricto cumplimiento del Motor de Políticas: 0 compras unilaterales por encima de $5,000,000 MXN.",
   },
 ];
 
@@ -112,7 +112,7 @@ export const INITIAL_TOOLS: AgentTool[] = [
     number: 3,
     name: "Comparador de Catálogo de Proveedores",
     category: "logistics",
-    description: "Compara cotizaciones de proveedores homologados en COP con lead times.",
+    description: "Compara cotizaciones de proveedores homologados en MXN con lead times.",
     isActive: true,
   },
   {
@@ -128,7 +128,7 @@ export const INITIAL_TOOLS: AgentTool[] = [
     number: 5,
     name: "Gatekeeper de Compras (evaluatePolicy)",
     category: "governance",
-    description: "Formula órdenes con idempotencia y deriva a /inbox si excede $5,000,000 COP.",
+    description: "Formula órdenes con idempotencia y deriva a /inbox si excede $5,000,000 MXN.",
     isActive: true,
   },
   {
@@ -183,7 +183,7 @@ export const INITIAL_NODES: NodeData[] = [
     id: "node_action_po",
     type: "action",
     label: "Crear Orden de Compra",
-    sublabel: "Gatekeeper de Aprobación (≤ $5,000,000 COP)",
+    sublabel: "Gatekeeper de Aprobación (≤ $5,000,000 MXN)",
     status: "idle",
     x: 800,
     y: 40,
@@ -215,7 +215,7 @@ export const INITIAL_NODES: NodeData[] = [
     y: 280,
     width: 240,
     properties: {
-      description: "Consolida análisis financiero en COP y genera resumen de existencias.",
+      description: "Consolida análisis financiero en MXN y genera resumen de existencias.",
     },
   },
 ];
@@ -265,10 +265,10 @@ export const INITIAL_LOG_STEPS: LogStep[] = [
       processingNode: "Notify Operator / Bandeja de Aprobación",
       decisionId: "dec_7f93a1c8",
       actionType: "crear_orden_compra",
-      costoTotal: "$3,780,000 COP",
+      costoTotal: "$3,780,000 MXN",
       riskScore: 0.12,
       redFlags: [],
-      reason: "Propuesta de compra formulada por $3,780,000 COP. Encolada en /inbox para autorización del operador.",
+      reason: "Propuesta de compra formulada por $3,780,000 MXN. Encolada en /inbox para autorización del operador.",
       channelsDispatched: ["Discord (#alertas-operativas)", "Consola Web"],
       waitingOperatorSignature: true,
     },
@@ -294,28 +294,28 @@ Distribuidor mayorista de suministros industriales, consumibles de corte y maqui
 
 ## Parámetros Operacionales
 - **NIT:** 900.582.114-8
-- **Sede Matriz:** Bucaramanga, Chimitá ([[03-Logistica/bodega-matriz-bucaramanga]])
-- **Moneda Base:** COP (Pesos Colombianos)
-- **Política de Autonomía:** Aprobación asistida obligatoria por encima de $5,000,000 COP ([[04-Politicas/guardrail-presupuestal-aprobacion]]).`,
+- **Sede Matriz:** Monterrey, Chimitá ([[03-Logistica/bodega-matriz-bucaramanga]])
+- **Moneda Base:** MXN (Pesos Colombianos)
+- **Política de Autonomía:** Aprobación asistida obligatoria por encima de $5,000,000 MXN ([[04-Politicas/guardrail-presupuestal-aprobacion]]).`,
     updatedAt: "Hoy, 11:20",
   },
   {
     id: "note_prov_002",
     filename: "01-Proveedores/ferreterias-unidas-bogota.md",
     folder: "01-Proveedores",
-    title: "Proveedor: Ferreterías Unidas Bogotá",
+    title: "Proveedor: Ferreterías Unidas Ciudad de México",
     estado: "vigente",
     confianza: 0.94,
     evidencias_count: 8,
     origen: "PostgreSQL: suppliers[supp_ferr_bog]",
     tags: ["#proveedores", "#bogota", "#homologado", "#lead_time"],
     wikilinks: ["[[02-Productos/sku-disco-diamantado-7]]", "[[05-Decisiones/po-2026-0089]]"],
-    content: `# Ferreterías Unidas Bogotá
+    content: `# Ferreterías Unidas Ciudad de México
 
 Proveedor mayorista homologado para consumibles de corte y herramientas industriales.
 
 ## Desempeño y Términos
-- **Lead Time Verificado:** 3 días hábiles Bogotá -> Bucaramanga.
+- **Lead Time Verificado:** 3 días hábiles Ciudad de México -> Monterrey.
 - **Rating de Cumplimiento:** 4.8 / 5.0 estrellas.
 - **Línea de Crédito:** 30 días neto.
 - **Productos Suministrados:** [[02-Productos/sku-disco-diamantado-7]] y pulidoras Bosch.`,
@@ -340,7 +340,7 @@ Consumible crítico de corte para obras civiles y construcción pesada.
 - **Stock Mínimo (ROP):** 25 unidades
 - **Stock de Seguridad:** 10 unidades
 - **Consumo Diario:** 2.1 unidades/día
-- **Costo Unitario Homologado:** $45,000 COP
+- **Costo Unitario Homologado:** $45,000 MXN
 - **Alerta Activa:** Stock actual de 8 unidades se encuentra por debajo del ROP (días de cobertura: 3.8 días). Requiere reposición inmediata ([[05-Decisiones/po-2026-0089]]).`,
     updatedAt: "Hoy, 10:14",
   },
@@ -348,7 +348,7 @@ Consumible crítico de corte para obras civiles y construcción pesada.
     id: "note_hip_004",
     filename: "07-Hipotesis/flete-consolidado-ahorro-15pct.md",
     folder: "07-Hipotesis",
-    title: "Hipótesis: Consolidación de Despachos Bogotá-Bucaramanga ahorra 15%",
+    title: "Hipótesis: Consolidación de Despachos Ciudad de México-Monterrey ahorra 15%",
     estado: "hipotesis",
     confianza: 0.65,
     evidencias_count: 2,
@@ -360,7 +360,7 @@ Consumible crítico de corte para obras civiles y construcción pesada.
 Si agrupamos las compras semanales de consumibles de corte en un solo despacho por camión consolidado los días jueves, el costo logístico por unidad se reduce en un 15.2% frente a envíos fraccionados.
 
 ## Evidencias Registradas (2 de 3 requeridas para promoción):
-1. Envío #SH-8841 con despacho consolidado registró costo de $18,000 COP/kg vs $21,500 COP/kg estándar.
+1. Envío #SH-8841 con despacho consolidado registró costo de $18,000 MXN/kg vs $21,500 MXN/kg estándar.
 2. Factura de transporte OSRM Vía Pescadero del 18-Oct confirmó tarifa preferencial por volumen > 500kg.
 *Falta 1 evidencia adicional para promover a 'vigente'.*`,
     updatedAt: "Ayer, 16:40",
@@ -406,7 +406,7 @@ La memoria en el vault afirmaba que el proveedor otorgaba un 12% de descuento po
 
 Orden de compra formulada por Mint para prevenir el desabasto del Disco Diamantado 7' en Bodega Matriz.
 
-- **Monto Total:** $1,350,000 COP
+- **Monto Total:** $1,350,000 MXN
 - **Proveedor:** [[01-Proveedores/ferreterias-unidas-bogota]]
 - **SKU:** [[02-Productos/sku-disco-diamantado-7]] (30 unidades)
 - **Estado de Aprobación:** Autorizado con firma HMAC-SHA256 por el operador.`,
@@ -422,7 +422,7 @@ export const INITIAL_STOCK_SKUS: import("../types/workflow").StockSkuItem[] = [
     name: "Disco Diamantado 7' Concreto",
     category: "Consumibles de Corte",
     warehouseId: "wh_bga",
-    warehouseName: "Bodega Matriz Bucaramanga",
+    warehouseName: "Bodega Matriz Monterrey",
     currentStock: 8,
     minStock: 25,
     safetyStock: 10,
@@ -438,7 +438,7 @@ export const INITIAL_STOCK_SKUS: import("../types/workflow").StockSkuItem[] = [
     name: "Martillo Demoledor SDS-Max 1500W",
     category: "Maquinaria Pesada",
     warehouseId: "wh_bga",
-    warehouseName: "Bodega Matriz Bucaramanga",
+    warehouseName: "Bodega Matriz Monterrey",
     currentStock: 3,
     minStock: 12,
     safetyStock: 5,
@@ -454,7 +454,7 @@ export const INITIAL_STOCK_SKUS: import("../types/workflow").StockSkuItem[] = [
     name: "Taladro de Impacto Inalámbrico 20V",
     category: "Herramientas Eléctricas",
     warehouseId: "wh_bog",
-    warehouseName: "CD Bogotá D.C.",
+    warehouseName: "CD Ciudad de México D.C.",
     currentStock: 45,
     minStock: 15,
     safetyStock: 8,
@@ -470,7 +470,7 @@ export const INITIAL_STOCK_SKUS: import("../types/workflow").StockSkuItem[] = [
     name: "Casco de Seguridad Industrial Tipo II",
     category: "Protección Personal (EPP)",
     warehouseId: "wh_med",
-    warehouseName: "CD Medellín",
+    warehouseName: "CD Guadalajara",
     currentStock: 60,
     minStock: 30,
     safetyStock: 15,
@@ -486,7 +486,7 @@ export const INITIAL_STOCK_SKUS: import("../types/workflow").StockSkuItem[] = [
     name: "Sierra Circular Industrial 1800W",
     category: "Herramientas Eléctricas",
     warehouseId: "wh_bga",
-    warehouseName: "Bodega Matriz Bucaramanga",
+    warehouseName: "Bodega Matriz Monterrey",
     currentStock: 5,
     minStock: 20,
     safetyStock: 8,
@@ -503,7 +503,7 @@ export const INITIAL_GOAL_LEVERS: import("../types/workflow").GoalLever[] = [
   {
     id: "lever_reneg",
     title: "Renegociación por Volumen con Proveedores Homologados",
-    description: "Descuento escalonado del 6.8% en compras semestrales consolidadas de discos diamantados y pulidoras con Ferreterías Unidas Bogotá.",
+    description: "Descuento escalonado del 6.8% en compras semestrales consolidadas de discos diamantados y pulidoras con Ferreterías Unidas Ciudad de México.",
     potentialSavingsCop: 7850000,
     leverType: "renegociacion_volumen",
     active: true,
@@ -512,7 +512,7 @@ export const INITIAL_GOAL_LEVERS: import("../types/workflow").GoalLever[] = [
   {
     id: "lever_cobertura",
     title: "Optimización de Cobertura de Stock (45d -> 30d)",
-    description: "Liberación de capital de trabajo reduciendo inventario ocioso en maquinaria de baja rotación en CD Medellín y CD Bogotá.",
+    description: "Liberación de capital de trabajo reduciendo inventario ocioso en maquinaria de baja rotación en CD Guadalajara y CD Ciudad de México.",
     potentialSavingsCop: 5200000,
     leverType: "cobertura_stock",
     active: true,
@@ -521,7 +521,7 @@ export const INITIAL_GOAL_LEVERS: import("../types/workflow").GoalLever[] = [
   {
     id: "lever_fletes",
     title: "Consolidación de Despachos Vía OSRM Pescadero",
-    description: "Unificación de pedidos semanales en un solo camión consolidado los días jueves en el corredor Bogotá -> Bucaramanga.",
+    description: "Unificación de pedidos semanales en un solo camión consolidado los días jueves en el corredor Ciudad de México -> Monterrey.",
     potentialSavingsCop: 2800000,
     leverType: "consolidacion_fletes",
     active: false,
@@ -571,7 +571,7 @@ export const INITIAL_DOCTOR_CHECKS: import("../types/workflow").DoctorCheckItem[
   {
     id: "chk_gov",
     category: "governance",
-    label: "Guardrail Financiero de Aprobación ($5,000,000 COP)",
+    label: "Guardrail Financiero de Aprobación ($5,000,000 MXN)",
     status: "ok",
     details: "Motor de políticas determinista activo. Regla de duplicidad 72h habilitada.",
   },

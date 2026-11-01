@@ -106,7 +106,7 @@ export function formatCompanyDate(
       options.hour12 = false;
     }
 
-    return new Intl.DateTimeFormat("es-CO", options).format(d);
+    return new Intl.DateTimeFormat("es-MX", options).format(d);
   } catch {
     return d.toISOString();
   }
@@ -126,7 +126,7 @@ export async function getCompanyTimezone(companyId: string = "comp_default"): Pr
     return record[0].value;
   }
 
-  return "UTC";
+  return "America/Mexico_City";
 }
 
 /**
@@ -143,9 +143,9 @@ export async function getCompanyConfig(companyId: string = "comp_default"): Prom
     raw[c.key] = c.value;
   }
 
-  const companyName = comp[0]?.name || companyId;
-  const currency = raw["currency"] || comp[0]?.currency || "USD";
-  const timezone = raw["timezone"] && isValidTimezone(raw["timezone"]) ? raw["timezone"] : "UTC";
+  const companyName = comp[0]?.name || "Mint México";
+  const currency = raw["currency"] || comp[0]?.currency || "MXN";
+  const timezone = raw["timezone"] && isValidTimezone(raw["timezone"]) ? raw["timezone"] : "America/Mexico_City";
   const parsedLimit = raw["approval_limit_amount"] ? parseFloat(raw["approval_limit_amount"]) : NaN;
   const approvalLimitAmount: number | null = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
   const botName = raw["bot_name"] || "Mint Autonomous Agent";

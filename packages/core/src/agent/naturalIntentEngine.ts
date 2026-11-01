@@ -212,12 +212,13 @@ export async function resolveNaturalLanguageIntent(
   if (isGreeting) {
     const activeCfg = config || (await getCompanyConfig(companyId));
     const timeStr = formatCompanyDate(new Date(), activeCfg.timezone, true);
+    const tzLabel = activeCfg.timezone.includes("Mexico_City") ? "Hora CDMX, UTC-6" : activeCfg.timezone;
     return {
       intent: "SMALLTALK",
       handledDeterministically: true,
       response: isEn
-        ? `Hello. I am ${activeCfg.botName}, operational coordinator for ${activeCfg.companyName}. Local time is ${timeStr} (${activeCfg.timezone}). All systems are online. How can I assist you today? You can ask about stock levels, open purchase orders, shipment tracking, or daily reports.`
-        : `Hola. Soy ${activeCfg.botName}, coordinador operativo de ${activeCfg.companyName}. Son las ${timeStr} (${activeCfg.timezone}). Todo el sistema está activo. ¿En qué te puedo colaborar hoy? Puedes consultarme sobre existencias, compras pendientes, flota de envíos o pedirme un reporte diario.`,
+        ? `Hello. I am ${activeCfg.botName}, operational coordinator for ${activeCfg.companyName}. Local time is ${timeStr} (${tzLabel}). All systems are online. How can I assist you today? You can ask about stock levels, open purchase orders, shipment tracking, or daily reports.`
+        : `Hola. Soy ${activeCfg.botName}, coordinador operativo de ${activeCfg.companyName}. Son las ${timeStr} (${tzLabel}). Todo el sistema está activo. ¿En qué te puedo colaborar hoy? Puedes consultarme sobre existencias, compras pendientes, flota de envíos o pedirme un reporte diario.`,
       suggestedAction: isEn ? "Ask about stock, orders or /inbox" : "Preguntar sobre stock, órdenes o /inbox",
     };
   }
@@ -229,6 +230,60 @@ export async function resolveNaturalLanguageIntent(
       response: isEn
         ? "You're welcome. I continue monitoring operations in real time. Any inventory or shipment alerts will be reported immediately."
         : "Con gusto. Sigo monitoreando la operación en tiempo real. Cualquier novedad de inventario o transporte te la notificaré al instante.",
+    };
+  }
+
+
+  // 1.5 INTENCIÓN: Listado de Productos Específicos en Inventario / Catálogo Detallado
+  const isProductListQuery =
+    /\b(que productos|cuales productos|lista de productos|mostrar productos|ver productos|productos en inventario|productos en stock|productos hay|que articulos|cuales articulos|cuales son los productos|que tenemos en inventario|cuales referencias|cuales son las referencias)\b/i.test(norm) ||
+    /^(productos|catalogo|articulos|referencias)$/i.test(norm);
+
+  if (isProductListQuery) {
+    const activeCfg = config || (await getCompanyConfig(companyId));
+    const intel = await getInventoryIntelligence(companyId);
+    const critical = intel.items.filter((i) => i.daysUntilStockout <= 7 || i.currentStock === 0);
+
+    const topItems = intel.items.slice(0, 8).map((item, idx) => {
+      const statusLabel =
+        item.currentStock === 0
+          ? (isEn ? "⚠️ OUT OF STOCK (Urgent reorder)" : "⚠️ AGOTADO (Reorden urgente)")
+          : item.currentStock <= item.minSafetyStock
+          ? (isEn ? "⚠️ LOW STOCK (ROP)" : "⚠️ BAJO MÍNIMO (ROP)")
+          : (isEn ? "✓ OPTIMAL" : "✓ ÓPTIMO");
+      return isEn
+        ? `${idx + 1}. ${item.sku} · ${item.name}\n   • Stock: ${item.currentStock}u | Min: ${item.minSafetyStock}u | Status: ${statusLabel}`
+        : `${idx + 1}. ${item.sku} · ${item.name}\n   • Stock actual: ${item.currentStock} ud. | Mínimo: ${item.minSafetyStock} ud. | Estado: ${statusLabel}`;
+    });
+
+    const res = isEn
+      ? [
+          `[MINT BOT // INVENTORY PRODUCT CATALOG]`,
+          `Live PostgreSQL query verified (${activeCfg.companyName} · Central Warehouse):`,
+          `Total registered: ${intel.totalSkus} SKUs (${intel.totalStockUnits.toLocaleString("en-US")} units, valued at $${intel.totalStockValuation.toLocaleString("en-US")} ${intel.currency}).`,
+          "",
+          ...topItems,
+          "",
+          intel.items.length > 8 ? `... and ${intel.items.length - 8} more SKUs synchronized.` : "",
+          `Ask about any specific SKU or type /stock for overall metrics summary.`,
+        ].filter(Boolean).join("\n")
+      : [
+          `[MINT BOT // PRODUCTOS EN INVENTARIO]`,
+          `Consultando base de datos PostgreSQL en tiempo real (${activeCfg.companyName} · Almacén Central CDMX):`,
+          `Total registrado: ${intel.totalSkus} referencias (${intel.totalStockUnits.toLocaleString("es-MX")} unidades físicas, valorizado en $ ${intel.totalStockValuation.toLocaleString("es-MX")} ${intel.currency}).`,
+          "",
+          ...topItems,
+          "",
+          intel.items.length > 8 ? `... y ${intel.items.length - 8} referencias adicionales sincronizadas.` : "",
+          `Puedes consultarme por cualquier SKU específico o escribir «alerta reorden» para ver los críticos.`,
+        ].filter(Boolean).join("\n");
+
+    return {
+      intent: "INVENTORY_QUERY",
+      handledDeterministically: true,
+      response: res,
+      suggestedAction: critical.length > 0 ? "Revisar /inbox o /intel" : "Ver /stock",
+      data: intel,
     };
   }
 

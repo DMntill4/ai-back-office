@@ -172,7 +172,7 @@ export async function getDailyExecutiveBriefing(companyId: string = "comp_defaul
 
   return {
     companyId,
-    date: new Date().toLocaleDateString("es-CO"),
+    date: new Date().toLocaleDateString("es-MX"),
     currency,
     salesSummary: {
       ordersCount: orders.length,

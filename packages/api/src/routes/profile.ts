@@ -68,7 +68,7 @@ async function executeSqlIngestion(opts: IngestSqlOptions) {
   // 3. Asegurar almacén central para existencias físicas
   const [comp] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
   const warehouseId = `alm_central_${companyId}`.slice(0, 36);
-  const warehouseCity = comp?.city || comp?.country || "Bucaramanga";
+  const warehouseCity = comp?.city || comp?.country || "Ciudad de México (CDMX)";
 
   await db
     .insert(warehouses)
