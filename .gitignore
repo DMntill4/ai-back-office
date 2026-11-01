@@ -1,5 +1,8 @@
 node_modules/
 dist/
+target/
+src-tauri/target/
+packages/web/src-tauri/target/
 .env
 *.sqlite
 *.sqlite-journal
