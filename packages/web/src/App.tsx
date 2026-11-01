@@ -3,6 +3,7 @@ import { AppShell } from "./components/layout/AppShell";
 import { LoadingScreen } from "./components/ui/LoadingScreen";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AgentSubNav, AGENT_TABS_WITHOUT_OWN_NAV } from "./components/layout/AgentSubNav";
+import { SplashScreen } from "./components/SplashScreen";
 
 import { getUserSettings, useUserSettings } from "./hooks/useUserSettings";
 import { api, type PendingDecisionRecord } from "./services/apiClient";
@@ -172,6 +173,8 @@ const readTabFromLocation = (): string => {
 };
 
 export const App: React.FC = () => {
+  // Pantalla de bienvenida / Splash en cada apertura
+  const [showSplash, setShowSplash] = useState(true);
   // Pestaña inicial sincrónica con URL hash (e.g. #inventario)
   const [currentTab, setCurrentTab] = useState<string>(readTabFromLocation);
   const [decisions, setDecisions] = useState<PendingDecisionRecord[]>([]);
@@ -436,6 +439,9 @@ export const App: React.FC = () => {
 
   return (
     <MotionConfig reducedMotion="user">
+      {showSplash && (
+        <SplashScreen onComplete={() => setShowSplash(false)} />
+      )}
       <AppShell
         currentTab={currentTab}
         onSelectTab={handleTabChange}
