@@ -24,11 +24,15 @@ services:
       dockerfile: Dockerfile
     container_name: ai_back_office_app
     restart: unless-stopped
+    ports:
+      - "3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       NODE_ENV: development
+      PORT: 3001
+      HOST: 0.0.0.0
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_back_office}
       XAI_API_KEY: ${XAI_API_KEY:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
@@ -36,7 +40,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    command: sh -c "tail -f /dev/null"
+    command: npm run api
 
 volumes:
   pg_data:

@@ -154,7 +154,7 @@ export async function requestWithFallback<T>(
             success: false,
             data: fallback,
             isFallback: true,
-            message: err?.message ?? "No fue posible consultar el backend.",
+            message: (err?.message && (err.message.includes('fetch') || err.message.includes('Network'))) ? "No se pudo conectar con el servidor backend en el puerto 3001. Inicie Docker con Iniciar-Mint.bat o docker compose up -d." : (err?.message ?? "No fue posible consultar el backend."),
         };
     }
 }

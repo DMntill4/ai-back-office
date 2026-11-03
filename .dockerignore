@@ -1,5 +1,7 @@
 node_modules
+**/node_modules
 dist
+**/dist
 .git
 .env
 npm-debug.log*
@@ -9,3 +11,10 @@ yarn-error.log*
 videos
 *graphify*
 graphify-out
+packages/web/src-tauri/target
+target
+*.exe
+*.pdb
+*.zip
+*.msi
+Mint-Studio-Package

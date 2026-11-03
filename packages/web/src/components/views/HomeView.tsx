@@ -35,8 +35,8 @@ export interface HomeViewProps {
   decisionsError?: string | null;
 }
 
-const formatCurrency = (value: number, currency = "COP") =>
-  new Intl.NumberFormat("es-CO", {
+const formatCurrency = (value: number, currency = "MXN") =>
+  new Intl.NumberFormat("es-MX", {
     style: "currency",
     currency,
     maximumFractionDigits: 0,
