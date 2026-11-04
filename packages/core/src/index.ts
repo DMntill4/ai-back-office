@@ -98,3 +98,6 @@ export * from "./telemetry/telemetryPublisher";
 // 11. Seguridad, Detección de Prompt Injection, Anti-SSRF y Guardrails
 export * from "./security/index";
 
+
+// 12. Despacho Logistico y Manifiestos de Carga
+export * from "./services/freightDispatchService";

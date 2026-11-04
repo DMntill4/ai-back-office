@@ -12,3 +12,5 @@ export * from "./ajustarStock";
 export * from "./consultarEstadoSistema";
 export * from "./verificarFrescuraDatos";
 export * from "./calcularRutaLogistica";
+export * from "./consultarHojaDeRuta";
+export * from "./despacharEmbarque";

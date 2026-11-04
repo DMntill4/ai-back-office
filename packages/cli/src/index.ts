@@ -29,6 +29,17 @@ program
     return startCommand(options);
   });
 
+// 0.0 mint worker / mint live (Living Autonomous Employee)
+program
+  .command("worker")
+  .alias("live")
+  .description("Inicia el trabajador autonomo 24/7 con transmision en vivo de subagentes en la terminal")
+  .option("-i, --interval <seconds>", "Intervalo de patrulla en segundos (por defecto: 15)", "15")
+  .action((options) => {
+    const { workerCommand } = require("./commands/worker");
+    return workerCommand({ interval: parseInt(options.interval, 10) });
+  });
+
 // 0.1 mint setup [file]
 program
   .command("setup [file]")

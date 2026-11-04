@@ -302,6 +302,20 @@ export const TOOL_PERMISSION_REQUIREMENTS: Record<string, ToolPermissionRequirem
     isDestructive: false,
     requiresHumanApproval: false,
   },
+  consultar_hoja_de_ruta: {
+    domain: "logistica",
+    action: "read",
+    allowedRoles: ["orchestrator", "logistica", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  despachar_embarque: {
+    domain: "logistica",
+    action: "execute",
+    allowedRoles: ["orchestrator", "logistica", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
   despachar_envio_cliente: {
     domain: "logistica",
     action: "execute",

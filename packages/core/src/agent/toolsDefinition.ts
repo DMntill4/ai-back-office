@@ -15,6 +15,8 @@ import { executeAjustarStock } from "../tools/ajustarStock";
 import { executeConsultarEstadoSistema } from "../tools/consultarEstadoSistema";
 import { executeVerificarFrescuraDatos } from "../tools/verificarFrescuraDatos";
 import { executeCalcularRutaLogistica } from "../tools/calcularRutaLogistica";
+import { executeConsultarHojaDeRuta } from "../tools/consultarHojaDeRuta";
+import { executeDespacharEmbarque } from "../tools/despacharEmbarque";
 import {
   dispatchOutboundShipment,
   receiveInboundShipment,

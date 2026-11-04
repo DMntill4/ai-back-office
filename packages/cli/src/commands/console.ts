@@ -517,9 +517,10 @@ export async function consoleCommand() {
 
           case "feed":
           case "live":
+          case "worker":
           case "watch": {
-            const { watchCommand } = require("./daemon");
-            await watchCommand();
+            const { workerCommand } = require("./worker");
+            await workerCommand({ interval: 10 });
             break;
           }
 
