@@ -68,6 +68,8 @@ export * from "./services/shadowModeService";
 export * from "./services/businessAnalyticsService";
 export * from "./services/universalLocaleEngine";
 export * from "./services/autonomousInspectionService";
+export * from "./services/readinessDiagnosticService";
+export * from "./services/universalImportService";
 export * from "./services/obsidianMemoryService";
 export * from "./services/goalSeekingService";
 

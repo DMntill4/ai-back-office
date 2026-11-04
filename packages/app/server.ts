@@ -29,6 +29,12 @@ import {
   updateLogisticsNodeLocation,
   resolveNodeGeoPoint,
   calculateRealRoute,
+  generateReadinessReport,
+  importUniversalDataFile,
+  listCompanySuppliers,
+  addCompanySupplier,
+  listCompanyFleet,
+  mintQuarantineRecords,
 } from "@mint/core";
 import {
   listNotificationChannels,
@@ -37,8 +43,9 @@ import {
 } from "@mint/notifiers";
 import { eq, desc, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { getSession, saveSession } from "../cli/src/keychain";
 
-const app = Fastify({ logger: false });
+const app = Fastify({ logger: false, bodyLimit: 52428800 });
 
 app.register(cors, { origin: true, credentials: true });
 
@@ -54,25 +61,24 @@ let activeSession = {
 async function ensureActiveSessionHydrated() {
   if (activeSession.initialized) return;
   try {
+    const saved = await getSession();
+    if (saved && saved.companyId) {
+      activeSession.companyId = saved.companyId;
+      activeSession.companyName = saved.companyName || saved.companyId;
+      activeSession.userName = saved.name || "Operator";
+      activeSession.userRole = saved.role || "owner";
+      activeSession.initialized = true;
+      return;
+    }
+  } catch {}
+  try {
     const allCompanies = await db.select().from(companies);
     if (allCompanies.length > 0) {
-      // Preferir empresa que tenga productos cargados
-      for (const comp of allCompanies) {
-        const prods = await db.select().from(products).where(eq(products.companyId, comp.id)).limit(1);
-        if (prods.length > 0) {
-          activeSession.companyId = comp.id;
-          activeSession.companyName = comp.name;
-          activeSession.initialized = true;
-          return;
-        }
-      }
       activeSession.companyId = allCompanies[0].id;
       activeSession.companyName = allCompanies[0].name;
     }
     activeSession.initialized = true;
-  } catch {
-    // Continuar con valores por defecto si la BD no responde aún
-  }
+  } catch {}
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -150,6 +156,24 @@ app.post("/api/session", async (req) => {
     activeSession.companyId = body.companyId;
     activeSession.companyName = body.companyName || body.companyId;
     activeSession.initialized = true;
+    try {
+      const existing = (await getSession()) || {
+        token: "mint_session_" + Date.now(),
+        userId: "usr_operator",
+        email: "operator@mint.local",
+        name: activeSession.userName,
+        role: activeSession.userRole,
+        companyId: activeSession.companyId,
+        companyName: activeSession.companyName,
+        savedAt: new Date().toISOString(),
+      };
+      await saveSession({
+        ...existing,
+        companyId: activeSession.companyId,
+        companyName: activeSession.companyName,
+        savedAt: new Date().toISOString(),
+      });
+    } catch {}
   }
   return { success: true, session: activeSession };
 });
@@ -397,7 +421,7 @@ app.get("/api/dashboard", async (req) => {
           }, 0)
         ),
         spend: totalSpend,
-        currency: "MXN",
+        currency: (await generateReadinessReport(companyId).catch(() => null))?.detectedLocale?.currency || "USD",
       },
     },
     metrics: {
@@ -551,6 +575,7 @@ app.post("/api/chat", async (req) => {
 
   const timeline: Array<{ agent: string; action: string }> = [];
   const res = await runAgentLoop(caseId, {
+    userRole: activeSession.userRole || "operator",
     onEvent: (ev) => {
       timeline.push({ agent: ev.agent, action: ev.action });
     },
@@ -630,6 +655,135 @@ app.post("/api/scan", async () => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// 9.5. READINESS DIAGNOSTICS, INGESTION, SUPPLIERS & QUARANTINE
+// ─────────────────────────────────────────────────────────────
+app.get("/api/readiness", async (req) => {
+  await ensureActiveSessionHydrated();
+  const query = (req.query as any) || {};
+  const companyId = query.companyId || activeSession.companyId;
+  const report = await generateReadinessReport(companyId);
+  return { success: true, report };
+});
+
+app.post("/api/ingest/file", async (req) => {
+  await ensureActiveSessionHydrated();
+  const body = (req.body as any) || {};
+  const companyId = body.companyId || activeSession.companyId;
+  const filePath = body.filePath;
+  if (!filePath) {
+    return { success: false, error: "Se requiere filePath para importar" };
+  }
+  try {
+    const result = await importUniversalDataFile(companyId, filePath);
+    const readiness = await generateReadinessReport(companyId);
+    return { success: true, result, readiness };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+app.post("/api/ingest/content", async (req) => {
+  await ensureActiveSessionHydrated();
+  const body = (req.body as any) || {};
+  const companyId = body.companyId || activeSession.companyId;
+  const filename = body.filename || "import.csv";
+  const content = body.content || "";
+  try {
+    const scratchDir = path.join(process.cwd(), "scratch");
+    if (!fs.existsSync(scratchDir)) fs.mkdirSync(scratchDir, { recursive: true });
+    const tempPath = path.join(scratchDir, `upload_${Date.now()}_${filename}`);
+    fs.writeFileSync(tempPath, content, "utf8");
+    const result = await importUniversalDataFile(companyId, tempPath);
+    const readiness = await generateReadinessReport(companyId);
+    return { success: true, result, readiness };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+app.get("/api/suppliers", async (req) => {
+  await ensureActiveSessionHydrated();
+  const query = (req.query as any) || {};
+  const companyId = query.companyId || activeSession.companyId;
+  const supps = await listCompanySuppliers(companyId);
+  return { success: true, suppliers: supps };
+});
+
+app.post("/api/suppliers", async (req) => {
+  await ensureActiveSessionHydrated();
+  const body = (req.body as any) || {};
+  const companyId = body.companyId || activeSession.companyId;
+  try {
+    const created = await addCompanySupplier(companyId, {
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
+      city: body.city,
+    });
+    return { success: true, supplier: created };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+app.get("/api/fleet", async (req) => {
+  await ensureActiveSessionHydrated();
+  const query = (req.query as any) || {};
+  const companyId = query.companyId || activeSession.companyId;
+  const fleet = await listCompanyFleet(companyId);
+  return { success: true, fleet };
+});
+
+app.get("/api/quarantine", async (req) => {
+  await ensureActiveSessionHydrated();
+  const query = (req.query as any) || {};
+  const companyId = query.companyId || activeSession.companyId;
+  const items = await db
+    .select()
+    .from(mintQuarantineRecords)
+    .where(eq(mintQuarantineRecords.companyId, companyId))
+    .orderBy(desc(mintQuarantineRecords.createdAt))
+    .limit(50);
+  return { success: true, quarantine: items };
+});
+
+app.post("/api/products", async (req) => {
+  await ensureActiveSessionHydrated();
+  const body = (req.body as any) || {};
+  const companyId = body.companyId || activeSession.companyId;
+  const sku = body.sku;
+  const name = body.name;
+  if (!sku || !name) {
+    return { success: false, error: "SKU y Nombre son requeridos" };
+  }
+  const prodId = `prod_${companyId}_${sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+  await db
+    .insert(products)
+    .values({
+      id: prodId,
+      companyId,
+      sku,
+      name,
+      category: body.category || "General",
+      price: String(body.price || "0"),
+      costPrice: String(body.costPrice || "0"),
+      minStock: Number(body.minStock || 5),
+      origin: "real",
+    })
+    .onConflictDoUpdate({
+      target: [products.id],
+      set: {
+        name,
+        category: body.category || "General",
+        price: String(body.price || "0"),
+        costPrice: String(body.costPrice || "0"),
+        minStock: Number(body.minStock || 5),
+      },
+    });
+  return { success: true, productId: prodId };
+});
+
 // 10. STATIC DESKTOP APP SERVING (PACKAGES/APP/PUBLIC)
 // ─────────────────────────────────────────────────────────────
 const publicDir = path.resolve(__dirname, "public");

@@ -11,3 +11,4 @@ export * from "./projectDiscovery";
 export * from "./jsonSource";
 export * from "./restApiSource";
 export * from "./sqlServerSource";
+export * from "./writeBackEngine";

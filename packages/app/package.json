@@ -9,5 +9,6 @@
   "dependencies": {
     "@mint/core": "*",
     "@mint/notifiers": "*"
-  }
+  },
+  "type": "commonjs"
 }

@@ -27,6 +27,8 @@ async function waitForServer(port: string | number, maxAttempts = 15): Promise<b
 }
 
 export async function startCommand(options: StartOptions = {}) {
+  const { ensureEnterpriseDatabaseActive } = await import("../services/dockerDatabaseOrchestrator");
+  await ensureEnterpriseDatabaseActive();
   const report = await verifyRuntimeEnvironment();
   if (!report.compatible) {
     console.error(theme.redBold("\n[ERROR] No se puede iniciar Mint Back Office. Diagnostico fallido:"));

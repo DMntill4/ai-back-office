@@ -81,6 +81,7 @@ describe("Fase F6: Flujo Integral E2E de Mint CLI y Coordinador Autónomo", () =
     const prodId = `prod_e2e_${runTimestamp}`;
     const sku = `SKU-E2E-${runTimestamp}`;
     const suppId = "prov_acme";
+    await db.insert(suppliers).values({ id: suppId, companyId, name: "Proveedor Acme E2E", origin: "real" }).onConflictDoNothing();
 
     await db
       .insert(products)

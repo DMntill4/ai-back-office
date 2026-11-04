@@ -339,14 +339,14 @@ export const TOOL_PERMISSION_REQUIREMENTS: Record<string, ToolPermissionRequirem
   },
   auditar_anomalias: {
     domain: "auditoria",
-    action: "execute",
+    action: "analyze",
     allowedRoles: ["orchestrator", "auditoria", "human_user"],
     isDestructive: false,
     requiresHumanApproval: false,
   },
   auditar_anomalias_operativas: {
     domain: "auditoria",
-    action: "execute",
+    action: "analyze",
     allowedRoles: ["orchestrator", "auditoria", "human_user"],
     isDestructive: false,
     requiresHumanApproval: false,

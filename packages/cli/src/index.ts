@@ -140,11 +140,12 @@ program
     return simulateCommand(scenario || "stockout", options);
   });
 
-// 9. mint console / mint repl
+// 9. mint cli / mint console / mint repl
 program
-  .command("console")
+  .command("cli")
+  .alias("console")
   .alias("repl")
-  .description("Consola interactiva con prompt permanente para operaciones continuas")
+  .description("Inicia la consola interactiva MINT CLI para operaciones del Back Office")
   .action(() => {
     const { consoleCommand } = require("./commands/console");
     return consoleCommand();
@@ -579,6 +580,64 @@ program
 // 45. mint graph
 const { graphCommand } = require("./commands/graph");
 program.addCommand(graphCommand);
+
+// 46. mint suppliers [action] [arg1] [rest...]
+program
+  .command("suppliers [action] [arg1] [rest...]")
+  .alias("proveedores")
+  .description("Gestión de proveedores, contactos y desempeño: mint suppliers [list|add|show]")
+  .action((action, arg1, rest) => {
+    const { suppliersCommand } = require("./commands/suppliers");
+    return suppliersCommand(action, arg1, ...(Array.isArray(rest) ? rest : []));
+  });
+
+// 47. mint fleet [action] [arg1] [rest...]
+program
+  .command("fleet [action] [arg1] [rest...]")
+  .alias("flota")
+  .description("Control de flota, camiones, conductores y envíos: mint fleet [list|add|track|drivers]")
+  .action((action, arg1, rest) => {
+    const { fleetCommand } = require("./commands/fleet");
+    return fleetCommand(action, arg1, ...(Array.isArray(rest) ? rest : []));
+  });
+
+// 48. mint products [action] [arg1] [rest...]
+program
+  .command("products [action] [arg1] [rest...]")
+  .alias("productos")
+  .description("Catálogo de productos y artículos: mint products [list|add|show|import]")
+  .action((action, arg1, rest) => {
+    const { productsCommand } = require("./commands/products");
+    return productsCommand(action, arg1, ...(Array.isArray(rest) ? rest : []));
+  });
+
+// 49. mint init
+program
+  .command("init")
+  .description("Inicialización rápida y guiada de empresa y datos (alias de setup)")
+  .action(() => {
+    const { setupCommand } = require("./commands/setup");
+    return setupCommand({});
+  });
+
+// 50. mint readiness
+program
+  .command("readiness")
+  .description("Diagnóstico honesto de preparación de datos, brechas y módulos activos")
+  .option("--json", "Salida en formato JSON")
+  .action((options) => {
+    const { doctorCommand } = require("./commands/doctor");
+    return doctorCommand(options);
+  });
+
+// 51. mint executions
+program
+  .command("executions")
+  .description("Ejecuta y audita los 10 casos reales de punta a punta (Herramientas reales, Resiliencia y HITL)")
+  .action(async () => {
+    const { runAll10Executions } = require("../../../scripts/run_10_real_executions");
+    await runAll10Executions();
+  });
 
 export function runCli(argv = process.argv) {
   if (argv.length <= 2) {

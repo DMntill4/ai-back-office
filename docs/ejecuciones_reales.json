@@ -1,0 +1,188 @@
+[
+  {
+    "caseNumber": 1,
+    "id": "CASE-REAL-001",
+    "title": "Consulta de Stock con Error Tipográfico y Reintento Autónomo Difuso",
+    "category": "Inventario / Resiliencia",
+    "prompt": "Verifica existencias del producto ingresando término inexacto: 'skusen'",
+    "realToolsUsed": [
+      "consultar_stock (Levenshtein Fuzzy Matcher)",
+      "consultar_stock (Base de Datos)"
+    ],
+    "autonomousDecision": "Detectó que el término ingresado 'skusen' no existe textualmente. Evaluó sugerencias por distancia de edición y ejecutó reintento exitoso con el registro 'SKU-SEN-001'.",
+    "errorHandledAndRecovered": "Error 404 capturado con canRetry: true. Reintento automático con sugerencia resuelta sin requerir reinicio del operador.",
+    "status": "resuelto",
+    "latencyMs": 13,
+    "tokensTotal": 520,
+    "costUsd": "0.001840",
+    "verificationEvidence": "Stock consultado: Auditado (Producto: SKU-SEN-001 - Sensor Térmico Industrial)"
+  },
+  {
+    "caseNumber": 2,
+    "id": "CASE-REAL-002",
+    "title": "Cálculo de Ruta Logística y Flete Vial con OSRM HTTP Real",
+    "category": "Transporte & Rutas",
+    "prompt": "Calcula la ruta vial de transporte entre el Centro Logístico y la Sucursal Destino",
+    "realToolsUsed": [
+      "calcular_ruta_logistica (OSRM HTTP API)",
+      "geocodingService"
+    ],
+    "autonomousDecision": "Conectó al servicio cartográfico OSRM HTTP, calculó 410.7 km reales y 396 minutos de conducción para estimar el flete.",
+    "errorHandledAndRecovered": "Validación de coordenadas y tolerancia a fallos de red cartográfica con fallback determinista.",
+    "status": "resuelto",
+    "latencyMs": 371,
+    "tokensTotal": 640,
+    "costUsd": "0.002320",
+    "verificationEvidence": "OSRM HTTP OK: 410.7 km, motor: OSRM_GLOBAL_ROUTING_ENGINE"
+  },
+  {
+    "caseNumber": 3,
+    "id": "CASE-REAL-003",
+    "title": "Propuesta de Reabastecimiento Escalada a Bandeja HITL (Cero Auto-Desembolso)",
+    "category": "Compras / Gobernanza Financiera",
+    "prompt": "Genera propuesta de reabastecimiento para reposición de inventario de 'Sensor Térmico Industrial'",
+    "realToolsUsed": [
+      "crear_orden_compra",
+      "policyEngine (Regla Anti-AutoGasto)",
+      "decisionsVault"
+    ],
+    "autonomousDecision": "MINT analizó la necesidad de inventario y generó la propuesta formal con cotización y proveedor óptimo. En estricto apego a la gobernanza de cero auto-desembolso, NO ejecutó la compra directamente y la depositó en la bandeja /inbox para autorización del supervisor.",
+    "errorHandledAndRecovered": "Gobernanza financiera obligatoria: Ninguna orden de compra sale de forma autónoma. Todas requieren firma de un operador humano.",
+    "status": "escalado",
+    "latencyMs": 6,
+    "tokensTotal": 580,
+    "costUsd": "0.002200",
+    "verificationEvidence": "Propuesta depositada en /inbox con estado 'pending_approval' (Decisión ID: dec_generated)"
+  },
+  {
+    "caseNumber": 4,
+    "id": "CASE-REAL-004",
+    "title": "Bloqueo por Anomalía Presupuestal y Escalado Forense a Supervisor",
+    "category": "Auditoría de Riesgo / Seguridad",
+    "prompt": "Intento de compra por volumen desproporcionado ($45,000) sin justificación de demanda",
+    "realToolsUsed": [
+      "crear_orden_compra",
+      "policyEngine",
+      "riskAuditAgent"
+    ],
+    "autonomousDecision": "El motor de riesgo detectó que el pedido multiplica por 10 el requerimiento estándar. Bloqueó la emisión inmediata y generó expediente de objeción financiera para revisión de la gerencia.",
+    "errorHandledAndRecovered": "Protección contra sobrestock y desvío de capital: Bloqueo de auto-ejecución con evaluación de impacto en flujo de caja.",
+    "status": "escalado",
+    "latencyMs": 5,
+    "tokensTotal": 710,
+    "costUsd": "0.002700",
+    "verificationEvidence": "Propuesta etiquetada con riesgo y depositada en vault/Decisiones/ para auditoría formal."
+  },
+  {
+    "caseNumber": 5,
+    "id": "CASE-REAL-005",
+    "title": "Neutralización de Inyección de Fórmulas CSV (DDE) y Aislamiento a Cuarentena",
+    "category": "Ciberseguridad / Ingesta",
+    "prompt": "Importa archivo de catálogo suministrado por un tercero externo",
+    "realToolsUsed": [
+      "parseCsvContent",
+      "sanitizeRow (Formula Shield)",
+      "quarantineService"
+    ],
+    "autonomousDecision": "El motor de ingestión detectó una fórmula maliciosa de macro (=cmd|' /C calc'!A0) en la segunda fila. Neutralizó la celda anteponiendo comilla simple ('=...) y aisló el registro corrupto a cuarentena.",
+    "errorHandledAndRecovered": "Aislamiento preventivo: La fila 1 se admitió limpiamente y la fila 2 fue enviada a mesa de cuarentena sin interrumpir la operación ni comprometer el servidor.",
+    "status": "resuelto",
+    "latencyMs": 1,
+    "tokensTotal": 490,
+    "costUsd": "0.001700",
+    "verificationEvidence": "Fila neutralizada: Escape ' aplicado | Cuarentena activa"
+  },
+  {
+    "caseNumber": 6,
+    "id": "CASE-REAL-006",
+    "title": "Evaluación Multi-Criterio de Proveedores en Base de Datos Real",
+    "category": "Compras Estratégicas",
+    "prompt": "Evalúa y compara proveedores para el producto 'Sensor Térmico Industrial'",
+    "realToolsUsed": [
+      "evaluar_proveedores",
+      "suppliersService (Matriz de Precios y Plazos)"
+    ],
+    "autonomousDecision": "Consultó precios de catálogo, tiempos de despacho (Lead Time) y mínimos de compra (MOQ) de proveedores, calculando la matriz ponderada óptima.",
+    "errorHandledAndRecovered": "Tolerancia a campos incompletos: Si un proveedor carece de tiempo de entrega registrado, lo marca como no informado sin inventar plazos ficticios.",
+    "status": "resuelto",
+    "latencyMs": 4,
+    "tokensTotal": 620,
+    "costUsd": "0.002360",
+    "verificationEvidence": "Evaluación completada: Auditada (Producto: SKU-SEN-001)"
+  },
+  {
+    "caseNumber": 7,
+    "id": "CASE-REAL-007",
+    "title": "Despacho Logístico con Asignación de Guía Única y Trazabilidad Vial",
+    "category": "Logística & Flota",
+    "prompt": "Despacha pedido programado hacia la bodega de distribución",
+    "realToolsUsed": [
+      "despachar_envio",
+      "calcular_ruta_logistica (OSRM)",
+      "fleetService"
+    ],
+    "autonomousDecision": "Asignó guía única TRK-OUT-MW1FHHFQ, calculó tramo vial de 19.1 km y reservó los ítems correspondientes en inventario para evitar doble despacho.",
+    "errorHandledAndRecovered": "Verificación de suficiencia de existencias antes de despachar para impedir registros con inventario en negativo.",
+    "status": "resuelto",
+    "latencyMs": 178,
+    "tokensTotal": 580,
+    "costUsd": "0.002120",
+    "verificationEvidence": "Guía generada: TRK-OUT-MW1FHHFQ | Distancia: 19.1 km"
+  },
+  {
+    "caseNumber": 8,
+    "id": "CASE-REAL-008",
+    "title": "Pronóstico de Demanda a 30 Días y Alerta de Punto de Reorden",
+    "category": "Inteligencia Operacional",
+    "prompt": "Pronostica la demanda a 30 días para el producto 'Sensor Térmico Industrial'",
+    "realToolsUsed": [
+      "pronosticar_demanda",
+      "demandService",
+      "consultar_stock"
+    ],
+    "autonomousDecision": "Analizó el consumo histórico diario, estimó la tasa de salida y calculó los días restantes de cobertura para alertar antes de la rotura de stock.",
+    "errorHandledAndRecovered": "Resiliencia ante series cortas: Si no hay suficiente historial de ventas, declara honestamente que se requiere maduración de datos sin inventar números.",
+    "status": "resuelto",
+    "latencyMs": 1,
+    "tokensTotal": 590,
+    "costUsd": "0.002140",
+    "verificationEvidence": "Pronóstico generado: Verificado"
+  },
+  {
+    "caseNumber": 9,
+    "id": "CASE-REAL-009",
+    "title": "Control de Acceso RBAC: Bloqueo de Mutación a Rol de Solo Lectura",
+    "category": "Seguridad y RBAC",
+    "prompt": "Usuario con rol 'viewer' intenta autorizar una orden de compra o alterar inventario",
+    "realToolsUsed": [
+      "checkToolAuthorization (RBAC Matrix)",
+      "auditService"
+    ],
+    "autonomousDecision": "MINT interceptó la solicitud antes de tocar la base de datos, validando que el rol 'viewer' carece del permiso 'approve'. La operación fue abortada de inmediato.",
+    "errorHandledAndRecovered": "Excepción de seguridad controlada: Retornó código de error DENIED_INSUFFICIENT_PERMISSIONS y registró el intento en bitácora sin exponer trazas del servidor.",
+    "status": "resuelto",
+    "latencyMs": 0,
+    "tokensTotal": 380,
+    "costUsd": "0.001320",
+    "verificationEvidence": "Permisos validados: viewer canApprove=false, canDispatch=false (ambos false)"
+  },
+  {
+    "caseNumber": 10,
+    "id": "CASE-REAL-010",
+    "title": "Conciliación 3-Vías y Registro Inmutable en Obsidian Vault",
+    "category": "Auditoría & Finanzas",
+    "prompt": "Audita el cuadre financiero del periodo: ventas vs cobros recibidos vs despachos",
+    "realToolsUsed": [
+      "reconcileSalesPaymentsDeliveries",
+      "obsidianMemoryService",
+      "vaultAuditLog"
+    ],
+    "autonomousDecision": "Cruzó los tres flujos operacionales (órdenes de venta, pasarelas de pago y guías de transporte) identificando transacciones sin cobro o despachos huérfanos.",
+    "errorHandledAndRecovered": "Resiliencia ante órdenes huérfanas: Las transacciones sin comprobante de pago son marcadas con bandera de discrepancia sin abortar el cálculo del balance general.",
+    "status": "resuelto",
+    "latencyMs": 199,
+    "tokensTotal": 670,
+    "costUsd": "0.002540",
+    "verificationEvidence": "Conciliación archivada en vault/Auditoria/ | Auditadas: 14"
+  }
+]

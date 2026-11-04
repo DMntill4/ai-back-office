@@ -167,6 +167,18 @@ export async function importUniversalCatalogFile(
   companyId: string,
   filePath: string,
 ): Promise<{ importedProducts: number; importedSuppliers: number }> {
+  const { importUniversalDataFile } = await import("@mint/core");
+  const res = await importUniversalDataFile(companyId, filePath);
+  return {
+    importedProducts: res.importedProducts,
+    importedSuppliers: res.importedSuppliers,
+  };
+}
+
+export async function oldImportUniversalCatalogFile(
+  companyId: string,
+  filePath: string,
+): Promise<{ importedProducts: number; importedSuppliers: number }> {
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === ".csv") {

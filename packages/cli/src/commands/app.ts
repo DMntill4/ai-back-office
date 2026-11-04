@@ -4,11 +4,13 @@ import { spawn } from "node:child_process";
 import * as http from "node:http";
 import * as fs from "node:fs";
 
-function checkPort(port: number): Promise<boolean> {
+function checkPortHealth(port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const req = http.get(`http://localhost:${port}/api/dashboard`, () => resolve(true));
+    const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+      resolve(res.statusCode === 200);
+    });
     req.on("error", () => resolve(false));
-    req.setTimeout(800, () => {
+    req.setTimeout(500, () => {
       req.destroy();
       resolve(false);
     });
@@ -30,7 +32,6 @@ function launchDesktopAppWindow(url: string) {
       spawn(chromePath, appArgs, { detached: true, stdio: "ignore" }).unref();
       return;
     }
-    // Fallback on windows
     spawn("cmd.exe", ["/c", "start", url], { detached: true, stdio: "ignore" }).unref();
   } else if (process.platform === "darwin") {
     spawn("open", ["-n", "-a", "Google Chrome", "--args", `--app=${url}`], { detached: true, stdio: "ignore" }).unref();
@@ -40,26 +41,36 @@ function launchDesktopAppWindow(url: string) {
 }
 
 export async function appCommand(options: { open?: boolean } = { open: true }) {
-  console.log("\n" + drawDivider("MINT DESKTOP APPLICATION // CENTRO DE CONTROL", 84));
+  const { ensureEnterpriseDatabaseActive } = await import("../services/dockerDatabaseOrchestrator");
+  await ensureEnterpriseDatabaseActive();
+  console.log("\n" + drawDivider("MINT DESKTOP APPLICATION // TORRE DE CONTROL VISUAL", 84));
 
-  const isServerUp = await checkPort(4200);
-  if (!isServerUp) {
-    console.log(`  ${theme.mint("[INICIO] Iniciando Motor de la App de Escritorio...")} (Puerto 4200)`);
-    const serverProc = spawn("npx", ["tsx", "packages/app/server.ts"], {
-      cwd: process.cwd(),
-      detached: true,
-      stdio: "ignore",
-      shell: true,
-    });
-    serverProc.unref();
-    await new Promise((r) => setTimeout(r, 1200));
-  } else {
-    console.log(`  ${theme.success("[OK]")} Motor de la App de Escritorio activo y enlazado.`);
+  const isAlreadyRunning = await checkPortHealth(4200);
+
+  if (isAlreadyRunning) {
+    console.log(`  ${theme.mintBold("[OK]")} Torre de Control Visual ya activa en http://localhost:4200`);
+    if (options.open !== false) {
+      console.log(`  ${theme.cyanBold("[APP]")} Abriendo ventana de la aplicación...`);
+      launchDesktopAppWindow("http://localhost:4200");
+    }
+    console.log(`\n  ${theme.dim("Aplicación lista y enlazada.")}\n`);
+    process.exit(0);
+  }
+
+  // Si no está corriendo, arrancar el servidor Fastify
+  console.log(`  ${theme.mint("[INICIO] Iniciando Motor de la App de Escritorio...")} (Puerto 4200)`);
+  
+  try {
+    const { startAppServer } = require("../../../app/server");
+    await startAppServer();
+  } catch (err: any) {
+    console.error(`  ${theme.redBold("[ERROR]")} No se pudo iniciar el servidor: ${err.message}`);
+    process.exit(1);
   }
 
   const appUrl = "http://localhost:4200";
   if (options.open !== false) {
-    console.log(`  ${theme.cyanBold("[APP] Abriendo Ventana Nativa de la App de Escritorio...")}`);
+    console.log(`  ${theme.cyanBold("[APP]")} Abriendo Ventana de la Torre de Control Visual...`);
     launchDesktopAppWindow(appUrl);
   }
 
@@ -67,15 +78,16 @@ export async function appCommand(options: { open?: boolean } = { open: true }) {
   console.log(
     drawCard(
       [
-        `${theme.dim("Aplicación:")}    ${theme.mintBold("MINT DESKTOP APP (Standalone Native Window)")}`,
-        `${theme.dim("Localhost:")}     ${theme.cyan("http://localhost:4200")}`,
-        `${theme.dim("Características:")}Centro de control de canales (Discord / Slack / Telegram),`,
-        `                 catálogo de existencias en tiempo real, bandeja de compras HITL,`,
-        `                 y pruebas interactivas de envío de avisos.`,
-        `${theme.dim("Persistencia:")}   Directa en PostgreSQL (Drizzle ORM) por empresa y usuario.`,
+        `${theme.dim("Aplicación:")}    ${theme.mintBold("MINT DESKTOP APP (Torre de Control Visual)")}`,
+        `${theme.dim("URL Local:")}      ${theme.cyan("http://localhost:4200")}`,
+        `${theme.dim("Vistas:")}         Diagnóstico de Datos (5 Pilares), Ingesta Universal,`,
+        `                 Proveedores, Cuarentena & Seguridad, Flota & Rutas GPS (OSRM).`,
+        `${theme.dim("Persistencia:")}   Conectada a PostgreSQL local (misma base que el CLI).`,
+        "",
+        theme.mintBold("Servidor activo. Presiona Ctrl+C para detener la aplicación."),
       ],
       {
-        title: "[MINT] MINT DESKTOP APP INICIADA",
+        title: "[MINT] APP INICIADA AUTOMÁTICAMENTE",
         borderColor: theme.mint,
       },
     ),

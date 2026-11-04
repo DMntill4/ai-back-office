@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initLogisticsForms();
   initAgentConsole();
   initLogs();
+  initOsmMap();
 
   // Initial load
   loadSession().then(() => {
@@ -68,10 +69,16 @@ function switchTab(tabId) {
   if (activeView) activeView.classList.add("active");
 
   if (tabId === "inventory") loadProducts();
-  if (tabId === "logistics") loadLogisticsOverview();
+  if (tabId === "logistics") {
+    loadLogisticsOverview();
+    setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 250);
+  }
   if (tabId === "channels") loadChannels();
   if (tabId === "decisions") loadDecisions();
   if (tabId === "dashboard") loadDashboardMetrics();
+  if (tabId === "readiness") loadReadiness();
+  if (tabId === "suppliers") loadSuppliers();
+  if (tabId === "quarantine") loadQuarantine();
 }
 
 // Session & Company
@@ -115,10 +122,13 @@ function initCompanySelector() {
 
 function loadAllData() {
   loadDashboardMetrics();
+  loadReadiness();
   loadProducts();
+  loadSuppliers();
   loadLogisticsOverview();
   loadChannels();
   loadDecisions();
+  loadQuarantine();
 }
 
 // 1. Dashboard Metrics
@@ -183,6 +193,7 @@ async function loadLogisticsOverview() {
     renderShipmentsTable(data.shipments || []);
     renderConsolidatedLoads(data.consolidatedLoads || []);
     renderLogisticsNodes(data.warehouses || [], data.suppliers || []);
+    updateMapEntities(data.warehouses || [], data.suppliers || [], data.shipments || []);
   } catch (err) {
     console.error("Error loading logistics overview:", err);
   }
@@ -865,4 +876,367 @@ function appendTelemetryLog(tag, message) {
   `;
   body.appendChild(entry);
   body.scrollTop = body.scrollHeight;
+}
+
+
+/* ==========================================================================
+   Leaflet OpenStreetMap Integration (Zero-Cost Free Maps)
+   ========================================================================== */
+let mapInstance = null;
+let mapMarkers = [];
+
+function initOsmMap() {
+  const mapEl = document.getElementById("osmMap");
+  if (!mapEl || mapInstance) return;
+  if (typeof L === "undefined") {
+    const textEl = document.getElementById("mapStatusText");
+    if (textEl) textEl.textContent = "OpenStreetMap offline o esperando carga de biblioteca...";
+    return;
+  }
+  try {
+    mapInstance = L.map("osmMap").setView([4.6097, -74.0817], 6);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: "© OpenStreetMap contributors"
+    }).addTo(mapInstance);
+  } catch (err) {
+    console.warn("Leaflet map init warning:", err);
+  }
+}
+
+function updateMapEntities(warehouses, supps, ships) {
+  if (!mapInstance || typeof L === "undefined") return;
+  mapMarkers.forEach((m) => {
+    try { mapInstance.removeLayer(m); } catch {}
+  });
+  mapMarkers = [];
+  const points = [];
+
+  (warehouses || []).forEach((w) => {
+    const lat = Number(w.latitude || 4.6097);
+    const lon = Number(w.longitude || -74.0817);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      const marker = L.circleMarker([lat, lon], {
+        radius: 8,
+        fillColor: "#06b6d4",
+        color: "#ffffff",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.9,
+      }).addTo(mapInstance).bindPopup(`<b>Bodega:</b> ${w.name}<br><b>Ciudad:</b> ${w.city || w.address || "Principal"}`);
+      mapMarkers.push(marker);
+      points.push([lat, lon]);
+    }
+  });
+
+  (supps || []).forEach((s) => {
+    const lat = Number(s.latitude || 6.2442);
+    const lon = Number(s.longitude || -75.5812);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      const marker = L.circleMarker([lat, lon], {
+        radius: 7,
+        fillColor: "#f59e0b",
+        color: "#ffffff",
+        weight: 1.5,
+        opacity: 1,
+        fillOpacity: 0.85,
+      }).addTo(mapInstance).bindPopup(`<b>Proveedor:</b> ${s.name}<br><b>Ciudad:</b> ${s.city || "N/A"}`);
+      mapMarkers.push(marker);
+      points.push([lat, lon]);
+    }
+  });
+
+  (ships || []).forEach((sh) => {
+    const lat = Number(sh.currentLatitude || 4.711);
+    const lon = Number(sh.currentLongitude || -74.0721);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      const marker = L.circleMarker([lat, lon], {
+        radius: 9,
+        fillColor: sh.status === "retrasado" ? "#ef4444" : "#10b981",
+        color: "#ffffff",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.95,
+      }).addTo(mapInstance).bindPopup(`<b>Guía:</b> ${sh.trackingNumber}<br><b>Transportista:</b> ${sh.carrier}<br><b>Estado:</b> ${sh.status}`);
+      mapMarkers.push(marker);
+      points.push([lat, lon]);
+    }
+  });
+
+  const textEl = document.getElementById("mapStatusText");
+  if (textEl) {
+    textEl.textContent = `${mapMarkers.length} nodos y guías georreferenciadas en OpenStreetMap.`;
+  }
+
+  if (points.length > 0) {
+    try {
+      mapInstance.fitBounds(points, { padding: [40, 40], maxZoom: 12 });
+    } catch {}
+  }
+}
+
+/* ==========================================================================
+   Readiness Diagnostic & Universal Data Ingestion
+   ========================================================================== */
+async function loadReadiness() {
+  try {
+    const res = await fetch(`/api/readiness?companyId=${currentCompanyId}`);
+    const data = await res.json();
+    if (!data.success || !data.report) return;
+    const r = data.report;
+
+    const scoreEl = document.getElementById("diagHealthScore");
+    if (scoreEl) {
+      scoreEl.textContent = `${r.scorePercent ?? 100}%`;
+      scoreEl.className = (r.scorePercent ?? 100) >= 80 ? "kpi-num text-mint" : (r.scorePercent ?? 100) >= 50 ? "kpi-num text-amber" : "kpi-num text-red";
+    }
+    const statusEl = document.getElementById("diagHealthStatus");
+    if (statusEl) statusEl.textContent = r.overallStatus === "OPTIMA" ? "Estado Óptimo" : r.overallStatus === "ATENCION" ? "Requiere Atención" : "Crítico";
+
+    const currEl = document.getElementById("diagCurrency");
+    if (currEl) currEl.textContent = r.detectedLocale.currency || "No determinada";
+    const currEv = document.getElementById("diagCurrencyEvidence");
+    if (currEv) currEv.textContent = r.detectedLocale.evidence || "Sin evidencia";
+
+    const locEl = document.getElementById("diagLocation");
+    if (locEl) locEl.textContent = r.detectedLocale.country ? `${r.detectedLocale.country} (${r.detectedLocale.city || "Sede"})` : "No determinada";
+
+    const entCountEl = document.getElementById("diagEntitiesCount");
+    if (entCountEl) {
+      entCountEl.textContent = `${r.entitiesSummary?.productsCount || 0} prods, ${r.entitiesSummary?.suppliersCount || 0} provs, ${r.entitiesSummary?.fleetVehiclesCount || 0} camiones`;
+    }
+
+    const modulesContainer = document.getElementById("diagModulesContainer");
+    if (modulesContainer) {
+      modulesContainer.innerHTML = r.activeModules.map((m) => `
+        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:10px 14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="font-size:13px; color:var(--text-main);">${m.name}</strong>
+            <span class="badge ${m.active ? "badge-mint" : "badge-outline"}">${m.active ? "ACTIVO" : "INACTIVO"}</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">${m.reason}</div>
+        </div>
+      `).join("");
+    }
+
+    renderPillar("itemsBloqueantes", "countBloqueantes", r.findings.bloqueantes, "Sin errores bloqueantes.");
+    renderPillar("itemsDiscrepancias", "countDiscrepancias", r.findings.discrepancias, "Sin discrepancias numéricas.");
+    renderPillar("itemsSeguridad", "countSeguridad", r.findings.seguridad, "Sin amenazas detectadas.");
+    renderPillar("itemsCalidad", "countCalidad", r.findings.calidad, "Datos con formato óptimo.");
+    renderPillar("itemsFaltantes", "countFaltantes", r.findings.faltantes, "Todos los módulos desbloqueados.");
+
+    const gapsPill = document.getElementById("readinessGapsPill");
+    if (gapsPill) {
+      const totalGaps = r.findings.bloqueantes.length + r.findings.discrepancias.length + r.findings.faltantes.length;
+      gapsPill.textContent = String(totalGaps);
+      gapsPill.className = totalGaps > 0 ? "nav-pill pill-amber" : "nav-pill";
+    }
+
+    const quarPill = document.getElementById("quarantineCountPill");
+    if (quarPill) {
+      quarPill.textContent = String(r.findings?.seguridad?.length || 0);
+    }
+  } catch (err) {
+    console.error("Error loading readiness:", err);
+  }
+}
+
+function renderPillar(containerId, countId, items, emptyText) {
+  const c = document.getElementById(containerId);
+  const countBadge = document.getElementById(countId);
+  if (countBadge) countBadge.textContent = String(items.length);
+  if (!c) return;
+
+  if (items.length === 0) {
+    c.innerHTML = `<div class="empty-hint">${emptyText}</div>`;
+    return;
+  }
+
+  c.innerHTML = items.map((f) => `
+    <div class="finding-item">
+      <span class="finding-title">${f.title}</span>
+      <span class="finding-desc">${f.description}</span>
+      ${f.suggestedAction ? `<span class="finding-action">💡 ${f.suggestedAction}</span>` : ""}
+    </div>
+  `).join("");
+}
+
+async function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  await uploadAndIngestFile(file);
+}
+
+async function uploadAndIngestFile(file) {
+  const resBox = document.getElementById("ingestResultBox");
+  if (resBox) resBox.innerHTML = `<span class="text-mint">Analizando '${file.name}' con motor universal de MINT...</span>`;
+
+  try {
+    const text = await file.text();
+    const res = await fetch("/api/ingest/content", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyId: currentCompanyId,
+        filename: file.name,
+        content: text,
+      }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Archivo '${file.name}' ingerido exitosamente`);
+      if (resBox) {
+        resBox.innerHTML = `
+          <div style="background:var(--mint-glow); border:1px solid var(--mint); border-radius:var(--radius-sm); padding:10px 14px; font-size:12px;">
+            <b>✔ Importación Exitosa:</b> ${data.result.importedProducts} productos cargados | ${data.result.importedSuppliers} proveedores | ${data.result.quarantinedCount} aislados en cuarentena.
+          </div>
+        `;
+      }
+      loadAllData();
+    } else {
+      showToast(`Error al importar: ${data.error}`, "error");
+      if (resBox) resBox.innerHTML = `<span class="text-red">Error: ${data.error}</span>`;
+    }
+  } catch (err) {
+    showToast(`Error de conexión: ${err.message}`, "error");
+  }
+}
+
+async function handleImportPath() {
+  const pathInput = document.getElementById("filePathInput");
+  const filePath = (pathInput?.value || "").trim();
+  if (!filePath) {
+    showToast("Por favor ingresa una ruta válida a un archivo local", "error");
+    return;
+  }
+
+  const resBox = document.getElementById("ingestResultBox");
+  if (resBox) resBox.innerHTML = `<span class="text-mint">Leyendo archivo desde '${filePath}'...</span>`;
+
+  try {
+    const res = await fetch("/api/ingest/file", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyId: currentCompanyId,
+        filePath,
+      }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Ruta importada con éxito`);
+      if (resBox) {
+        resBox.innerHTML = `
+          <div style="background:var(--mint-glow); border:1px solid var(--mint); border-radius:var(--radius-sm); padding:10px 14px; font-size:12px;">
+            <b>✔ Importación Exitosa:</b> ${data.result.importedProducts} productos | ${data.result.importedSuppliers} proveedores | ${data.result.quarantinedCount} en cuarentena.
+          </div>
+        `;
+      }
+      loadAllData();
+    } else {
+      showToast(`Error: ${data.error}`, "error");
+      if (resBox) resBox.innerHTML = `<span class="text-red">Error: ${data.error}</span>`;
+    }
+  } catch (err) {
+    showToast(`Error de conexión: ${err.message}`, "error");
+  }
+}
+
+/* ==========================================================================
+   Suppliers Directory
+   ========================================================================== */
+function toggleAddSupplierCard() {
+  const c = document.getElementById("addSupplierCard");
+  if (c) c.style.display = c.style.display === "none" ? "block" : "none";
+}
+
+async function loadSuppliers() {
+  try {
+    const res = await fetch(`/api/suppliers?companyId=${currentCompanyId}`);
+    const data = await res.json();
+    const tbody = document.getElementById("suppliersTableBody");
+    const countPill = document.getElementById("suppliersCountPill");
+    if (data.success && tbody) {
+      const supps = data.suppliers || [];
+      if (countPill) countPill.textContent = String(supps.length);
+      if (supps.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">No hay proveedores registrados en la base de datos.<br><small>Usa "+ Registrar Proveedor" o importa un archivo de datos.</small></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = supps.map((s) => `
+        <tr>
+          <td><code class="text-mint">${s.id}</code></td>
+          <td><strong>${s.name}</strong></td>
+          <td>${s.city || '<span class="text-dim">Sin ciudad</span>'}</td>
+          <td>${s.phone || s.email || '<span class="text-dim">N/A</span>'}</td>
+          <td class="text-right">${s.catalogCount || 0} SKUs</td>
+          <td class="text-right">${s.avgLeadTimeDays || 3} días</td>
+          <td class="text-right">${s.totalOrdersIssued || 0} POs</td>
+        </tr>
+      `).join("");
+    }
+  } catch (err) {
+    console.error("Error loading suppliers:", err);
+  }
+}
+
+async function handleCreateSupplier(event) {
+  event.preventDefault();
+  const name = document.getElementById("suppName").value.trim();
+  const email = document.getElementById("suppEmail").value.trim();
+  const phone = document.getElementById("suppPhone").value.trim();
+  const city = document.getElementById("suppCity").value.trim();
+
+  try {
+    const res = await fetch("/api/suppliers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyId: currentCompanyId, name, email, phone, city }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Proveedor '${name}' registrado exitosamente`);
+      document.getElementById("addSupplierForm").reset();
+      toggleAddSupplierCard();
+      loadSuppliers();
+      loadReadiness();
+    } else {
+      showToast(`Error: ${data.error}`, "error");
+    }
+  } catch (err) {
+    showToast(`Error: ${err.message}`, "error");
+  }
+}
+
+/* ==========================================================================
+   Quarantine Mesa
+   ========================================================================== */
+async function loadQuarantine() {
+  try {
+    const res = await fetch(`/api/quarantine?companyId=${currentCompanyId}`);
+    const data = await res.json();
+    const tbody = document.getElementById("quarantineTableBody");
+    const countPill = document.getElementById("quarantineCountPill");
+    if (data.success && tbody) {
+      const items = data.quarantine || [];
+      if (countPill) countPill.textContent = String(items.length);
+      if (items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">✔ Cero registros hostiles o corruptos aislados. Mesa de cuarentena limpia.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = items.map((q) => `
+        <tr>
+          <td><code style="color:#f43f5e;">${q.id}</code></td>
+          <td>${q.entityType}</td>
+          <td><span class="badge ${q.violationType.includes('injection') ? 'badge-red' : 'badge-amber'}">${q.violationType}</span></td>
+          <td><strong style="color:${q.severity === 'CRITICAL' ? 'var(--red)' : 'var(--amber)'};">${q.severity}</strong></td>
+          <td style="max-width:300px; font-size:12px;">${q.reason}</td>
+          <td><span class="badge badge-outline">${q.status}</span></td>
+          <td>${q.createdAt ? new Date(q.createdAt).toLocaleString() : 'N/A'}</td>
+        </tr>
+      `).join("");
+    }
+  } catch (err) {
+    console.error("Error loading quarantine:", err);
+  }
 }

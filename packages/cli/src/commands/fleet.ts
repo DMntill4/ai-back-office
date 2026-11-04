@@ -4,29 +4,51 @@ import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
 import { renderTable, type ColumnDef } from "../ui/table";
 
-export async function fleetCommand(action?: string, arg1?: string) {
+export async function fleetCommand(action?: string, arg1?: string, ...rest: string[]) {
   const session = await getSession();
   const companyId = session?.companyId || "comp_default";
 
   // Si opera sin flota (Solo Tienda o Tienda con Proveedores), silenciar módulo de flota
   const { db, businessConfig } = await import("@mint/core");
   const { eq, and } = await import("drizzle-orm");
-  const [profileCfg] = await db
-    .select({ value: businessConfig.value })
-    .from(businessConfig)
-    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "business_profile")))
-    .limit(1)
-    .catch(() => []);
+  // Módulo de flota dinámico habilitado
 
-  if (profileCfg?.value === "tienda" || profileCfg?.value === "tienda_proveedores") {
-    console.log(`\n  ${theme.amberBold("[MÓDULO SILENCIADO - SIN FLOTA]")}`);
-    console.log(`  El módulo de Flota y Rastreo GPS está desactivado para tu modelo de negocio actual.`);
-    console.log(`  MINT elimina el ruido de camiones y conductores para negocios sin transporte propio.`);
-    console.log(`  ${theme.dim("Para habilitarlo, cambia tu perfil a 'Logística Completa' ejecutando:")} ${theme.mintBold("/config set business_profile logistica_completa")}\n`);
+  const sub = action ? action.trim().toLowerCase() : "";
+
+  // Subcomando: Registrar envío o vehículo (/fleet add <guia> <transportista> [origen] [destino])
+  if (sub === "add" || sub === "nuevo") {
+    const trackingNumber = arg1;
+    const carrier = rest[0];
+    const originLocation = rest[1] || "Almacén Central";
+    const destinationLocation = rest.slice(2).join(" ") || "Destino Final";
+
+    if (!trackingNumber || !carrier) {
+      console.log(`\n  ${theme.amberBold("[USO]")} mint fleet add <NUMERO_GUIA_O_PLACA> <TRANSPORTISTA_O_CONDUCTOR> [ORIGEN] [DESTINO]`);
+      console.log(`  ${theme.dim("Ejemplo:")} mint fleet add GUIA-101 "Camión 01 - Carlos" "Bogotá" "Medellín"\n`);
+      return;
+    }
+
+    const { db, shipments } = await import("@mint/core");
+    const shipId = `ship_${companyId}_${trackingNumber.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
+    await db.insert(shipments).values({
+      id: shipId,
+      companyId,
+      trackingNumber,
+      carrier,
+      originLocation,
+      destinationLocation,
+      currentLocation: originLocation,
+      estimatedDelivery: new Date(Date.now() + 48 * 3600 * 1000),
+      status: "en_transito",
+    }).onConflictDoUpdate({
+      target: [shipments.id],
+      set: { carrier, originLocation, destinationLocation },
+    });
+
+    console.log(`\n  ${theme.mintBold("[OK]")} Envío / Vehículo '${trackingNumber}' registrado en tránsito exitosamente.\n`);
     return;
   }
 
-  const sub = action ? action.trim().toLowerCase() : "";
 
   // 1. Subcomando: Conductores de la empresa (/fleet drivers)
   if (sub === "drivers" || sub === "conductores" || sub === "choferes") {
@@ -190,7 +212,7 @@ export async function fleetCommand(action?: string, arg1?: string) {
   if (fleet.activeShipments.length === 0) {
     console.log(`\n  ${theme.dim("○ No hay envíos activos registrados en la base de datos.")}`);
     console.log(`  ${theme.dim("Puedes despachar una carga con:")} ${theme.mintBold("/dispatch <origen> <destino> <sku> <cantidad>")}\n`);
-    return;
+    process.exit(0);
   }
 
   console.log("\n" + theme.bold("EMBARQUES Y GUÍAS ACTIVAS:"));
@@ -228,4 +250,5 @@ export async function fleetCommand(action?: string, arg1?: string) {
   console.log(`  ${theme.mintBold("/fleet track <guia>")}     Rastrear progreso y bitácora de un envío`);
   console.log(`  ${theme.mintBold("/fleet drivers")}          Ver directorio de conductores y cargas asignadas`);
   console.log(`  ${theme.mintBold("/dispatch")}               Crear nuevo despacho con cálculo de ruta OSRM\n`);
+  process.exit(0);
 }

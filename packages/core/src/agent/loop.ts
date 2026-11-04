@@ -5,8 +5,10 @@ import { grokClient } from "../llm/client";
 import { AGENT_TOOLS, dispatchToolCall } from "./toolsDefinition";
 import { closeCase } from "./closing";
 import { db } from "../db/client";
-import { cases, caseEvents } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { cases, caseEvents, businessConfig, companies, products, suppliers, notificationChannels, decisions, toolCalls } from "../db/schema";
+import { eq, sql, ne, desc, and, like, isNotNull } from "drizzle-orm";
+import { evaluateCommunicationIntent } from "../security/communicationPolicyGuard";
+import { analyzePromptInjection, redactSensitiveSecrets } from "../security/promptInjectionGuard";
 import { randomUUID } from "node:crypto";
 import { enforceTokenBudget } from "./context/contextManager";
 import { normalizeBotLanguage, type BotLanguage } from "../services/configService";
@@ -14,6 +16,8 @@ import { normalizeBotLanguage, type BotLanguage } from "../services/configServic
 export interface AgentLoopOptions {
   maxSteps?: number;
   maxTokens?: number;
+  userRole?: string;
+  caller?: string;
   client?: {
     chatCompletion: (options: any) => Promise<any>;
   };
@@ -92,8 +96,7 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
 
   if (companyId) {
     try {
-      const { businessConfig, companies, products, suppliers, notificationChannels } = await import("../db/schema");
-      const { sql } = await import("drizzle-orm");
+      // static imports used
       const [[comp], [prodCount], supps, chans, configs] = await Promise.all([
         db.select().from(companies).where(eq(companies.id, companyId)).limit(1),
         db.select({ n: sql<number>`count(*)::int` }).from(products).where(eq(products.companyId, companyId)),
@@ -140,8 +143,7 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
         customBlock += `\n- Reglas de Negocio Personalizadas: ${customRules}`;
       }
       try {
-        const { decisions } = await import("../db/schema");
-        const { desc } = await import("drizzle-orm");
+        // static imports used
         const recentDecs = await db
           .select({
             id: decisions.id,
@@ -249,7 +251,7 @@ export async function runAgentLoop(
 
   // 1.3 Guardrail de Comunicación y Mensajería Saliente (Anti-Bromas / Anti-Abuso)
   if (isChatCase) {
-    const { evaluateCommunicationIntent } = await import("../security/communicationPolicyGuard");
+    // static import used
     const commEval = evaluateCommunicationIntent({
       userInput: String(caseDesc),
       companyId,
@@ -286,7 +288,7 @@ export async function runAgentLoop(
     }
 
     // 1.4 Guardrail contra Prompt Injection en Chat
-    const { analyzePromptInjection } = await import("../security/promptInjectionGuard");
+    // static import used
     const injection = analyzePromptInjection(String(caseDesc));
     if (injection.isSuspicious) {
       const refusalMsg =
@@ -353,7 +355,7 @@ export async function runAgentLoop(
   // 3. Cargar memoria conversacional previa de la empresa (pares completos usuario -> asistente)
   const previousDialogues: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
   try {
-    const { ne, desc, and, like, isNotNull } = await import("drizzle-orm");
+    // static import used
     // Priorizar turnos conversacionales recientes que tengan tanto pregunta como respuesta guardada
     let prevCases = await db
       .select()
@@ -554,18 +556,35 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
             details: typeof toolArgs === "string" ? toolArgs : JSON.stringify(toolArgs),
           });
 
-          const { result, isClosingAction, closingType } = await dispatchToolCall(
-            toolName,
-            toolArgs,
-            {
-              companyId,
-              caseId,
-            },
-          );
+          let dispatchOutput: { result: any; isClosingAction: boolean; closingType?: "resuelto" | "escalado" };
+          try {
+            dispatchOutput = await dispatchToolCall(
+              toolName,
+              toolArgs,
+              {
+                companyId,
+                caseId,
+                userRole: options?.userRole || "operator",
+                caller: options?.caller || "agent",
+                agentRole: (specialist as any),
+              },
+            );
+          } catch (dispatchErr: any) {
+            dispatchOutput = {
+              result: {
+                isSuccess: false,
+                verified: false,
+                error: dispatchErr?.message || "Error al ejecutar la herramienta.",
+                message: "La herramienta " + toolName + " falló: " + (dispatchErr?.message || "Error interno"),
+              },
+              isClosingAction: false,
+            };
+          }
+          const { result, isClosingAction, closingType } = dispatchOutput;
 
           // Registrar ejecución en la tabla formal de herramientas tool_calls y en la bitácora
           try {
-            const { toolCalls } = await import("../db/schema");
+            // static import used
             const inputArgsObj =
               typeof toolArgs === "object"
                 ? toolArgs
@@ -695,7 +714,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
 
   // 5. Aplicar filtro de salida estricto de emojis y redacción de secretos (defensa en profundidad)
   const EMOJI_FILTER_REGEX = /(?:[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F700}-\u{1F77F}]|[\u{1F780}-\u{1F7FF}]|[\u{1F800}-\u{1F8FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{2600}-\u{2693}\u{2695}-\u{26FF}]|[\u{2700}-\u{2793}\u{2795}-\u{27BF}]|[\u{1F1E6}-\u{1F1FF}]|[\u{1F3FB}-\u{1F3FF}]|[\u{231A}\u{231B}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}\u{24C2}\u{25AA}\u{25AB}\u{25FB}-\u{25FE}\u{2934}\u{2935}\u{2B05}-\u{2B07}\u{2B1B}\u{2B1C}\u{2B50}\u{2B55}\u{3030}\u{303D}\u{3297}\u{3299}]|[\u{FE0E}\u{FE0F}]|\u{200D})+/gu;
-  const { redactSensitiveSecrets } = await import("../security/promptInjectionGuard");
+  // static import used
   finalSummary = redactSensitiveSecrets((finalSummary || "").replace(EMOJI_FILTER_REGEX, "").trim());
   finalReason = redactSensitiveSecrets((finalReason || "").replace(EMOJI_FILTER_REGEX, "").trim());
 

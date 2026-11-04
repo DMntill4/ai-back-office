@@ -25,7 +25,7 @@ export async function whoamiCommand(options: { json?: boolean } = {}) {
     if (options.json) {
       console.log(JSON.stringify({ authenticated: false }));
     } else {
-      console.log(`\n  [AVISO] No has iniciado sesión. Ejecuta ${theme.mintBold("npm start")} o ${theme.mintBold("mint login")} para autenticarte.\n`);
+      console.log(`\n  [AVISO] No has iniciado sesión. Ejecuta ${theme.mintBold("mint cli")} o ${theme.mintBold("mint app")} para autenticarte.\n`);
     }
     return;
   }

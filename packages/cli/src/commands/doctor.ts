@@ -1,4 +1,4 @@
-import { verifyRuntimeEnvironment, getLlmApiKey, db, notificationChannels, discoverCustomerSchema } from "@mint/core";
+import { verifyRuntimeEnvironment, getLlmApiKey, db, notificationChannels, discoverCustomerSchema, generateReadinessReport } from "@mint/core";
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
@@ -120,8 +120,52 @@ export async function doctorCommand(options: { json?: boolean } = {}) {
     console.log(`   Tablas Cliente: ${discovery.tables.length > 0 ? `${discovery.tables.length} tabla(s) detectada(s) (ver con 'mint map')` : "0 tablas externas (BD limpia de MINT)"}`);
     console.log(`   Colisiones:    ${theme.badge("NO VERIFICADO", "amber")} (este comando no ejecuta prueba de colision; las tablas cliente se tratan como solo lectura)`);
 
+    // 7. Informe de Preparación Operativa (Readiness & Gap Analysis)
+    let readiness: any = null;
+    try {
+      readiness = await generateReadinessReport(companyId);
+    } catch {}
+
+    if (readiness) {
+      console.log(`\n${theme.bold("7. Diagnóstico de Preparación de Datos (Readiness & Gaps):")}`);
+      console.log(`   Estado General: ${readiness.overallStatus === "OPTIMA" ? theme.badge("ÓPTIMO", "mint") : readiness.overallStatus === "ATENCION" ? theme.badge("ATENCIÓN", "amber") : theme.badge("CRÍTICO", "red")} (${readiness.scorePercent}% salud)`);
+      console.log(`   Divisa activa: ${readiness.detectedLocale.currency ? theme.bold(readiness.detectedLocale.currency) : theme.dim("No determinada")}`);
+      console.log(`   Entidades:     ${readiness.entitiesSummary.productsCount} productos, ${readiness.entitiesSummary.suppliersCount} proveedores, ${readiness.entitiesSummary.warehousesCount} bodegas, ${readiness.entitiesSummary.fleetVehiclesCount} envíos`);
+
+      // Mostrar módulos activos según evidencia
+      console.log(`   Módulos:`);
+      for (const mod of readiness.activeModules) {
+        const badge = mod.active ? theme.mint("[ACTIVO]") : theme.dim("[INACTIVO]");
+        console.log(`     • ${badge} ${theme.bold(mod.name)}: ${theme.dim(mod.reason)}`);
+      }
+
+      // Hallazgos clasificados
+      const { bloqueantes, discrepancias, seguridad, calidad, faltantes } = readiness.findings;
+      if (bloqueantes.length > 0) {
+        console.log(`\n   ${theme.redBold("[BLOQUEANTE]")}`);
+        bloqueantes.forEach((f: any) => console.log(`     • ${theme.red(f.title)}: ${f.description}\n       ${theme.dim("Acción:")} ${f.suggestedAction}`));
+      }
+      if (discrepancias.length > 0) {
+        console.log(`\n   ${theme.amberBold("[DISCREPANCIA]")}`);
+        discrepancias.forEach((f: any) => console.log(`     • ${theme.amber(f.title)}: ${f.description}\n       ${theme.dim("Acción:")} ${f.suggestedAction}`));
+      }
+      if (seguridad.length > 0) {
+        console.log(`\n   ${theme.redBold("[SEGURIDAD]")}`);
+        seguridad.forEach((f: any) => console.log(`     • ${theme.red(f.title)}: ${f.description}\n       ${theme.dim("Acción:")} ${f.suggestedAction}`));
+      }
+      if (calidad.length > 0) {
+        console.log(`\n   ${theme.amber("[CALIDAD]")}`);
+        calidad.forEach((f: any) => console.log(`     • ${f.title}: ${f.description}`));
+      }
+      if (faltantes.length > 0) {
+        console.log(`\n   ${theme.cyan("[FALTANTE PARA DESBLOQUEAR]")}`);
+        faltantes.forEach((f: any) => console.log(`     • ${theme.bold(f.title)}: ${f.description}\n       ${theme.cyan("Desbloqueo:")} ${f.suggestedAction}`));
+      }
+    }
+
     console.log("─".repeat(84));
     console.log(`${theme.mintBold("[OK] Diagnóstico completado. El back office de MINT está listo para operar.")}\n`);
+    process.exit(0);
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }, null, 2));

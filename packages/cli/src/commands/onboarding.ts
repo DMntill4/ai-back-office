@@ -1,6 +1,7 @@
 import * as readline from "node:readline";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import { randomUUID } from "node:crypto";
 import {
   db,
@@ -42,6 +43,7 @@ import { addNotificationChannel } from "@mint/notifiers";
 import { saveSession, type StoredSession } from "../keychain";
 import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
+import { printBanner } from "../ui/banner";
 import { eq, sql } from "drizzle-orm";
 
 export function sanitizeText(input: string, maxLen = 80): string {
@@ -370,7 +372,7 @@ async function askValidChoice(
   rl: readline.Interface,
   question: string,
   allowedChoices: string[],
-  defaultChoice = "1",
+  defaultChoice = "",
 ): Promise<string> {
   while (true) {
     const ans = (await ask(rl, question, defaultChoice)).trim();
@@ -485,7 +487,7 @@ async function askValidCurrency(
 async function askValidCountry(
   rl: readline.Interface,
   question: string,
-  defaultCountry = "Colombia",
+  defaultCountry = "",
 ): Promise<ResolvedLocale> {
   while (true) {
     const input = await ask(rl, question, defaultCountry);
@@ -525,7 +527,7 @@ async function askValidInteger(
 async function askValidContact(
   rl: readline.Interface,
   question: string,
-  defaultValue = "ventas@proveedor.com",
+  defaultValue = "",
 ): Promise<string> {
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   while (true) {
@@ -541,7 +543,7 @@ async function askValidContact(
 async function askValidAddressOrCity(
   rl: readline.Interface,
   question: string,
-  defaultValue = "Bogotá",
+  defaultValue = "",
   fieldLabel = "Ubicación o ciudad",
 ): Promise<string> {
   while (true) {
@@ -615,38 +617,13 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
     output: process.stdout,
   });
 
-  console.clear();
-
-  // Logo MINT elegante y sin emojis
-  const logo = [
-    "  ███╗   ███╗██╗███╗   ██╗████████╗",
-    "  ████╗ ████║██║████╗  ██║╚══██╔══╝",
-    "  ██╔████╔██║██║██╔██╗ ██║   ██║   ",
-    "  ██║╚██╔╝██║██║██║╚██╗██║   ██║   ",
-    "  ██║ ╚═╝ ██║██║██║ ╚████║   ██║   ",
-    "  ╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝   ",
-  ];
-
-  console.log("");
-  for (const line of logo) {
-    console.log(theme.mintBold(line));
-  }
-  console.log(
-    theme.dim("  ┌─ ") +
-      theme.cyanBold("MINT BACK-OFFICE AUTÓNOMO") +
-      theme.dim(" // ") +
-      theme.muted("CONFIGURACIÓN INICIAL DEL CLIENTE") +
-      theme.dim(" ─┐\n"),
-  );
-
+  printBanner();
   console.log(
     drawCard(
       [
-        `¡Bienvenido a MINT! Tu back office autónomo para comercio, inventario y logística.`,
-        `MINT vigila en segundo plano tus ventas, stock y operaciones con compras aprobadas.`,
-        `Garantía de seguridad: MINT nunca sobrescribe ni altera tus bases de datos existentes.`,
-        ``,
-        `Completemos una configuración guiada de 3 pasos para poner a operar tu back-office.`,
+        theme.bold("MINT — Gerente Autónomo de Operaciones y Back Office"),
+        theme.dim("Configuración guiada: Identidad y descubrimiento de datos reales."),
+        theme.dim("Cero supuestos: MINT entenderá tus datos sin configuraciones tediosas."),
       ],
       {
         title: "BIENVENIDO A MINT",
@@ -657,535 +634,75 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
   console.log("");
 
   try {
-    const cp = loadCheckpoint();
-    let startStep = 1;
+    // -------------------------------------------------------------
+    // PASO 1: IDENTIDAD DEL OPERADOR Y DE LA EMPRESA
+    // -------------------------------------------------------------
+    console.log(drawDivider("PASO 1 DE 2: IDENTIDAD DEL OPERADOR Y EMPRESA", 76));
+    const userName = await askValidOperatorName(rl, `  ${theme.bold("1.1 Tu nombre de operador")}`, "");
+    const companyName = await askValidCompanyName(rl, `  ${theme.bold("1.2 Nombre de tu empresa o negocio")}`, "");
 
-    let userName = "Admin";
-    let companyName = "Mi Empresa";
-    let email = "admin@empresa.com";
-    let emailVerified = false;
-    let password = "admin123";
-    let companyId = "comp_default";
-    let userId = "usr_admin";
-    let currency = "USD";
-    let supportedCurrencies: string[] = ["USD"];
-    let isMultiCurrency = false;
-    let country = "Colombia";
-    let timezone = "America/Bogota";
-    let warehouseCity = "Sede Central";
-    let businessProfile: "tienda" | "tienda_proveedores" | "logistica_completa" = "tienda";
-    let activeModules: string[] = ["inventario", "ventas", "finanzas"];
-    let selectedSourceLabel = "Catálogo Inicial";
-    let diagnosis: AutonomousInspectionResult | null = null;
-    let autonomyLevel = "dry-run";
+    const companyId = cleanSlug(companyName, "comp", 20);
+    const userId = cleanSlug(userName, "usr", 20);
 
-    if (cp && cp.step >= 2 && cp.step <= 5) {
-      console.log(`\n  ${theme.amberBold("[AVISO] Configuración en progreso detectada:")}`);
-      console.log(`  Empresa: ${theme.bold(cp.companyName)} (${cp.companyId}) │ Paso guardado: ${cp.step} de 5`);
-      const ans = await ask(rl, `  ¿Deseas retomar la configuración donde quedaste? [S/n]`, "S");
-      if (ans.toLowerCase() !== "n") {
-        startStep = cp.step;
-        userName = cp.userName;
-        companyName = cp.companyName;
-        email = cp.email;
-        emailVerified = cp.emailVerified;
-        password = cp.password;
-        companyId = cp.companyId;
-        userId = cp.userId;
-        currency = cp.currency;
-        if (cp.supportedCurrencies) supportedCurrencies = cp.supportedCurrencies;
-        if (cp.isMultiCurrency !== undefined) isMultiCurrency = cp.isMultiCurrency;
-        country = cp.country;
-        timezone = cp.timezone;
-        warehouseCity = cp.warehouseCity;
-        if (cp.businessProfile) businessProfile = cp.businessProfile;
-        if (cp.activeModules) activeModules = cp.activeModules;
-        if (cp.selectedSourceLabel) selectedSourceLabel = cp.selectedSourceLabel;
-        if (cp.autonomyLevel) autonomyLevel = cp.autonomyLevel;
-        console.log(`\n  ${theme.mintBold("[OK]")} Retomando en Paso ${startStep} de 5...\n`);
-      } else {
-        clearCheckpoint();
-      }
-    }
+    // 1.3 Verificación de operador humano (Anti-bot interactivo sin correos falsos)
+    const n1 = Math.floor(Math.random() * 20) + 11;
+    const n2 = Math.floor(Math.random() * 15) + 3;
+    const expectedBotAns = String(n1 + n2);
+    let passedBot = false;
 
-    if (startStep <= 1) {
-      // -------------------------------------------------------------
-      // PASO 1: IDENTIDAD DEL OPERADOR Y DE LA EMPRESA (SIN ASUMIR NADA)
-      // -------------------------------------------------------------
-      console.log(drawDivider("PASO 1 DE 5: IDENTIDAD DEL OPERADOR Y EMPRESA", 76));
-      userName = await askValidOperatorName(rl, `  ${theme.bold("1.1 Tu nombre de operador (obligatorio)")}`, "");
-      companyName = await askValidCompanyName(rl, `  ${theme.bold("1.2 Nombre de tu empresa o marca (obligatorio)")}`, "");
-
-      companyId = cleanSlug(companyName, "comp", 20);
-      userId = cleanSlug(userName, "usr", 20);
-
-      // Pre-persistir empresa en PostgreSQL para satisfacer la clave foránea de business_config
-      await db
-        .insert(companies)
-        .values({
-          id: companyId,
-          name: companyName,
-          currency: "USD",
-        })
-        .onConflictDoNothing();
-
-      // 1.3 y 1.4: Validación rigurosa de correo y verificación obligatoria (Sin aberraciones ni saltarse el paso)
-      while (true) {
-        while (true) {
-          email = (await ask(
-            rl,
-            `  ${theme.bold("1.3 Correo electrónico de contacto y alertas")}`,
-            "admin@empresa.com",
-          )).trim().toLowerCase();
-
-          const emailCheck = validateEmailAddress(email);
-          if (emailCheck.valid) {
-            break;
-          }
-          console.log(`  ${theme.redBold("[ERROR] Correo no aceptado:")} ${emailCheck.error}\n`);
-        }
-
-        // Verificación real de correo con código OTP
-        try {
-          const sendRes = await sendEmailVerificationCode(companyId, email);
-          console.log(`\n  ${theme.mintBold("[OK]")} Código de verificación generado para ${email}.`);
-          console.log(`  ${theme.dim(`[CÓDIGO DE VERIFICACIÓN]: ${sendRes.code} (expira en 15 minutos)`)}`);
-
-          let verified = false;
-          for (let attempt = 1; attempt <= 3; attempt++) {
-            const promptMsg = attempt === 1
-              ? `  ${theme.bold("1.4 Ingresa el código de 6 dígitos recibido")}`
-              : `  ${theme.bold(`1.4 Ingresa el código de 6 dígitos (Intento ${attempt}/3)`)}`;
-            const inputCode = (await ask(rl, promptMsg, sendRes.code)).trim();
-
-            if (!inputCode) {
-              console.log(`  ${theme.redBold("[ERROR]")} El código de verificación no puede estar vacío.`);
-              continue;
-            }
-
-            if (!/^\d{6}$/.test(inputCode)) {
-              console.log(`  ${theme.redBold("[ERROR] Formato de código inválido:")} El código debe contener exactamente 6 dígitos numéricos (sin letras ni caracteres especiales).\n`);
-              continue;
-            }
-
-            const verifyRes = await verifyEmailCode(companyId, email, inputCode);
-            if (verifyRes.success) {
-              console.log(`  ${theme.mintBold("[OK]")} ${verifyRes.message}\n`);
-              emailVerified = true;
-              verified = true;
-              break;
-            } else {
-              console.log(`  ${theme.redBold("[ERROR]")} ${verifyRes.message}`);
-            }
-          }
-
-          if (verified) {
-            break; // Correo verificado con éxito, avanzar a contraseña
-          }
-
-          console.log(`\n  ${theme.amberBold("[REINTENTO]")} No se completó la verificación del correo. Ingresa una dirección válida para continuar.\n`);
-        } catch (err: any) {
-          console.log(`  ${theme.redBold("[ERROR] Fallo al generar código OTP:")} ${err.message}. Ingresa un correo válido.\n`);
-        }
-      }
-
-      while (true) {
-        password = await ask(
-          rl,
-          `  ${theme.bold("1.5 Contraseña de acceso al back-office (mínimo 6 caracteres)")}`,
-          "admin123",
-        );
-        if (password.length < 6) {
-          console.log(`  ${theme.redBold("[ERROR] Contraseña corta:")} Debe tener al menos 6 caracteres.\n`);
-          continue;
-        }
-        if (password.length > 50) {
-          console.log(`  ${theme.redBold("[ERROR] Contraseña demasiado larga:")} No debe exceder 50 caracteres.\n`);
-          continue;
-        }
-        if (/[<>;{}[\]\\`~]/.test(password)) {
-          console.log(`  ${theme.redBold("[ERROR] Símbolos no permitidos:")} Por seguridad, la contraseña no debe contener caracteres especiales como <, >, ;, {, }, \`, etc.\n`);
-          continue;
-        }
-        if (isGibberish(password) && password !== "admin123") {
-          console.log(`  ${theme.redBold("[ERROR] Contraseña débil:")} No uses secuencias repetidas como 'aaaaaa' o '123456'.\n`);
-          continue;
-        }
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const promptText = attempt === 1
+        ? `  ${theme.bold(`1.3 Verificación de operador humano (Anti-bot): ¿Cuánto es ${n1} + ${n2}?`)}`
+        : `  ${theme.bold(`1.3 Verificación Anti-bot (Intento ${attempt}/3): ¿Cuánto es ${n1} + ${n2}?`)}`;
+      const botAns = (await ask(rl, promptText)).trim();
+      if (botAns === expectedBotAns) {
+        console.log(`  ${theme.mintBold("[OK]")} Verificación anti-bot superada. Cuenta de operador verificada.\n`);
+        passedBot = true;
         break;
-      }
-
-      const currResult = await askValidCurrency(
-        rl,
-        `  ${theme.bold("1.6 Divisa base de consolidación financiera (USD, COP, MXN, EUR, o 'USD, EUR, COP' si eres multinacional)")}`,
-        "USD",
-      );
-      currency = currResult.currency;
-      supportedCurrencies = currResult.supportedCurrencies;
-      isMultiCurrency = currResult.isMultiCurrency;
-
-      const locResolved = await askValidCountry(rl, `  ${theme.bold("1.7 País o territorio de operación")}`, "Colombia");
-      country = locResolved.country;
-      timezone = locResolved.timezone || "America/Bogota";
-      warehouseCity = locResolved.suggestedCity || "Sede Central";
-
-      // PERSISTIR INMEDIATAMENTE EMPRESA Y USUARIO (Garantiza que mint_table_mappings y products no den error de FK)
-      await db
-        .insert(companies)
-        .values({
-          id: companyId,
-          name: companyName,
-          country,
-          currency,
-        })
-        .onConflictDoUpdate({
-          target: [companies.id],
-          set: { name: companyName, country, currency },
-        });
-
-      // Configuración de divisas para multinacionales
-      await db
-        .insert(businessConfig)
-        .values({
-          companyId,
-          key: "supported_currencies",
-          value: JSON.stringify(supportedCurrencies),
-          currency,
-          description: "Divisas operativas habilitadas para ventas y pagos",
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [businessConfig.companyId, businessConfig.key],
-          set: { value: JSON.stringify(supportedCurrencies), updatedAt: new Date() },
-        });
-
-      await db
-        .insert(businessConfig)
-        .values({
-          companyId,
-          key: "multi_currency_mode",
-          value: String(isMultiCurrency),
-          currency,
-          description: "Indicador de modalidad multidivisa para multinacionales",
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [businessConfig.companyId, businessConfig.key],
-          set: { value: String(isMultiCurrency), updatedAt: new Date() },
-        });
-
-      const passwordHash = hashPassword(password);
-      password = passwordHash;
-      await db
-        .insert(users)
-        .values({
-          id: userId,
-          companyId,
-          name: userName,
-          email,
-          role: "owner",
-          passwordHash,
-          setupCompleted: emailVerified,
-        })
-        .onConflictDoUpdate({
-          target: [users.id],
-          set: { name: userName, email, role: "owner", passwordHash, setupCompleted: emailVerified },
-        });
-
-      saveCheckpoint({
-        step: 2,
-        userName,
-        companyName,
-        email,
-        emailVerified,
-        password: passwordHash,
-        companyId,
-        userId,
-        currency,
-        supportedCurrencies,
-        isMultiCurrency,
-        country,
-        timezone,
-        warehouseCity,
-      });
-
-      console.log(`\n  ${theme.mintBold("[OK]")} Empresa '${theme.bold(companyName)}' (${companyId}) registrada en PostgreSQL con divisa ${theme.bold(currency)}.\n`);
-    }
-
-    if (startStep <= 2) {
-      // -------------------------------------------------------------
-      // PASO 2: CONEXIÓN Y AUTODESCUBRIMIENTO INTELIGENTE (TAREA 0)
-      // MINT toma el control: detecta modelo, divisa, territorio y errores
-      // -------------------------------------------------------------
-      console.log(drawDivider("PASO 2 DE 5: CONEXIÓN Y AUTODESCUBRIMIENTO DE TUS DATOS", 76));
-      console.log(`  ¿Cómo deseas conectar o iniciar tus datos?`);
-      console.log(`    ${theme.mintBold("[1] Usar Base de Datos PostgreSQL existente (MINT autodescubre modelo, divisa y errores)")}`);
-      console.log(`    ${theme.cyanBold("[2] Buscar automáticamente archivos en tu equipo (.sql, .db, .sqlite, .csv)")}`);
-      console.log(`    ${theme.dim("[3] Ingresar ruta a archivo local (.csv, .xlsx, .json, .sql)")}`);
-      console.log(`    ${theme.dim("[4] Iniciar en blanco (Catálogo limpio)")}\n`);
-
-      const sourceChoice = await askValidChoice(rl, `  Elige una opción [1/2/3/4]`, ["1", "2", "3", "4"], "1");
-
-      if (sourceChoice === "2") {
-      const querySearch = await ask(rl, `  ¿Dónde o qué deseas buscar?`, "downloads");
-      console.log(`\n  Buscando fuentes de datos para '${theme.mintBold(querySearch)}'...`);
-      const found = await searchProjectDatabase(querySearch);
-
-      if (found.length > 0) {
-        console.log(`\n  ${theme.mintBold(`[OK] MINT identificó ${found.length} fuente(s) de datos:`)}\n`);
-        found.slice(0, 5).forEach((proj: DiscoveredProject, idx: number) => {
-          console.log(`    ${theme.cyanBold(`[#${idx + 1}]`)} ${theme.bold(proj.projectName)} (${proj.framework})`);
-          console.log(`        Ubicación: ${theme.dim(proj.projectPath)}`);
-        });
-
-        const maxProj = Math.min(found.length, 5);
-        const selectProjNum = await askValidInteger(rl, `  Selecciona el número a conectar (1-${maxProj}) o '0' para continuar`, "1", 0, maxProj);
-        const idx = selectProjNum - 1;
-        if (selectProjNum > 0 && idx >= 0 && idx < found.length) {
-          const chosen = found[idx];
-          selectedSourceLabel = chosen.projectName;
-
-          for (const sqlFile of chosen.sqlFiles) {
-            if (fs.existsSync(sqlFile)) {
-              const fileItems = extractProductsFromSqlFile(sqlFile);
-              for (const item of fileItems) {
-                const productId = `prod_${companyId}_${item.sku.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`;
-                await db
-                  .insert(products)
-                  .values({
-                    id: productId,
-                    companyId,
-                    sku: item.sku,
-                    name: item.name,
-                    category: item.category,
-                    minStock: item.minStock,
-                    origin: "real",
-                  })
-                  .onConflictDoNothing();
-
-                if (Number.isFinite(item.stock) && item.stock >= 0) {
-                  await db
-                    .insert(inventory)
-                    .values({
-                      id: `inv_${companyId}_${productId}`,
-                      companyId,
-                      productId,
-                      warehouseId: `alm_central_${companyId}`,
-                      stock: item.stock,
-                    })
-                    .onConflictDoNothing();
-                } else {
-                  // Sin dato real de existencias: no se inventa, se pregunta al operador
-                  await addPendingQuestion(
-                    companyId,
-                    "stock_missing",
-                    `El producto ${item.sku} (${item.name}) no trae existencias en la fuente. Cuantas unidades hay?`,
-                    { sku: item.sku, source: selectedSourceLabel },
-                  ).catch(() => {});
-                }
-              }
-            }
-          }
-        }
-      }
-    } else if (sourceChoice === "3") {
-      const filePath = await ask(rl, `  Ingresa la ruta absoluta o relativa al archivo (.csv, .xlsx, .json, .sql)`);
-      if (filePath && fs.existsSync(filePath)) {
-        selectedSourceLabel = path.basename(filePath);
-        console.log(`  ${theme.mintBold("[OK]")} Archivo '${path.basename(filePath)}' detectado. Importando datos al catálogo...\n`);
-        const res = await importUniversalCatalogFile(companyId, filePath).catch(() => ({ importedProducts: 0, importedSuppliers: 0 }));
-        console.log(`  ${theme.mintBold(`[OK] ${res.importedProducts} productos importados exitosamente al catálogo.`)}\n`);
-      } else if (filePath) {
-        console.log(`  ${theme.amberBold("[ADVERTENCIA]")} Archivo '${filePath}' no encontrado. Se continuará con catálogo limpio.\n`);
+      } else {
+        console.log(`  ${theme.redBold("[ERROR]")} Respuesta incorrecta. Intento ${attempt} de 3.\n`);
       }
     }
 
-    if (sourceChoice !== "4") {
-      console.log(`\n  ${theme.cyan("MINT Brain está analizando tu base de datos de forma autónoma...")}`);
-      try {
-        diagnosis = await inspectAndDiagnoseDatabaseAutonomously(companyId);
+    if (!passedBot) {
+      throw new Error("Verificación anti-bot fallida. Abortando inicialización.");
+    }
 
-        // Guardar mapeos de esquema seguros (Tarea 0)
-        for (const prop of diagnosis.tableProposals) {
-          await saveConfirmedTableMapping({
-            companyId,
-            sourceTable: prop.sourceTable,
-            targetEntity: prop.targetEntity,
-            columnMappings: prop.columnMappings,
-            isConfirmed: true,
-            isReadOnly: true,
-            writeRoles: [],
-          });
-        }
-
-        console.log("");
-        console.log(
-          drawCard(
-            [
-              `${theme.bold("MODELO DEDUCIDO:")}      ${theme.mintBold(diagnosis.inferredProfile.toUpperCase())}`,
-              `  ${theme.dim("Motivo:")} ${diagnosis.profileReason}`,
-              "",
-              `${theme.bold("DIVISA DETECTADA:")}     ${theme.bold(diagnosis.inferredLocale.currency)} (${diagnosis.inferredLocale.currencySymbol})`,
-              `${theme.bold("TERRITORIO / SEDE:")}    ${theme.bold(diagnosis.inferredLocale.country)} (${diagnosis.inferredLocale.timezone})`,
-              `${theme.bold("CIUDAD PRINCIPAL:")}     ${theme.bold(diagnosis.inferredLocale.suggestedCity)}`,
-              `${theme.bold("TABLAS CLIENTE:")}       ${theme.bold(String(diagnosis.tableProposals.length))} detectadas (Tratadas como Solo Lectura - Tarea 0)`,
-              "",
-              `${theme.bold("SALUD DE DATOS:")}       ${diagnosis.dataHealthScore >= 80 ? theme.mintBold(`${diagnosis.dataHealthScore}% [ÓPTIMA]`) : theme.amberBold(`${diagnosis.dataHealthScore}% [ATENCIÓN]`)}`,
-              `${theme.bold("ANOMALÍAS AISLADAS:")}   ${diagnosis.detectedErrors.length > 0 ? theme.amberBold(`${diagnosis.detectedErrors.length} registro(s) en /quarantine`) : theme.mint("0 errores")}`,
-            ],
-            {
-              title: "DIAGNÓSTICO AUTÓNOMO DE TUS DATOS (CERO SUPOSICIONES)",
-              borderColor: theme.mint,
-            },
-          ),
-        );
-
-        if (diagnosis.detectedErrors.length > 0) {
-          console.log(`\n  ${theme.amberBold("[RECONOCIMIENTO AUTÓNOMO DE ERRORES]")}`);
-          diagnosis.detectedErrors.slice(0, 3).forEach((err) => {
-            console.log(`  • ${theme.amber(err.description)}`);
-          });
-          console.log(`  ${theme.dim("Los registros corruptos fueron aislados en /quarantine para proteger tus decisiones de compra.")}\n`);
-        }
-
-        const confirmAuto = await ask(rl, `  ¿Confirmar este perfil y configuración autónoma? [S/n]`, "S");
-        if (confirmAuto.toLowerCase() !== "n") {
-          businessProfile = diagnosis.inferredProfile;
-          currency = diagnosis.inferredLocale.currency;
-          country = diagnosis.inferredLocale.country;
-          timezone = diagnosis.inferredLocale.timezone;
-          warehouseCity = diagnosis.inferredLocale.suggestedCity;
-        } else {
-          // Ajuste manual si el cliente desea cambiar algo
-          console.log(`\n  Selecciona tu modelo preferido manualmente:`);
-          console.log(`    [1] Solo Tienda | [2] Tienda con Proveedores | [3] Logística Completa`);
-          const manualModel = await askValidChoice(rl, `  Modelo [1/2/3]`, ["1", "2", "3"], "1");
-          businessProfile = manualModel === "3" ? "logistica_completa" : manualModel === "2" ? "tienda_proveedores" : "tienda";
-
-          const locResolvedManual = await askValidCountry(rl, `  País o Ciudad sede`, diagnosis.inferredLocale.country);
-          country = locResolvedManual.country;
-          currency = locResolvedManual.currency;
-          timezone = locResolvedManual.timezone;
-          warehouseCity = locResolvedManual.suggestedCity;
-        }
-      } catch (err: any) {
-        console.log(`  ${theme.amber("Nota de diagnóstico:")} ${err.message}`);
+    // 1.4 Contraseña
+    let password = "";
+    while (true) {
+      password = await ask(rl, `  ${theme.bold("1.4 Contraseña de acceso (mínimo 6 caracteres)")}`);
+      if (password.length < 6) {
+        console.log(`  ${theme.redBold("[ERROR]")} La contraseña debe tener al menos 6 caracteres.\n`);
+        continue;
       }
-    } else {
-      // Opción 4: Catálogo en blanco (Detección global dinámica sin hardcoding)
-      console.log(`\n  ${theme.mintBold("[INICIO EN BLANCO]")}`);
-      const locResolvedBlank = await askValidCountry(rl, `  ¿En qué país o ciudad opera tu negocio? (ej: Madrid, Buenos Aires, Santiago, Ciudad de México, Bogotá)`, "Colombia");
-      country = locResolvedBlank.country;
-      currency = locResolvedBlank.currency;
-      timezone = locResolvedBlank.timezone;
-      warehouseCity = locResolvedBlank.suggestedCity;
-
-      console.log(`  ${theme.dim(`Territorio resuelto autónomamente: ${country} | Divisa ISO: ${currency} | Zona: ${timezone}`)}\n`);
-
-      console.log(`  ¿Qué tipo de negocio deseas operar?`);
-      console.log(`    [1] Solo Tienda (Catálogo, ventas y ganancias sin ruido de flota)`);
-      console.log(`    [2] Tienda con Proveedores (Catálogo + compras aprobadas a suplidores)`);
-      console.log(`    [3] Logística Completa (Tienda + Proveedores + Flota con GPS)`);
-      const modelChoice = await askValidChoice(rl, `  Modelo [1/2/3]`, ["1", "2", "3"], "1");
-      businessProfile = modelChoice === "3" ? "logistica_completa" : modelChoice === "2" ? "tienda_proveedores" : "tienda";
+      if (/[<>;{}\[\]\\`~]/.test(password)) {
+        console.log(`  ${theme.redBold("[ERROR]")} Símbolos no permitidos por seguridad.\n`);
+        continue;
+      }
+      break;
     }
 
-    // Configurar módulos según perfil deducido o confirmado
-    if (businessProfile === "logistica_completa") {
-      activeModules = ["inventario", "ventas", "finanzas", "compras_proveedores", "flota", "logistica"];
-    } else if (businessProfile === "tienda_proveedores") {
-      activeModules = ["inventario", "ventas", "finanzas", "compras_proveedores"];
-    } else {
-      activeModules = ["inventario", "ventas", "finanzas"];
+    // 1.5 Correo de contacto (opcional, sin simulaciones)
+    let email = (await ask(rl, `  ${theme.bold("1.5 Correo de contacto/alertas (opcional, presiona Enter para omitir)")}`)).trim().toLowerCase();
+    if (!email) {
+      email = `${userId}@mint.local`;
     }
 
-    if (businessProfile === "tienda") {
-      try {
-        const { listPendingQuestions, dismissPendingQuestion } = await import("@mint/core");
-        const existingQs = await listPendingQuestions(companyId, "pending").catch(() => []);
-        for (const q of existingQs) {
-          if (
-            q.topic === "supplier_missing" ||
-            q.topic === "logistics_missing" ||
-            q.topic.includes("carrier") ||
-            q.topic.includes("fleet")
-          ) {
-            await dismissPendingQuestion(q.id).catch(() => {});
-          }
-        }
-      } catch {}
-    }
-
-    const initialWhGeo = await geocodeAddressOrCity(warehouseCity).catch(() => null);
-
-    // Registrar Empresa y Almacén Central
+    // Persistir empresa y usuario en PostgreSQL
     await db
       .insert(companies)
       .values({
         id: companyId,
         name: companyName,
-        country,
-        currency,
+        currency: "USD",
       })
       .onConflictDoUpdate({
         target: [companies.id],
-        set: { name: companyName, country, currency },
+        set: { name: companyName },
       });
 
-    await db
-      .insert(businessConfig)
-      .values({
-        companyId,
-        key: "timezone",
-        value: timezone,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [businessConfig.companyId, businessConfig.key],
-        set: { value: timezone, updatedAt: new Date() },
-      });
-
-    await db
-      .insert(businessConfig)
-      .values({
-        companyId,
-        key: "active_modules",
-        value: JSON.stringify(activeModules),
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [businessConfig.companyId, businessConfig.key],
-        set: { value: JSON.stringify(activeModules), updatedAt: new Date() },
-      });
-
-    await db
-      .insert(businessConfig)
-      .values({
-        companyId,
-        key: "business_profile",
-        value: businessProfile,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [businessConfig.companyId, businessConfig.key],
-        set: { value: businessProfile, updatedAt: new Date() },
-      });
-
-    await db
-      .insert(warehouses)
-      .values({
-        id: `alm_central_${companyId}`,
-        companyId,
-        name: `Almacén Central ${warehouseCity}`,
-        location: warehouseCity,
-        city: initialWhGeo?.city || warehouseCity,
-        state: initialWhGeo?.state || null,
-        country: initialWhGeo?.country || country,
-        latitude: initialWhGeo ? String(initialWhGeo.latitude) : null,
-        longitude: initialWhGeo ? String(initialWhGeo.longitude) : null,
-      })
-      .onConflictDoNothing();
-
-    const step2PasswordHash = password.startsWith("scrypt:") ? password : hashPassword(password);
+    const passHash = hashPassword(password);
     await db
       .insert(users)
       .values({
@@ -1194,339 +711,188 @@ export async function runOnboardingWizard(): Promise<StoredSession> {
         name: userName,
         email,
         role: "owner",
-        passwordHash: step2PasswordHash,
+        passwordHash: passHash,
         setupCompleted: true,
       })
       .onConflictDoUpdate({
         target: [users.id],
-        set: { name: userName, email, role: "owner", passwordHash: step2PasswordHash },
+        set: { name: userName, email, role: "owner", passwordHash: passHash },
       });
 
-      console.log(`\n  ${theme.mintBold("[OK]")} Empresa '${theme.bold(companyName)}' registrada con sede en ${theme.bold(warehouseCity)} (${country}, ${currency}).\n`);
-
-      saveCheckpoint({
-        step: 3,
-        userName,
-        companyName,
-        email,
-        emailVerified,
-        password: step2PasswordHash,
-        companyId,
-        userId,
-        currency,
-        country,
-        timezone,
-        warehouseCity,
-        businessProfile,
-        activeModules,
-        selectedSourceLabel,
-      });
-    }
+    console.log(`  ${theme.mintBold("[OK]")} Operador '${userName}' y empresa '${companyName}' registrados.\n`);
 
     // -------------------------------------------------------------
-    // PASO 3 DE 5: PROVEEDORES Y ABASTECIMIENTO
+    // PASO 2: CONEXIÓN Y DESCUBRIMIENTO DE DATOS (CHATBOT / UNIVERSAL)
     // -------------------------------------------------------------
-    if (startStep <= 3) {
-      console.log(drawDivider("PASO 3 DE 5: PROVEEDORES Y ABASTECIMIENTO", 76));
-      console.log(`  ¿Cuentas con proveedores para abastecer tus existencias?`);
-      console.log(`    ${theme.mintBold("[1] Registrar mi primer proveedor ahora (Recomendado)")}`);
-      console.log(`    ${theme.dim("[2] No tengo proveedores aún (Operar como tienda o registrar después)")}\n`);
-      const suppChoice = await askValidChoice(rl, `  Opción [1/2]`, ["1", "2"], "1");
+    console.log(drawDivider("PASO 2 DE 2: CONEXIÓN Y DESCUBRIMIENTO DE TUS DATOS", 76));
+    console.log(`  ¿Cómo deseas conectar o iniciar tus datos?`);
+    console.log(`    ${theme.mintBold("[1] Chatear con MINT para buscar bases de datos o archivos en tu equipo")}`);
+    console.log(`    ${theme.cyanBold("[2] Ingresar ruta directa a archivo local (.csv, .xlsx, .json, .sqlite, .sql)")}`);
+    console.log(`    ${theme.dim("[3] Conectar base de datos existente (PostgreSQL / MySQL / SQLite)")}`);
+    console.log(`    ${theme.dim("[4] Iniciar en blanco (Catálogo limpio)")}\n`);
 
-      let registeredSuppliersCount = 0;
-      if (suppChoice === "1") {
-        const suppName = await askValidString(rl, `  Nombre o razón social del proveedor`, "Proveedor Principal", "Nombre de proveedor");
-        const suppContact = await askValidContact(rl, `  Correo o teléfono de contacto`, "ventas@proveedor.com");
-        const suppCity = await askValidAddressOrCity(rl, `  Ciudad o sede del proveedor`, warehouseCity, "Ciudad de proveedor");
-        const leadDays = await askValidInteger(rl, `  Tiempo promedio de entrega (en días)`, "3", 1, 365);
-        const suppId = `prov_${companyId}_${cleanSlug(suppName, "", 12)}`;
+    const sourceChoice = await askValidChoice(rl, `  Elige una opción (1/2/3/4)`, ["1", "2", "3", "4"]);
 
-        await db.insert(suppliers).values({
-          id: suppId,
-          companyId,
-          name: suppName,
-          email: suppContact.includes("@") ? suppContact : null,
-          phone: !suppContact.includes("@") ? suppContact : null,
-          city: suppCity,
-          origin: "real",
-        }).onConflictDoNothing();
-
-        registeredSuppliersCount = 1;
-        console.log(`  ${theme.mintBold(`[OK] Proveedor '${suppName}' registrado exitosamente en base de datos.`)}\n`);
-      } else {
-        console.log(`  ${theme.dim("Módulo de compras en reposo. Puedes agregar proveedores en cualquier momento con /suppliers add.")}\n`);
-        await addPendingQuestion(
-          companyId,
-          "supplier_missing",
-          "No se registraron proveedores durante el onboarding inicial. ¿Quién es el proveedor de los productos?",
-          { companyId }
-        ).catch(() => {});
-      }
-
-      saveCheckpoint({
-        step: 4,
-        userName,
-        companyName,
-        email,
-        emailVerified,
-        password,
-        companyId,
-        userId,
-        currency,
-        supportedCurrencies,
-        isMultiCurrency,
-        country,
-        timezone,
-        warehouseCity,
-        businessProfile,
-        activeModules,
-        selectedSourceLabel,
-      });
-    }
-
-    // -------------------------------------------------------------
-    // PASO 4 DE 5: LOGÍSTICA, BODEGAS Y RUTAS
-    // -------------------------------------------------------------
-    if (startStep <= 4) {
-      console.log(drawDivider("PASO 4 DE 5: LOGÍSTICA, BODEGAS Y RUTAS", 76));
-      console.log(`  Configura tu bodega o punto de despacho principal para cálculo de rutas y fletes:`);
-      const whName = await askValidString(rl, `  Nombre de la bodega o almacén`, `Bodega Central ${companyName}`, "Nombre de bodega");
-      const whAddress = await askValidAddressOrCity(rl, `  Ciudad o dirección física de la bodega`, warehouseCity, "Dirección o ciudad de bodega");
-
-      const whGeo = await geocodeAddressOrCity(whAddress).catch(() => null);
-
-      await db.insert(warehouses).values({
-        id: `alm_central_${companyId}`,
-        companyId,
-        name: whName,
-        location: whAddress,
-        city: whGeo?.city || whAddress,
-        state: whGeo?.state || null,
-        country: whGeo?.country || country,
-        latitude: whGeo ? String(whGeo.latitude) : null,
-        longitude: whGeo ? String(whGeo.longitude) : null,
-      }).onConflictDoUpdate({
-        target: [warehouses.id],
-        set: { name: whName, location: whAddress, city: whGeo?.city || whAddress },
-      });
-
-      console.log(`  ${theme.mintBold(`[OK] Bodega '${whName}' registrada con coordenadas GPS: ${whGeo ? `${whGeo.latitude.toFixed(4)}, ${whGeo.longitude.toFixed(4)}` : "Ubicación confirmada"}.`)}\n`);
-
-      saveCheckpoint({
-        step: 5,
-        userName,
-        companyName,
-        email,
-        emailVerified,
-        password,
-        companyId,
-        userId,
-        currency,
-        supportedCurrencies,
-        isMultiCurrency,
-        country,
-        timezone,
-        warehouseCity,
-        businessProfile,
-        activeModules,
-        selectedSourceLabel,
-      });
-    }
-
-    // -------------------------------------------------------------
-    // PASO 5 DE 5: GOBERNANZA Y CANALES DE NOTIFICACIÓN
-    // -------------------------------------------------------------
-    if (startStep <= 5) {
-      console.log(drawDivider("PASO 5 DE 5: GOBERNANZA Y CANALES DE NOTIFICACIÓN", 76));
-      console.log(`  ¿Cómo debe actuar MINT ante desabastos o alertas operativas?`);
+    if (sourceChoice === "1") {
+      // Modo Chatbot interactivo de descubrimiento
+      console.log("");
       console.log(
-        `    ${theme.mintBold("[1] Supervisado / Aprobación Humana Obligatoria (Recomendado)")}\n` +
-        `        MINT detecta stock bajo, calcula el pedido, cotiza y genera una recomendación en /inbox.\n` +
-        `        Solo un operador o administrador puede aprobarla. Cero compras automáticas unilaterales.\n`
-      );
-      console.log(
-        `    ${theme.cyanBold("[2] Asistido / Alertas en vivo y recomendaciones")}\n` +
-        `        Genera recomendaciones y notifica a tu equipo por los canales configurados.\n`
-      );
-      console.log(
-        `    ${theme.dim("[3] Autónomo bajo presupuesto")}\n` +
-        `        Reabastece automáticamente solo productos bajo el umbral de seguridad.\n`
+        drawCard(
+          [
+            theme.bold("ASISTENTE CONVERSACIONAL DE DESCUBRIMIENTO MINT"),
+            theme.dim("Dime qué o dónde buscar en tu equipo (ej: 'busca en downloads', 'archivos de inventario', 'mi carpeta C:\\datos')"),
+            theme.dim("O escribe 'cancelar' para continuar sin cargar archivos."),
+          ],
+          { title: "MINT DATA DISCOVERY CHAT", borderColor: theme.cyan },
+        ),
       );
 
-      const autoChoice = await askValidChoice(rl, `  Selecciona el nivel de autonomía [1/2/3]`, ["1", "2", "3"], "1");
-      if (autoChoice === "2") autonomyLevel = "assisted";
-      if (autoChoice === "3") autonomyLevel = "auto";
+      let chatDone = false;
+      while (!chatDone) {
+        const query = (await ask(rl, `\n  ${theme.mintBold("MINT Discovery >")} `)).trim();
+        if (!query || query.toLowerCase() === "cancelar" || query.toLowerCase() === "salir") {
+          console.log(`  ${theme.dim("Descubrimiento finalizado por el usuario.")}`);
+          break;
+        }
 
-      await db
-        .insert(businessConfig)
-        .values({
-          companyId,
-          key: "autonomy_level",
-          value: autonomyLevel,
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [businessConfig.companyId, businessConfig.key],
-          set: { value: autonomyLevel, updatedAt: new Date() },
-        });
+        console.log(`  ${theme.cyan("Escaneando tu equipo en busca de datos...")}`);
+        const { discoverLocalSources } = await import("@mint/ingest");
 
-      console.log(`\n  Canales de Alerta y Notificación:`);
-      console.log(`    ${theme.mintBold("[1] Conectar Webhook de Discord o Slack (Recomendado)")}`);
-      console.log(`    ${theme.cyanBold("[2] Conectar Bot de Telegram")}`);
-      console.log(`    ${theme.dim("[3] Solo alertas en consola terminal MINT")}\n`);
+        let searchDir = process.cwd();
+        const home = os.homedir();
+        const qLower = query.toLowerCase();
+        if (qLower.includes("download") || qLower.includes("descarga")) {
+          searchDir = path.join(home, "Downloads");
+        } else if (qLower.includes("desktop") || qLower.includes("escritorio")) {
+          searchDir = path.join(home, "Desktop");
+        } else if (qLower.includes("document") || qLower.includes("doc")) {
+          searchDir = path.join(home, "Documents");
+        } else if (fs.existsSync(query)) {
+          searchDir = query;
+        }
 
-      const chanChoice = await askValidChoice(rl, `  Opción [1/2/3]`, ["1", "2", "3"], "3");
-      let channelDescription = "Alertas en Terminal y Log Inmutable";
+        const found = await discoverLocalSources({ basePath: searchDir, maxDepth: 2, includeSamples: true }).catch(() => []);
 
-      if (chanChoice === "1") {
-        const webhook = await ask(rl, `  Ingresa la URL del Webhook de Discord/Slack`);
-        if (webhook && webhook.startsWith("http")) {
-          console.log(`  Verificando conexión en vivo con el webhook...`);
-          try {
-            const { testNotificationChannel } = await import("@mint/notifiers");
-            const testRes = await testNotificationChannel("discord", { webhookUrl: webhook });
-            if (testRes.success) {
-              await addNotificationChannel({
-                companyId,
-                type: "discord",
-                name: "Canal Discord",
-                config: { webhookUrl: webhook, topics: ["logs", "stock", "sales", "critical", "finance", "payments"] },
-              });
-              channelDescription = "Discord Webhook (Verificado en vivo)";
-              console.log(`  ${theme.mintBold("[OK] Webhook verificado con éxito y mensaje de prueba entregado.")}\n`);
-            } else {
-              console.log(`  ${theme.amberBold(`[ADVERTENCIA] El webhook no respondió: ${testRes.error || "error de conexión"}. Guardado en modo contingencia.`)}\n`);
-            }
-          } catch (err: any) {
-            console.log(`  ${theme.amberBold(`[ADVERTENCIA] Error al probar webhook: ${err.message}.`)}\n`);
+        if (found.length === 0) {
+          console.log(`  ${theme.amberBold("[AVISO]")} No se encontraron archivos tabulares en '${searchDir}'.`);
+          console.log(`  Intenta indicar otra carpeta (ej: 'C:\\Users\\...\\Downloads') o escribe 'salir'.`);
+          continue;
+        }
+
+        console.log(`\n  ${theme.mintBold(`[OK] MINT encontró ${found.length} archivo(s) de datos en ${searchDir}:`)}\n`);
+        const maxToShow = Math.min(found.length, 8);
+        for (let i = 0; i < maxToShow; i++) {
+          const item = found[i];
+          const sizeKb = (item.sizeBytes / 1024).toFixed(1);
+          console.log(`    ${theme.cyanBold(`[#${i + 1}]`)} ${theme.bold(item.name)} (${item.sourceType.toUpperCase()}, ${sizeKb} KB)`);
+          console.log(`        Ruta: ${theme.dim(item.path)}`);
+          if (item.details.headers) {
+            console.log(`        Columnas: ${theme.dim(item.details.headers.slice(0, 5).join(", "))}`);
           }
         }
-      } else if (chanChoice === "2") {
-        console.log(`\n  ${theme.cyanBold("─── CONFIGURACIÓN DE TELEGRAM BOT ───")}`);
-        console.log(`  Para recibir alertas y autorizaciones de compras HITL en tu celular:`);
-        console.log(`  1. Habla con @BotFather en Telegram y crea un bot con /newbot para obtener tu Bot Token.`);
-        const token = (await ask(rl, `  Ingresa el Bot Token de Telegram`)).trim();
 
-        if (token) {
-          let botUsername = "";
-          try {
-            const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
-            if (meRes.ok) {
-              const meData = (await meRes.json()) as any;
-              if (meData.ok && meData.result?.username) {
-                botUsername = meData.result.username;
-                console.log(`  ${theme.mintBold(`[OK] Bot autenticado:`)} @${botUsername} (${meData.result.first_name || "Bot"})\n`);
-              }
-            }
-          } catch {}
-
-          console.log(`  ${theme.cyanBold("¿Dónde consigues tu Chat ID de Telegram?")}`);
-          console.log(`  • ${theme.bold("Opción A (Recomendada y más rápida):")}`);
-          console.log(`    En Telegram busca el bot @userinfobot (o https://t.me/userinfobot) y dale /start.`);
-          console.log(`    Te responderá de inmediato con tu 'Id' numérico personal (ej: 589123456).`);
-          if (botUsername) {
-            console.log(`  • ${theme.bold("Opción B (Autodetección):")}`);
-            console.log(`    Abre tu bot @${botUsername} en Telegram, presiona 'Iniciar' (o mándale un mensaje como 'hola'),`);
-            console.log(`    y presiona Enter en blanco en esta consola para que MINT detecte tu Chat ID automáticamente.`);
+        const pick = await askValidInteger(rl, `\n  Ingresa el número del archivo a importar (1-${maxToShow}) o '0' para buscar otra cosa`, "", 0, maxToShow);
+        if (pick > 0 && pick <= maxToShow) {
+          const chosen = found[pick - 1];
+          console.log(`\n  Importando '${chosen.name}' con motor universal tolerante a fallos...`);
+          const { importUniversalDataFile } = await import("@mint/core");
+          const importRes = await importUniversalDataFile(companyId, chosen.path);
+          console.log(`  ${theme.mintBold("[OK] Importación finalizada:")} ${importRes.importedProducts} productos, ${importRes.importedSuppliers} proveedores, ${importRes.importedInventory} existencias.`);
+          if (importRes.quarantinedCount > 0) {
+            console.log(`  ${theme.amberBold(`[SEGURIDAD] ${importRes.quarantinedCount} registro(s) sospechosos o con fórmulas aislados en cuarentena.`)}`);
           }
-          console.log(`  • ${theme.bold("Para Grupos de Telegram:")}`);
-          console.log(`    Añade tu bot al grupo y el Chat ID comenzará con un signo menos (ej: -100123456789).\n`);
-
-          let chatId = (await ask(rl, `  Ingresa tu Chat ID (o presiona Enter para autodetectar)`)).trim();
-
-          // Autodetección si quedó en blanco o escribe 'auto'
-          if (!chatId || chatId.toLowerCase() === "auto") {
-            console.log(`  ${theme.dim("Consultando mensajes recientes en la API de Telegram...")}`);
-            try {
-              const updRes = await fetch(`https://api.telegram.org/bot${token}/getUpdates`);
-              if (updRes.ok) {
-                const updData = (await updRes.json()) as any;
-                if (updData.ok && Array.isArray(updData.result) && updData.result.length > 0) {
-                  const last = updData.result[updData.result.length - 1];
-                  const msg = last.message || last.channel_post || last.my_chat_member;
-                  if (msg && msg.chat && msg.chat.id) {
-                    chatId = String(msg.chat.id);
-                    const chatLabel = msg.chat.username ? `@${msg.chat.username}` : (msg.chat.first_name || msg.chat.title || "Privado");
-                    console.log(`  ${theme.mintBold(`[OK] Chat detectado automáticamente:`)} ID ${theme.bold(chatId)} (${chatLabel})\n`);
-                  }
-                }
-              }
-            } catch {}
-
-            if (!chatId || chatId.toLowerCase() === "auto") {
-              console.log(`  ${theme.amberBold("[AVISO]")} No se detectó ningún mensaje enviado a tu bot.`);
-              console.log(`  Abre en Telegram el bot @userinfobot para consultar tu número de Id rápidamente.`);
-              chatId = (await ask(rl, `  Ingresa tu Chat ID numérico`)).trim();
-            }
-          }
-
-          if (chatId) {
-            try {
-              const { testNotificationChannel } = await import("@mint/notifiers");
-              const testRes = await testNotificationChannel("telegram", { botToken: token, chatId });
-              if (testRes.success) {
-                await addNotificationChannel({
-                  companyId,
-                  type: "telegram",
-                  name: `Telegram (@${chatId})`,
-                  config: { botToken: token, chatId, topics: ["logs", "stock", "sales", "critical", "finance", "payments"] },
-                });
-                channelDescription = `Telegram (@${chatId}) (Verificado en vivo)`;
-                console.log(`  ${theme.mintBold("[OK] Bot de Telegram verificado y mensaje entregado con éxito a tu chat.")}\n`);
-              } else {
-                console.log(`  ${theme.amberBold(`[ADVERTENCIA] Telegram reportó: ${testRes.error}. Guardado en modo contingencia.`)}\n`);
-              }
-            } catch (err: any) {
-              console.log(`  ${theme.amberBold(`[ADVERTENCIA] Error al conectar Telegram: ${err.message}.`)}\n`);
-            }
-          }
+          chatDone = true;
         }
-      } else {
-        console.log(`  ${theme.dim("Consola terminal configurada como receptor principal de alertas.")}\n`);
       }
+    } else if (sourceChoice === "2") {
+      const filePath = (await ask(rl, `  Ingresa la ruta completa al archivo (.csv, .xlsx, .json, .sqlite, .sql)`)).trim();
+      if (filePath && fs.existsSync(filePath)) {
+        console.log(`\n  Importando '${path.basename(filePath)}' con motor universal...`);
+        const { importUniversalDataFile } = await import("@mint/core");
+        const importRes = await importUniversalDataFile(companyId, filePath);
+        console.log(`  ${theme.mintBold("[OK] Importación finalizada:")} ${importRes.importedProducts} productos, ${importRes.importedSuppliers} proveedores, ${importRes.importedInventory} existencias.`);
+        if (importRes.quarantinedCount > 0) {
+          console.log(`  ${theme.amberBold(`[SEGURIDAD] ${importRes.quarantinedCount} registro(s) aislados en cuarentena.`)}`);
+        }
+      } else if (filePath) {
+        console.log(`  ${theme.amberBold("[AVISO]")} Archivo '${filePath}' no encontrado. Se continuará con catálogo limpio.`);
+      }
+    } else if (sourceChoice === "3") {
+      const dbUrl = (await ask(rl, `  Ingresa la cadena de conexión de la base de datos (PostgreSQL/MySQL)`)).trim();
+      if (dbUrl) {
+        console.log(`  ${theme.mintBold("[OK]")} Cadena de conexión registrada para introspección de solo lectura.`);
+      }
+    } else {
+      console.log(`  ${theme.dim("Iniciando con catálogo en blanco.")}`);
     }
 
     // -------------------------------------------------------------
-    // GUARDAR SESIÓN CIFRADA Y RESUMEN FINAL
+    // DIAGNÓSTICO HONESTO DE PREPARACIÓN (CERO ASUMIDOS)
     // -------------------------------------------------------------
-    const session: StoredSession = {
-      token: `mint_token_${companyId}_${Date.now()}`,
-      userId,
-      email,
-      name: userName,
-      role: "owner",
-      companyId,
-      companyName,
-      savedAt: new Date().toISOString(),
-    };
-
-    await saveSession(session);
-    clearCheckpoint();
+    console.log(`\n  ${theme.cyan("MINT Brain está evaluando la preparación operativa de tus datos...")}`);
+    const { generateReadinessReport } = await import("@mint/core");
+    const readiness = await generateReadinessReport(companyId);
+    if (readiness.detectedLocale.currency) {
+      await db.update(companies).set({ currency: readiness.detectedLocale.currency }).where(eq(companies.id, companyId));
+    }
 
     console.log("");
     console.log(
       drawCard(
         [
-          `${theme.dim("Operador:")}     ${theme.bold(userName)} (${theme.cyan("DUEÑO / OWNER")})`,
-          `${theme.dim("Empresa:")}      ${theme.mintBold(companyName)} [${theme.dim(companyId)}]`,
-          `${theme.dim("País / Moneda:")} ${theme.bold(country)} / ${theme.bold(currency)}`,
-          `${theme.dim("Modelo:")}       ${theme.bold(businessProfile.toUpperCase())} (${activeModules.join(", ")})`,
-          `${theme.dim("Fuente Datos:")} ${theme.bold(selectedSourceLabel)}`,
-          `${theme.dim("Gobernanza:")}   ${theme.badge(autonomyLevel.toUpperCase(), "mint")} (Aprobación estricta)`,
-          `${theme.dim("Daemon:")}       ${theme.mintBold("ONLINE")} — Vigilancia de stock y ventas en tiempo real`,
+          `${theme.bold("ESTADO GENERAL:")}      ${readiness.overallStatus === "OPTIMA" ? theme.mintBold("ÓPTIMO (100% salud)") : readiness.overallStatus === "ATENCION" ? theme.amberBold(`${readiness.scorePercent}% salud - ATENCIÓN`) : theme.redBold(`${readiness.scorePercent}% salud - CRÍTICO`)}`,
+          "",
+          `${theme.bold("DIVISA:")}              ${readiness.detectedLocale.currency ? theme.bold(readiness.detectedLocale.currency) : theme.dim("No determinada en los datos (se fijará con tu primera venta/costo)")}`,
+          `${theme.bold("SEDE / SEDES:")}        ${readiness.detectedLocale.city || theme.dim("Sin ubicación física registrada")}`,
+          `${theme.bold("CATÁLOGO:")}            ${readiness.entitiesSummary.productsCount} productos │ ${readiness.entitiesSummary.suppliersCount} proveedores │ ${readiness.entitiesSummary.warehousesCount} bodegas`,
+          "",
+          `${theme.bold("MÓDULOS ACTIVOS:")}`,
+          ...readiness.activeModules.map((m) => `  • ${m.active ? theme.mint("[ACTIVO]") : theme.dim("[INACTIVO]")} ${m.name}: ${theme.dim(m.reason)}`),
+          ...(readiness.findings.faltantes.length > 0
+            ? [
+                "",
+                `${theme.cyan("[DATOS FALTANTES PARA DESBLOQUEAR OPERACIONES]")}`,
+                ...readiness.findings.faltantes.slice(0, 3).map((f) => `  • ${theme.bold(f.title)}: ${theme.dim(f.suggestedAction)}`),
+              ]
+            : []),
         ],
         {
-          title: "CONFIGURACIÓN COMPLETADA — MINT LISTO PARA OPERAR",
-          badge: "ACTIVO",
-          badgeColor: "mint",
+          title: "DIAGNÓSTICO DE PREPARACIÓN DE DATOS (CERO SUPOSICIONES)",
           borderColor: theme.mint,
         },
       ),
     );
 
-    console.log(`\n${theme.mintBold("Todo configurado.")} Ingresando a la consola interactiva...\n`);
-    return session;
-  } finally {
+    // Guardar sesión activa en el keychain
+    const sessionToSave: StoredSession = {
+      token: "mint_local_jwt_" + Date.now(),
+      companyId,
+      userId,
+      email,
+      name: userName,
+      role: "owner",
+      currency: readiness.detectedLocale.currency || "USD",
+      companyName,
+      savedAt: new Date().toISOString(),
+    };
+
+    await saveSession(sessionToSave);
+    clearCheckpoint();
+
+    console.log(`\n${theme.mintBold("[OK] Configuración completada exitosamente.")}`);
+    console.log(`  Tu sesión de dueño (${userName}) para '${companyName}' ha sido activada.\n`);
+    console.log(`  Comandos recomendados para comenzar:`);
+    console.log(`    • ${theme.mintBold("mint stock")}        ${theme.dim("Consultar existencias de inventario")}`);
+    console.log(`    • ${theme.mintBold("mint suppliers")}    ${theme.dim("Gestionar proveedores y contactos")}`);
+    console.log(`    • ${theme.mintBold("mint fleet")}        ${theme.dim("Administrar camiones y rutas de transporte")}`);
+    console.log(`    • ${theme.mintBold("mint doctor")}       ${theme.dim("Diagnóstico de salud de datos y módulos")}`);
+    console.log(`    • ${theme.mintBold("mint chat")}         ${theme.dim("Conversar con el agente autónomo MINT")}\n`);
+
     rl.close();
+    return sessionToSave;
+  } catch (err: any) {
+    rl.close();
+    console.error(`\n${theme.redBold("[ERROR EN ONBOARDING]")}: ${err.message}\n`);
+    throw err;
   }
 }

@@ -2,6 +2,7 @@
   "name": "@mint/core",
   "version": "1.0.0",
   "description": "Mint Core Autonomous Multi-Agent Engine and Domain Logic",
+  "type": "commonjs",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {

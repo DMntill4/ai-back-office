@@ -59,7 +59,12 @@ export async function listNotificationChannels(companyId: string) {
 }
 
 async function resolveActiveChannels(companyId: string) {
-  let channels = await listNotificationChannels(companyId);
+  let channels: any[] = [];
+  try {
+    channels = await listNotificationChannels(companyId);
+  } catch {
+    channels = [];
+  }
 
   if (channels.length === 0) {
     const envChannels: typeof channels = [];

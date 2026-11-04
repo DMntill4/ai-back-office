@@ -36,6 +36,17 @@ export async function chatCommand(message: string, options: { json?: boolean; no
   const caseId = `chat_${randomUUID().slice(0, 8)}`;
 
   try {
+    const { companies } = await import("@mint/core");
+    await db
+      .insert(companies)
+      .values({
+        id: companyId,
+        name: session?.companyName || companyId,
+        currency: session?.currency || "USD",
+      })
+      .onConflictDoNothing()
+      .catch(() => {});
+
     await db.insert(cases).values({
       id: caseId,
       companyId,
@@ -43,11 +54,12 @@ export async function chatCommand(message: string, options: { json?: boolean; no
       description: trimmedMsg,
       status: "en_proceso",
       priority: "media",
-    });
+    }).catch(() => {});
 
     // 1. INTENCIÓN DETERMINISTA EN LENGUAJE NATURAL (Fast-Path Local)
     const { resolveNaturalLanguageIntent } = await import("@mint/core");
-    const intentRes = await resolveNaturalLanguageIntent(companyId, trimmedMsg);
+    // Enrutamiento directo al Agente ReAct con LLM y memoria viva (Grok 4.6):
+    const intentRes = { handledDeterministically: false, response: "" };
 
     if (intentRes.handledDeterministically) {
       // Persistir la respuesta en cases.resultSummary para que el agente recuerde este turno en las siguientes preguntas
@@ -82,7 +94,7 @@ export async function chatCommand(message: string, options: { json?: boolean; no
     }
 
     if (options.json) {
-      const res = await runAgentLoop(caseId);
+      const res = await runAgentLoop(caseId, { userRole: session?.role || "operator" });
       console.log(JSON.stringify(res, null, 2));
       return;
     }
@@ -103,6 +115,7 @@ export async function chatCommand(message: string, options: { json?: boolean; no
     let res;
     try {
       res = await runAgentLoop(caseId, {
+        userRole: session?.role || "operator",
         onEvent: (ev) => {
           executedSteps.push(`${ev.action}`);
           label = `Ejecutando ${ev.action}`;

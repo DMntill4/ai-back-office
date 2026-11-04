@@ -114,10 +114,10 @@ export function ensureVaultDirectories(vaultPath: string): {
   preguntasDir: string;
   auditoriaDir: string;
 } {
-  const decisionesDir = path.join(vaultPath, "Decisiones");
-  const cuarentenaDir = path.join(vaultPath, "Cuarentena");
-  const preguntasDir = path.join(vaultPath, "Preguntas");
-  const auditoriaDir = path.join(vaultPath, "Auditoria");
+  const decisionesDir = path.join(vaultPath, "Decisions");
+  const cuarentenaDir = path.join(vaultPath, "Quarantine");
+  const preguntasDir = path.join(vaultPath, "Questions");
+  const auditoriaDir = path.join(vaultPath, "Audit");
 
   for (const dir of [decisionesDir, cuarentenaDir, preguntasDir, auditoriaDir]) {
     if (!fs.existsSync(dir)) {

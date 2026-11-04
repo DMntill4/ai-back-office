@@ -26,9 +26,11 @@
     "agent:headless": "tsx packages/cli/src/index.ts start --headless",
     "dev": "tsx packages/cli/src/index.ts start",
     "dev:backend": "tsx src/server.ts",
-    "app": "tsx packages/app/server.ts",
+    "app": "tsx packages/cli/src/index.ts app",
     "server": "tsx src/server.ts",
-    "mint": "tsx packages/cli/src/index.ts"
+    "mint": "tsx packages/cli/src/index.ts",
+    "cli": "tsx packages/cli/src/index.ts cli",
+    "executions": "tsx scripts/run_10_real_executions.ts"
   },
   "repository": {
     "type": "git",

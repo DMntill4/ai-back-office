@@ -586,6 +586,8 @@ export async function dispatchToolCall(
     companyId?: string;
     caseId?: string;
     agentRole?: SecurityRole;
+    userRole?: string;
+    caller?: string;
     isHumanCaller?: boolean;
     targetCompanyId?: string;
   },

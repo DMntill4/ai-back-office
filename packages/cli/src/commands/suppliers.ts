@@ -18,20 +18,7 @@ export async function suppliersCommand(action?: string, arg1?: string, ...rest: 
   // Si opera en Solo Tienda, silenciar módulo de proveedores
   const { db, businessConfig } = await import("@mint/core");
   const { eq, and } = await import("drizzle-orm");
-  const [profileCfg] = await db
-    .select({ value: businessConfig.value })
-    .from(businessConfig)
-    .where(and(eq(businessConfig.companyId, companyId), eq(businessConfig.key, "business_profile")))
-    .limit(1)
-    .catch(() => []);
-
-  if (profileCfg?.value === "tienda") {
-    console.log(`\n  ${theme.amberBold("[MÓDULO SILENCIADO - SOLO TIENDA]")}`);
-    console.log(`  El módulo de Proveedores y Compras está desactivado para tu modelo de negocio.`);
-    console.log(`  MINT opera en modo exclusivo de tienda (catálogo, ventas y ganancias sin ruido de proveedores).`);
-    console.log(`  ${theme.dim("Para habilitarlo, cambia tu perfil a 'Tienda con Proveedores' ejecutando:")} ${theme.mintBold("/config set business_profile tienda_proveedores")}\n`);
-    return;
-  }
+  // Módulo dinámico habilitado según datos reales
 
   const sub = action ? action.trim() : "";
 
@@ -41,7 +28,7 @@ export async function suppliersCommand(action?: string, arg1?: string, ...rest: 
       console.log(
         `\n  ${theme.redBold("[ACCESO DENEGADO]")} Tu rol (${role.toUpperCase()}) no tiene permisos para dar de alta proveedores.\n`,
       );
-      return;
+      process.exit(0);
     }
 
     const name = arg1;
@@ -53,7 +40,7 @@ export async function suppliersCommand(action?: string, arg1?: string, ...rest: 
       console.log(
         `\n  ${theme.amberBold("[USO]")} /suppliers add <NOMBRE> [EMAIL] [TELEFONO] [CIUDAD]\n  ${theme.dim("Ejemplo:")} /suppliers add "Ferretería Industrial S.A." ventas@ferre.com +573001234567 Bogotá\n`,
       );
-      return;
+      process.exit(0);
     }
 
     try {
@@ -88,7 +75,7 @@ export async function suppliersCommand(action?: string, arg1?: string, ...rest: 
     } catch (err: any) {
       console.log(`\n  ${theme.redBold("[ERROR]")} ${err.message}\n`);
     }
-    return;
+    process.exit(0);
   }
 
   // 2. Subcomando: Detalle de proveedor (/suppliers <id>)
@@ -143,7 +130,7 @@ export async function suppliersCommand(action?: string, arg1?: string, ...rest: 
         console.log(renderTable(orderCols, detail.recentOrders));
         console.log("");
       }
-      return;
+      process.exit(0);
     }
   }
 
@@ -154,7 +141,7 @@ export async function suppliersCommand(action?: string, arg1?: string, ...rest: 
   if (supps.length === 0) {
     console.log(`\n  ${theme.amberBold("[AVISO]")} No hay proveedores registrados en la base de datos de la empresa.`);
     console.log(`  ${theme.dim("Agrega tu primer proveedor con:")} ${theme.mintBold('/suppliers add "Nombre" ventas@proveedor.com +573000000000 Bogota')}\n`);
-    return;
+    process.exit(0);
   }
 
   const columns: ColumnDef[] = [
@@ -177,4 +164,5 @@ export async function suppliersCommand(action?: string, arg1?: string, ...rest: 
   console.log("\n" + theme.bold("SUBCOMANDOS:"));
   console.log(`  ${theme.mintBold("/suppliers <id>")}          Ver catálogo detallado de precios y tiempos`);
   console.log(`  ${theme.mintBold("/suppliers add <nombre>")}  Dar de alta un nuevo proveedor en PostgreSQL\n`);
+  process.exit(0);
 }

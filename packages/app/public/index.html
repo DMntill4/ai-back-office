@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </head>
 <body>
   <div id="app" class="desktop-shell">
@@ -42,29 +44,41 @@
       <aside class="app-sidebar">
         <nav class="nav-menu">
           <button class="nav-item active" data-tab="dashboard">
-            <span class="nav-label">Dashboard Operativo</span>
+            <span class="nav-label">Dashboard</span>
+          </button>
+          <button class="nav-item" data-tab="readiness">
+            <span class="nav-label">Diagnóstico de Datos</span>
+            <span class="nav-pill pill-amber" id="readinessGapsPill">0</span>
+          </button>
+          <button class="nav-item" data-tab="inventory">
+            <span class="nav-label">Inventario & Catálogo</span>
+            <span class="nav-pill" id="productsCountPill">0</span>
+          </button>
+          <button class="nav-item" data-tab="suppliers">
+            <span class="nav-label">Proveedores</span>
+            <span class="nav-pill" id="suppliersCountPill">0</span>
           </button>
           <button class="nav-item" data-tab="logistics">
-            <span class="nav-label">Torre Logistica & GPS</span>
+            <span class="nav-label">Flota & Rutas GPS</span>
             <span class="nav-pill" id="shipmentsCountPill">0</span>
+          </button>
+          <button class="nav-item" data-tab="decisions">
+            <span class="nav-label">Propuestas HITL</span>
+            <span class="nav-pill pill-amber" id="pendingDecisionsPill">0</span>
+          </button>
+          <button class="nav-item" data-tab="quarantine">
+            <span class="nav-label">Cuarentena & Ataques</span>
+            <span class="nav-pill pill-red" id="quarantineCountPill">0</span>
           </button>
           <button class="nav-item" data-tab="agent">
             <span class="nav-label">Coordinador IA</span>
-          </button>
-          <button class="nav-item" data-tab="inventory">
-            <span class="nav-label">Inventario & ROP</span>
-            <span class="nav-pill" id="productsCountPill">0</span>
-          </button>
-          <button class="nav-item" data-tab="decisions">
-            <span class="nav-label">Bandeja HITL</span>
-            <span class="nav-pill pill-amber" id="pendingDecisionsPill">0</span>
           </button>
           <button class="nav-item" data-tab="channels">
             <span class="nav-label">Canales Discord/TG</span>
             <span class="nav-pill" id="channelsCountPill">0</span>
           </button>
           <button class="nav-item" data-tab="logs">
-            <span class="nav-label">Auditoria & Logs</span>
+            <span class="nav-label">Auditoría & Logs</span>
           </button>
         </nav>
 
@@ -211,6 +225,19 @@
           </div>
 
           <!-- Active Shipments Table -->
+          <!-- OpenStreetMap / Leaflet GPS Control Tower -->
+          <div class="card" style="margin-bottom: 20px;">
+            <div class="card-header">
+              <h2>Mapa Logístico Interactivo (OpenStreetMap / OSRM)</h2>
+              <span class="badge badge-mint">GPS EN VIVO // CERO COSTO</span>
+            </div>
+            <div id="osmMap" style="margin-top:12px;"></div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); margin-top:8px;">
+              <span>🔵 Bodegas & Almacenes &nbsp;&nbsp; 🟠 Proveedores &nbsp;&nbsp; 🟢 Envíos en Tránsito</span>
+              <span id="mapStatusText">Cargando telemetría geoespacial...</span>
+            </div>
+          </div>
+
           <div class="card" style="margin-bottom: 20px;">
             <div class="card-header">
               <h2>Embarques y Guias Activas (Inbound & Outbound)</h2>
@@ -454,6 +481,219 @@
       </div>
     </div>
   </div>
+
+  
+        <!-- ==========================================================================
+             VIEW: READINESS DIAGNOSTIC & UNIVERSAL DATA INGESTION
+             ========================================================================== -->
+        <section id="view-readiness" class="view-pane">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Diagnóstico de Preparación de Datos & Módulos</h1>
+              <p class="view-subtitle">MINT analiza tu información de forma autónoma. CERO suposiciones. Diagnóstico categorizado en 5 pilares.</p>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="loadReadiness()">Re-analizar Datos</button>
+          </div>
+
+          <!-- Readiness Overview Cards -->
+          <div class="kpi-grid" style="margin-bottom: 20px;">
+            <div class="kpi-card">
+              <span class="kpi-title">Salud de Datos</span>
+              <span class="kpi-num text-mint" id="diagHealthScore">100%</span>
+              <span class="kpi-foot" id="diagHealthStatus">Estado Óptimo</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Divisa Detectada</span>
+              <span class="kpi-num text-cyan" id="diagCurrency">-</span>
+              <span class="kpi-foot" id="diagCurrencyEvidence">Sin suposiciones</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Sede / Territorio</span>
+              <span class="kpi-num text-mint" id="diagLocation">-</span>
+              <span class="kpi-foot" id="diagTimezone">Zona horaria auto</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Entidades en BD</span>
+              <span class="kpi-num text-violet" id="diagEntitiesCount">0</span>
+              <span class="kpi-foot" id="diagEntitiesFoot">Productos, proveedores, etc.</span>
+            </div>
+          </div>
+
+          <!-- Active Modules Banner -->
+          <div class="card" style="margin-bottom: 20px;">
+            <div class="card-header">
+              <h2>Módulos Operativos Dinámicos (Activados según presencia real de datos)</h2>
+            </div>
+            <div id="diagModulesContainer" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px; margin-top:12px;"></div>
+          </div>
+
+          <!-- Universal Ingestion Dropzone -->
+          <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+              <h2>Cargar Base de Datos o Archivo (.csv, .xlsx, .json, .sqlite, .sql)</h2>
+              <span class="badge badge-mint">NEUTRALIZA INYECCIÓN & MALICIOSOS</span>
+            </div>
+            <p class="card-desc" style="margin: 8px 0 16px 0;">
+              MINT digiere archivos sucios, incompletos o mal estructurados sin caerse. Neutraliza fórmulas automáticas (<code>=CMD</code>), aísla intentos de prompt injection a cuarentena y autodescubre productos, existencias y proveedores.
+            </p>
+
+            <div class="dropzone-box" id="universalDropzone" onclick="document.getElementById('fileInput').click()">
+              <div class="dropzone-icon">📥</div>
+              <div style="font-weight:600; font-size:14px;">Arrastra tu archivo aquí o haz clic para seleccionarlo</div>
+              <div class="dropzone-hint">Soporta: CSV, TSV, XLSX, XLS, JSON, SQLite (.db, .sqlite), y dumps .sql</div>
+              <input type="file" id="fileInput" style="display:none;" accept=".csv,.tsv,.xlsx,.xls,.json,.sqlite,.db,.sql" onchange="handleFileSelect(event)">
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:12px; align-items:center;">
+              <input type="text" id="filePathInput" class="form-input" style="flex:1;" placeholder="O ingresa la ruta completa a un archivo local (ej: C:\datos\inventario.xlsx)">
+              <button class="btn btn-mint" onclick="handleImportPath()">Importar Ruta</button>
+            </div>
+            <div id="ingestResultBox" style="margin-top:12px;"></div>
+          </div>
+
+          <!-- 5 Diagnostic Pillars Grid -->
+          <h2 style="font-size:16px; margin-bottom:12px;">Hallazgos Categorizados por Pilar</h2>
+          <div class="pillars-grid">
+            <!-- 1. Bloqueantes -->
+            <div class="pillar-card bloqueante">
+              <div class="pillar-header">
+                <span class="pillar-title text-red">🔴 Bloqueantes</span>
+                <span class="pillar-badge" id="countBloqueantes">0</span>
+              </div>
+              <div class="pillar-items" id="itemsBloqueantes">
+                <div class="empty-hint">Sin errores bloqueantes.</div>
+              </div>
+            </div>
+
+            <!-- 2. Discrepancias -->
+            <div class="pillar-card discrepancia">
+              <div class="pillar-header">
+                <span class="pillar-title text-amber">🟠 Discrepancias</span>
+                <span class="pillar-badge" id="countDiscrepancias">0</span>
+              </div>
+              <div class="pillar-items" id="itemsDiscrepancias">
+                <div class="empty-hint">Sin discrepancias numéricas.</div>
+              </div>
+            </div>
+
+            <!-- 3. Seguridad -->
+            <div class="pillar-card seguridad">
+              <div class="pillar-header">
+                <span class="pillar-title" style="color:#f43f5e;">🚩 Seguridad & Ataques</span>
+                <span class="pillar-badge" id="countSeguridad">0</span>
+              </div>
+              <div class="pillar-items" id="itemsSeguridad">
+                <div class="empty-hint">Sin amenazas detectadas.</div>
+              </div>
+            </div>
+
+            <!-- 4. Calidad -->
+            <div class="pillar-card calidad">
+              <div class="pillar-header">
+                <span class="pillar-title" style="color:#eab308;">🟡 Calidad de Datos</span>
+                <span class="pillar-badge" id="countCalidad">0</span>
+              </div>
+              <div class="pillar-items" id="itemsCalidad">
+                <div class="empty-hint">Datos con formato óptimo.</div>
+              </div>
+            </div>
+
+            <!-- 5. Faltante para Desbloquear -->
+            <div class="pillar-card faltante">
+              <div class="pillar-header">
+                <span class="pillar-title text-cyan">🔵 Faltante p/ Desbloquear</span>
+                <span class="pillar-badge" id="countFaltantes">0</span>
+              </div>
+              <div class="pillar-items" id="itemsFaltantes">
+                <div class="empty-hint">Todos los módulos desbloqueados.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==========================================================================
+             VIEW: SUPPLIERS DIRECTORY
+             ========================================================================== -->
+        <section id="view-suppliers" class="view-pane">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Directorio Oficial de Proveedores y Suplidores</h1>
+              <p class="view-subtitle">MINT vigila precios y redacta propuestas de compra a estos proveedores (siempre con aprobación humana).</p>
+            </div>
+            <button class="btn btn-mint btn-sm" onclick="toggleAddSupplierCard()">+ Registrar Proveedor</button>
+          </div>
+
+          <!-- Add Supplier Form Card -->
+          <div class="card" id="addSupplierCard" style="display:none; margin-bottom: 20px;">
+            <div class="card-header">
+              <h2>Registrar Nuevo Proveedor en PostgreSQL</h2>
+              <button class="btn-close" onclick="toggleAddSupplierCard()">✕</button>
+            </div>
+            <form id="addSupplierForm" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:12px;" onsubmit="handleCreateSupplier(event)">
+              <input type="text" id="suppName" class="form-input" placeholder="Nombre de la Empresa / Proveedor" required>
+              <input type="email" id="suppEmail" class="form-input" placeholder="Correo (ej: ventas@proveedor.com)">
+              <input type="text" id="suppPhone" class="form-input" placeholder="Teléfono / WhatsApp (ej: +573001234567)">
+              <input type="text" id="suppCity" class="form-input" placeholder="Ciudad (ej: Bogotá, Medellín, CDMX)">
+              <button type="submit" class="btn btn-mint" style="grid-column: 1 / -1;">Guardar Proveedor Oficial</button>
+            </form>
+          </div>
+
+          <!-- Suppliers Table -->
+          <div class="card">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>PROVEEDOR</th>
+                    <th>UBICACIÓN</th>
+                    <th>CONTACTO</th>
+                    <th class="text-right">CATÁLOGO</th>
+                    <th class="text-right">LEAD TIME</th>
+                    <th class="text-right">ÓRDENES</th>
+                  </tr>
+                </thead>
+                <tbody id="suppliersTableBody">
+                  <tr><td colspan="7" style="text-align:center; padding:18px; color:var(--text-dim);">Cargando proveedores...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==========================================================================
+             VIEW: QUARANTINE & SECURITY INCIDENTS
+             ========================================================================== -->
+        <section id="view-quarantine" class="view-pane">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Mesa de Cuarentena y Registro de Incidentes de Seguridad</h1>
+              <p class="view-subtitle">Registros hostiles, fórmulas peligrosas (=CMD), inyecciones en prompts y datos corruptos aislados para proteger la integridad del back office.</p>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="loadQuarantine()">Actualizar Mesa</button>
+          </div>
+
+          <div class="card">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>ENTIDAD</th>
+                    <th>TIPO DE VIOLACIÓN</th>
+                    <th>SEVERIDAD</th>
+                    <th>MOTIVO / DETALLE</th>
+                    <th>ESTADO</th>
+                    <th>FECHA DETECCIÓN</th>
+                  </tr>
+                </thead>
+                <tbody id="quarantineTableBody">
+                  <tr><td colspan="7" style="text-align:center; padding:18px; color:var(--text-dim);">Cargando registros aislados...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
 
   <script src="/app.js"></script>
 </body>
