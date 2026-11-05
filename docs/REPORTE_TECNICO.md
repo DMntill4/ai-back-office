@@ -81,7 +81,7 @@ La arquitectura del sistema responde a seis épicas de desarrollo diseñadas par
 * **Arsenal de 8 Herramientas Tipadas en Zod:**
   1. `consultar_stock`: Búsqueda de inventario con Fuzzy Matching para tolerancia a errores tipográficos.
   2. `ver_ordenes_abiertas`: Detección de órdenes en camino y compras activas.
-  3. `crear_orden_compra`: Creación idempotente con límite de aprobación humana ($10,000 MXN).
+  3. `crear_orden_compra`: Creación idempotente de propuesta formal con escalado estricto a aprobación humana (HITL). CERO desembolso unilateral.
   4. `evaluar_proveedores`: Matriz comparativa de proveedores por costo, velocidad o balance general.
   5. `analisis_financiero`: Valuación de inventario total, compromisos financieros y presupuesto a 30 días.
   6. `simular_escenario`: Simulaciones What-If de demanda y contingencias por retrasos de proveedores.
@@ -94,7 +94,7 @@ La arquitectura del sistema responde a seis épicas de desarrollo diseñadas par
 
 ### Épica 5: Consola Web Interactiva (Mint Platform) y Human-in-the-Loop Visual
 * **Panel de Operaciones (Dashboard):** Visualización de KPIs en tiempo real (órdenes totales, tasa de automatización, revisiones pendientes, ahorros y gasto en USD) y gráficos interactivos de desempeño de proveedores (*Recharts*).
-* **Bandeja de Aprobaciones Human-in-the-Loop:** Interfaz visual para que supervisores autoricen o rechacen órdenes de compra mayores a $10,000 MXN en un clic (`POST /api/approvals/:id`).
+* **Bandeja de Aprobaciones Human-in-the-Loop:** Interfaz visual y CLI (`mint inbox`) para que supervisores autoricen o rechacen propuestas de compra en un clic (CERO desembolso autónomo sin firma humana).
 * **Consola de Chat del Agente:** Conversación fluida con sugerencias automáticas, insignias de estado de ejecución en vivo (`en_proceso`, `resuelto`, `escalado`) y desglose de tokens y costo en dólares.
 * **Explorador de Inventario y Línea de Tiempo:** Vista tabular de productos y existencias (`StockView`) y registro cronológico de auditoría que sustituye la terminal tradicional.
 
@@ -180,9 +180,9 @@ sequenceDiagram
 
 Para asegurar operaciones corporativas confiables, la plataforma implementa salvaguardas en cada nivel:
 
-1. **Gobernanza Human-in-the-Loop Presupuestaria ($10,000 MXN):**
+1. **Gobernanza Human-in-the-Loop Estricta (CERO Auto-Desembolso):**
    - La herramienta `crear_orden_compra` calcula el monto total (`cantidad × precio_unitario`).
-   - Si la orden supera los **$10,000 MXN**, el agente **nunca ejecuta la compra directamente**. En su lugar, emite un requerimiento en la tabla `approvals` con status `pendiente` y escala el caso para autorización en la interfaz web.
+   - En el dominio financiero de MINT, **ninguna compra se ejecuta de forma unilateral sin supervisión humana**. La plataforma genera una propuesta formal con justificación y expediente de ROI, la deposita en la tabla `decisions` con estado `pending_approval` y en `vault/Decisiones/`, y alerta al supervisor para autorización vía `/inbox` o canales interactivos.
 2. **Garantía de Idempotencia:**
    - Toda escritura exige una clave única de idempotencia (`idempotency_key`), previniendo transacciones duplicadas por caídas de red o reintentos de consulta.
 3. **Verificación Física Post-Escritura:**
@@ -215,7 +215,37 @@ Se dispone de una suite integral de **85 pruebas automatizadas** en `Vitest` org
 
 ---
 
-## 7. Telemetría y Control de Costos en USD
+## 7. Validación Empírica: 10 Ejecuciones Reales de Punta a Punta (Hito S2)
+
+En cumplimiento de los requerimientos de evaluación del Hito S2, el sistema cuenta con una batería de **10 ejecuciones reales de punta a punta**, invocando herramientas reales conectadas a infraestructura física (PostgreSQL, motor vial OSRM HTTP real, geocodificación OpenStreetMap, sanitización de archivos del sistema operativo y memoria inmutable en Obsidian Vault):
+
+- **Reporte Oficial Completo:** Consulta el documento dedicado [`docs/REGISTRO_10_EJECUCIONES_REALES.md`](./REGISTRO_10_EJECUCIONES_REALES.md).
+- **Evidencia Estructurada JSON:** Registro reproducible en [`docs/ejecuciones_reales.json`](./ejecuciones_reales.json).
+- **Comando de Reproducción Inmediata:**
+  ```bash
+  npm run executions
+  # o también:
+  mint executions
+  ```
+
+### Resumen de las 10 Ejecuciones Reales
+
+| # | ID Caso | Herramientas Reales Invocadas | Error y Recuperación Autónoma | Estado Final |
+| :-: | :--- | :--- | :--- | :-: |
+| 1 | `CASE-REAL-001` | `consultar_stock` (Levenshtein Fuzzy Matcher + BD) | Término inexacto capturado -> Reintento autónomo exitoso con SKU dinámico resuelto | **RESUELTO** |
+| 2 | `CASE-REAL-002` | `calcular_ruta_logistica` (OSRM HTTP Real) | Cálculo vial real de 410.7 km (396 min) con flete vial vía OSRM | **RESUELTO** |
+| 3 | `CASE-REAL-003` | `crear_orden_compra` + `policyEngine` (Regla Anti-AutoGasto) | Propuesta de reposición formal escalada a `/inbox` (CERO auto-desembolso) | **ESCALADO** (HITL) |
+| 4 | `CASE-REAL-004` | `crear_orden_compra` + `policyEngine` + `decisions` | Compra atípica o desproporcionada -> Bloqueo preventivo y auditoría forense | **ESCALADO** (HITL) |
+| 5 | `CASE-REAL-005` | `importUniversalDataFile` + `sanitizeRow` | Payload DDE (`=cmd|...`) neutralizado y enviado a cuarentena sin crash | **RESUELTO** |
+| 6 | `CASE-REAL-006` | `evaluar_proveedores` + `suppliersService` | Evaluación multi-criterio en BD real sin inventar plazos de entrega | **RESUELTO** |
+| 7 | `CASE-REAL-007` | `despachar_envio` + `calcular_ruta_logistica` | Asignación de guía `TRK-OUT-...` y cálculo vial OSRM con reserva física | **RESUELTO** |
+| 8 | `CASE-REAL-008` | `pronosticar_demanda` + `demandService` | Detección de quiebre de stock y cálculo de días de inventario restante (ROP) | **RESUELTO** |
+| 9 | `CASE-REAL-009` | `checkToolAuthorization (RBAC Matrix)` | Rol 'viewer' intentando mutación -> Intercepción y bloqueo estricto | **RESUELTO** |
+| 10 | `CASE-REAL-010` | `reconcileSalesPaymentsDeliveries` + Vault | Conciliación 3 vías y persistencia inmutable en `vault/Auditoria/` | **RESUELTO** |
+
+---
+
+## 8. Telemetría y Control de Costos en USD
 
 Cada llamada a Grok registra de forma estricta sus métricas en la tabla `llm_calls`:
 - **Tarifa Base Grok 4.6:** $2.00 USD por millón de tokens de entrada / $10.00 USD por millón de tokens de salida / $0.50 USD por millón de tokens en caché.

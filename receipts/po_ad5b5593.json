@@ -1,0 +1,54 @@
+{
+  "orderId": "po_ad5b5593",
+  "folioNumber": "PO-2026-5B5593",
+  "issuedAt": "2026-10-25T16:52:58.235Z",
+  "company": {
+    "id": "comp_default",
+    "name": "Ferreteria Industrial Santandereana S.A.S.",
+    "city": "Bucaramanga",
+    "country": "Colombia",
+    "currency": "COP"
+  },
+  "supplier": {
+    "id": "prov_acme",
+    "name": "Acme Components",
+    "email": "compras@proveedor-homologado.local",
+    "city": "Acme Components",
+    "address": "Acme Components"
+  },
+  "items": [
+    {
+      "productId": "prod_st200",
+      "sku": "SKU-ST200",
+      "name": "Sensor Termico Industrial PT-100 Alta Precision",
+      "quantity": 15,
+      "unitPrice": 240,
+      "subtotal": 3600
+    }
+  ],
+  "financials": {
+    "subtotal": 3600,
+    "taxRate": 0.16,
+    "taxAmount": 576,
+    "freightCost": 0,
+    "totalAmount": 4176,
+    "currency": "COP"
+  },
+  "logistics": {
+    "carrier": "Servientrega Industrial",
+    "trackingNumber": "TRK-IN-CC3FAE",
+    "origin": "Acme Components",
+    "destination": "Bucaramanga",
+    "etaDate": "2026-10-28",
+    "leadDays": 3,
+    "transitStatus": "en_transito"
+  },
+  "governance": {
+    "approvedBy": "Laura Directora de Cadena de Suministro (@laura_mint) [vía telegram]",
+    "decisionId": "dec_remote_tg_1792947178089",
+    "caseId": "case_remote_tg_1792947178089",
+    "idempotencyKey": "idem_dec_dec_remote_tg_1792947178089",
+    "sha256AuditHash": "822ef4a1e7c149c9d7afbd3f75a23dc2b7519cf0380268ed02fcd208151fedcb",
+    "policyReason": "Requiere confirmación humana HITL."
+  }
+}

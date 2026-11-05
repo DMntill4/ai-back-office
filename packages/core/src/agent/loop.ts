@@ -5,25 +5,19 @@ import { grokClient } from "../llm/client";
 import { AGENT_TOOLS, dispatchToolCall } from "./toolsDefinition";
 import { closeCase } from "./closing";
 import { db } from "../db/client";
-import { cases, caseEvents } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { cases, caseEvents, businessConfig, companies, products, suppliers, notificationChannels, decisions, toolCalls } from "../db/schema";
+import { eq, sql, ne, desc, and, like, isNotNull } from "drizzle-orm";
+import { evaluateCommunicationIntent } from "../security/communicationPolicyGuard";
+import { analyzePromptInjection, redactSensitiveSecrets } from "../security/promptInjectionGuard";
 import { randomUUID } from "node:crypto";
-import {
-  compactToolPayload,
-  fitMessagesToBudget,
-  TOKEN_BUDGETS,
-} from "./context/contextManager";
+import { enforceTokenBudget } from "./context/contextManager";
 import { normalizeBotLanguage, type BotLanguage } from "../services/configService";
-import { telemetryPublisher } from "../telemetry/telemetryPublisher";
-import { toMintGraphNodeId } from "../graph/graph.types";
-import {
-  evaluateBeforeClosing,
-  type SelfEvaluationResult,
-} from "./evaluation/selfEvaluator";
 
 export interface AgentLoopOptions {
   maxSteps?: number;
   maxTokens?: number;
+  userRole?: string;
+  caller?: string;
   client?: {
     chatCompletion: (options: any) => Promise<any>;
   };
@@ -44,8 +38,6 @@ export interface AgentExecutionReport {
   summary: string;
   reason: string;
   multiAgentEvents?: Array<{ agent: string; action: string; details?: string }>;
-  /** Veredicto de la auto-evaluación previa al cierre (Reflection Loop) */
-  evaluation?: SelfEvaluationResult;
 }
 
 /**
@@ -83,26 +75,7 @@ export function isInvalidOrGibberishInput(text: string): boolean {
  * Carga el prompt del sistema y las instrucciones operativas desde disco,
  * inyectando el idioma ('es' | 'en'), la personalidad y reglas personalizadas configuradas.
  */
-const SYSTEM_PROMPT_CACHE_TTL_MS = 15_000;
-const systemPromptCache = new Map<string, {
-  expiresAt: number;
-  value: { prompt: string; botLanguage: BotLanguage };
-}>();
-
 async function loadSystemPrompt(companyId?: string): Promise<{ prompt: string; botLanguage: BotLanguage }> {
-  const cacheKey = companyId || "default";
-  const cached = systemPromptCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
-
-  const value = await buildSystemPrompt(companyId);
-  systemPromptCache.set(cacheKey, {
-    expiresAt: Date.now() + SYSTEM_PROMPT_CACHE_TTL_MS,
-    value,
-  });
-  return value;
-}
-
-async function buildSystemPrompt(companyId?: string): Promise<{ prompt: string; botLanguage: BotLanguage }> {
   let prompt = "";
   let botLanguage: BotLanguage = "es";
 
@@ -123,19 +96,13 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
 
   if (companyId) {
     try {
-      const { businessConfig, companies, products, suppliers, notificationChannels } = await import("../db/schema");
-      const { sql } = await import("drizzle-orm");
+      // static imports used
       const [[comp], [prodCount], supps, chans, configs] = await Promise.all([
         db.select().from(companies).where(eq(companies.id, companyId)).limit(1),
         db.select({ n: sql<number>`count(*)::int` }).from(products).where(eq(products.companyId, companyId)),
-        db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers).where(eq(suppliers.companyId, companyId)).limit(8),
-        db.select({
-          type: notificationChannels.type,
-          name: notificationChannels.name,
-          isActive: notificationChannels.isActive,
-          config: notificationChannels.config,
-        }).from(notificationChannels).where(eq(notificationChannels.companyId, companyId)),
-        db.select({ key: businessConfig.key, value: businessConfig.value }).from(businessConfig).where(eq(businessConfig.companyId, companyId)),
+        db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers).where(eq(suppliers.companyId, companyId)).limit(25),
+        db.select().from(notificationChannels).where(eq(notificationChannels.companyId, companyId)),
+        db.select().from(businessConfig).where(eq(businessConfig.companyId, companyId)),
       ]);
       const prods = { length: Number(prodCount?.n ?? 0) };
 
@@ -165,38 +132,18 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
       } else {
         customBlock += `\n- Proveedores: Sin proveedores externos homologados aún.`;
       }
-      const hasEnvTelegram = Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
-      const readyChannels = chans.filter((channel) => {
-        if (!channel.isActive) return false;
-        const config = channel.config as Record<string, unknown>;
-        if (channel.type === "telegram") return Boolean(config?.botToken && config?.chatId);
-        if (["slack", "discord", "webhook"].includes(channel.type)) {
-          try {
-            return ["http:", "https:"].includes(new URL(String(config?.webhookUrl ?? "")).protocol);
-          } catch {
-            return false;
-          }
-        }
-        if (channel.type === "gmail") {
-          return Boolean(config?.email || process.env.RESEND_API_KEY || process.env.SMTP_HOST);
-        }
-        return false;
-      });
-      if (hasEnvTelegram && !readyChannels.some((channel) => channel.type === "telegram")) {
-        customBlock += `\n- Canales de Notificación Conectados: TELEGRAM (configuración de entorno).`;
-      } else if (readyChannels.length > 0) {
-        customBlock += `\n- Canales de Notificación Conectados: ${readyChannels.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`;
+      if (chans.length > 0) {
+        customBlock += `\n- Canales de Notificación Conectados: ${chans.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`;
       } else {
         customBlock += `\n- Canales de Notificación: Sin canales remotos conectados actualmente.`;
       }
       customBlock += `\n- Asistente: ${botName} (Tono: ${botTone})`;
       customBlock += `\n- Gobernanza: HUMAN-IN-THE-LOOP 100%. CERO compras automáticas unilaterales fuera de política.`;
       if (customRules) {
-        customBlock += `\n- Reglas de Negocio Personalizadas: ${customRules.slice(0, 1200)}`;
+        customBlock += `\n- Reglas de Negocio Personalizadas: ${customRules}`;
       }
       try {
-        const { decisions } = await import("../db/schema");
-        const { desc } = await import("drizzle-orm");
+        // static imports used
         const recentDecs = await db
           .select({
             id: decisions.id,
@@ -208,7 +155,7 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
           .from(decisions)
           .where(eq(decisions.companyId, companyId))
           .orderBy(desc(decisions.createdAt))
-          .limit(2);
+          .limit(4);
 
         if (recentDecs.length > 0) {
           customBlock +=
@@ -283,7 +230,7 @@ export async function runAgentLoop(
         reason: "Entrada no válida filtrada por guardrail de input.",
         hasUnverifiedWrites: false,
       });
-    } catch { }
+    } catch {}
 
     return {
       caseId,
@@ -304,7 +251,7 @@ export async function runAgentLoop(
 
   // 1.3 Guardrail de Comunicación y Mensajería Saliente (Anti-Bromas / Anti-Abuso)
   if (isChatCase) {
-    const { evaluateCommunicationIntent } = await import("../security/communicationPolicyGuard");
+    // static import used
     const commEval = evaluateCommunicationIntent({
       userInput: String(caseDesc),
       companyId,
@@ -321,7 +268,7 @@ export async function runAgentLoop(
           reason: commEval.rejectionReason || "Rechazado por política de comunicación.",
           hasUnverifiedWrites: false,
         });
-      } catch { }
+      } catch {}
 
       return {
         caseId,
@@ -341,7 +288,7 @@ export async function runAgentLoop(
     }
 
     // 1.4 Guardrail contra Prompt Injection en Chat
-    const { analyzePromptInjection } = await import("../security/promptInjectionGuard");
+    // static import used
     const injection = analyzePromptInjection(String(caseDesc));
     if (injection.isSuspicious) {
       const refusalMsg =
@@ -357,7 +304,7 @@ export async function runAgentLoop(
           reason: injection.explanation || "Intento de prompt injection detectado.",
           hasUnverifiedWrites: false,
         });
-      } catch { }
+      } catch {}
 
       return {
         caseId,
@@ -408,13 +355,10 @@ export async function runAgentLoop(
   // 3. Cargar memoria conversacional previa de la empresa (pares completos usuario -> asistente)
   const previousDialogues: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
   try {
-    const { ne, desc, and, like, isNotNull } = await import("drizzle-orm");
+    // static import used
     // Priorizar turnos conversacionales recientes que tengan tanto pregunta como respuesta guardada
     let prevCases = await db
-      .select({
-        description: cases.description,
-        resultSummary: cases.resultSummary,
-      })
+      .select()
       .from(cases)
       .where(
         and(
@@ -425,7 +369,22 @@ export async function runAgentLoop(
         ),
       )
       .orderBy(desc(cases.createdAt))
-      .limit(2);
+      .limit(6);
+
+    if (prevCases.length === 0) {
+      prevCases = await db
+        .select()
+        .from(cases)
+        .where(
+          and(
+            eq(cases.companyId, companyId),
+            ne(cases.id, caseId),
+            isNotNull(cases.resultSummary),
+          ),
+        )
+        .orderBy(desc(cases.createdAt))
+        .limit(3);
+    }
 
     for (const prev of prevCases.reverse()) {
       const userText = (prev.description || "").trim();
@@ -434,11 +393,11 @@ export async function runAgentLoop(
       if (userText && assistantText && !isInvalidOrGibberishInput(userText)) {
         previousDialogues.push({
           role: "user",
-          content: userText.slice(0, 300),
+          content: userText.slice(0, 1000),
         });
         previousDialogues.push({
           role: "assistant",
-          content: assistantText.slice(0, 500),
+          content: assistantText.slice(0, 1600),
         });
       }
     }
@@ -469,25 +428,25 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = isSmallTalk
     ? [
-      {
-        role: "system",
-        content:
-          systemPrompt +
-          (botLanguage === "en"
-            ? "\n\nReply in one or two sentences, strictly in ENGLISH, without calling tools or inventing data. If the user greets you, greet them back and ask how you can help."
-            : "\n\nResponde en una o dos frases, estrictamente en ESPAÑOL, sin usar herramientas ni inventar datos. Si saluda, saluda y pregunta en qué puedes ayudar."),
-      },
-      ...previousDialogues.slice(-4),
-      { role: "user", content: String(caseDesc) },
-    ]
+        {
+          role: "system",
+          content:
+            systemPrompt +
+            (botLanguage === "en"
+              ? "\n\nReply in one or two sentences, strictly in ENGLISH, without calling tools or inventing data. If the user greets you, greet them back and ask how you can help."
+              : "\n\nResponde en una o dos frases, estrictamente en ESPAÑOL, sin usar herramientas ni inventar datos. Si saluda, saluda y pregunta en qué puedes ayudar."),
+        },
+        ...previousDialogues.slice(-4),
+        { role: "user", content: String(caseDesc) },
+      ]
     : [
-      { role: "system", content: systemPrompt },
-      ...previousDialogues,
-      {
-        role: "user",
-        content: userMessageContent,
-      },
-    ];
+        { role: "system", content: systemPrompt },
+        ...previousDialogues,
+        {
+          role: "user",
+          content: userMessageContent,
+        },
+      ];
 
   let currentStep = 0;
   let totalTokensAccumulated = 0;
@@ -506,14 +465,6 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
     botLanguage === "en" ? "Maximum step limit reached" : "Límite de pasos alcanzado";
   let completedNaturally = false;
   const multiAgentTimeline: Array<{ agent: string; action: string; details?: string }> = [];
-  if (isSmallTalk) {
-    finalSummary = botLanguage === "en"
-      ? "Hello. How can I help with your inventory, purchasing, or logistics operations?"
-      : "Hola. ¿En qué puedo ayudarte con inventario, compras o logística?";
-    finalReason = "Respuesta conversacional determinista; no requiere consulta al modelo.";
-    finalStatus = "resuelto";
-    completedNaturally = true;
-  }
 
   const SPECIALIST_MAP: Record<string, string> = {
     consultar_stock: "Módulo Inventario [PostgreSQL]",
@@ -542,19 +493,15 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
   ]);
 
   // 4. Bucle principal de pensamiento y acción (ReAct)
-  while (!completedNaturally && currentStep < maxSteps) {
+  while (currentStep < maxSteps) {
     currentStep++;
 
-    const requestMessages = fitMessagesToBudget(
-      messages,
-      TOKEN_BUDGETS.COORDINATOR.maxInputTokens,
-    );
     const response = await client.chatCompletion({
       caseId,
-      messages: requestMessages,
+      messages,
       tools: isSmallTalk ? undefined : AGENT_TOOLS,
       toolChoice: isSmallTalk ? undefined : "auto",
-      maxTokens: isSmallTalk ? 150 : options.maxTokens ?? (process.env.NODE_ENV === "test" ? 900 : 450),
+      maxTokens: isSmallTalk ? 200 : undefined,
       temperature: 0.1,
     });
 
@@ -575,8 +522,8 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           payload: { paso: currentStep, pensamiento: response.content },
         })
         .then(
-          () => { },
-          () => { },
+          () => {},
+          () => {},
         );
     }
 
@@ -609,109 +556,35 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
             details: typeof toolArgs === "string" ? toolArgs : JSON.stringify(toolArgs),
           });
 
-          // Intercepción de fallos de herramienta: si la tool falla, se captura
-          // el motivo, se inyecta en la memoria contextual y se permite al modelo
-          // reintentar con una estrategia alternativa sin colgar la ejecución.
-          let result: any;
-          let isClosingAction = false;
-          let closingType: "resuelto" | "escalado" | undefined;
-          let parsedToolArgs: Record<string, unknown> = {};
+          let dispatchOutput: { result: any; isClosingAction: boolean; closingType?: "resuelto" | "escalado" };
           try {
-            parsedToolArgs = typeof toolArgs === "string"
-              ? JSON.parse(toolArgs || "{}") as Record<string, unknown>
-              : toolArgs && typeof toolArgs === "object"
-                ? toolArgs as Record<string, unknown>
-                : {};
-          } catch {
-            parsedToolArgs = {};
-          }
-          const role = /stock|inventario|demanda/i.test(toolName)
-            ? "inventario"
-            : /proveedor|compra|orden/i.test(toolName)
-              ? "compras"
-              : /envio|ruta|logistica|carga/i.test(toolName)
-                ? "logistica"
-                : /auditar|anomalia|riesgo/i.test(toolName)
-                  ? "auditoria"
-                  : /notificacion|canal/i.test(toolName)
-                    ? "notificaciones"
-                    : /dato|integracion|sincron/i.test(toolName)
-                      ? "datos_integraciones"
-                      : "orchestrator";
-          const agentId = toMintGraphNodeId("agent", role);
-          const productId = String(
-            parsedToolArgs.productId ??
-            parsedToolArgs.product_id ??
-            parsedToolArgs.producto_id ??
-            parsedToolArgs.sku ??
-            "",
-          );
-          const supplierId = String(parsedToolArgs.supplierId ?? parsedToolArgs.proveedor_id ?? "");
-          const warehouseId = String(parsedToolArgs.warehouseId ?? parsedToolArgs.bodega_id ?? "");
-          const shipmentId = String(parsedToolArgs.shipmentId ?? parsedToolArgs.shipment_id ?? "");
-          const targetNodeId = productId
-            ? toMintGraphNodeId("sku", productId)
-            : supplierId && role === "compras"
-              ? toMintGraphNodeId("supp", supplierId)
-              : warehouseId && (role === "inventario" || role === "logistica")
-                ? toMintGraphNodeId("wh", warehouseId)
-                : shipmentId && role === "logistica"
-                  ? toMintGraphNodeId("ship", shipmentId)
-                  : toMintGraphNodeId("case", caseId);
-          telemetryPublisher.publishGraphTraversal({
-            taskId: caseId,
-            agentId,
-            targetNodeId,
-            action: toolName,
-            path: [agentId, targetNodeId],
-            status: "active",
-          });
-          try {
-            const dispatched = await dispatchToolCall(toolName, toolArgs, {
-              companyId,
-              caseId,
-            });
-            result = dispatched.result;
-            isClosingAction = dispatched.isClosingAction;
-            closingType = dispatched.closingType;
-          } catch (toolError: any) {
-            const failureReason =
-              toolError?.message || "Error desconocido al ejecutar la herramienta.";
-            result = {
-              isSuccess: false,
-              verified: false,
-              errorMessage: failureReason,
-              message: `La herramienta ${toolName} falló: ${failureReason}. Reintenta con una estrategia alternativa (por ejemplo, verifica IDs, stock disponible o usa otra herramienta).`,
-            };
-            // Registrar el fallo en la memoria contextual del caso
-            db.insert(caseEvents)
-              .values({
-                id: `evt_${randomUUID()}`,
+            dispatchOutput = await dispatchToolCall(
+              toolName,
+              toolArgs,
+              {
+                companyId,
                 caseId,
-                eventType: "herramienta_fallida",
-                payload: {
-                  herramienta: toolName,
-                  motivo: failureReason,
-                  argumentos: toolArgs,
-                },
-              })
-              .then(
-                () => { },
-                () => { },
-              );
+                userRole: options?.userRole || "operator",
+                caller: options?.caller || "agent",
+                agentRole: (specialist as any),
+              },
+            );
+          } catch (dispatchErr: any) {
+            dispatchOutput = {
+              result: {
+                isSuccess: false,
+                verified: false,
+                error: dispatchErr?.message || "Error al ejecutar la herramienta.",
+                message: "La herramienta " + toolName + " falló: " + (dispatchErr?.message || "Error interno"),
+              },
+              isClosingAction: false,
+            };
           }
-          telemetryPublisher.publishGraphTraversal({
-            taskId: caseId,
-            agentId,
-            targetNodeId,
-            action: toolName,
-            path: [agentId, targetNodeId],
-            status: result?.isSuccess === false ? "warning" : "completed",
-          });
+          const { result, isClosingAction, closingType } = dispatchOutput;
 
           // Registrar ejecución en la tabla formal de herramientas tool_calls y en la bitácora
           try {
-            const { toolCalls } = await import("../db/schema");
+            // static import used
             const inputArgsObj =
               typeof toolArgs === "object"
                 ? toolArgs
@@ -742,8 +615,8 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
               payload: { herramienta: toolName, resultado: result },
             })
             .then(
-              () => { },
-              () => { },
+              () => {},
+              () => {},
             );
 
           return { call, toolName, result, isClosingAction, closingType };
@@ -762,8 +635,9 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           }
         }
 
-        // Devolver resultados compactados para conservar los datos operativos dentro del presupuesto.
-        const safeContent = compactToolPayload(result, 350);
+        // Devolver resultado de la herramienta al modelo con presupuesto amplio (3500 tokens ~ 14,000 chars) para no truncar ni corromper JSON
+        const rawJson = JSON.stringify(result);
+        const safeContent = enforceTokenBudget(rawJson, 3500);
         messages.push({
           role: "tool",
           tool_call_id: call.id,
@@ -813,15 +687,14 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           : "Sintetiza de forma ejecutiva en ESPAÑOL los hallazgos obtenidos con las herramientas ejecutadas hasta ahora para responder al usuario, usando únicamente datos verificados.";
       const synthResponse = await client.chatCompletion({
         caseId,
-        messages: fitMessagesToBudget([
+        messages: [
           ...messages,
           {
             role: "user",
             content: synthInstruction,
           },
-        ], TOKEN_BUDGETS.COORDINATOR.maxInputTokens),
+        ],
         tools: undefined,
-        maxTokens: options.maxTokens ?? (process.env.NODE_ENV === "test" ? 900 : 350),
         temperature: 0.1,
       });
       if (synthResponse?.content) {
@@ -841,67 +714,11 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
 
   // 5. Aplicar filtro de salida estricto de emojis y redacción de secretos (defensa en profundidad)
   const EMOJI_FILTER_REGEX = /(?:[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F700}-\u{1F77F}]|[\u{1F780}-\u{1F7FF}]|[\u{1F800}-\u{1F8FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{2600}-\u{2693}\u{2695}-\u{26FF}]|[\u{2700}-\u{2793}\u{2795}-\u{27BF}]|[\u{1F1E6}-\u{1F1FF}]|[\u{1F3FB}-\u{1F3FF}]|[\u{231A}\u{231B}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}\u{24C2}\u{25AA}\u{25AB}\u{25FB}-\u{25FE}\u{2934}\u{2935}\u{2B05}-\u{2B07}\u{2B1B}\u{2B1C}\u{2B50}\u{2B55}\u{3030}\u{303D}\u{3297}\u{3299}]|[\u{FE0E}\u{FE0F}]|\u{200D})+/gu;
-  const { redactSensitiveSecrets } = await import("../security/promptInjectionGuard");
+  // static import used
   finalSummary = redactSensitiveSecrets((finalSummary || "").replace(EMOJI_FILTER_REGEX, "").trim());
   finalReason = redactSensitiveSecrets((finalReason || "").replace(EMOJI_FILTER_REGEX, "").trim());
 
   await startLog;
-
-  // 4.2 Auto-evaluación previa al cierre (Reflection & Verification Loop)
-  // Antes de marcar el objetivo como completo, el agente audita factibilidad,
-  // políticas y confianza. Si la confianza es baja, se escala para revisión.
-  let evaluation: SelfEvaluationResult | undefined;
-  try {
-    evaluation = await evaluateBeforeClosing({
-      taskId: caseId,
-      proposalSummary: finalSummary,
-      citedData: {
-        productId: inputData?.producto_id || inputData?.productId,
-        supplierId: inputData?.proveedor_id || inputData?.supplierId,
-        proposedQuantity: inputData?.cantidad || inputData?.quantity,
-        proposedUnitPrice: inputData?.precio_unitario || inputData?.unitPrice,
-        totalCostMxn: inputData?.costo_total || inputData?.totalCost,
-        companyId,
-      },
-      executedTools: multiAgentTimeline.map((t) => ({
-        toolName: t.action,
-        isSuccess: true,
-      })),
-      unverifiedWrites: unverifiedWritesCount,
-    });
-
-    // Si la evaluación exige regeneración y el caso iba a cerrarse como resuelto,
-    // se degrada a escalado para revisión humana (no se cierra a ciegas).
-    if (evaluation.requiresRegeneration && finalStatus === "resuelto") {
-      finalStatus = "escalado";
-      finalReason = `${finalReason} | Auto-evaluación: ${evaluation.reason}`;
-    } else if (evaluation.verdict !== "aprobado") {
-      finalReason = `${finalReason} | Auto-evaluación: ${evaluation.reason}`;
-    }
-
-    // Persistir el veredicto en la bitácora del caso
-    db.insert(caseEvents)
-      .values({
-        id: `evt_${randomUUID()}`,
-        caseId,
-        eventType: "auto_evaluacion",
-        payload: {
-          verdict: evaluation.verdict,
-          confidence: evaluation.confidence,
-          riskLevel: evaluation.riskLevel,
-          feasibility: evaluation.feasibility,
-          policy: evaluation.policy,
-          reason: evaluation.reason,
-        },
-      })
-      .then(
-        () => { },
-        () => { },
-      );
-  } catch {
-    // La auto-evaluación nunca debe romper el cierre del caso
-  }
-
   await closeCase({
     caseId,
     status: finalStatus,
@@ -912,37 +729,17 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
 
   const totalCost = totalCostNumber.toFixed(6);
 
-  // Actualizar costos finales del caso (FinOps por tarea)
+  // Actualizar costos finales del caso
   try {
     await db
       .update(cases)
       .set({
         totalTokens: totalTokensAccumulated,
         totalCost,
-        promptTokens: totalPromptTokens,
-        completionTokens: totalCompletionTokens,
-        modelUsed: lastModel || null,
       })
       .where(eq(cases.id, caseId));
   } catch {
     // Fallback
-  }
-
-  // Emitir evento FinOps de consumo de la tarea (tokens + costo USD + modelo)
-  try {
-    telemetryPublisher.emitCost(
-      { id: "mint-agent-loop", label: "Mint Agent Loop", group: "agent" },
-      {
-        taskId: caseId,
-        tokens: totalTokensAccumulated,
-        costUsd: totalCostNumber,
-        model: lastModel || "unknown",
-        promptTokens: totalPromptTokens,
-        completionTokens: totalCompletionTokens,
-      },
-    );
-  } catch {
-    // Telemetría best-effort
   }
 
   return {
@@ -959,6 +756,5 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
     summary: finalSummary,
     reason: finalReason,
     multiAgentEvents: multiAgentTimeline,
-    evaluation,
   };
 }

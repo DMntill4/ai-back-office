@@ -1,0 +1,29 @@
+﻿SKU,Producto,Precio Venta Prom (USD),Costo Unitario (USD),Ganancia Unitaria (USD),Margen %,Unidades Vendidas (30d),Ganancia Total 30d (USD),Origen del Costo
+SKU-NO-COST-1793033747983,Accesorio Sin Costo Homologado,-,costo no registrado,N/A,N/A,0,N/A,Sin registro
+SKU-TEST-1793033745824,Sensor de Presión Industrial Pro,-,costo no registrado,N/A,N/A,0,N/A,Sin registro
+SKU-WITH-COST-1793033747731,Válvula Reguladora de Presión,-,40.00,-,-,0,-,Catálogo proveedor
+TOOL-01,Miniexcavadora Oruga 303.5 (Caterpillar 303.5 CR),-,250000.00,-,-,0,-,Catálogo proveedor
+TOOL-02,Excavadora Hidraulica PC200 (Komatsu PC200-8M0),-,580000.00,-,-,0,-,Catálogo proveedor
+TOOL-03,Martillo Demoledor Hexagonal 30kg (Bosch GSH 27 VC),-,65000.00,-,-,0,-,Catálogo proveedor
+TOOL-04,Rompepavimentos TE 3000-AVR (Hilti TE 3000-AVR),-,85000.00,-,-,0,-,Catálogo proveedor
+TOOL-05,Allanadora de Concreto 36 Pulgadas (Makita PT-36PRO),-,75000.00,-,-,0,-,Catálogo proveedor
+TOOL-06,Cortadora de Pavimento a Gasolina (DeWalt D25980K),-,95000.00,-,-,0,-,Catálogo proveedor
+TOOL-07,Vibrocompactador Pata de Elefante (Bailarina) (Wacker Neuson BS 50-2plus),-,55000.00,-,-,0,-,Catálogo proveedor
+TOOL-08,Retroexcavadora 3CX Eco (JCB 3CX ECO),-,420000.00,-,-,0,-,Catálogo proveedor
+TOOL-09,Minicargador Compacto S550 (Bobcat S550),-,210000.00,-,-,0,-,Catálogo proveedor
+TOOL-10,Plataforma Elevadora Tijera 10m Electrica (Genie GS-2646),-,160000.00,-,-,0,-,Catálogo proveedor
+TOOL-11,Compresor de Aire Tornillo 185 CFM (Atlas Copco XAS 88),-,130000.00,-,-,0,-,Catálogo proveedor
+TOOL-12,Excavadora SY215C (Sany SY215C),-,540000.00,-,-,0,-,Catálogo proveedor
+TOOL-13,Cargador Frontal L90H (Volvo L90H),-,490000.00,-,-,0,-,Catálogo proveedor
+TOOL-14,Grua Autodesplegable Fast-Tower (Liebherr 81 K.1),-,850000.00,-,-,0,-,Catálogo proveedor
+TOOL-15,Cortadora de Concreto Manual K 970 (Husqvarna K 970 II),-,60000.00,-,-,0,-,Catálogo proveedor
+TOOL-16,Miniexcavadora U35-4 (Kubota U35-4),-,240000.00,-,-,0,-,Catálogo proveedor
+TOOL-17,Cortadora de Disco TS 800 (Stihl TS 800),-,580000.00,-,-,0,-,Catálogo proveedor
+TOOL-18,Planta Soldadora Diesel Bobcat 250 (Miller Bobcat 250),-,140000.00,-,-,0,-,Catálogo proveedor
+TOOL-19,Equipo de Soldadura Ranger 305D (Lincoln Electric Ranger 305D),-,150000.00,-,-,0,-,Catálogo proveedor
+TOOL-20,Trituradora de Escombros Movil (Terex Finlay J-1170),-,920000.00,-,-,0,-,Catálogo proveedor
+TOOL-21,Generador Diesel Silencioso 65 kVA (Caterpillar DE65 GC),-,190000.00,-,-,0,-,Catálogo proveedor
+TOOL-22,Rodillo Compactador Doble Tambor JV40DW (Komatsu JV40DW),-,230000.00,-,-,0,-,Catálogo proveedor
+TOOL-23,Vibrador de Aguja para Concreto 45mm (Bosch GVC 22 EX),-,35000.00,-,-,0,-,Catálogo proveedor
+TOOL-24,Estacion Total Laser Profesional (Hilti POS 150),-,180000.00,-,-,0,-,Catálogo proveedor
+TOOL-25,Motobomba de Lodos 3 Pulgadas Diesel (Makita EW3051H),-,50000.00,-,-,0,-,Catálogo proveedor

@@ -96,7 +96,7 @@ Instrucción: Entrega una objeción crítica de 2-3 oraciones exponiendo el peor
             { role: "user", content: prompt },
           ],
           temperature: 0.1,
-          maxTokens: 150,
+          maxTokens: 220,
         });
 
         aiCritique = llmRes.content || undefined;

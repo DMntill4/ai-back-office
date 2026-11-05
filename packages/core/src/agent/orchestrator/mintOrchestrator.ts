@@ -14,12 +14,6 @@ import {
   type AgentActionType,
   type ResourceDomain,
 } from "../../security/agentPermissionsMatrix";
-import { telemetryPublisher } from "../../telemetry/telemetryPublisher";
-import { toMintGraphNodeId } from "../../graph/graph.types";
-import {
-  evaluateBeforeClosing,
-  type SelfEvaluationResult,
-} from "../evaluation/selfEvaluator";
 
 export interface OrchestrationResult {
   correlationId: string;
@@ -34,8 +28,6 @@ export interface OrchestrationResult {
   totalCostUsd: string;
   summary: string;
   deduplicated?: boolean;
-  /** Veredicto de la auto-evaluación previa a la propuesta (Reflection Loop) */
-  evaluation?: SelfEvaluationResult;
 }
 
 export class MintOrchestrator {
@@ -74,7 +66,7 @@ export class MintOrchestrator {
             .update(operationalEvents)
             .set({ status: "DISMISSED" })
             .where(eq(operationalEvents.id, params.eventId))
-            .catch(() => { });
+            .catch(() => {});
         }
         return {
           correlationId,
@@ -94,29 +86,6 @@ export class MintOrchestrator {
     const caseTitle = params.title || `Evento Operativo: ${params.eventType}`;
     const caseDesc = params.description || `Orquestación multi-agente para ${params.eventType}`;
 
-    // Guardia anti-duplicados a nivel de caso: Si ya hay un caso activo con el mismo título en proceso, no duplicar
-    if (!params.force) {
-      const existingActive = await db
-        .select({ id: cases.id })
-        .from(cases)
-        .where(and(eq(cases.companyId, companyId), eq(cases.title, caseTitle), eq(cases.status, "en_proceso")))
-        .limit(1);
-
-      if (existingActive.length > 0) {
-        return {
-          correlationId,
-          caseId: existingActive[0].id,
-          success: true,
-          agentResults: {},
-          usedAi: false,
-          totalTokensConsumed: 0,
-          totalCostUsd: "0.000000",
-          deduplicated: true,
-          summary: `Caso activo ya en proceso (#${existingActive[0].id}) para '${caseTitle}'. Se omite duplicación.`,
-        };
-      }
-    }
-
     await db.insert(cases).values({
       id: caseId,
       companyId,
@@ -133,7 +102,7 @@ export class MintOrchestrator {
       caseId,
       eventType: "orquestacion_iniciada",
       payload: { correlationId, eventType: params.eventType, targetProductId },
-    }).catch(() => { });
+    }).catch(() => {});
 
     // 2. Consultar agentes habilitados para el perfil de esta empresa
     const enabledConfigs = await agentRegistry.getEnabledAgentsForCompany(companyId);
@@ -155,8 +124,8 @@ export class MintOrchestrator {
         caseId,
         taskType: "analizar_existencias",
         priority: "alta",
-        payload: { productId: targetProductId },
-        requiresReasoning: false,
+        payload: { productId: targetProductId, isAnomaly: params.requireAiReasoning },
+        requiresReasoning: params.requireAiReasoning,
         createdAt: new Date().toISOString(),
       };
 
@@ -259,8 +228,9 @@ export class MintOrchestrator {
           quantity: targetQuantity,
           isUrgent,
           force: params.force,
+          requiresComparativeAnalysis: params.requireAiReasoning,
         },
-        requiresReasoning: false,
+        requiresReasoning: params.requireAiReasoning,
         createdAt: new Date().toISOString(),
       };
 
@@ -315,7 +285,7 @@ export class MintOrchestrator {
           proposedUnitPrice: recommendedOption.unitPrice,
           totalCostMxn: finalCostMxn,
         },
-        requiresReasoning: false,
+        requiresReasoning: params.requireAiReasoning,
         createdAt: new Date().toISOString(),
       };
 
@@ -359,7 +329,7 @@ Instrucción: Emite un veredicto directivo de 2 frases combinando riesgo, urgenc
             { role: "user", content: prompt },
           ],
           temperature: 0.1,
-          maxTokens: 150,
+          maxTokens: 250,
         });
 
         orchestratorAiNote = llmRes.content || undefined;
@@ -394,10 +364,11 @@ Instrucción: Emite un veredicto directivo de 2 frases combinando riesgo, urgenc
         unitPrice: recommendedOption.unitPrice,
         orchestratorAiNote,
         delayedShipmentNotice: agentResults.logistica?.data?.hasDelayedShipment
-          ? `Envío anterior con demora detectada en guía(s): ${agentResults.logistica.data.delayedTrackingNumbers?.join(", ") ||
-          agentResults.logistica.data.delayedShipmentTracking ||
-          ""
-          }`
+          ? `Envío anterior con demora detectada en guía(s): ${
+              agentResults.logistica.data.delayedTrackingNumbers?.join(", ") ||
+              agentResults.logistica.data.delayedShipmentTracking ||
+              ""
+            }`
           : undefined,
       },
       riskAssessment: {
@@ -412,57 +383,6 @@ Instrucción: Emite un veredicto directivo de 2 frases combinando riesgo, urgenc
     const policyResult = evaluatePolicy(proposal, {
       autonomyLevel: (params.autonomyLevel || "assisted") as any,
     });
-
-    // 8.1 Auto-evaluación previa a la propuesta (Reflection & Verification Loop)
-    // Audita factibilidad, políticas y confianza antes de emitir la decisión.
-    let evaluation: SelfEvaluationResult | undefined;
-    try {
-      evaluation = await evaluateBeforeClosing({
-        taskId: caseId,
-        proposalSummary: proposal.title,
-        citedData: {
-          productId: targetProductId,
-          supplierId: recommendedOption.supplierId,
-          proposedQuantity: purchasingData.recommendedQuantity,
-          proposedUnitPrice: recommendedOption.unitPrice,
-          totalCostMxn: finalCostMxn,
-          companyId,
-        },
-        executedTools: Object.values(agentResults).map((r) => ({
-          toolName: r.agentRole,
-          isSuccess: r.success,
-        })),
-        unverifiedWrites: 0,
-      });
-
-      // Si la confianza es insuficiente, se degrada la propuesta a revisión humana
-      // (nunca se auto-ejecuta una acción con baja confianza).
-      if (evaluation.requiresRegeneration && policyResult.policyDecision === "auto_executed") {
-        policyResult.policyDecision = "pending_approval";
-        policyResult.reason = `${policyResult.reason} | Auto-evaluación: ${evaluation.reason}`;
-      }
-
-      db.insert(caseEvents)
-        .values({
-          id: `evt_${randomUUID()}`,
-          caseId,
-          eventType: "auto_evaluacion",
-          payload: {
-            verdict: evaluation.verdict,
-            confidence: evaluation.confidence,
-            riskLevel: evaluation.riskLevel,
-            feasibility: evaluation.feasibility,
-            policy: evaluation.policy,
-            reason: evaluation.reason,
-          },
-        })
-        .then(
-          () => { },
-          () => { },
-        );
-    } catch {
-      // La auto-evaluación nunca debe romper la orquestación
-    }
 
     // 9. Persistir Decisión Formal en PostgreSQL
     await db.insert(decisions).values({
@@ -521,8 +441,6 @@ Instrucción: Emite un veredicto directivo de 2 frases combinando riesgo, urgenc
           .where(eq(operationalEvents.id, params.eventId));
       }
 
-      this.emitCostTelemetry(caseId, accumulatedTokens, accumulatedCost, params.llmClient);
-
       return {
         correlationId,
         caseId,
@@ -535,7 +453,6 @@ Instrucción: Emite un veredicto directivo de 2 frases combinando riesgo, urgenc
         totalTokensConsumed: accumulatedTokens,
         totalCostUsd: accumulatedCost.toFixed(6),
         summary: `[DECISIÓN AUTO-EJECUTADA]: ${proposal.title}. ${policyResult.reason} ${execution.message}`,
-        evaluation,
       };
     }
 
@@ -546,8 +463,6 @@ Instrucción: Emite un veredicto directivo de 2 frases combinando riesgo, urgenc
         .set({ status: "PROCESSING", caseId })
         .where(eq(operationalEvents.id, params.eventId));
     }
-
-    this.emitCostTelemetry(caseId, accumulatedTokens, accumulatedCost, params.llmClient);
 
     return {
       correlationId,
@@ -563,32 +478,7 @@ Instrucción: Emite un veredicto directivo de 2 frases combinando riesgo, urgenc
       summary: orchestratorAiNote
         ? `[DELIBERACIÓN IA]: ${orchestratorAiNote} -> Propuesta en /inbox aguardando aprobación humana.`
         : `[ESCALADO A /INBOX]: ${proposal.title}. ${policyResult.reason} Aguardando aprobación humana.`,
-      evaluation,
     };
-  }
-
-  /**
-   * Emite el evento FinOps de consumo de la tarea orquestada (best-effort).
-   */
-  private emitCostTelemetry(
-    caseId: string,
-    tokens: number,
-    costUsd: number,
-    llmClient?: any,
-  ): void {
-    try {
-      telemetryPublisher.emitCost(
-        { id: "mint-orchestrator", label: "MINT Orchestrator", group: "agent" },
-        {
-          taskId: caseId,
-          tokens,
-          costUsd,
-          model: llmClient?.defaultModel || "grok-4.6",
-        },
-      );
-    } catch {
-      // Telemetría best-effort
-    }
   }
 
   /**
@@ -683,51 +573,7 @@ Instrucción: Emite un veredicto directivo de 2 frases combinando riesgo, urgenc
       };
     }
 
-    const payload = task.payload && typeof task.payload === "object"
-      ? task.payload as Record<string, unknown>
-      : {};
-    const productId = String(payload.productId ?? payload.product_id ?? payload.sku ?? "");
-    const supplierId = String(payload.supplierId ?? payload.supplier_id ?? "");
-    const warehouseId = String(payload.warehouseId ?? payload.warehouse_id ?? "");
-    const shipmentId = String(payload.shipmentId ?? payload.shipment_id ?? "");
-    const agentId = toMintGraphNodeId("agent", agent.contract.role);
-    const role = agent.contract.role;
-    const targetNodeId = productId
-      ? toMintGraphNodeId("sku", productId)
-      : supplierId && role === "compras"
-        ? toMintGraphNodeId("supp", supplierId)
-        : warehouseId && (role === "inventario" || role === "logistica")
-          ? toMintGraphNodeId("wh", warehouseId)
-          : shipmentId && role === "logistica"
-            ? toMintGraphNodeId("ship", shipmentId)
-            : toMintGraphNodeId("case", task.caseId ?? task.taskId);
-    const traversalAction = /inventario|stock|existencia/i.test(task.taskType)
-      ? "reading_stock"
-      : /logistica|envio|ruta/i.test(task.taskType)
-        ? "routing_shipment"
-        : /compra|proveedor|orden/i.test(task.taskType)
-          ? "evaluating_supplier"
-          : "executing_task";
-
-    telemetryPublisher.publishGraphTraversal({
-      taskId: task.caseId ?? task.taskId,
-      agentId,
-      targetNodeId,
-      action: traversalAction,
-      path: [agentId, targetNodeId],
-      status: "active",
-    });
-
-    const result = await agent.execute(task, { llmClient: options?.llmClient });
-    telemetryPublisher.publishGraphTraversal({
-      taskId: task.caseId ?? task.taskId,
-      agentId,
-      targetNodeId,
-      action: traversalAction,
-      path: [agentId, targetNodeId],
-      status: result.success ? "completed" : "warning",
-    });
-    return result;
+    return agent.execute(task, { llmClient: options?.llmClient });
   }
 }
 

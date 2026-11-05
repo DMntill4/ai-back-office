@@ -19,7 +19,6 @@ export async function getProductsWithOpenProposals(companyId: string): Promise<S
         eq(decisions.companyId, companyId),
         or(
           eq(decisions.policyDecision, "pending_approval"),
-          and(eq(decisions.policyDecision, "blocked"), gt(decisions.createdAt, since)),
           and(eq(decisions.policyDecision, "rejected"), gt(decisions.decidedAt, since)),
         ),
       ),

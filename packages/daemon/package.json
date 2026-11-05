@@ -7,5 +7,6 @@
   "dependencies": {
     "@mint/core": "*",
     "@mint/ingest": "*"
-  }
+  },
+  "type": "commonjs"
 }

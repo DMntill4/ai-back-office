@@ -105,7 +105,7 @@ Instrucción: Resume en 2 oraciones la justificación comercial de la recomendac
             { role: "user", content: prompt },
           ],
           temperature: 0.1,
-          maxTokens: 150,
+          maxTokens: 250,
         });
 
         aiJustification = llmRes.content || undefined;

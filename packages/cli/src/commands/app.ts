@@ -1,12 +1,13 @@
-﻿import { theme } from "../ui/theme";
-import { drawDivider, drawCard } from "../ui/box";
 import { spawn } from "node:child_process";
 import * as http from "node:http";
-import * as fs from "node:fs";
+import { theme } from "../ui/theme";
+import { drawCard, drawDivider } from "../ui/box";
 
 function checkPort(port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const req = http.get(`http://localhost:${port}/api/dashboard`, () => resolve(true));
+    const req = http.get(`http://localhost:${port}/health`, (res) => {
+      resolve(res.statusCode === 200);
+    });
     req.on("error", () => resolve(false));
     req.setTimeout(800, () => {
       req.destroy();
@@ -16,30 +17,28 @@ function checkPort(port: number): Promise<boolean> {
 }
 
 function launchDesktopAppWindow(url: string) {
-  const edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
-  const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-
-  const appArgs = [`--app=${url}`, "--window-size=1280,820", "--app-id=mint-desktop-app"];
-
-  if (process.platform === "win32") {
-    if (fs.existsSync(edgePath)) {
-      spawn(edgePath, appArgs, { detached: true, stdio: "ignore" }).unref();
-      return;
+  const platform = process.platform;
+  try {
+    if (platform === "win32") {
+      // 1. Intentar abrir en modo app de Chrome/Edge si está disponible
+      const chromeCommand = `start msedge --app="${url}" || start chrome --app="${url}" || start ${url}`;
+      spawn("cmd.exe", ["/c", chromeCommand], { detached: true, stdio: "ignore" }).unref();
+    } else if (platform === "darwin") {
+      spawn("open", ["-n", "-a", "Google Chrome", "--args", `--app=${url}`], {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
+    } else {
+      spawn("xdg-open", [url], { detached: true, stdio: "ignore" }).unref();
     }
-    if (fs.existsSync(chromePath)) {
-      spawn(chromePath, appArgs, { detached: true, stdio: "ignore" }).unref();
-      return;
-    }
-    // Fallback on windows
-    spawn("cmd.exe", ["/c", "start", url], { detached: true, stdio: "ignore" }).unref();
-  } else if (process.platform === "darwin") {
-    spawn("open", ["-n", "-a", "Google Chrome", "--args", `--app=${url}`], { detached: true, stdio: "ignore" }).unref();
-  } else {
-    spawn("xdg-open", [url], { detached: true, stdio: "ignore" }).unref();
+  } catch {
+    // Silencioso si no puede abrir navegador en background
   }
 }
 
 export async function appCommand(options: { open?: boolean } = { open: true }) {
+  const { ensureEnterpriseDatabaseActive } = await import("../services/dockerDatabaseOrchestrator");
+  await ensureEnterpriseDatabaseActive();
   console.log("\n" + drawDivider("MINT DESKTOP APPLICATION // CENTRO DE CONTROL", 84));
 
   const isServerUp = await checkPort(3001);
@@ -80,6 +79,5 @@ export async function appCommand(options: { open?: boolean } = { open: true }) {
       },
     ),
   );
-  console.log("");
+  console.log(`  ${theme.dim("Presiona Ctrl+C en cualquier momento para regresar o salir.")}\n`);
 }
-

@@ -9,6 +9,7 @@ import {
   salesHistory,
   companies,
   mintSalesOrders,
+  fleetVehicles,
 } from "../db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { getCompanyConfig } from "./configService";
@@ -65,6 +66,19 @@ export interface OrderItemSummary {
   carrier?: string | null;
 }
 
+export interface FleetVehicleItem {
+  id: string;
+  name: string;
+  plateNumber: string;
+  vehicleType: string;
+  maxWeightKg: number;
+  maxVolumeM3: number;
+  assignedDriverId: string | null;
+  status: string;
+  currentLatitude: number | null;
+  currentLongitude: number | null;
+}
+
 export interface FleetShipmentItem {
   id: string;
   trackingNumber: string;
@@ -78,6 +92,12 @@ export interface FleetShipmentItem {
   currentLocation: string | null;
   destinationLocation: string | null;
   notes: string | null;
+  vehicleId?: string | null;
+  cargoManifest?: any;
+  totalWeightKg?: number | null;
+  capacityUtilizationPct?: number | null;
+  freightCostMxn?: number | null;
+  destinationAddress?: string | null;
 }
 
 export interface DriverMember {
@@ -311,11 +331,13 @@ export async function listCompanyFleet(
   drivers: DriverMember[];
   totalInTransit: number;
   totalDelayed: number;
+  vehicles: FleetVehicleItem[];
 }> {
-  const [shipList, userList, prodList] = await Promise.all([
+  const [shipList, userList, prodList, vehicleList] = await Promise.all([
     db.select().from(shipments).where(eq(shipments.companyId, companyId)).orderBy(desc(shipments.createdAt)),
     db.select().from(users).where(and(eq(users.companyId, companyId), eq(users.role, "driver"))),
     db.select().from(products).where(eq(products.companyId, companyId)),
+    db.select().from(fleetVehicles).where(eq(fleetVehicles.companyId, companyId)),
   ]);
 
   const activeShipments: FleetShipmentItem[] = shipList.map((s) => ({
@@ -331,6 +353,12 @@ export async function listCompanyFleet(
     currentLocation: s.currentLocation,
     destinationLocation: s.destinationLocation,
     notes: s.notes,
+    vehicleId: s.vehicleId,
+    cargoManifest: s.cargoManifest,
+    totalWeightKg: s.totalWeightKg ? Number(s.totalWeightKg) : null,
+    capacityUtilizationPct: s.capacityUtilizationPct ? Number(s.capacityUtilizationPct) : null,
+    freightCostMxn: s.freightCostMxn ? Number(s.freightCostMxn) : null,
+    destinationAddress: s.destinationAddress,
   }));
 
   const drivers: DriverMember[] = userList.map((u) => ({
@@ -345,11 +373,25 @@ export async function listCompanyFleet(
   const totalInTransit = activeShipments.filter((s) => s.status === "en_transito" || s.status === "en_preparacion").length;
   const totalDelayed = activeShipments.filter((s) => s.status === "retrasado").length;
 
+    const vehicles: FleetVehicleItem[] = (vehicleList || []).map((v) => ({
+    id: v.id,
+    name: v.name,
+    plateNumber: v.plateNumber,
+    vehicleType: v.vehicleType,
+    maxWeightKg: Number(v.maxWeightKg || 0),
+    maxVolumeM3: Number(v.maxVolumeM3 || 0),
+    assignedDriverId: v.assignedDriverId,
+    status: v.status,
+    currentLatitude: v.currentLatitude ? Number(v.currentLatitude) : null,
+    currentLongitude: v.currentLongitude ? Number(v.currentLongitude) : null,
+  }));
+
   return {
     activeShipments,
     drivers,
     totalInTransit,
     totalDelayed,
+    vehicles,
   };
 }
 

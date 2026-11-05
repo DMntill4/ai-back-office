@@ -244,7 +244,7 @@ async function executeProcessIncomingSale(
       cantidad_delta: -event.quantity,
       motivo: `Venta ejecutada desde canal ${event.channel.toUpperCase()} por ${customerName}`,
     },
-    { companyId }
+    { companyId, userRole: "owner" }
   );
 
   if (!adjustResult.isSuccess || !adjustResult.data) {
@@ -294,7 +294,7 @@ async function executeProcessIncomingSale(
           cantidad_delta: event.quantity,
           motivo: `Reversión automática por venta duplicada concurrente [${deduplicationKey}]`,
         },
-        { companyId }
+        { companyId, userRole: "owner" }
       ).catch(() => null);
 
       const existingWinner = await db
@@ -313,9 +313,9 @@ async function executeProcessIncomingSale(
           productName: (row.itemsPayload as any)?.[0]?.name || product.name,
           sku: (row.itemsPayload as any)?.[0]?.sku || event.sku,
           quantitySold: (row.itemsPayload as any)?.[0]?.quantity || event.quantity,
-          previousStock,
-          remainingStock: previousStock,
-          minStock,
+          previousStock: previousStock ?? 0,
+          remainingStock: previousStock ?? 0,
+          minStock: minStock ?? 0,
           isStockDeficit: false,
           customerName: row.customerName,
           shippingAddress: row.shippingAddress,
@@ -396,10 +396,10 @@ ${replenishmentText}
     productName: product.name,
     sku: product.sku,
     quantitySold: event.quantity,
-    previousStock,
-    remainingStock: newStock,
-    minStock,
-    isStockDeficit: isBelowMinimum,
+    previousStock: previousStock ?? 0,
+    remainingStock: (newStock ?? previousStock) ?? 0,
+    minStock: minStock ?? 0,
+    isStockDeficit: Boolean(isBelowMinimum),
     customerName,
     shippingAddress,
     totalAmount,

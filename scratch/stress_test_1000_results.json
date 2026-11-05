@@ -1,0 +1,63 @@
+{
+  "totalRequests": 1000,
+  "successfulRequests": 982,
+  "failedRequests": 18,
+  "successRate": "98.20%",
+  "expectedControlledFailuresHandled": 100,
+  "unexpectedFailures": 18,
+  "totalDurationSeconds": 37.79,
+  "throughputReqPerSec": 26.46,
+  "latencyMs": {
+    "min": 8.16,
+    "p50": 359.92,
+    "p95": 1276.24,
+    "p99": 1317.49,
+    "max": 1348.46,
+    "average": 519.1
+  },
+  "resources": {
+    "memoryDeltaMb": {
+      "rss": "-24.73",
+      "heapUsed": "14.54",
+      "heapTotal": "-26.72"
+    },
+    "cpuTimeSeconds": {
+      "user": "5.92",
+      "system": "1.16"
+    }
+  },
+  "categoryStats": {
+    "Lectura / Consultas": {
+      "total": 250,
+      "success": 250,
+      "avgMs": 495.56
+    },
+    "Movimientos / Stock": {
+      "total": 150,
+      "success": 132,
+      "avgMs": 738.94
+    },
+    "Solicitudes / Decisión": {
+      "total": 200,
+      "success": 200,
+      "avgMs": 1223.15
+    },
+    "Notificaciones / Webhook": {
+      "total": 150,
+      "success": 150,
+      "avgMs": 37.19
+    },
+    "Inyección de Fallos": {
+      "total": 100,
+      "success": 100,
+      "avgMs": 51.68
+    },
+    "Concurrencia Multi-Tenant": {
+      "total": 150,
+      "success": 150,
+      "avgMs": 193.29
+    }
+  },
+  "multiTenantIsolationViolations": 0,
+  "webhookRealDeliveriesCount": 150
+}

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @mint/core
  * Paquete central del motor multi-agente autónomo y lógica de dominio.
  * CERO dependencias de frameworks HTTP (Fastify) o UI.
@@ -32,12 +32,14 @@ export * from "./tools/index";
 // 3. Base de Datos y Esquemas Drizzle
 export * from "./db/client";
 export * from "./db/schema/index";
+export * from "./db/schema/business";
 export * from "./db/supabase";
 export * from "./db/ensureDecisionsTables";
 export * from "./db/safeQueryEngine";
 
 // 4. Motor de Políticas Determinista
 export * from "./policy/policyEngine";
+export * from "./events/openProposals";
 
 // 5. Ingestión y Escaneo de Eventos Reales
 export * from "./events/eventEngine";
@@ -71,6 +73,9 @@ export * from "./services/autonomousInspectionService";
 export * from "./services/obsidianMemoryService";
 export * from "./services/goalSeekingService";
 export * from "./services/vaultService";
+export * from "./services/readinessDiagnosticService";
+export * from "./services/universalImportService";
+export * from "./services/freightDispatchService";
 
 // 7. Cliente LLM
 export * from "./llm/client";
@@ -99,5 +104,3 @@ export * from "./agent/evaluation/selfEvaluator";
 
 // 11. Seguridad, Detección de Prompt Injection, Anti-SSRF y Guardrails
 export * from "./security/index";
-
-

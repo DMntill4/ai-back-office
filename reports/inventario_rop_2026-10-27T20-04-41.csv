@@ -1,0 +1,20 @@
+﻿SKU,Producto,Categoria,Stock Actual,Stock Minimo,Ventas 30d,Consumo Diario (u/d),Dias Cobertura,Clasificacion ABC,ROP Dinamico,Reorden Sugerida (u),Sobrestock,Capital Inmovilizado (USD),Diagnostico
+SKU-ST200,Sensor Térmico ST-200,industrial,0,10,15,0.5,0,A,11,0,NO,0,Quiebre total de inventario. Pérdida inmediata de ventas.
+MINT-SALES-CHAN-001,Terminal Sensor Venta Discord,sensores,43,10,0,0,Sin rotacion,C,10,0,SI,1150,Stock estancado sin ventas en 30 días con $1.150 inmovilizados.
+MINT-ROB-900,Brazo Robótico Articulado 6-Ejes,Robótica,2,5,0,0,Sin rotacion,C,5,3,NO,0,Punto de reorden alcanzado (2/5 u). Margen de seguridad activo.
+MINT-VAL-001,Válvula Reguladora de Presión Industrial,Herramientas,45,15,0,0,Sin rotacion,C,15,0,SI,750,Stock estancado sin ventas en 30 días con $750 inmovilizados.
+MINT-SEN-002,Sensor Infrarrojo de Alta Precisión,Electrónica,80,20,0,0,Sin rotacion,C,20,0,SI,2000,Stock estancado sin ventas en 30 días con $2.000 inmovilizados.
+MINT-VAL-800,Electro-Válvula Neumática 24V,Neumática,1,10,0,0,Sin rotacion,C,10,9,NO,0,Punto de reorden alcanzado (1/10 u). Margen de seguridad activo.
+MINT-EMP-005,Empaque de Neopreno Alta Temperatura,Empaques,394,50,0,0,Sin rotacion,C,50,0,SI,14700,Stock estancado sin ventas en 30 días con $14.700 inmovilizados.
+SKU-E2E-1792867483011,Sensor de Nivel de Tanque E2E,Sensores,4,25,0,0,Sin rotacion,C,25,0,NO,0,Punto de reorden alcanzado (4/25 u). Margen de seguridad activo.
+SKU-E2E-1792871709003,Sensor de Nivel de Tanque E2E,Sensores,0,25,0,0,0,C,25,25,NO,0,Quiebre total de inventario. Pérdida inmediata de ventas.
+SKU-E2E-1792872117997,Sensor de Nivel de Tanque E2E,Sensores,0,25,0,0,0,C,25,0,NO,0,Quiebre total de inventario. Pérdida inmediata de ventas.
+SKU-E2E-1793120732480,Sensor de Nivel de Tanque E2E,Sensores,0,25,0,0,0,C,25,0,NO,0,Quiebre total de inventario. Pérdida inmediata de ventas.
+SKU-E2E-1793120794769,Sensor de Nivel de Tanque E2E,Sensores,0,25,0,0,0,C,25,0,NO,0,Quiebre total de inventario. Pérdida inmediata de ventas.
+SKU-F3-TEMP,Sensor de Temperatura Blindado PT-100,Sensores,3,20,0,0,Sin rotacion,C,20,0,NO,0,Punto de reorden alcanzado (3/20 u). Margen de seguridad activo.
+MINT-CAB-004,Cable Blindado de Transmisión 50m,Cableado,120,30,0,0,Sin rotacion,C,30,0,SI,3000,Stock estancado sin ventas en 30 días con $3.000 inmovilizados.
+SKU-E2E-1793120921882,Sensor de Nivel de Tanque E2E,Sensores,0,25,0,0,0,C,25,0,NO,0,Quiebre total de inventario. Pérdida inmediata de ventas.
+SKU-E2E-1793121467668,Sensor de Nivel de Tanque E2E,Sensores,0,25,0,0,0,C,25,0,NO,0,Quiebre total de inventario. Pérdida inmediata de ventas.
+SKU-UNSUPP-60202f,Producto Huérfano Sin Proveedor,general,0,20,0,0,0,C,20,20,NO,0,Quiebre total de inventario. Pérdida inmediata de ventas.
+SKU-UNSUPP-0f3036,Producto Huérfano Sin Proveedor,general,0,20,0,0,0,C,20,20,NO,0,Quiebre total de inventario. Pérdida inmediata de ventas.
+SKU-UNSUPP-491a54,Producto Huérfano Sin Proveedor,general,0,20,0,0,0,C,20,20,NO,0,Quiebre total de inventario. Pérdida inmediata de ventas.

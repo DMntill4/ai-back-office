@@ -35,5 +35,7 @@ Mint-Studio-Package/
 vault/Preguntas/
 vault/Decisiones/
 vault/Auditoria/
+vault/Questions/
+vault/Decisions/
+vault/Audit/
 .claude/
-

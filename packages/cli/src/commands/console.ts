@@ -14,7 +14,7 @@ import {
   companies,
   businessConfig,
   notificationChannels,
-  runPreflightCheck,
+  generateReadinessReport,
 } from "@mint/core";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -55,6 +55,8 @@ async function loadHeaderStats(companyId: string) {
 }
 
 export async function consoleCommand() {
+  const { ensureEnterpriseDatabaseActive } = await import("../services/dockerDatabaseOrchestrator");
+  await ensureEnterpriseDatabaseActive();
   let session = await getSession();
 
   // Si no hay sesión activa y estamos en una terminal interactiva, iniciar el asistente de bienvenida automáticamente
@@ -72,57 +74,59 @@ export async function consoleCommand() {
   const daemon = getDaemonStatus();
   const daemonLabel = daemon.isPaused ? "PAUSADO" : daemon.isRunning ? "ONLINE" : "STANDBY";
 
-  let preflight = null;
+  let readiness = null;
   try {
-    preflight = await runPreflightCheck(companyId);
+    readiness = await generateReadinessReport(companyId);
   } catch {
-    // Continuar en modo degradado sin bloquear el arranque si la BD está inaccesible
+    // Continuar en modo de resiliencia sin bloquear el arranque si la BD está inaccesible
   }
-
-  const preflightBadgeColor =
-    preflight?.overallStatus === "OK"
-      ? theme.mint
-      : preflight?.overallStatus === "DEGRADADO"
-      ? theme.amber
-      : theme.red;
 
   const rows: FrameRow[] = [
     { key: "Empresa", value: companyDisplayName },
     { key: "Rol", value: session?.role || "sin sesión" },
   ];
 
-  if (preflight) {
-    const cfg = preflight.components.config.details;
-    const dbStatus = preflight.components.database.status;
-    const dbLatency = preflight.components.database.details?.latencyMs;
+  if (readiness) {
+    const statusColor =
+      readiness.overallStatus === "OPTIMA"
+        ? theme.mint
+        : readiness.overallStatus === "ATENCION"
+        ? theme.amber
+        : theme.red;
+
+    const blockingCount = readiness.findings.bloqueantes.length;
+    const discrepanciesCount = readiness.findings.discrepancias.length;
 
     rows.push(
       {
-        key: "Salud / Preflight",
-        value: `${preflight.overallStatus} (BD: ${dbStatus} ${dbLatency ? `${dbLatency}ms` : ""})`,
-        color: preflightBadgeColor,
+        key: "Salud Operativa",
+        value: `${readiness.scorePercent}% (${readiness.overallStatus})`,
+        color: statusColor,
       },
       {
-        key: "País / Moneda",
-        value: `${cfg.country || "sin definir"} / ${cfg.currency || "sin definir"} (${cfg.timezone || "sin definir"})`,
-        color: cfg.country && cfg.country !== "sin definir" ? undefined : theme.amber,
+        key: "Divisa / Sede",
+        value: `${readiness.detectedLocale.currency || "Sin definir"} │ ${readiness.detectedLocale.city || readiness.detectedLocale.country || "Sin sede física"}`,
+        color: readiness.detectedLocale.currency ? undefined : theme.amber,
+      },
+      {
+        key: "Catálogo / Flota",
+        value: `${readiness.entitiesSummary.productsCount} prods │ ${readiness.entitiesSummary.suppliersCount} provs │ ${readiness.entitiesSummary.fleetVehiclesCount} envíos/flota`,
+        color: readiness.entitiesSummary.productsCount > 0 ? theme.cyan : theme.amber,
       },
       {
         key: "Módulos Activos",
-        value: `${preflight.activeModules.length} activos [${preflight.activeModules.join(", ")}]`,
-        color: preflight.activeModules.length > 0 ? theme.cyan : theme.amber,
+        value: `${readiness.activeModules.filter((m: any) => m.active).map((m: any) => m.name).join(", ") || "Catálogo básico"}`,
+        color: theme.mint,
       },
       {
-        key: "Inbox Pendiente",
-        value: preflight.summarySinceLastSession.pendingDecisions > 0
-          ? `${preflight.summarySinceLastSession.pendingDecisions} aprobaciones`
-          : "al día",
-        color: preflight.summarySinceLastSession.pendingDecisions > 0 ? theme.amber : theme.mint,
-      },
-      {
-        key: "Cuarentena / Memoria",
-        value: `${preflight.summarySinceLastSession.quarantinedCount} en cuarentena | ${preflight.summarySinceLastSession.unansweredQuestions} preguntas`,
-        color: preflight.summarySinceLastSession.quarantinedCount > 0 ? theme.amber : undefined,
+        key: "Diagnóstico",
+        value:
+          blockingCount > 0
+            ? `${blockingCount} bloqueante(s) detectado(s)`
+            : discrepanciesCount > 0
+            ? `${discrepanciesCount} discrepancia(s)`
+            : "Sin bloqueantes (datos limpios)",
+        color: blockingCount > 0 ? theme.red : discrepanciesCount > 0 ? theme.amber : theme.mint,
       },
     );
   } else {
@@ -141,26 +145,10 @@ export async function consoleCommand() {
     }),
   );
 
-  if (preflight && preflight.degradedModules.length > 0) {
+  if (readiness && readiness.findings.bloqueantes.length > 0) {
     console.log(
-      theme.amber(
-        `\n[AVISO] MODO DEGRADADO ACTIVO: ${preflight.degradedModules.map((m) => `${m.module} (${m.reason})`).join(" | ")}`
-      )
-    );
-  }
-
-  if (preflight && preflight.summarySinceLastSession.quarantinedCount > 0) {
-    console.log(
-      theme.amber(
-        `[AVISO] CUARENTENA: ${preflight.summarySinceLastSession.quarantinedCount} registros corruptos aislados de clientes. Ejecuta /quarantine para inspeccionar.`
-      )
-    );
-  }
-
-  if (preflight && preflight.summarySinceLastSession.unansweredQuestions > 0) {
-    console.log(
-      theme.cyan(
-        `[INFO] VERDAD DE DATOS: ${preflight.summarySinceLastSession.unansweredQuestions} preguntas pendientes para operar con total certeza. Ejecuta /questions.`
+      theme.redBold(
+        `\n[ALERTA] ${readiness.findings.bloqueantes.length} problema(s) bloqueante(s) detectado(s). Ejecuta /readiness para auditar y resolver.`
       )
     );
   }
@@ -171,6 +159,9 @@ export async function consoleCommand() {
 
   return new Promise<void>((resolve) => {
     const slashCommands = [
+      "/products",
+      "/readiness",
+      "/diagnostic",
       "/agents",
       "/orchestrate",
       "/feed",
@@ -526,9 +517,10 @@ export async function consoleCommand() {
 
           case "feed":
           case "live":
+          case "worker":
           case "watch": {
-            const { watchCommand } = require("./daemon");
-            await watchCommand();
+            const { workerCommand } = require("./worker");
+            await workerCommand({ interval: 10 });
             break;
           }
 
@@ -704,6 +696,22 @@ export async function consoleCommand() {
             break;
           }
 
+          case "products":
+          case "productos":
+          case "catalogo": {
+            const { productsCommand } = require("./products");
+            await productsCommand(args[0], ...args.slice(1));
+            break;
+          }
+
+          case "readiness":
+          case "diagnostico":
+          case "diagnostic": {
+            const { readinessCommand } = require("./products");
+            await readinessCommand(args[0]);
+            break;
+          }
+
           case "suppliers":
           case "proveedores":
           case "supplier": {
@@ -866,7 +874,7 @@ export async function consoleCommand() {
           case "logout": {
             const { logoutCommand } = require("./whoami");
             await logoutCommand();
-            console.log(theme.dim("  Sesion cerrada. Ejecuta 'npm start' para registrar o iniciar otra cuenta.\n"));
+            console.log(theme.dim("  Sesion cerrada. Ejecuta 'mint cli' o 'mint app' para registrar o iniciar otra cuenta.\n"));
             rl.close();
             return;
           }

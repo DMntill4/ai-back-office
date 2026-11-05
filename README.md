@@ -56,6 +56,7 @@ Ejecuta el CLI mediante `npm start`, `npm run mint -- <comando>` o enlazando el 
 
 ```bash
 # [INICIO] INICIO UNIFICADO (100% AUTÓNOMO / CERO FRONTEND WEB)
+npm run executions                # Ejecuta los 10 casos reales de punta a punta (Hito S2)
 npm start                          # Inicia TODO: Servidor API, Daemon de fondo y Consola Interactiva
 npm run agent                      # Alias de inicio rápido sin frontend web
 npm run agent:headless             # Modo headless continuo (ideal para servidores en segundo plano)
@@ -79,7 +80,7 @@ mint source list                   # Lista fuentes conectadas y su estado de sal
 # 3. Gobernanza y Motor de Autonomía
 mint autonomy get                  # Consulta el modo activo (dry-run, assisted, auto)
 mint autonomy set dry-run          # Modo seguro por defecto: propuestas estructuradas sin mutar BD
-mint autonomy set assisted         # Autoejecuta bajo $10,000 MXN con alta confianza; escala a HITL el resto
+mint autonomy set assisted         # Modo asistido: propuestas de compra a /inbox (HITL) y ruteo con confirmación
 mint autonomy set auto             # Autonomía total con veto de seguridad por auditoría de riesgo
 
 # 4. Proceso en Segundo Plano (Daemon)
@@ -194,7 +195,7 @@ mint notify test telegram          # Envía notificación de prueba con botones 
   - Estética *Glassmorphism* premium, tipografía *Outfit*, logo oficial y físicas fluidas (Emil Kowalski).
   - **LoginView:** Pantalla de autenticación con branding institucional y micro-interacciones.
   - **DashboardView:** KPIs operativos (órdenes totales, tasa de automatización, revisiones pendientes, ahorros y gasto en USD), gráfica de rendimiento de proveedores (*Recharts*) y tarjetas de acción inmediata.
-  - **ApprovalsView (Human-in-the-Loop):** Bandeja dedicada para que supervisores autoricen o rechacen órdenes de compra mayores a $10,000 MXN en un clic.
+  - **ApprovalsView (Human-in-the-Loop):** Bandeja dedicada para que supervisores autoricen o rechacen propuestas de compra en un clic (CERO auto-desembolso sin firma humana).
   - **AgentConsole (Chat):** Asistente conversacional con burbujas de sugerencias inteligentes, estado de ejecución en vivo (`en_proceso`, `resuelto`, `escalado`) y telemetría de tokens y costo en USD.
   - **StockView / Database Explorer:** Visor interactivo y tabular de almacenes, productos, niveles de stock, alertas de rotación y proveedores.
   - **Activity & Timeline:** Historial de eventos y auditoría del sistema presentado cronológicamente.
@@ -208,7 +209,7 @@ mint notify test telegram          # Envía notificación de prueba con botones 
 - [x] **Arsenal de 8 Herramientas de Negocio Tipadas con Zod:**
   - `consultar_stock`: Búsqueda de inventario con Fuzzy Matching para tolerar SKUs mal escritos.
   - `ver_ordenes_abiertas`: Detección de órdenes en tránsito y compras activas.
-  - `crear_orden_compra`: Creación idempotente con límite de aprobación humana ($10,000 MXN).
+  - `crear_orden_compra`: Creación idempotente de propuesta formal con escalado estricto a aprobación humana (HITL). CERO auto-desembolso.
   - `evaluar_proveedores`: Matriz comparativa de proveedores por costo, velocidad o balance general.
   - `analisis_financiero`: Valuación de inventario total, compromisos financieros y presupuesto a 30 días.
   - `simular_escenario`: Simulaciones What-If de demanda y contingencias por retrasos de proveedores.
@@ -274,7 +275,7 @@ mint notify test telegram          # Envía notificación de prueba con botones 
 
 ### Principios Fundamentales de Gobernanza
 1. **El modelo decide, el código gobierna:** Grok propone cursos de acción; el código TypeScript valida tipos, esquemas de entrada y límites de riesgo.
-2. **Human-in-the-Loop Obligatorio:** Cualquier orden de compra superior a $10,000 MXN genera un ticket formal en la bandeja de aprobaciones para revisión y firma de un supervisor humano.
+2. **Human-in-the-Loop Obligatorio:** Cualquier orden de compra genera una propuesta formal en la bandeja de decisiones (/inbox) para revisión y firma obligatoria de un supervisor humano (CERO compras unilaterales).
 3. **Idempotencia Estricta:** Cada transacción de escritura requiere una clave idempotente única para blindar el sistema contra duplicidades.
 4. **Verificación Física Post-Escritura:** Ningún caso se concluye como `resuelto` sin verificar la existencia física de la fila en base de datos.
 5. **Auditoría Append-Only:** La tabla `case_events` cuenta con un trigger en PostgreSQL que deniega sentencias `UPDATE` y `DELETE`.

@@ -7,6 +7,7 @@ import {
   varchar,
   unique,
   primaryKey,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // 0. Empresas (Multi-tenant con perfil físico y fiscal global)
@@ -225,7 +226,36 @@ export const salesHistory = pgTable("sales_history", {
     .notNull(),
 });
 
-// 9. Seguimiento de Envíos (Para consultar_envios y transportista simulado)
+// 8.5 Flota Vehicular y Unidades de Transporte Físicas
+export const fleetVehicles = pgTable("fleet_vehicles", {
+  id: text("id").primaryKey(), // ej: 'veh_trk_01'
+  companyId: text("company_id")
+    .references(() => companies.id, { onDelete: "cascade" })
+    .notNull()
+    .default("comp_default"),
+  name: text("name").notNull(), // ej: 'Camión Isuzu 3.5T - Unidad 02'
+  plateNumber: varchar("plate_number", { length: 32 }).notNull(), // ej: 'PL-892-XYZ'
+  vehicleType: text("vehicle_type", {
+    enum: ["van", "box_truck", "heavy_truck", "motorcycle"],
+  }).notNull().default("box_truck"),
+  maxWeightKg: decimal("max_weight_kg", { precision: 10, scale: 2 }).notNull().default("3500.00"),
+  maxVolumeM3: decimal("max_volume_m3", { precision: 10, scale: 2 }).notNull().default("18.00"),
+  assignedDriverId: text("assigned_driver_id"),
+  status: text("status", {
+    enum: ["available", "loading", "in_transit", "maintenance"],
+  }).notNull().default("available"),
+  currentLatitude: text("current_latitude"),
+  currentLongitude: text("current_longitude"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// 9. Seguimiento de Envíos y Fletes Logísticos con Manifiesto de Carga Real
 export const shipments = pgTable("shipments", {
   id: text("id").primaryKey(), // ej: 'ship_001'
   companyId: text("company_id")
@@ -234,8 +264,13 @@ export const shipments = pgTable("shipments", {
     .default("comp_default"),
   purchaseOrderId: text("purchase_order_id")
     .references(() => purchaseOrders.id, { onDelete: "set null" }),
+  vehicleId: text("vehicle_id")
+    .references(() => fleetVehicles.id, { onDelete: "set null" }),
+  driverId: text("driver_id"),
+  originWarehouseId: text("origin_warehouse_id")
+    .references(() => warehouses.id, { onDelete: "set null" }),
   trackingNumber: varchar("tracking_number", { length: 100 }).notNull(),
-  carrier: text("carrier").notNull(), // ej: 'Simulado Logistics', 'FedEx', 'UPS', 'DHL'
+  carrier: text("carrier").notNull(), // ej: 'Flota Interna', 'FedEx', 'DHL'
   status: text("status", {
     enum: [
       "en_preparacion",
@@ -254,6 +289,13 @@ export const shipments = pgTable("shipments", {
   originLocation: text("origin_location"),
   currentLocation: text("current_location"),
   destinationLocation: text("destination_location"),
+  destinationAddress: text("destination_address"),
+  destinationLatitude: text("destination_latitude"),
+  destinationLongitude: text("destination_longitude"),
+  cargoManifest: jsonb("cargo_manifest").notNull().default([]), // [{ productId, sku, name, quantity, unitWeightKg, totalWeightKg }]
+  totalWeightKg: decimal("total_weight_kg", { precision: 10, scale: 2 }).default("0.00"),
+  capacityUtilizationPct: decimal("capacity_utilization_pct", { precision: 5, scale: 2 }).default("0.00"),
+  freightCostMxn: decimal("freight_cost_mxn", { precision: 10, scale: 2 }).default("0.00"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

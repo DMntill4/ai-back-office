@@ -454,7 +454,7 @@ export async function executeAndVerifyDecision(
   // 4. Otros tipos de acción: ej. Ajuste de stock
   if (dec.actionType === "ajustar_stock") {
     const productId = evidence.productId;
-    const delta = evidence.delta || 0;
+    const delta = Number(evidence.requestedDelta ?? evidence.delta ?? 0);
 
     const existingInv = await db
       .select()
@@ -466,6 +466,26 @@ export async function executeAndVerifyDecision(
       const newStock = Math.max(0, existingInv[0].stock + delta);
       await db.update(inventory).set({ stock: newStock }).where(eq(inventory.id, existingInv[0].id));
 
+      // Sincronizacion bidireccional write-back hacia la fuente real (CSV, SQLite)
+      let writeBackSummary = "";
+      try {
+        const ingestMod: any = await import("@mint/ingest");
+        if (typeof ingestMod.writeBackStockUpdateToSource === "function") {
+          const wb = await ingestMod.writeBackStockUpdateToSource({
+            companyId: dec.companyId,
+            productId,
+            sku: evidence.sku || productId,
+            newStock,
+            reason: `Aprobacion HITL por ${approvedBy}: ${evidence.reason || dec.title}`,
+          });
+          if (wb && wb.success && wb.updatedSources?.length > 0) {
+            writeBackSummary = ` [Fuentes reales actualizadas: ${wb.updatedSources.join(", ")}]`;
+          }
+        }
+      } catch (wbErr: any) {
+        console.warn("[DecisionExecutionService] Write-back notice:", wbErr.message);
+      }
+
       const now = new Date();
       await db
         .update(decisions)
@@ -474,14 +494,14 @@ export async function executeAndVerifyDecision(
           approvedBy,
           executedAt: now,
           verifiedAt: now,
-          executionResult: { confirmed: true, newStock },
+          executionResult: { confirmed: true, newStock, writeBack: writeBackSummary || null },
         })
         .where(eq(decisions.id, decisionId));
 
       return {
         success: true,
         verified: true,
-        message: `Stock ajustado a ${newStock} unidades y post-verificado.`,
+        message: `Stock ajustado a ${newStock} unidades y post-verificado.${writeBackSummary}`,
       };
     }
   }

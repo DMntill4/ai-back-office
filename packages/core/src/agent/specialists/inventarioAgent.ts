@@ -95,7 +95,7 @@ Instrucción: Entrega un diagnóstico conciso de 2-3 oraciones evaluando la urge
             { role: "user", content: prompt },
           ],
           temperature: 0.1,
-          maxTokens: 150,
+          maxTokens: 250,
         });
 
         aiAssessment = llmRes.content || undefined;

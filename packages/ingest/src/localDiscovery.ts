@@ -7,7 +7,7 @@ import { listSqliteTables } from "./sqliteSource";
 export interface DiscoveredSource {
   path: string;
   name: string;
-  sourceType: "csv" | "excel" | "sqlite";
+  sourceType: "csv" | "excel" | "sqlite" | "json" | "sql";
   sizeBytes: number;
   lastModified: Date;
   details: {
@@ -81,7 +81,7 @@ export async function discoverLocalSources(options: DiscoveryOptions = {}): Prom
         }
       } else if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase();
-        let sourceType: "csv" | "excel" | "sqlite" | null = null;
+        let sourceType: "csv" | "excel" | "sqlite" | "json" | "sql" | null = null;
 
         if (ext === ".csv" || ext === ".tsv") {
           sourceType = "csv";
@@ -89,6 +89,10 @@ export async function discoverLocalSources(options: DiscoveryOptions = {}): Prom
           sourceType = "excel";
         } else if (ext === ".db" || ext === ".sqlite" || ext === ".sqlite3") {
           sourceType = "sqlite";
+        } else if (ext === ".json") {
+          sourceType = "json";
+        } else if (ext === ".sql") {
+          sourceType = "sql";
         }
 
         if (!sourceType) continue;
