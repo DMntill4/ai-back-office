@@ -17,7 +17,7 @@ interface Particle {
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady = true }) => {
-  const { phase, prefersReducedMotion } = useSplashPhases({ onComplete, isReady });
+  const { phase, prefersReducedMotion, dismiss } = useSplashPhases({ onComplete, isReady });
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
 
@@ -54,7 +54,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
     }
 
     const startTime = performance.now();
-    const duration = 700; // ms
+    const duration = 500; // ms
 
     const render = (now: number) => {
       const elapsed = now - startTime;
@@ -108,11 +108,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
   return (
     <aside
       aria-label="Cargando Mint Studio"
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center select-none overflow-hidden transition-opacity duration-400 ease-out ${
+      onClick={dismiss}
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center select-none overflow-hidden transition-opacity duration-300 ease-out cursor-pointer ${
         isExiting ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
       style={{
-        background: "radial-gradient(ellipse at 50% 45%, #32C960 0%, #2BB656 45%, #209345 75%, #167433 100%)",
+        background: "radial-gradient(ellipse at 50% 45%, #2BB656 0%, #209345 55%, #167433 100%)",
       }}
     >
       {/* 1. Atmósfera luminosa: Halo y resplandor sutil detrás del centro */}
@@ -148,7 +149,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
         {!prefersReducedMotion && (
           <div
             className={`absolute inset-0 flex items-center justify-center transition-all duration-300 pointer-events-none ${
-              isBurst ? "scale-130 opacity-0" : "scale-100 opacity-100"
+              isBurst ? "scale-125 opacity-0" : "scale-100 opacity-100"
             }`}
           >
             {/* Anillo exterior estático en blanco tenue */}
@@ -200,20 +201,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, isReady 
           </div>
         )}
 
-        {/* Círculo sólido central que "respira" */}
+        {/* Círculo sólido central que "respira" con el verde de la marca */}
         <div
-          className={`relative z-10 w-28 h-28 rounded-pill border-2 border-brand-lime/80 flex items-center justify-center shadow-2xl transition-all ${
+          className={`relative z-10 w-28 h-28 rounded-pill border-2 border-brand-lime flex items-center justify-center shadow-2xl transition-all ${
             prefersReducedMotion
               ? ""
               : isBurst
-              ? "duration-200 ease-in scale-0 opacity-0"
+              ? "duration-200 ease-in scale-105"
               : "duration-1000 ease-in-out animate-pulse"
           }`}
           style={{
-            background: "radial-gradient(circle, #103A1F 0%, #0B2416 100%)",
-            boxShadow: isBurst
-              ? "none"
-              : "0 12px 35px 0 rgba(0, 0, 0, 0.35), 0 0 30px 4px rgba(157, 227, 66, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2)",
+            background: "radial-gradient(circle, #209345 0%, #167433 100%)",
+            boxShadow:
+              "0 12px 35px 0 rgba(0, 0, 0, 0.35), 0 0 30px 4px rgba(157, 227, 66, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2)",
           }}
         >
           {/* Logo oficial de la guanábana de Mint */}

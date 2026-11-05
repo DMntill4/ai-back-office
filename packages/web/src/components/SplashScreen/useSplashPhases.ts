@@ -9,9 +9,9 @@ export const SPLASH_STRINGS = {
 } as const;
 
 export const SPLASH_TIMINGS = {
-  minLoadingMs: 2000,
-  burstMs: 700,
-  exitMs: 400,
+  minLoadingMs: 1000,
+  burstMs: 350,
+  exitMs: 250,
 } as const;
 
 export interface UseSplashPhasesOptions {
@@ -25,6 +25,14 @@ export function useSplashPhases(options: UseSplashPhasesOptions = {}) {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const finishedRef = useRef(false);
+
+  const finish = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    setPhase("finished");
+    onCompleteRef.current?.();
+  };
 
   // Detección de preferencia de movimiento reducido
   useEffect(() => {
@@ -40,11 +48,8 @@ export function useSplashPhases(options: UseSplashPhasesOptions = {}) {
   // Máquina de estados determinista sin condiciones de carrera
   useEffect(() => {
     if (prefersReducedMotion) {
-      const t1 = setTimeout(() => setPhase("exiting"), 800);
-      const t2 = setTimeout(() => {
-        setPhase("finished");
-        onCompleteRef.current?.();
-      }, 1200);
+      const t1 = setTimeout(() => setPhase("exiting"), 400);
+      const t2 = setTimeout(() => finish(), 700);
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
@@ -52,31 +57,44 @@ export function useSplashPhases(options: UseSplashPhasesOptions = {}) {
     }
 
     // Cronograma determinista:
-    // 1. loading -> burst a los minLoadingMs
+    // 1. loading -> burst
     const tBurst = setTimeout(() => {
       setPhase("burst");
     }, SPLASH_TIMINGS.minLoadingMs);
 
-    // 2. burst -> exiting a los (minLoadingMs + burstMs)
+    // 2. burst -> exiting
     const tExit = setTimeout(() => {
       setPhase("exiting");
     }, SPLASH_TIMINGS.minLoadingMs + SPLASH_TIMINGS.burstMs);
 
-    // 3. exiting -> finished a los (minLoadingMs + burstMs + exitMs)
+    // 3. exiting -> finished
     const tFinish = setTimeout(() => {
-      setPhase("finished");
-      onCompleteRef.current?.();
+      finish();
     }, SPLASH_TIMINGS.minLoadingMs + SPLASH_TIMINGS.burstMs + SPLASH_TIMINGS.exitMs);
+
+    // 4. Watchdog incondicional de seguridad (máximo 1.8 segundos bajo cualquier circunstancia)
+    const tWatchdog = setTimeout(() => {
+      finish();
+    }, 1800);
 
     return () => {
       clearTimeout(tBurst);
       clearTimeout(tExit);
       clearTimeout(tFinish);
+      clearTimeout(tWatchdog);
     };
   }, [prefersReducedMotion]);
+
+  // Permitir clic o cualquier tecla para omitir inmediatamente
+  useEffect(() => {
+    const handleKeyDown = () => finish();
+    window.addEventListener("keydown", handleKeyDown, { once: true });
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return {
     phase,
     prefersReducedMotion,
+    dismiss: finish,
   };
 }
