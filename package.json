@@ -36,6 +36,7 @@
     "mint": "tsx packages/cli/src/index.ts",
     "cli": "tsx packages/cli/src/index.ts cli",
     "executions": "tsx scripts/run_10_real_executions.ts",
+    "load:test": "tsx scripts/load_test_1000.ts",
     "api": "tsx packages/api/src/index.ts",
     "web": "npm run dev --workspace=@mint/web",
     "web:build": "npm run build --workspace=@mint/web",

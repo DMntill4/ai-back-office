@@ -1,4 +1,4 @@
-import { db, pool } from "../db/client";
+import { db, pool, isEmbeddedDb, isCloudDb, isSupabaseConnection } from "../db/client";
 import { products, inventory, companies, users, businessConfig } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 
@@ -120,12 +120,21 @@ export async function executeConsultarEstadoSistema(
       ? `Canales de alerta conectados: ${channels.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`
       : `No hay canales remotos conectados actualmente. Puedes vincular Discord o Slack con '/channels add discord <url>'.`;
 
-    const resumen = `Estoy conectado en tiempo real a PostgreSQL en Supabase Cloud. Tienes cargadas ${tablenames.length} tablas en el esquema relacional. Para la empresa '${companyName}' (${companyId}), tienes ${prods.length} productos registrados en catálogo con un total de ${totalUnidades} unidades físicas en almacén. ${canalesTexto} Política de gobernanza: HUMAN-IN-THE-LOOP 100% (Cero compras automáticas; toda propuesta requiere tu aprobación explícita).`;
+    const motorBaseDatos = isEmbeddedDb
+      ? "PostgreSQL embebido (PGlite, local)"
+      : isSupabaseConnection
+        ? "PostgreSQL en Supabase (nube)"
+        : isCloudDb
+          ? "PostgreSQL en la nube"
+          : "PostgreSQL 16 (Docker, local)";
+    const proveedorCloud = isEmbeddedDb || (!isCloudDb && !isSupabaseConnection) ? "Local (sin nube)" : motorBaseDatos;
+
+    const resumen = `Estoy conectado en tiempo real a ${motorBaseDatos}. Tienes cargadas ${tablenames.length} tablas en el esquema relacional. Para la empresa '${companyName}' (${companyId}), tienes ${prods.length} productos registrados en catálogo con un total de ${totalUnidades} unidades físicas en almacén. ${canalesTexto} Política de gobernanza: HUMAN-IN-THE-LOOP 100% (Cero compras automáticas; toda propuesta requiere tu aprobación explícita).`;
 
     return {
       isSuccess: true,
-      motorBaseDatos: "PostgreSQL 15 (Supabase Cloud)",
-      proveedorCloud: "Supabase AWS Pooler (Puerto 6543)",
+      motorBaseDatos,
+      proveedorCloud,
       conexionActiva: true,
       tablasCargadas: tablenames,
       totalTablas: tablenames.length,

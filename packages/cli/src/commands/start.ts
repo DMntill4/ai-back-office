@@ -20,7 +20,7 @@ async function waitForServer(port: string | number, maxAttempts = 15): Promise<b
     try {
       const res = await fetch(url);
       if (res.ok) return true;
-    } catch {}
+    } catch { }
     await new Promise((r) => setTimeout(r, 200));
   }
   return false;
@@ -46,7 +46,7 @@ export async function startCommand(options: StartOptions = {}) {
   }
 
   const companyId = session?.companyId || "comp_default";
-  const port = options.port || process.env.PORT || "3000";
+  const port = options.port || process.env.API_PORT || process.env.PORT || "3001";
 
   const logDir = path.join(os.homedir(), ".mint", "logs");
   if (!fs.existsSync(logDir)) {
@@ -55,7 +55,12 @@ export async function startCommand(options: StartOptions = {}) {
   const serverLogPath = path.join(logDir, "server.log");
   const serverLogStream = fs.openSync(serverLogPath, "a");
 
-  const serverScript = path.resolve(__dirname, "../../../../src/server.ts");
+  const serverCandidates = [
+    path.resolve(__dirname, "../../../api/src/index.ts"),
+    path.resolve(process.cwd(), "packages/api/src/index.ts"),
+    path.resolve(__dirname, "../../../../packages/api/src/index.ts"),
+  ];
+  const serverScript = serverCandidates.find((p) => fs.existsSync(p)) || serverCandidates[0];
   const tsxCli = require.resolve("tsx/cli");
 
   const serverProc: ChildProcess = spawn(
@@ -91,12 +96,12 @@ export async function startCommand(options: StartOptions = {}) {
     tickerInterval = setInterval(async () => {
       try {
         await tickOnce(companyId);
-      } catch {}
+      } catch { }
     }, 30000);
   }
 
   // Primer ciclo del daemon sin bloquear la consola
-  tickOnce(companyId).catch(() => {});
+  tickOnce(companyId).catch(() => { });
 
   let cleanedUp = false;
   const cleanup = () => {
@@ -108,7 +113,7 @@ export async function startCommand(options: StartOptions = {}) {
       state.isRunning = false;
       state.pid = null;
       writeDaemonState(state);
-    } catch {}
+    } catch { }
 
     if (serverProc && !serverProc.killed) {
       try {
@@ -117,7 +122,7 @@ export async function startCommand(options: StartOptions = {}) {
         } else {
           serverProc.kill("SIGTERM");
         }
-      } catch {}
+      } catch { }
     }
   };
 
@@ -154,7 +159,7 @@ export async function startCommand(options: StartOptions = {}) {
   if (options.headless || !process.stdin.isTTY) {
     console.log(`\n${theme.mintBold("[MINT HEADLESS]")} API: http://localhost:${port} | Empresa: ${companyId}`);
     console.log(theme.dim("  Presiona Ctrl+C para detener los servicios.\n"));
-    await new Promise(() => {});
+    await new Promise(() => { });
   } else {
     try {
       await consoleCommand();

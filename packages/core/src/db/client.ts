@@ -55,16 +55,52 @@ function resolveStorageEngineMode(): "postgres" | "embedded" {
     if (!isLocalHost) {
       return "postgres";
     }
-    const reachable = checkLocalPostgresPortSync(host, port);
-    return reachable ? "postgres" : "embedded";
+    return waitForLocalPostgres(host, port) ? "postgres" : "embedded";
   } catch {
-    const reachable = checkLocalPostgresPortSync("127.0.0.1", 5432);
-    return reachable ? "postgres" : "embedded";
+    return waitForLocalPostgres("127.0.0.1", 5432) ? "postgres" : "embedded";
+  }
+}
+
+/**
+ * Espera a que el PostgreSQL local (Docker) acepte conexiones antes de rendirse.
+ * Tras un reinicio, Docker Desktop tarda decenas de segundos; caer de inmediato a la
+ * base embebida (vacía y separada de la real) hacía que el bot "no viera" ningún dato.
+ * Configurable con MINT_DB_WAIT_SECONDS (por defecto 45; 0 = no esperar).
+ */
+function waitForLocalPostgres(host: string, port: number): boolean {
+  const maxWaitMs = Math.max(0, Number(process.env.MINT_DB_WAIT_SECONDS ?? "45")) * 1000;
+  const startedAt = Date.now();
+  let warned = false;
+  while (true) {
+    if (checkLocalPostgresPortSync(host, port)) return true;
+    if (Date.now() - startedAt >= maxWaitMs) return false;
+    if (!warned) {
+      warned = true;
+      console.warn(
+        `[MINT DB] PostgreSQL no responde en ${host}:${port}. Esperando hasta ${Math.round(maxWaitMs / 1000)}s a que Docker lo inicie...`,
+      );
+    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
   }
 }
 
 const activeMode = resolveStorageEngineMode();
 export const isEmbeddedDb = activeMode === "embedded";
+
+if (isEmbeddedDb && !(process.env.MINT_STORAGE_ENGINE || "").trim()) {
+  console.error(
+    [
+      "",
+      "================================================================================",
+      "[MINT DB] ADVERTENCIA: PostgreSQL no está disponible. Se usa la base EMBEBIDA",
+      "          (data/mint_embedded_pg), que es una base DISTINTA y VACÍA.",
+      "          El bot NO verá tu catálogo, proveedores ni configuración reales.",
+      "          Inicia Docker (npm run docker:up) y reinicia este proceso.",
+      "================================================================================",
+      "",
+    ].join("\n"),
+  );
+}
 
 export function getStorageMode(): "postgres" | "embedded" {
   return activeMode;
