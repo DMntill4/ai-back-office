@@ -17,47 +17,55 @@ export interface MappingResult {
 
 const FIELD_PATTERNS: Record<string, { regex: RegExp; required: boolean }> = {
   sku: {
-    regex: /(sku|c[oó]digo|codigo|cod|referencia|ref|part_?number|id_?producto|id_?item|clave|barcode|ean|upc|^id$)/i,
+    regex: /(sku|c[oó]digo|codigo|cod|referencia|ref|part_?number|id_?producto|id_?item|id_?articulo|unspsc|c[oó]digo_?unspsc|clave|barcode|ean|upc|consecutivo|^id$)/i,
     required: true,
   },
   name: {
-    regex: /(nombre|name|producto|product|descripci[oó]n|description|item|t[ií]tulo|art[ií]culo|articulo|herramienta|equipo|concepto|material)/i,
+    regex: /(nombre|name|producto|product|descripci[oó]n|description|item|[ií]tem|t[ií]tulo|art[ií]culo|articulo|herramienta|equipo|concepto|material|bien_?o_?servicio|insumo|mercanc[ií]a|referencia_?nombre|detalle)/i,
     required: true,
   },
   stock: {
-    regex: /(stock|existencias?|existensias?|cantidad|qty|quantity|unidades|inventario|disponible|saldo|on_?hand|cant)/i,
+    regex: /(stock|existencias?|existensias?|cantidad|qty|quantity|unidades|inventario|disponible|saldo|on_?hand|cant|unid|stock_?actual|existencia_?actual)/i,
     required: true,
   },
   minStock: {
-    regex: /(min_?stock|stock_?m[ií]nimo|m[ií]nimo|minimo|safety_?stock|umbral|reorden|rop|min_?qty)/i,
+    regex: /(min_?stock|stock_?m[ií]nimo|m[ií]nimo|minimo|safety_?stock|umbral|reorden|rop|min_?qty|punto_?reorden|alerta_?stock)/i,
     required: false,
   },
   category: {
-    regex: /(categor[ií]a|categoria|category|l[ií]nea|linea|familia|tipo|clasificaci[oó]n|departamento|grupo|brand|marca)/i,
+    regex: /(categor[ií]a|categoria|category|l[ií]nea|linea|familia|tipo|clasificaci[oó]n|departamento|grupo|brand|marca|segmento|rubro|acuerdo_?marco|cat[aá]logo|catalogo|subcategor[ií]a|sector)/i,
     required: false,
   },
   unitCost: {
-    regex: /(costo|cost|precio|price|unit_?cost|unit_?price|costo_?unitario|precio_?unitario|valor|tarifa|importe|val_?unit)/i,
+    regex: /(costo|cost|precio|price|unit_?cost|unit_?price|costo_?unitario|precio_?unitario|precio_?venta|pvp|valor|valor_?unitario|valor_?total|tarifa|importe|val_?unit|monto)/i,
     required: false,
   },
   supplierName: {
-    regex: /(proveedor|supplier|vendor|distribuidor|fabricante|maker|prov_?nombre|supplier_?name)/i,
+    regex: /(proveedor|supplier|vendor|distribuidor|fabricante|maker|prov_?nombre|supplier_?name|raz[oó]n_?social|contratista|adjudicatario|casa_?comercial|laboratorio|empresa_?proveedora)/i,
+    required: false,
+  },
+  supplierEmail: {
+    regex: /(email_?proveedor|correo_?proveedor|supplier_?email|email|correo|mail|contacto_?email)/i,
+    required: false,
+  },
+  supplierPhone: {
+    regex: /(tel[eé]fono_?proveedor|telefono|celular|phone|supplier_?phone|tel|whatsapp|contacto_?tel)/i,
     required: false,
   },
   supplierCity: {
-    regex: /(ciudad_?proveedor|ubicaci[oó]n_?proveedor|origen_?proveedor|supplier_?city|supplier_?location|origen)/i,
+    regex: /(ciudad_?proveedor|ubicaci[oó]n_?proveedor|origen_?proveedor|supplier_?city|supplier_?location|origen|ciudad|municipio|sede_?proveedor)/i,
     required: false,
   },
   warehouseName: {
-    regex: /(almac[eé]n|almacen|bodega|warehouse|sucursal|cedis|planta|ubicaci[oó]n_?almacen)/i,
+    regex: /(almac[eé]n|almacen|bodega|warehouse|sucursal|cedis|planta|ubicaci[oó]n_?almacen|centro_?distribuci[oó]n|punto_?venta|sede|tienda)/i,
     required: false,
   },
   warehouseCity: {
-    regex: /(ciudad_?almacen|ciudad_?bodega|warehouse_?city|ciudad_?sucursal)/i,
+    regex: /(ciudad_?almacen|ciudad_?bodega|warehouse_?city|ciudad_?sucursal|ciudad_?entrega|destino)/i,
     required: false,
   },
   leadTimeDays: {
-    regex: /(lead_?time|tiempo_?entrega|d[ií]as_?entrega|dias_?entrega|plazo_?entrega)/i,
+    regex: /(lead_?time|tiempo_?entrega|d[ií]as_?entrega|dias_?entrega|plazo_?entrega|demora_?d[ií]as)/i,
     required: false,
   },
 };

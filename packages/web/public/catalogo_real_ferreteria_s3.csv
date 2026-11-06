@@ -1,0 +1,51 @@
+sku,name,category,price,stock,min_stock,supplier_name,supplier_city,supplier_email,supplier_phone
+SKU-BLT-5501,Pala Redonda Cabo Madera 5501 Bellota,Herramientas Manuales,48500,32,15,Bellota Colombia S.A.,Manizales,ventas@bellota.com.co,+57 606 885 1000
+SKU-BLT-5502,Pala Cuadrada Carbono Bellota 5502,Herramientas Manuales,52000,24,10,Bellota Colombia S.A.,Manizales,ventas@bellota.com.co,+57 606 885 1000
+SKU-BLT-MCH18,Machete Rula 18 Pulgadas Bellota Con Vaina,Herramientas Agrícolas,29800,45,20,Bellota Colombia S.A.,Manizales,ventas@bellota.com.co,+57 606 885 1000
+SKU-BLT-PIC04,Pico Punta y Pala 4.5 Libras Bellota,Herramientas Manuales,68000,18,8,Bellota Colombia S.A.,Manizales,ventas@bellota.com.co,+57 606 885 1000
+SKU-BLT-LMT08,Lima Triangular 8 Pulgadas Para Afilado Bellota,Herramientas Manuales,18500,60,25,Bellota Colombia S.A.,Manizales,ventas@bellota.com.co,+57 606 885 1000
+SKU-CRN-VAL01,Válvula de Paso Esfera Bronce 1/2 Pulgada Grival,Plomería y Válvulas,34900,55,20,Corona Industrial S.A.S.,Bucaramanga,servicio@corona.co,+57 601 405 5555
+SKU-CRN-VAL02,Válvula de Retención Check 3/4 Pulgada Grival,Plomería y Válvulas,46200,28,12,Corona Industrial S.A.S.,Bucaramanga,servicio@corona.co,+57 601 405 5555
+SKU-CRN-GRI01,Grifería Lavamanos Monocontrol Cromo Aluvia Grival,Plomería y Grifería,129900,14,6,Corona Industrial S.A.S.,Bucaramanga,servicio@corona.co,+57 601 405 5555
+SKU-CRN-PEGA1,Pegante Gris Corona Cerámica y Porcelanato 25kg,Materiales de Construcción,26500,80,30,Corona Industrial S.A.S.,Bucaramanga,servicio@corona.co,+57 601 405 5555
+SKU-CRN-BOQ01,Boquilla Antihongos Color Gris Niebla 2kg Corona,Materiales de Construcción,11200,40,15,Corona Industrial S.A.S.,Bucaramanga,servicio@corona.co,+57 601 405 5555
+SKU-PVC-TUB01,Tubo PVC Presión RDE 21 1/2 Pulgada 6m Pavco,Tubería y Conexiones,19800,65,25,Pavco Wavin Colombia,Bogotá,atencion@wavin.com,+57 601 782 5000
+SKU-PVC-TUB02,Tubo PVC Sanitario 3 Pulgadas 6m Pavco,Tubería y Conexiones,48900,30,12,Pavco Wavin Colombia,Bogotá,atencion@wavin.com,+57 601 782 5000
+SKU-PVC-COD01,Codo PVC Presión 90 Grados 1/2 Pulgada Pavco,Tubería y Conexiones,1450,150,50,Pavco Wavin Colombia,Bogotá,atencion@wavin.com,+57 601 782 5000
+SKU-PVC-TEE01,Tee PVC Presión 1/2 Pulgada Pavco,Tubería y Conexiones,2100,120,40,Pavco Wavin Colombia,Bogotá,atencion@wavin.com,+57 601 782 5000
+SKU-PVC-SOL01,Soldadura Líquida PVC Transparente 1/4 Galón Pavco,Adhesivos y Químicos,42500,22,10,Pavco Wavin Colombia,Bogotá,atencion@wavin.com,+57 601 782 5000
+SKU-CTL-CBL12,Cable Cobre Unipolar THHN Calibre 12 AWG Rollo 100m,Material Eléctrico,285000,16,6,Centelsa Cables S.A.S.,Cali,ventas@centelsa.com,+57 602 485 8000
+SKU-CTL-CBL10,Cable Cobre Unipolar THHN Calibre 10 AWG Rollo 100m,Material Eléctrico,445000,12,5,Centelsa Cables S.A.S.,Cali,ventas@centelsa.com,+57 602 485 8000
+SKU-CTL-CBL14,Cable Cobre Unipolar THHN Calibre 14 AWG Rollo 100m,Material Eléctrico,198000,20,8,Centelsa Cables S.A.S.,Cali,ventas@centelsa.com,+57 602 485 8000
+SKU-CTL-CBL08,Cable Cobre Unipolar THHN Calibre 8 AWG Rollo 100m,Material Eléctrico,689000,8,4,Centelsa Cables S.A.S.,Cali,ventas@centelsa.com,+57 602 485 8000
+SKU-SIK-IMP01,Sika 1 Aditivo Impermeabilizante Líquido Galón 4kg,Químicos de Construcción,38900,35,15,Sika Colombia S.A.S.,Girón,contactenos@co.sika.com,+57 601 878 6333
+SKU-SIK-FLX01,Sikaflex 1A Poliuretano Sellador Juntas Gris 300ml,Selladores y Adhesivos,31500,48,20,Sika Colombia S.A.S.,Girón,contactenos@co.sika.com,+57 601 878 6333
+SKU-SIK-IMP02,SikaTop 107 Monocomponente Mortero Impermeabilizante 25kg,Químicos de Construcción,74500,18,8,Sika Colombia S.A.S.,Girón,contactenos@co.sika.com,+57 601 878 6333
+SKU-SIK-GRO01,SikaGrout 212 Mortero de Relleno Sin Contracción 25kg,Químicos de Construcción,52000,25,10,Sika Colombia S.A.S.,Girón,contactenos@co.sika.com,+57 601 878 6333
+SKU-BSH-TLD01,Taladro Percutor GSB 13 RE 650W Mandril 1/2 Bosch,Herramientas Eléctricas,249000,15,6,Robert Bosch Colombia S.A.S.,Bogotá,bosch.herramientas@co.bosch.com,+57 601 658 5000
+SKU-BSH-ESM01,Esmeriladora Angular GWS 700 710W Disco 4-1/2 Bosch,Herramientas Eléctricas,239000,18,8,Robert Bosch Colombia S.A.S.,Bogotá,bosch.herramientas@co.bosch.com,+57 601 658 5000
+SKU-BSH-RTM01,Rotomartillo SDS Plus GBH 2-24 D 820W Bosch,Herramientas Eléctricas,689000,7,3,Robert Bosch Colombia S.A.S.,Bogotá,bosch.herramientas@co.bosch.com,+57 601 658 5000
+SKU-BSH-BRC01,Juego Brocas Concreto SDS Plus 5 Piezas Bosch,Accesorios y Brocas,64900,26,10,Robert Bosch Colombia S.A.S.,Bogotá,bosch.herramientas@co.bosch.com,+57 601 658 5000
+SKU-HRR-BAR01,Barra de Punta y Pala 1.50m 14 Libras Herragro,Herramientas de Construcción,89000,14,5,Herragro S.A.,Manizales,servicio@herragro.com,+57 606 874 7000
+SKU-HRR-CMR01,Cisoria Cortafrío Reforzado 10 Pulgadas Herragro,Herramientas Manuales,22500,34,12,Herragro S.A.,Manizales,servicio@herragro.com,+57 606 874 7000
+SKU-HRR-AZA01,Azadón Cafetero con Ojo No. 2 Herragro,Herramientas Agrícolas,38900,28,10,Herragro S.A.,Manizales,servicio@herragro.com,+57 606 874 7000
+SKU-INC-TJR01,Tijera de Podar Manual 8 Pulgadas Incolma,Herramientas de Poda,32000,25,10,Incolma S.A.,Manizales,comercial@incolma.com,+57 606 886 1600
+SKU-INC-SRR01,Serrucho Profesional Carpintero 20 Pulgadas Incolma,Herramientas de Corte,27500,20,8,Incolma S.A.,Manizales,comercial@incolma.com,+57 606 886 1600
+SKU-STN-CWT01,Cinta Métrica Global Plus 5m/16ft Stanley,Instrumentos de Medición,22900,50,20,Stanley Black & Decker Colombia,Bogotá,contacto@stanleytools.com.co,+57 601 744 4400
+SKU-STN-NIV01,Nivel Tubular de Aluminio 24 Pulgadas 3 Gotas Stanley,Instrumentos de Medición,44900,18,6,Stanley Black & Decker Colombia,Bogotá,contacto@stanleytools.com.co,+57 601 744 4400
+SKU-STN-ALC01,Alicate Universal 8 Pulgadas Pro Mango Ergonómico Stanley,Herramientas Manuales,39900,36,15,Stanley Black & Decker Colombia,Bogotá,contacto@stanleytools.com.co,+57 601 744 4400
+SKU-STN-HMB01,Martillo Uña Curva Mango Fibra de Vidrio 16oz Stanley,Herramientas Manuales,36500,28,10,Stanley Black & Decker Colombia,Bogotá,contacto@stanleytools.com.co,+57 601 744 4400
+SKU-STN-DSC01,Disco de Corte Extra Fino Acero Inox 4-1/2 Pulgadas Pack x10 Stanley,Abrasivos,48000,40,15,Stanley Black & Decker Colombia,Bogotá,contacto@stanleytools.com.co,+57 601 744 4400
+SKU-SEG-CSK01,Casco de Seguridad Industrial Tipo 1 Clase E Amarillo Arseg,Seguridad Industrial,24500,45,15,Arseg 3M Colombia,Medellín,seguridad@arseg.com.co,+57 604 444 3300
+SKU-SEG-GFA01,Gafas de Seguridad Antiempañante Transparente Arseg,Seguridad Industrial,11500,85,30,Arseg 3M Colombia,Medellín,seguridad@arseg.com.co,+57 604 444 3300
+SKU-SEG-GNT01,Guantes de Vaqueta Tipo Ingeniero Carnaza Par,Seguridad Industrial,15900,90,40,Arseg 3M Colombia,Medellín,seguridad@arseg.com.co,+57 604 444 3300
+SKU-SEG-MSK01,Mascarilla N95 Partículas Polvo y Humos Caja x20 3M,Seguridad Industrial,78000,25,10,Arseg 3M Colombia,Medellín,seguridad@arseg.com.co,+57 604 444 3300
+SKU-SCH-BRK01,Disyuntor Termomagnético Monopolar 20A Schneider Electric,Material Eléctrico,28500,40,15,Schneider Electric Colombia,Bogotá,soporte@se.com,+57 601 426 9000
+SKU-SCH-BRK02,Disyuntor Termomagnético Bipolar 40A Schneider Electric,Material Eléctrico,74000,16,6,Schneider Electric Colombia,Bogotá,soporte@se.com,+57 601 426 9000
+SKU-SCH-TMA01,Tomacorriente Doble con Polo a Tierra Blanco Schneider,Material Eléctrico,9800,70,25,Schneider Electric Colombia,Bogotá,soporte@se.com,+57 601 426 9000
+SKU-PNT-VIN01,Pintura Viniltex Blanco Glaciar Cuñete 5 Galones Pintuco,Pinturas y Recubrimientos,265000,12,4,Pintuco Colombia S.A.,Bello,servicio@pintuco.com,+57 604 374 8000
+SKU-PNT-ESM01,Esmalte Doméstico Brillante Blanco Galón Pintuco,Pinturas y Recubrimientos,78900,20,8,Pintuco Colombia S.A.,Bello,servicio@pintuco.com,+57 604 374 8000
+SKU-PNT-ANT01,Anticorrosivo Alquídico Rojo Óxido Galón Pintuco,Pinturas y Recubrimientos,72500,18,6,Pintuco Colombia S.A.,Bello,servicio@pintuco.com,+57 604 374 8000
+SKU-TOR-CHZ01,Chazo Plástico Expansivo 5/16 Pulgada Bolsa x100,Fijaciones y Tornillería,12500,80,30,Tornillos del Oriente S.A.S.,Bucaramanga,pedidos@tororiente.com,+57 607 642 8800
+SKU-TOR-DRY01,Tornillo Drywall Negro Punta Broca 6x1 Pulgada Caja x1000,Fijaciones y Tornillería,34000,30,10,Tornillos del Oriente S.A.S.,Bucaramanga,pedidos@tororiente.com,+57 607 642 8800
+SKU-TOR-ANC01,Anclaje de Expansión Cuña Galvanizado 3/8 x 3 Pulgadas Pack x25,Fijaciones y Tornillería,46500,22,8,Tornillos del Oriente S.A.S.,Bucaramanga,pedidos@tororiente.com,+57 607 642 8800

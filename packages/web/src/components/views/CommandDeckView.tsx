@@ -63,7 +63,7 @@ import {
   togglePinCommand,
   SlashCategory,
 } from "../../services/commandRegistry";
-import { API_BASE_URL } from "../../services/apiClient";
+import { API_BASE_URL, api } from "../../services/apiClient";
 import { ThemeFactoryWidget } from "../deck/ThemeFactoryWidget";
 import { DaemonControlWidget } from "../deck/DaemonControlWidget";
 import { AgentDecisionWidget } from "../deck/AgentDecisionWidget";
@@ -232,6 +232,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
     const startTime = performance.now();
 
     const formattedArgs = Object.entries(argsToUse)
+      .filter(([, v]) => v !== undefined && v !== "")
       .map(([k, v]) => `${k}=${v}`)
       .join(" ");
     const rawInput = `${cmdToRun.command} ${formattedArgs}`.trim();
@@ -253,21 +254,53 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
     try {
       let fetchedData: any = null;
 
-      // Si el comando tiene un endpoint real, consultarlo
-      if (cmdToRun.endpoint) {
+      // 1. Ejecución real a través del motor autónomo (POST /api/chat -> runAgentLoop)
+      if (
+        cmdToRun.command === "/chat" ||
+        cmdToRun.endpoint === "/api/chat" ||
+        cmdToRun.command === "/simulate" ||
+        cmdToRun.command === "/explain" ||
+        cmdToRun.command === "/plan"
+      ) {
+        let prompt = argsToUse.message || "";
+        if (!prompt) {
+          if (cmdToRun.command === "/simulate") {
+            prompt = `Simula y analiza el escenario operativo '${argsToUse.scenario || "stockout"}'${
+              argsToUse.sku ? ` sobre el SKU ${argsToUse.sku}` : ""
+            } usando los datos reales de inventario y proveedores.`;
+          } else if (cmdToRun.command === "/explain") {
+            prompt = `Explica la deliberación, evidencia y políticas aplicadas sobre la decisión '${
+              argsToUse.id || "más reciente"
+            }' consultando la base de datos.`;
+          } else if (cmdToRun.command === "/plan") {
+            prompt =
+              "Genera el plan operativo diario de reposición y consolidación logística basado en las alertas reales del inventario.";
+          } else {
+            prompt = "Investiga la situación actual del inventario, órdenes y alertas, y dime qué requiere atención hoy.";
+          }
+        }
+        fetchedData = await api.chat.send(prompt);
+      } else if (cmdToRun.command === "/notify" || cmdToRun.command === "/telegram") {
+        const prompt = `Envía una notificación operativa por ${argsToUse.channel || "telegram"} (${
+          argsToUse.type || argsToUse.subcommand || "resumen operativo"
+        }) y verifica la entrega.`;
+        fetchedData = await api.chat.send(prompt);
+      } else if (cmdToRun.endpoint) {
         try {
-          const endpointUrl = cmdToRun.endpoint.startsWith("/api") ? `${API_BASE_URL}${cmdToRun.endpoint.slice(4)}` : cmdToRun.endpoint;
+          const endpointUrl = cmdToRun.endpoint.startsWith("/api")
+            ? `${API_BASE_URL}${cmdToRun.endpoint.slice(4)}`
+            : cmdToRun.endpoint;
           const res = await fetch(endpointUrl);
           if (res.ok) {
-            fetchedData = await res.json();
+            const json = await res.json();
+            fetchedData = json?.data ?? json;
           }
         } catch {
-          // Si no responde el endpoint, se recurre a fallback estructurado
+          // Si falla el GET directo, delegar al agente autónomo
+          fetchedData = await api.chat.send(`Ejecuta la operación ${rawInput} y dame los datos verificados.`);
         }
       }
 
-      // Latencia realista de orquestación
-      await new Promise((res) => setTimeout(res, 180));
       const latency = Math.round(performance.now() - startTime);
 
       setExecutions((prev) =>
@@ -277,6 +310,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                 ...item,
                 status: "success",
                 latencyMs: latency,
+                renderType: fetchedData?.response ? "agent-tree" : item.renderType,
                 resultData: fetchedData || { status: "OK", executed: true, args: argsToUse },
               }
             : item
@@ -300,6 +334,31 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
 
   const handleRunSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    const raw = inputVal.trim();
+
+    // Si el usuario escribió texto en lenguaje natural o "/chat <pregunta>" directamente en la barra
+    const isDirectNaturalLanguage =
+      raw.length > 0 && (!raw.startsWith("/") || raw.toLowerCase().startsWith("/chat "));
+
+    if (isDirectNaturalLanguage) {
+      const chatCmd =
+        COMMAND_REGISTRY.find((c) => c.command === "/chat") || {
+          command: "/chat",
+          category: "agents",
+          title: "Directiva al Agente Autónomo",
+          description: "Ejecución directa en el motor autónomo",
+          endpoint: "/api/chat",
+          renderType: "agent-tree",
+          iconName: "MessageSquare",
+        };
+      const cleanMessage = raw.replace(/^\/chat\s+/i, "").trim();
+      void executeCommand(chatCmd, { message: cleanMessage });
+      setInputVal("");
+      setSelectedCmd(null);
+      setShowPalette(false);
+      return;
+    }
+
     if (!selectedCmd) {
       if (filteredPaletteCommands.length > 0) {
         const first = filteredPaletteCommands[0];
@@ -313,28 +372,45 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
       return;
     }
 
-    void executeCommand(selectedCmd, argValues);
+    const effectiveArgs = { ...argValues };
+    if (selectedCmd.command === "/chat" && !effectiveArgs.message && raw !== "/chat") {
+      effectiveArgs.message = raw.replace(/^\/chat\s*/i, "").trim();
+    }
+
+    void executeCommand(selectedCmd, effectiveArgs);
     setShowPalette(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (showPalette && filteredPaletteCommands.length > 0) {
+    const raw = inputVal.trim();
+    const isNaturalLanguageSentence = raw.length > 0 && !raw.startsWith("/");
+
+    if (showPalette && filteredPaletteCommands.length > 0 && !isNaturalLanguageSentence) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setPaletteIndex((prev) => (prev + 1) % filteredPaletteCommands.length);
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setPaletteIndex((prev) => (prev - 1 + filteredPaletteCommands.length) % filteredPaletteCommands.length);
-      } else if (e.key === "Enter" || e.key === "Tab") {
+      } else if (e.key === "Tab") {
         e.preventDefault();
         const picked = filteredPaletteCommands[paletteIndex];
         if (picked) {
           handleSelectCommandFromPalette(picked);
         }
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const picked = filteredPaletteCommands[paletteIndex];
+        if (picked && raw.toLowerCase() !== picked.command.toLowerCase() && !raw.includes(" ")) {
+          handleSelectCommandFromPalette(picked);
+        } else {
+          handleRunSubmit();
+        }
       } else if (e.key === "Escape") {
         setShowPalette(false);
       }
     } else if (e.key === "Enter") {
+      e.preventDefault();
       handleRunSubmit();
     }
   };
@@ -546,7 +622,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                   onFocus={() => {
                     if (inputVal.trim().length > 0) setShowPalette(true);
                   }}
-                  placeholder="Escribe '/' para ejecutar comandos del CLI (ej. /theme-factory, /stock, /orders, /daemon)..."
+                  placeholder="Escribe cualquier instrucción en lenguaje natural al agente o '/' para comandos (ej. investiga inventario, /stock, /orders)..."
                   className="w-full h-11 pl-10 pr-24 sm:pr-28 text-caption sm:text-body bg-raised text-primary border border-border rounded-control placeholder:text-muted focus:outline-none focus:border-brand transition-colors font-mono"
                 />
 
@@ -645,7 +721,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                             — {cmd.title}
                           </span>
                         </div>
-                        <span className="text-[11px] font-mono text-muted bg-raised px-2 py-0.5 rounded-pill border border-border shrink-0">
+                        <span className="text-caption font-mono text-muted bg-raised px-2 py-0.5 rounded-pill border border-border shrink-0">
                           {cmd.category}
                         </span>
                       </button>
@@ -675,7 +751,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                       }`}
                     >
                       <span>{tab.label}</span>
-                      <span className="font-mono text-[11px] opacity-75">({tab.count})</span>
+                      <span className="font-mono text-caption opacity-75">({tab.count})</span>
                     </button>
                   );
                 })}
@@ -740,7 +816,7 @@ export const CommandDeckView: React.FC<CommandDeckViewProps> = ({ onNavigateTo }
                     </div>
 
                     <div className="pt-2 mt-2 border-t border-border flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-mono text-muted bg-raised px-2 py-0.5 rounded-pill border border-border">
+                      <span className="text-caption font-mono text-muted bg-raised px-2 py-0.5 rounded-pill border border-border">
                         {cmd.renderType}
                       </span>
                       <Button

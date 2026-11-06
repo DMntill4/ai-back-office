@@ -3,8 +3,11 @@ import {
   db,
   cases,
   caseEvents,
+  companies,
   runAgentLoop,
   analyzePromptInjection,
+  evaluateCommunicationIntent,
+  isInvalidOrGibberishInput,
   resolveNaturalLanguageIntent,
   mintOrchestrator,
   type AgentExecutionReport,
@@ -15,11 +18,12 @@ import { sseHub } from "../events/sseHub";
 import { currentSession } from "./auth";
 
 export async function chatRoutes(fastify: FastifyInstance) {
-  // 1. Directiva u Operación Asíncrona (Chat / Command Dispatcher)
+  // 1. Directiva u Operación Autónoma Real (Chat / Agent Loop Dispatcher)
   fastify.post("/api/chat", async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body as any) || {};
     const message = (body.message || "").trim();
-    const companyId = body.companyId || currentSession.companyId;
+    const companyId = body.companyId || currentSession.companyId || "comp_default";
+    const effectiveRole = body.userRole || (currentSession as any).role || "owner";
 
     if (!message) {
       return reply.status(400).send({
@@ -28,8 +32,17 @@ export async function chatRoutes(fastify: FastifyInstance) {
       });
     }
 
-    // 0. Guardia anti-prompt-injection: corta el ataque antes de tocar la BD
-    //    o de invocar cualquier herramienta del orquestador.
+    // 0. Guardrail de entrada sin sentido (teclazos aleatorios)
+    if (isInvalidOrGibberishInput(message)) {
+      return reply.status(200).send({
+        success: true,
+        response:
+          "Por favor ingresa una consulta o instrucción operativa válida (por ejemplo: auditar inventario, revisar productos críticos, consultar proveedores, crear respaldo o enviar notificación operativa).",
+        evidenceChain: [],
+      });
+    }
+
+    // 0.1 Guardia anti-prompt-injection (frontera de seguridad estricta)
     const injection = analyzePromptInjection(message);
     if (injection.isSuspicious) {
       sseHub.broadcast({
@@ -51,41 +64,36 @@ export async function chatRoutes(fastify: FastifyInstance) {
       });
     }
 
-    // 1. Motor de intenciones en lenguaje natural: resuelve consultas
-    //    deterministas (inventario, órdenes, flota, reportes, configuración,
-    //    memoria) sin gastar tokens de LLM. También aplica los guardrails de
-    //    comunicación externa y de prompt injection del core.
-    let intentResult: Awaited<ReturnType<typeof resolveNaturalLanguageIntent>> | null = null;
-    try {
-      intentResult = await resolveNaturalLanguageIntent(companyId, message);
-    } catch {
-      intentResult = null;
-    }
-
-    if (intentResult?.handledDeterministically) {
-      sseHub.broadcast({
-        type: "intent_resolved",
-        agent: "Motor de Intenciones NL",
-        action: intentResult.intent,
-        details: intentResult.response,
-        resultSummary: intentResult.suggestedAction,
-        payload: intentResult,
-      });
+    // 0.2 Guardia de políticas de comunicación externa (bloquea bromas/spam hacia canales externos)
+    const commEval = evaluateCommunicationIntent({
+      userInput: message,
+      companyId,
+      language: "es",
+    });
+    if (!commEval.isAllowed && commEval.isOutboundAction) {
       return reply.status(200).send({
         success: true,
-        handledDeterministically: true,
-        intent: intentResult.intent,
-        response: intentResult.response,
-        suggestedAction: intentResult.suggestedAction,
-        data: intentResult.data ?? null,
+        blocked: true,
+        response: commEval.suggestedResponse || "No puedo transmitir ese mensaje por políticas de comunicación corporativa.",
+        evidenceChain: [],
       });
     }
 
     const caseId = body.caseId || `case_${randomUUID().slice(0, 8)}`;
     const caseTitle = message.length > 54 ? message.slice(0, 51) + "..." : message;
 
-    // 1. Registrar caso en la base de datos
+    // 1. Asegurar empresa y registrar caso en PostgreSQL
     try {
+      await db
+        .insert(companies)
+        .values({
+          id: companyId,
+          name: companyId === "comp_default" ? "Ferretería Industrial Santandereana S.A.S." : companyId,
+          currency: "COP",
+        })
+        .onConflictDoNothing()
+        .catch(() => {});
+
       await db
         .insert(cases)
         .values({
@@ -95,7 +103,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
           description: message,
           status: "en_proceso",
           priority: "media",
-          inputData: { channel: "operations_console", prompt: message },
+          inputData: { channel: "operations_console", prompt: message, role: effectiveRole },
         })
         .onConflictDoUpdate({
           target: cases.id,
@@ -106,7 +114,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
           },
         });
     } catch {
-      // Continuar si la BD no está disponible
+      // Continuar si la BD tuvo conflicto menor
     }
 
     // 2. Notificar inmediatamente por SSE la creación del caso
@@ -119,11 +127,12 @@ export async function chatRoutes(fastify: FastifyInstance) {
       payload: { caseId, title: caseTitle, message },
     });
 
-    // 2.1 Modo Síncrono para Consola CLI y Chat Interactivo
-    if (body.sync) {
+    // 2.1 Por defecto ejecutamos el bucle real runAgentLoop y devolvemos la respuesta completa + evidencia
+    const isSync = body.sync !== false;
+    if (isSync) {
       try {
         const report: AgentExecutionReport = await runAgentLoop(caseId, {
-          userRole: body.userRole || (currentSession as any).role || "owner",
+          userRole: effectiveRole,
           onEvent: (ev) => {
             sseHub.broadcast({
               type: "agent_step",
@@ -142,7 +151,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
           agent: "Coordinador Multi-Agente",
           action: report.status === "resuelto" ? "resolver_caso" : "escalar_caso",
           details: report.summary,
-          resultSummary: `${report.totalSteps} pasos ejecutados | Costo: ${report.totalCost} USD | Tokens: ${report.totalTokens}`,
+          resultSummary: `${report.totalSteps} pasos ejecutados | Costo: $${report.totalCost} USD | Tokens: ${report.totalTokens}`,
           payload: report,
         });
 
@@ -165,7 +174,8 @@ export async function chatRoutes(fastify: FastifyInstance) {
           recoveredFromLlmFailure: true,
           response:
             fallbackIntent?.response ||
-            `[RECUPERACIÓN AUTÓNOMA] El proveedor remoto de IA no respondió (${err.message}), pero MINT mantiene activa la supervisión local de tus inventarios, órdenes y aprobaciones.`,
+            `[RECUPERACIÓN AUTÓNOMA] El proveedor remoto de IA no respondió (${err.message}), pero MINT ejecutó diagnóstico local sobre tus inventarios, órdenes y aprobaciones.`,
+          evidenceChain: [],
         });
       }
     }
@@ -183,6 +193,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
     setImmediate(async () => {
       try {
         const report: AgentExecutionReport = await runAgentLoop(caseId, {
+          userRole: body.userRole || (currentSession as any).role || "owner",
           onEvent: (ev) => {
             sseHub.broadcast({
               type: "agent_step",

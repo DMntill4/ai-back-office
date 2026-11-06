@@ -68,8 +68,8 @@ export default {
         strong: "var(--color-border-strong)",
       },
       fontFamily: {
-        sans: ["'Figtree'", "system-ui", "-apple-system", "'Segoe UI'", "sans-serif"],
-        mono: ["'IBM Plex Mono'", "ui-monospace", "'SF Mono'", "Consolas", "monospace"],
+        sans: ["'Inter'", "'Geist'", "'Figtree'", "system-ui", "-apple-system", "'Segoe UI'", "sans-serif"],
+        mono: ["'JetBrains Mono'", "'IBM Plex Mono'", "ui-monospace", "'SF Mono'", "Consolas", "monospace"],
       },
       fontSize: {
         caption: ["0.75rem", { lineHeight: "1.4", letterSpacing: "0.01em" }],     // 12px

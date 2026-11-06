@@ -282,110 +282,87 @@ mint notify test telegram          # Envía notificación de prueba con botones 
 
 ---
 
+## Documentación del Proyecto
+
+Toda la documentación técnica, manuales de arquitectura y registros de producción residen organizados en el directorio [`docs/`](./docs/):
+
+| Documento | Descripción | Idiomas |
+|---|---|---|
+| [`docs/DESIGN.md`](./docs/DESIGN.md) | **Sistema de Diseño Mint v2**: tokens de color, tipografía Inter/Geist/Mono, reglas semánticas y componentes sin neón ni gradientes decorativos. | Español |
+| [`docs/CHECKLIST.md`](./docs/CHECKLIST.md) | **Checklist de Producción Real**: 51/51 historias cerradas y verificadas contra base de datos. | [ES](./docs/CHECKLIST.md) · [EN](./docs/CHECKLIST.en.md) |
+| [`docs/DECISIONS.md`](./docs/DECISIONS.md) | **Registro de Decisiones de Arquitectura (ADR)**: ADR-001 a ADR-016 (monorepo, guardrails, Grok, etc.). | [ES](./docs/DECISIONS.md) · [EN](./docs/DECISIONS.en.md) |
+| [`docs/HANDOFF.md`](./docs/HANDOFF.md) | **Documento de Transferencia Técnica**: arquitectura multi-agente 24/7 y Principio de Mínimo Privilegio (PoLP). | [ES](./docs/HANDOFF.md) · [EN](./docs/HANDOFF.en.md) |
+| [`docs/REPORTE_TECNICO_S3.md`](./docs/REPORTE_TECNICO_S3.md) | **Reporte Técnico Hito S3**: arquitectura completa, PostgreSQL 16, CLI, Web/Desktop y benchmark. | Español |
+| [`docs/DATA_LAYER_AUDIT.md`](./docs/DATA_LAYER_AUDIT.md) | **Auditoría de Integridad de Datos**: evaluación de resiliencia y cuarentena. | Inglés |
+| [`docs/REAL_EXECUTIONS_RECORD.md`](./docs/REAL_EXECUTIONS_RECORD.md) | **Registro de Ejecuciones Reales**: trazabilidad de corridas continuas y auditoría. | Inglés |
+| [`docs/CONTEXT.md`](./docs/CONTEXT.md) | **Bitácora y Directivas**: historial de evolución del proyecto. | Español |
+
+---
+
 ## Estructura del Repositorio
 
 ```text
 ai-back-office/
-├── config/
-│   └── security/                     # Plantillas y configuraciones de entorno
+├── packages/
+│   ├── core/                         # Cerebro autónomo: agentes, tools, DB Drizzle, policy engine
+│   ├── cli/                          # CLI interactivo 'mint' (Node.js/Commander, keychain cifrado)
+│   ├── api/                          # Servidor Fastify (REST API, endpoints operacionales, ingestión)
+│   ├── web/                          # Web Studio (React 19 + Vite + Tailwind, dashboard enterprise)
+│   ├── daemon/                       # Demonio de fondo autónomo (vigilantes, triggers, cron)
+│   ├── ingest/                       # Ingesta resiliente de CSV, Excel y SQL (validación y chunked batch)
+│   └── notifiers/                    # Canales de notificación HITL (Telegram bot, Slack, Gmail)
+├── docs/                             # Documentación técnica, ADRs, checklist y diseño
 ├── docker/
-│   └── init-db.sql                   # Roles de desarrollo y extensiones para Postgres
-├── docs/
-│   ├── CONTEXT.md                    # Bitácora, directivas y progreso del proyecto
-│   ├── HANDOFF_TEAM.md               # Guía técnica de transferencia para el equipo
-│   ├── REPORTE_TECNICO.md            # Memoria técnica de arquitectura y diseño
-│   └── decisions/                    # Registro de decisiones de arquitectura (ADRs)
-├── frontend/                         # Consola Web Mint (React 19 + Vite + Tailwind v4)
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── DashboardView.tsx     # Métricas y gráficas operacionales
-│   │   │   ├── LoginView.tsx         # Pantalla de acceso y autenticación
-│   │   │   └── StockView.tsx         # Explorador de inventario y datos
-│   │   ├── App.tsx                   # Shell principal, navegación, chat y approvals
-│   │   └── index.css                 # Tokens de diseño y utilidades Glassmorphism
-│   └── package.json
-├── resources/                        # Diagramas, esquemas y capturas del sistema
-├── scripts/                          # Herramientas CLI y scripts de diagnóstico
-│   ├── chat.ts                       # Terminal interactiva de consola
-│   ├── clear-db.ts                   # Truncado seguro para reiniciar la BD
-│   └── smoke.ts                      # Prueba de humo de conectividad con Grok
-├── src/
-│   ├── agent/                        # Bucle ReAct, Superpoderes y prompts de skills
-│   ├── api/                          # Definición de rutas del servidor
-│   ├── config/                       # Validación Zod de variables de entorno
-│   ├── db/                           # Esquemas Drizzle, cliente Postgres y semillas
-│   ├── lib/                          # Utilidades transversales y telemetría
-│   ├── llm/                          # Cliente de Grok, cliente fake y tarificación
-│   ├── server.ts                     # Servidor Fastify 5.x principal
-│   ├── services/                     # Lógica de inventario, compras y aprobaciones
-│   ├── tools/                        # Arsenal de 8 herramientas ejecutables
-│   └── worker/                       # Motor proactivo de auditoría y eventos
-├── tests/                            # Suite completa de 20 pruebas en Vitest
-├── Dockerfile                        # Imagen de producción ligera (Node 20 Alpine)
-├── docker-compose.yml                # Orquestación de Postgres y servicio App
-└── package.json
+│   ├── docker-compose.yml            # Orquestación de PostgreSQL 16 local
+│   └── init-db.sql                   # Extensiones y esquemas iniciales
+├── scripts/                          # Herramientas de verificación y runners (Tauri, check-design)
+├── tests/                            # Suites de pruebas Vitest (194+ pruebas pasando)
+├── catalogo_real_ferreteria_s3.csv   # Catálogo real colombiano de ferretería industrial (S3)
+└── README.md                         # Entrada principal y guía del repositorio
 ```
 
 ---
 
 ## Guía de Comandos
 
-### 1. Iniciar la Consola Web (Frontend)
+### 1. Iniciar el Servidor API Backend (Fastify)
 ```bash
-# Desde la carpeta frontend
-cd frontend
-npm run dev
-
-# O desde la raíz del proyecto
-npm --prefix frontend run dev
-```
-La interfaz estará disponible en `http://localhost:5173`.
-
-### 2. Iniciar el Servidor API Backend (Fastify)
-```bash
-npm run server
-```
-El servidor escuchará en `http://localhost:3001` con endpoints listos para el frontend.
-
-### 3. Entorno de Desarrollo con Docker
-```bash
-# Levantar contenedor de base de datos PostgreSQL local y aplicación
-docker compose up -d
-
-# Detener contenedores
-docker compose down
+npm run api                           # Escucha en http://localhost:3001
 ```
 
-### 4. Terminal Interactiva CLI (Chat directo con el Agente)
+### 2. Iniciar la Consola Web / Studio (Frontend)
 ```bash
-npm run chat
+npm run web                           # Servidor Vite en http://localhost:3000
 ```
 
-### 5. Base de Datos y Semillas (Supabase o Docker)
+### 3. Compilar y Ejecutar la App de Escritorio (Mint Studio)
 ```bash
-# Ejecutar migraciones relacionales
-npm run db:migrate
-
-# Sembrar el catálogo extendido de 16 SKUs, bodegas y proveedores
-npm run db:seed
-
-# Limpiar las tablas operacionales de la base de datos
-npm run db:reset
-
-# Abrir Drizzle Studio para inspección visual de la base de datos
-npm run db:studio
+npm run desktop:build                 # Genera 'Mint Studio.exe' ejecutable nativo
 ```
 
-### 6. Suite de Pruebas y Control de Calidad (Costo $0 USD)
+### 4. Mint CLI (Línea de Comandos)
 ```bash
-# Ejecutar las 20 pruebas automatizadas
-npm test
+npm start                             # Inicia CLI interactivo unificado
+npm run mint -- dashboard             # Ver panel operativo desde terminal
+npm run mint -- inbox                 # Ver decisiones HITL pendientes
+npm run mint -- doctor                # Diagnóstico de entorno y conectividad
+```
 
-# Verificación estricta de tipos TypeScript
-npm run typecheck
+### 5. Base de Datos PostgreSQL
+```bash
+npm run docker:up                     # Inicia contenedor PostgreSQL 16 local
+npm run db:migrate                    # Aplica migraciones Drizzle
+npm run db:seed                       # Siembra catálogo inicial verificado
+npm run db:reset                      # Truncado seguro para reiniciar la BD
+npm run db:studio                     # Inspección visual de la BD con Drizzle Studio
+```
 
-# Prueba de humo de comunicación con el Gateway de Grok
-npm run smoke
+### 6. Suite de Pruebas y Aseguramiento de Calidad
+```bash
+npm test                              # Ejecuta las 194+ pruebas automatizadas en Vitest
+npm run typecheck                     # Verificación estricta de TypeScript (Core + Web)
+npm run design:check                  # Valida cumplimiento del Sistema de Diseño Mint v2
+npm run lint:emojis                   # Garantiza cero emojis en código y terminal
 ```
 
 ---

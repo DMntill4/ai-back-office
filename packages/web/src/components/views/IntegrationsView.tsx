@@ -106,17 +106,32 @@ export const IntegrationsView: React.FC = () => {
         />
       </div>
 
-      <div className="rounded-container border border-border bg-raised p-base">
-        <h2 className="text-label font-semibold text-primary">Canales de alerta</h2>
-        <p className="mt-hairline text-caption text-secondary">
-          La configuración y las pruebas de Telegram y otros canales están en su sección dedicada.
-        </p>
-        <a
-          href="#canales_notificaciones"
-          className="mt-compact inline-flex rounded-control border border-border bg-panel px-compact py-hairline text-caption font-medium text-brand hover:text-primary"
-        >
-          Administrar canales de alerta
-        </a>
+      <div className="grid gap-group lg:grid-cols-2">
+        <div className="rounded-container border border-border bg-raised p-base">
+          <h2 className="text-label font-semibold text-primary">Carga de Catálogo y Datos del Negocio</h2>
+          <p className="mt-hairline text-caption text-secondary">
+            Importa tu inventario y proveedores desde hojas de cálculo Excel (.xlsx), archivos .csv o scripts SQL relacionales para que el motor autónomo opere con tus datos reales.
+          </p>
+          <a
+            href="#mi_perfil"
+            className="mt-compact inline-flex rounded-control border border-border bg-panel px-compact py-hairline text-caption font-medium text-brand hover:text-primary"
+          >
+            Cargar Excel, CSV o SQL en Mi Perfil
+          </a>
+        </div>
+
+        <div className="rounded-container border border-border bg-raised p-base">
+          <h2 className="text-label font-semibold text-primary">Canales de alerta</h2>
+          <p className="mt-hairline text-caption text-secondary">
+            La configuración y las pruebas de Telegram y otros canales están en su sección dedicada.
+          </p>
+          <a
+            href="#canales_notificaciones"
+            className="mt-compact inline-flex rounded-control border border-border bg-panel px-compact py-hairline text-caption font-medium text-brand hover:text-primary"
+          >
+            Administrar canales de alerta
+          </a>
+        </div>
       </div>
 
       <p className="text-caption text-muted">

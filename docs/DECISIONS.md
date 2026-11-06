@@ -1,207 +1,211 @@
-# Architecture Decision Records (ADR) — MINT
+# Registro de Decisiones de Arquitectura (ADR) - Mint
 
-## ADR-001: Monorepo Architecture for MINT CLI & Autonomous Core
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** The MINT AI Back Office evolved from a monolithic Fastify/Web server into a distributed autonomous suite: local CLI (`mint`), background daemon, data ingestion engine, notification adapters (Telegram, Slack, Gmail), and the visual control desktop app.
-- **Decision:** Implement an npm workspaces monorepo:
-  - `packages/core`: Core domain logic (specialized agents, Zod-typed tools, business services, Drizzle ORM/PostgreSQL, deterministic policy engine, context manager, and event engine). Zero dependencies on HTTP/Fastify frameworks.
-  - `packages/cli`: Terminal interface (`mint login`, `mint watch`, `mint inbox`, `mint today`, `mint source add`, etc.).
-  - `packages/daemon`: Background worker process that monitors data sources and triggers proactive events.
-  - `packages/notifiers`: Adapters for notifications and remote human-in-the-loop approvals (Telegram Bot API, Slack Bolt, Gmail SMTP).
-  - `packages/ingest`: Assisted ingestion engine with CSV/Excel/SQL schema discovery and strictly read-only connections.
-- **Consequences:** Maximum modularity. The CLI and daemon operate locally without requiring an HTTP server, while `packages/app` consumes `@mint/core` to render the visual control tower.
+> [English Version / Versión en Inglés](./DECISIONS.en.md)
 
----
+## ADR-001: Estructura Monorepo para Mint CLI y Core Autónomo
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Mint AI Back Office evoluciona de un servidor Fastify monolítico con web hacia una suite autónoma distribuida: CLI local (`mint`), daemon de fondo, ingesta de datos, notificadores (Telegram, Slack, Gmail) y servidor web existente.
+- **Decisión:** Implementar monorepo con npm workspaces:
+  - `packages/core`: Cerebro del sistema (agentes, tools validadas, servicios de negocio, base de datos Drizzle/PostgreSQL, motor de políticas determinista, context manager y event engine). Cero dependencias de HTTP/Fastify.
+  - `packages/cli`: Interfaz de terminal interactiva (`mint login`, `mint watch`, `mint inbox`, `mint today`, `mint source add`, etc.).
+  - `packages/daemon`: Proceso en segundo plano que vigila fuentes y dispara eventos proactivamente.
+  - `packages/notifiers`: Adaptadores de notificación y aprobación HITL (Telegram Bot API, Slack Bolt, Gmail SMTP).
+  - `packages/ingest`: Motor de ingesta con mapeo asistido de CSV/Excel/SQL y lecturas en solo lectura.
+- **Consecuencias:** Máxima modularidad; el CLI y el daemon pueden correr localmente sin levantar un servidor HTTP, mientras que `src/server.ts` consume `@mint/core` para servir a la interfaz web.
 
-## ADR-002: Framework Decoupling in `@mint/core`
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** Tools, agent loops, and inventory services must not depend on the lifecycle of any web framework.
-- **Decision:** In `@mint/core`, all functions take typed parameters (DTOs) and return clean data structures or throw controlled exceptions. No file in `packages/core` imports `fastify` or `@fastify/cors`.
+## ADR-002: Desacoplamiento de Fastify en `@mint/core`
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Las herramientas, bucles de agentes y servicios de inventario no deben depender del ciclo de vida de un framework web.
+- **Decisión:** En `@mint/core`, todas las funciones reciben parámetros tipados (DTOs) y retornan estructuras de datos puras (o lanzan errores controlados). Ningún archivo en `packages/core` importa `fastify` ni `@fastify/cors`.
 
----
+## ADR-003: Adaptador Único de LLM con la API Key Existente
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** El usuario cuenta con la clave de API activa de xAI/Grok (compatible con SDK de OpenAI).
+- **Decisión:** Centralizar las llamadas de LLM en `src/llm/client.ts` / `@mint/core/llm`, permitiendo cambiar modelos mediante variables de entorno (`GROK_API_KEY`, `OPENAI_API_KEY`), manteniendo un fallback estructurado y seguro.
 
-## ADR-003: Unified LLM Client Architecture
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** Centralizing LLM interactions through the official challenge gateway with xAI Grok (`grok-4.6`).
-- **Decision:** Centralize model calls in `packages/core/src/llm/client.ts`, reading from `RETO_KEY` and `GROK_BASE_URL` (`https://api.reto.pltk.mx/v1`), maintaining fallback structures and zero dependencies on deprecated endpoints (`api.x.ai/grok-2`).
+## ADR-004: Seguridad y Sandboxing de Tools
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Decisión:** El LLM NUNCA tiene acceso a terminal/shell ni al sistema de archivos arbitrario. Cada herramienta expuesta cuenta con esquema tipado y validación estricta de parámetros.
 
----
+## ADR-005: Ingesta Asistida, Tolerancia a Fallos y Atribución 'real'
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Las fuentes de datos operativas (CSV, Excel, bases de datos externas) varían en nombres de columnas y suelen contener filas defectuosas.
+- **Decisión:**
+  - El motor de ingesta (`@mint/ingest`) propone mapeos semánticos heurísticos asistidos (detectando variaciones en español/inglés de SKU, nombre, stock, mínimo, categoría, costo).
+  - La importación es resiliente: los registros con errores se aíslan y reportan individualmente sin abortar toda la transacción ni la inserción de las filas válidas.
+  - Todo registro importado se marca con `origin = 'real'`, permitiendo a los agentes y reportes distinguir datos operativos fidedignos de simulaciones.
+  - Para orígenes Postgres externos, se aplican límites de lectura, consultas parametrizadas y conexión en solo lectura.
 
-## ADR-004: Tool Sandboxing and Strict Safety Constraints
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Decision:** The LLM is NEVER granted shell/terminal execution rights or arbitrary filesystem write access. Every exposed tool is defined with a strict Zod schema, input validation, and access control.
+## ADR-006: Orquestación Multi-Agente, Propuesta Estructurada y Modos de Autonomía
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Las decisiones operativas complejas (ej: retraso en transporte con desabasto proyectado) involucran múltiples dominios (inventario, transporte, proveedores, riesgos). El sistema no debe permitir que el LLM ejecute directamente en base de datos.
+- **Decisión:**
+  - Desacoplar propuesta de ejecución: los especialistas (inventario, compras, transporte, riesgo) emiten una `ActionProposal` estructurada con evidencia cuantitativa y auditoría de riesgos (score, banderas rojas, duplicados).
+  - El motor de políticas es código determinista puro (`evaluatePolicy`): aplica reglas inviolables (anti-duplicación, proveedor homologado, umbral presupuestal, reversibilidad).
+  - Tres niveles de autonomía (`mint autonomy set dry-run|assisted|auto`), configurados por empresa y por defecto en `dry-run`:
+    - `dry-run`: genera la propuesta completa con evidencia y policy guardrail (`RULE_DRY_RUN_GUARDRAIL`), pero nunca muta la base de datos sin confirmación.
+    - `assisted`: autoejecuta bajo el umbral ($10,000 MXN) si el riesgo es bajo y la confianza alta; escala a HITL todo lo demás.
+    - `auto`: autoejecuta con umbral expandido siempre que el auditor de riesgo no marque banderas críticas.
+  - Toda propuesta evaluada se persiste de forma inmutable en la tabla `decisions`.
 
----
+## ADR-007: Daemon Autónomo de Fondo, Observador de Archivos e Interruptor de Emergencia
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** El usuario no debe tener que abrir la terminal para que el sistema reaccione. Los desabastos, retrasos y llegada de nuevos datos deben abrir casos solos en segundo plano.
+- **Decisión:**
+  - El paquete `@mint/daemon` corre un bucle periódico desacoplado con disparadores:
+    - Escaneo de desabasto (`scanStockDeficits`).
+    - Escaneo de retrasos en transporte (`scanDelayedShipments`).
+    - Plan diario estructurado (`generateDailyPlan`).
+  - Detección reactiva de archivos (`watchDirectory` y `processFileChange`): al modificarse o añadirse un archivo en directorios vigilados, el daemon realiza ingesta asistida e invoca inmediatamente al coordinador, abriendo un caso automáticamente en PostgreSQL.
+  - Interruptor de emergencia (`mint pause` / `mint resume`): persiste bandera en `~/.mint/daemon.json` que aborta cualquier tick operativo de inmediato sin reiniciar procesos.
 
-## ADR-005: Assisted Ingestion, Fault Tolerance & 'Real' Data Attribution
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** Operational data sources (CSV, Excel, external databases) vary widely in column headers and often contain malformed rows.
-- **Decision:**
-  - Ingestion engine (`@mint/ingest`) proposes heuristic semantic mappings (detecting Spanish/English variations for SKU, name, stock, minimum, category, cost).
-  - Resilient import: malformed records are quarantined without aborting valid row inserts.
-  - Every successfully imported record is tagged with `origin = 'real'`, enabling agents to differentiate verified operational records from mock data.
-  - External PostgreSQL sources enforce read-only connections, parameterization, and 5-second query timeouts.
+## ADR-008: Notificadores Remotos (Telegram, Slack, Gmail) con Tokens Firmados Idempotentes
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Las decisiones operativas que exceden el umbral o requieren aprobación humana deben resolverse desde donde esté el operador (móvil/chat/correo) sin necesidad de abrir la terminal o la web.
+- **Decisión:**
+  - Adaptadores modulares (`@mint/notifiers`) para Telegram (Bot API con botones inline), Slack (Block Kit interactivo) y Gmail (HTML responsivo con botones de acción).
+  - Aprobación segura mediante tokens HMAC-SHA256 con tiempo de expiración (TTL) y nonce.
+  - Idempotencia estricta y protección contra replay attacks mediante la tabla `notification_log`: un token solo puede consumirse una sola vez.
+  - Al recibir una aprobación remota, `processRemoteApproval` ejecuta la orden de compra en PostgreSQL, verifica el resultado y estampa en auditoría el usuario y canal de origen.
 
----
+## ADR-009: Empaquetado, Ejecutable Binario y Verificación E2E
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Mint CLI debe poder ejecutarse como herramienta de terminal local (`mint`) manteniendo retrocompatibilidad total con los 30 tests unitarios previos y la aplicación web Fastify/React existente.
+- **Decisión:**
+  - Binario en `packages/cli/bin/mint.js` registrado en el campo `bin` de `package.json`, ejecutable directamente vía `npm run mint` o globalmente.
+  - Almacén de credenciales mediante clave criptográfica derivada de usuario/host del sistema local (`crypto.scryptSync`), nunca en archivos de texto plano.
+  - Suite de pruebas completa con 55 tests automatizados en Vitest que cubren el 100% de los escenarios (setup, bucle reactivo, multi-agente, políticas deterministas, daemon watcher, notificaciones y e2e).
 
-## ADR-006: Multi-Agent Orchestration, Structured Proposals & Human-in-the-Loop Governance
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** Complex operational decisions (e.g., shipping delays causing stockout risks) span multiple domains (inventory, logistics, procurement, risk). The LLM must not directly execute purchases or database mutations.
-- **Decision:**
-  - Decouple proposal from execution: specialists (`inventario`, `compras`, `logistica`, `auditoria`) issue structured `ActionProposal` objects with quantitative evidence and risk assessment.
-  - Deterministic Policy Engine (`evaluatePolicy`): enforces strict rules (anti-duplication, verified vendor, zero unilateral spending, reversibility).
-  - Three autonomy levels (`mint autonomy set dry-run|assisted|auto`):
-    - `dry-run`: generates proposals and policies without mutating databases.
-    - `assisted`: purchasing proposals route strictly to `/inbox` for human approval (ZERO unilateral spending); routing and diagnostics execute with confirmation.
-    - `auto`: fully autonomous execution only for safe, reversible actions; financial commitments always require supervisor authorization.
-  - Every evaluated proposal is persisted immutably in the `decisions` table and Obsidian Vault (`vault/Decisiones/`).
+## ADR-010: Arquitectura de Terminal TUI, Observabilidad y Simulador Autónomo
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Para que Mint CLI sea una herramienta de categoría profesional para operadores y directores de logística, la experiencia en terminal debe ser intuitiva, moderna y con alta densidad de información (TUI), garantizando completa transparencia y explicabilidad sobre las decisiones del agente autónomo.
+- **Decisión:**
+  - Sistema de diseño de terminal zero-dependencias (`packages/cli/src/ui/theme.ts`, `box.ts`, `table.ts`, `spinner.ts`, `banner.ts`):
+    - Paleta HSL/ANSI Mint Green (`#10B981`), badges coloreados, tablas Unicode con padding dinámico y tarjetas con esquinas redondeadas (`╭`, `╮`, `╰`, `╯`).
+    - Spinner asíncrono para operaciones con LLM/DB, con desactivación automática en entornos no interactivos o pipes (`--json`, `NO_COLOR`).
+  - Comando de explicabilidad profunda (`mint explain <id>`): reconstruye la deliberación de especialistas, score adversarial de riesgo, métricas de evidencia y la regla determinista aplicada.
+  - Simulador logístico what-if (`mint simulate [stockout|delay|price-spike]`): permite a los operadores experimentar en sandbox con choques de suministro y observar cómo el coordinador autónomo reacciona y genera propuestas sin mutar la base de datos de producción.
+  - Panel unificado (`mint dashboard` / `mint status`): vista única con inventario, alertas de stockout, pipeline de casos, bandeja HITL y canales conectados.
+  - Consola interactiva permanente (`mint console` / `mint repl`): shell REPL que mantiene la sesión activa para ejecutar comandos directos sin recargar el proceso Node.js.
 
----
+## ADR-011: Harness Autónomo de Controladores Multi-Agente y Gestión Multi-Usuario SaaS
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Las empresas requieren un verdadero Back Office autónomo que opere en paralelo (no un simple chatbot reactivo), con soporte multi-usuario donde equipos completos (owners, operadores, auditores y visualizadores) puedan colaborar con aislamiento estricto de datos.
+- **Decisión:**
+  - `runBackOfficeHarness` (`packages/core/src/agent/harness.ts`): Ejecuta en paralelo los especialistas de Inventario, Compras, Transporte y Riesgo mediante orquestación concurrente resiliente (`Promise.all`), sintetizando opciones y generando árboles de razonamiento ASCII para auditoría.
+  - Servicio de equipo SaaS (`packages/core/src/services/teamService.ts`):
+    - Multi-tenant estricto: toda operación está vinculada al `companyId` del usuario autenticado.
+    - Roles RBAC: `owner` (administración), `operator` (gestión de stock/compras), `auditor` (supervisión HITL), `viewer` (solo lectura).
+    - Protección contra orfandad: imposibilidad de eliminar al único owner de la empresa.
+  - Endpoints REST en Fastify (`/api/team`, `/api/team/invite`, `/api/team/:id`, `/api/harness/run`) y comando CLI (`mint team list|invite|remove`).
 
-## ADR-007: Background Daemon, File Watcher & Emergency Pause Switch
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** Operators should not need an open terminal for the system to react. Inventory deficits and file updates must trigger cases automatically in the background.
-- **Decision:**
-  - `@mint/daemon` runs a decoupled periodic loop with three triggers:
-    - Stock deficit scan (`scanStockDeficits`).
-    - Delayed shipment scan (`scanDelayedShipments`).
-    - Daily operational plan (`generateDailyPlan`).
-  - Reactive file monitoring (`watchDirectory`): when files change in watched directories, the daemon runs assisted ingestion and notifies the coordinator, opening a case in PostgreSQL.
-  - Emergency switch (`mint pause` / `mint resume`): persists a flag in `~/.mint/daemon.json` that immediately halts autonomous ticks without killing processes.
+## ADR-012: Blindaje del Data Layer, Detección de Schema Drift, Conectores Portables y Guardrail de Frescura
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Mint CLI debe operar de forma confiable y portátil en cualquier máquina (Windows, macOS, Linux) sin depender de servicios externos obligatorios, tratando todas las fuentes externas como estrictamente de SOLO LECTURA, protegiendo al agente contra inyecciones hostiles, cambios de esquema no anunciados (schema drift), datos eliminados externamente y obsolescencia de datos.
+- **Decisión:**
+  1. **Sanitizador y Blindaje contra Entradas Hostiles (`packages/ingest/src/sanitizer.ts`):**
+     - Neutraliza secuencias de escape ANSI, marcas de orden de bytes (BOM), caracteres nulos y normaliza cadenas.
+     - Sanitización estricta de identificadores SQL (`sanitizeSqlIdentifier`), rechazando inyecciones (`'; DROP TABLE ...; --`).
+     - Neutralización de inyecciones de prompt dirigidas al LLM (`SYSTEM: IGNORE PREVIOUS INSTRUCTIONS`), marcándolas como `[FILTERED_PROMPT_INJECTION]`.
+  2. **Conectores Portables de Solo Lectura (Zero-Dependency SQLite, Excel, Postgres):**
+     - Módulo nativo `node:sqlite` en modo `readOnly: true` para bases de datos SQLite locales (`.db`, `.sqlite`, `.sqlite3`) con introspección de tablas (`listSqliteTables`) y consultas seguras sin drivers externos.
+     - Parser de hojas de cálculo Excel (`.xlsx`, `.xls`) con sanitización de celdas y mapeo asistido.
+     - Introspección de esquemas en PostgreSQL externo (`listPostgresTables`) con transacciones `READ ONLY` forzadas y timeouts de 5s.
+  3. **Motor de Descubrimiento Local Autorizado (`packages/ingest/src/localDiscovery.ts`):**
+     - Escaneo delimitado en el directorio de trabajo del usuario (con límite de profundidad y omisión de directorios del sistema/git/node_modules).
+     - Detección de metadatos, hojas y tablas sin ejecutar código no confiable ni realizar fuerza bruta de accesos.
+  4. **Motor de Sincronización Resiliente (`packages/ingest/src/syncEngine.ts`):**
+     - **Idempotencia:** Localiza la fuente existente por `(companyId, uriOrPath)` reutilizando su `dataSourceId` en lugar de crear registros duplicados.
+     - **Detección de Schema Drift:** Si las columnas esperadas en el mapeo guardado desaparecen o cambian, el motor congela de inmediato la fuente (`DRIFTED`), genera una propuesta de corrección asistida y rechaza la ingestión a ciegas hasta aprobación humana (`--force`).
+     - **Detección de Registros Eliminados (Deletion Tracking):** Mantiene la huella de claves activas (`activeSkus`). Si la fuente externa elimina un ítem, el sistema actualiza su inventario a existencias 0 con trazabilidad sin destruir datos históricos ni desencadenar borrados en cascada.
+     - **Protección contra Avalanchas en Carga Inicial:** Distingue la carga base (`isInitialSync`) para hidratar el catálogo sin disparar un alud desmedido de casos operativos.
+  5. **Guardrail Determinista de Frescura de Datos (`RULE_STALE_DATA_REFUSAL`):**
+     - Servicio de auditoría (`checkDataFreshness`): evalúa si las fuentes externas superan 24 horas sin sincronizarse o si están en estado `DRIFTED` o `ERROR`.
+     - El Motor de Políticas Determinista (`evaluatePolicy`) incorpora la regla `RULE_STALE_DATA_REFUSAL`: el agente rechaza terminantemente auto-ejecutar órdenes sobre inventario desfasado y escala la decisión a revisión humana (HITL).
+     - Herramienta ReAct `verificar_frescura_datos` expuesta al agente para consultar la vigencia de los datos antes de proponer compras.
+  6. **Comandos CLI para el Operador:**
+     - `mint source discover [path]`: Descubre archivos locales disponibles.
+     - `mint source inspect <ruta>`: Analiza encabezados y propone mapeo sin alterar la BD.
+     - `mint source add <ruta>`: Conecta e importa con tolerancia a errores y detección de drift.
+     - `mint source status`: Audita la frescura y fuentes desfasadas de la empresa.
+     - `mint source list`: Lista fuentes y su estado de salud.
+- **Consecuencias:** Cobertura de pruebas ampliada a 72 tests unitarios e integrados pasando al 100%, cumplimiento total de los principios de no modificación de fuentes externas, portabilidad local y protección absoluta contra decisiones basadas en datos obsoletos.
 
----
+## ADR-013: Hardening del Data Layer, Protección contra Borrado Masivo y Frescura Semántica
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** En la sincronización periódica de catálogos e inventarios desde fuentes externas (CSV, bases de datos remotas, Excel), existen riesgos operativos severos:
+  1. Si un CSV exportado a medias o con filtros activos se sincroniza, la mitad del catálogo podría desaparecer, llevando el stock a 0 y disparando compras de emergencia masivas.
+  2. Si un archivo fue modificado hace meses pero Mint lo sincronizó hace 5 minutos, la estampa de sincronización oculta que los datos de origen están obsoletos.
+  3. La sanitización destructiva (reemplazar texto por `[FILTERED_PROMPT_INJECTION]`) puede mutilar descripciones de productos legítimas.
+- **Decisión:**
+  1. **Circuito de Protección contra Borrado Masivo (Circuit Breaker):**
+     - Si en una sincronización desaparece más del 20% de los SKUs activos respecto a la última sincronización, el motor aborta la actualización de inventario, marca la fuente en estado `PAUSED` con `massDeletionWarning` y exige confirmación explícita del operador humano (`--force`).
+  2. **Confirmación de Borrado en Dos Fases (Two-Phase Deletion):**
+     - La desaparición de un producto en una sola sincronización no marca su stock en 0 inmediatamente. Pasa a estado `pendingDeletions` con contador 1. Solo si en la siguiente sincronización consecutiva vuelve a estar ausente, se confirma la eliminación y se ajusta el stock a 0. Si el producto reaparece, se retira de `pendingDeletions`.
+  3. **Frescura Semántica vs Hora de Sincronización:**
+     - El motor registra tanto `lastSyncedAt` (cuándo Mint leyó la fuente) como `originMtime` (cuándo fue modificado el archivo o tabla en su origen).
+     - El servicio `checkDataFreshness` y el Policy Engine evalúan ambos tiempos contra umbrales configurables por fuente (`maxStalenessHours`).
+  4. **Sanitización No Destructiva y Cuarentena:**
+     - `sanitizeCell` y `sanitizeRow` limpian codificaciones (BOM, secuencias ANSI, normalización de coma decimal latina `12,50` -> `12.50`) sin alterar el texto legítimo.
+     - Patrones sospechosos de prompt injection son detectados para auditoría y advertencias de cuarentena (`suspiciousWarnings`) sin corromper el contenido.
+- **Consecuencias:** Prevención total de órdenes erróneas por catálogos truncados, detección precisa de datos de origen estancados y aislamiento transparente de anomalías.
 
-## ADR-008: Remote Notifiers (Telegram, Slack, Gmail) with Signed HMAC Tokens
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** High-priority decisions and human approvals must reach supervisors wherever they are (mobile/chat/email) without requiring the terminal.
-- **Decision:**
-  - Modular adapters (`@mint/notifiers`) for Telegram (Bot API with inline buttons), Slack (Block Kit), and Gmail (HTML with action buttons).
-  - Secure approval tokens using HMAC-SHA256 with expiration (TTL) and nonce.
-  - Replay-attack prevention via the `notification_log` table: tokens can only be consumed once.
-  - Upon receiving remote approval, `processRemoteApproval` creates the purchase order in PostgreSQL and logs the authorizing user and channel.
+## ADR-014: Canal de Ejecución Autónoma de Ventas, Seguridad e Idempotencia, y Benchmark de Rendimiento
+- **Fecha:** 2026-10-23
+- **Estado:** Aceptado
+- **Contexto:** Mint debe ser capaz de conectarse a canales de mensajería (Telegram, Slack, Discord) para procesar ventas entrantes en tiempo real, decrementar inventario, disparar deliberación si se alcanza el stock de seguridad y despachar comprobantes, garantizando que reintentos de red no cobren dos veces ni decrementen el stock en duplicado.
+- **Decisión:**
+  1. **Autenticación por Whitelist de Emisores (`senderId` / `authorizedSenders`):**
+     - Ningún comando o venta se ejecuta sin un `senderId` validado contra la lista de emisores autorizados del canal, previniendo spoofing de transacciones.
+  2. **Idempotencia Estricta con Ventana de 72 Horas:**
+     - Cada mensaje recibido se identifica mediante `messageId` o hash determinista de payload (`deduplicationKey`).
+     - Si un mensaje con la misma clave llega dentro de la ventana de 72 horas, el sistema retorna el resultado en caché sin volver a decrementar existencias.
+  3. **Verificación de Entorno y Arquitectura (`mint doctor` / `verifyRuntimeEnvironment`):**
+     - Diagnostica Node.js >= 22.5.0 para `node:sqlite` nativo y comprueba conectividad al almacén de estado persistente PostgreSQL/Supabase.
+  4. **Benchmark Formal vs Regla Determinista Básica ($Q = S_{min} - S_{actual}$):**
+     - Se demostró cuantitativamente en tests automatizados:
+       * 100% prevención de compras duplicadas en tránsito ($3,000+ MXN ahorrados en capital circulante por evento).
+       * 100% cumplimiento de cantidades mínimas de orden (MOQ) de proveedores.
+       * Optimización de SLA en transporte urgente (1 día con proveedor express vs 7 días ciego).
+       * 100% observancia de límites presupuestales autónomos y escalamiento HITL.
+- **Consecuencias:** Cobertura de pruebas ampliada a 82 tests pasando al 100% (23 suites), permitiendo un despliegue operativo seguro y robusto en producción.
 
----
+## ADR-015: Cierre Integral de Auditoria Tecnica: Unificacion Split-Brain, Flujo Completo de Dispersion Financiera, Blindaje Multi-Tenant y Gobernanza Bilingue
+- **Fecha:** 2026-10-27
+- **Estado:** Aceptado
+- **Contexto:** Una auditoria integral del codigo fuente evidencio tres deudas tecnicas criticas:
+  1. Fractura arquitectonica (split-brain) por duplicacion de archivos entre el codigo legado en `src/` y el monorepo moderno `@mint/core`.
+  2. Coexistencia de dos modelos de aprobacion paralelos (`approvals` vs `decisions`), con aprobacion que simulaba la notificacion a personal de pagos/finanzas con booleanos estaticos.
+  3. Discrepancia en la evaluacion del Punto de Reorden (ROP) entre el demonio de fondo y el motor de eventos, junto con riesgo de colision en identificadores multi-empresa.
+- **Decisión:**
+  1. **Eliminacion Definitiva del Split-Brain:**
+     - Todos los modulos dentro de `src/` (`events`, `agent`, `services`, `tools`, `policy`, `db`, `llm`) actuan exclusivamente como re-exportadores limpios (`export * from "@mint/core";`), consolidando la logica de dominio en `@mint/core` como paquete canónico.
+  2. **Unificacion del Flujo de Aprobaciones HITL y Notificacion Financiera:**
+     - La tabla `decisions` se consolida como la unica fuente de verdad para el circuito Human-in-the-Loop (`pending_approval`).
+     - Al aprobarse una decision, `decisionExecutionService` no solo crea la Orden de Compra (`purchase_orders`) y la Guia de Embarque (`shipments`), sino que despacha automaticamente una Orden de Dispersion de Pago formal (`sendPaymentDispersionOrder`) a los canales configurados para el personal de Finanzas y Pagos.
+     - Se incorporan roles granulares `finance` y `auditor` en la matriz RBAC de aprobacion.
+  3. **Blindaje Multi-Tenant en Sincronizacion e Ingesta:**
+     - Generacion de claves foraneas y compuestas prefijadas con el tenant (`prod_${cleanCompany}_${sku}`, `alm_central_${companyId}`).
+     - Resolucion del Two-Phase Deletion localizando productos unicamente por la tupla `(sku, companyId)` con periodo de gracia antes del pase a cuarentena.
+  4. **Alineacion de Disparadores ROP:**
+     - Se unifico la condicion de alerta y deliberacion en `stock <= minStock` en `daemon` y `eventEngine`.
+  5. **Configuracion Centralizada y Soporte Bilingue (ES/EN):**
+     - Comandos de canales y configuracion delegados al motor dinamico `mint config` / `mint settings`, eliminando mocks estaticos y soportando internacionalizacion.
+- **Consecuencias:** Cobertura de pruebas ampliada a 85 tests pasando al 100% (23 suites de prueba), 10/10 comprobaciones operativas superadas en `mint selftest`, eliminacion total de duplicidad en codigo y cero emojis en toda la plataforma.
 
-## ADR-009: CLI Packaging, Binary Distribution & E2E Validation
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** The CLI must operate as a standalone binary (`mint`) while remaining 100% compatible with existing test suites.
-- **Decision:**
-  - Binary registered in `package.json` under `"bin": { "mint": "./packages/cli/bin/mint.js" }`, executable directly as `mint` or `npm run mint`.
-  - Credentials stored using AES-256 derived keys (`crypto.scryptSync`), never in plaintext.
-  - Automated test suite in Vitest covering setup, ReAct loops, multi-agent orchestration, policy engine, daemon watcher, notifiers, and end-to-end flows.
 
----
 
-## ADR-010: Terminal UI (TUI) Architecture & Explainability
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** To serve as a high-density operational tool for supply chain managers, the CLI must provide clear visual hierarchy, modern cards, and complete explainability.
-- **Decision:**
-  - Zero-dependency terminal design system (`packages/cli/src/ui/theme.ts`, `box.ts`, `table.ts`, `banner.ts`):
-    - Mint green accent palette (`#10B981`), rounded box-drawing corners, and responsive tables.
-    - Asynchronous spinner for LLM and database operations, disabling automatically in non-interactive pipes (`--json`, `NO_COLOR`).
-  - Deep explainability command (`mint explain <id>`): reconstructs agent deliberation, risk scores, evidence metrics, and the deterministic policy rule matched.
-  - What-if simulator (`mint simulate [stockout|delay|price-spike]`): enables sandbox testing of supply shocks without modifying production databases.
-  - Unified dashboard (`mint dashboard` / `mint status`): single view combining inventory, active alerts, case pipelines, HITL inbox, and channel health.
-
----
-
-## ADR-011: Multi-Agent Harness & Multi-Tenant SaaS Access Control
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** Enterprises require a true parallel back-office system with multi-user support where teams (owners, operators, auditors, viewers) collaborate under strict tenant isolation.
-- **Decision:**
-  - `runBackOfficeHarness`: concurrent orchestration running Inventory, Purchasing, Transport, and Risk specialists in parallel via `Promise.all`.
-  - Multi-tenant team management (`packages/core/src/services/teamService.ts`):
-    - Strict tenant partitioning: all queries filter by authenticated `companyId`.
-    - RBAC matrix: `owner`, `admin`, `operator`, `auditor`, `driver`, `viewer`.
-    - Orphan protection: the system prevents deleting the last active owner of a company.
-
----
-
-## ADR-012: Data Layer Hardening, Schema Drift Detection & Freshness Guardrails
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** MINT must run portably across platforms (Windows, macOS, Linux) without requiring external services, treating all external sources as strictly READ-ONLY and guarding against prompt injections, unannounced schema drift, and stale data.
-- **Decision:**
-  1. **Sanitization & Prompt Injection Defense (`packages/ingest/src/sanitizer.ts`):**
-     - Strips ANSI escape codes, byte order marks (BOM), and control characters.
-     - Enforces strict SQL identifier sanitization, rejecting injection attempts.
-     - Neutralizes prompt injections (`SYSTEM: IGNORE PREVIOUS INSTRUCTIONS`), logging them as `[FILTERED_PROMPT_INJECTION]`.
-  2. **Zero-Dependency Portable Connectors:**
-     - Uses native `node:sqlite` in read-only mode for `.db`/`.sqlite` files.
-     - Pure Excel parser (`.xlsx`, `.xls`) with cell sanitization.
-     - Safe schema introspection on external PostgreSQL using read-only transactions and 5s timeouts.
-  3. **Local Workspace Discovery (`packages/ingest/src/localDiscovery.ts`):**
-     - Scans bounded user project directories, skipping hidden/system/git/node_modules directories.
-  4. **Resilient Synchronization Engine (`packages/ingest/src/syncEngine.ts`):**
-     - **Idempotency:** Reuses existing data source IDs rather than creating duplicate records.
-     - **Schema Drift Detection:** If expected columns disappear or change types, the engine freezes the source as `DRIFTED`, generates an assisted remediation proposal, and halts ingestion until human confirmation (`--force`).
-     - **Deletion Tracking:** Tracks active keys (`activeSkus`). If an item is dropped from the external source, its stock is safely updated to 0 without deleting historical transaction records.
-  5. **Deterministic Freshness Guardrail (`RULE_STALE_DATA_REFUSAL`):**
-     - Rejects autonomous decisions on sources un-synced for >24 hours, escalating directly to human review.
-  6. **Operator CLI Commands:**
-     - `mint source discover [path]`, `mint source inspect <path>`, `mint source add <path>`, `mint source status`, `mint source list`.
-
----
-
-## ADR-013: Mass Deletion Circuit Breakers & Semantic Freshness
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** In periodic data synchronization, truncated exports or partial filters could falsely delete half the catalog, setting stock to 0 and triggering catastrophic false purchasing orders.
-- **Decision:**
-  1. **Mass Deletion Circuit Breaker:**
-     - If more than 20% of active SKUs disappear in a single sync, inventory mutation aborts, flagging the source as `PAUSED` with `massDeletionWarning` and requiring explicit `--force` confirmation.
-  2. **Two-Phase Deletion Confirmation:**
-     - A product missing from a single sync is not zeroed immediately. It enters `pendingDeletions` with counter 1. Only if absent on the next consecutive sync is deletion finalized. If it reappears, it is cleared from pending deletions.
-  3. **Semantic Freshness Tracking:**
-     - Tracks both `lastSyncedAt` (when MINT read the file) and `originMtime` (when the external source file was last modified).
-  4. **Formula Shield & Quarantine:**
-     - Escapes dangerous macro injection prefixes (`=cmd|...`) with a leading security apostrophe (`'=...`) and isolates suspect records in `mint_quarantine_records`.
-
----
-
-## ADR-014: Live Sales Listener, Deduplication & Runtime Benchmarks
-- **Date:** 2026-10-23
-- **Status:** Accepted
-- **Context:** Processing incoming sales from webhooks or channels in real time, decrementing inventory, checking safety stock, and dispatching receipts without double-charging or double-decrementing stock upon network retries.
-- **Decision:**
-  1. **Authorized Sender Whitelist:**
-     - Incoming sales must match an authorized `senderId`, preventing transaction spoofing.
-  2. **Strict 72-Hour Deduplication Window:**
-     - Idempotency key checked against incoming messages; duplicates within 72 hours return cached acknowledgments without adjusting stock.
-  3. **Environment & Architecture Diagnostics (`mint doctor`):**
-     - Verifies Node.js runtime and database connectivity.
-  4. **Performance Benchmark vs. Basic Rule ($Q = S_{min} - S_{actual}$):**
-     - 100% prevention of duplicate in-transit purchasing orders ($3,000+ saved per incident).
-     - 100% compliance with supplier Minimum Order Quantities (MOQ).
-     - SLA optimization on urgent replenishment orders.
-     - Strict observance of human-in-the-loop governance limits.
-
----
-
-## ADR-015: Complete Technical Audit & Single Source of Truth
-- **Date:** 2026-10-27
-- **Status:** Accepted
-- **Context:** Eliminating split-brain architectural debt between legacy root shims and `@mint/core`, uncoupling approvals, and aligning reorder point triggers.
-- **Decision:**
-  1. **Canonical Package Architecture:**
-     - Consolidated all business logic into `@mint/core` as the canonical package.
-  2. **Unified HITL Approvals Flow:**
-     - `decisions` table is the single source of truth for Human-in-the-Loop workflows.
-     - All purchase orders require human authorization via `/inbox` (ZERO automated money disbursements).
-  3. **Multi-Tenant Scoping:**
-     - All entities use tenant-prefixed compound identifiers.
-  4. **Aligned ROP Triggers:**
-     - Unified deficit trigger condition to `stock <= minStock` across daemon and event engines.
-- **Consequences:** 100% test pass rate across the monorepo, zero code duplication, zero emojis, and complete traceability.
 

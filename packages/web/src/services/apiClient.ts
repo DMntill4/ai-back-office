@@ -880,23 +880,58 @@ export const api = {
                     sampleProducts: [],
                 },
             ),
-        /** Importar base de datos a partir de contenido o script SQL. */
-        importSql: (payload: { sqlContent: string; replaceDemo?: boolean; filename?: string }) =>
+        /** Importar base de datos a partir de contenido de texto (CSV, TSV o script SQL). */
+        importSql: (payload: { sqlContent?: string; content?: string; replaceDemo?: boolean; filename?: string }) =>
             request<any>("/profile/database/sql", {
                 method: "POST",
                 body: payload,
             }),
-        /** Subir archivo .sql mediante multipart/form-data. */
+        importDatabaseText: (payload: { content: string; replaceDemo?: boolean; filename?: string }) =>
+            request<any>("/profile/database/import-text", {
+                method: "POST",
+                body: payload,
+            }),
+        /** Subir archivo de base de datos o catálogo (.csv, .xlsx, .xls, .sql, .json) mediante multipart/form-data. */
         uploadSqlFile: async (file: File, replaceDemo = true) => {
             const formData = new FormData();
             formData.append("file", file);
             formData.append("replaceDemo", String(replaceDemo));
-            const url = `${API_BASE_URL}/profile/database/upload-sql`;
+            const url = `${API_BASE_URL}/profile/database/upload`;
             const res = await fetch(url, {
                 method: "POST",
                 body: formData,
             });
             return res.json();
+        },
+        uploadDatabaseFile: async (file: File, replaceDemo = true) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("replaceDemo", String(replaceDemo));
+            const url = `${API_BASE_URL}/profile/database/upload`;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            try {
+                const res = await fetch(url, {
+                    method: "POST",
+                    body: formData,
+                    signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+                const data = await res.json();
+                return data;
+            } catch (err: any) {
+                clearTimeout(timeoutId);
+                if (err.name === "AbortError") {
+                    return {
+                        success: false,
+                        message: "El procesamiento tardó más de 60 segundos. Por favor intenta con un archivo más compacto o verifica la conexión con el servidor.",
+                    };
+                }
+                return {
+                    success: false,
+                    message: err?.message || "Error al conectar con el servidor de carga.",
+                };
+            }
         },
         /** Purgar productos demo para dejar exclusivamente el catálogo real. */
         cleanDemo: () =>
@@ -974,11 +1009,40 @@ export const api = {
                 },
             ),
     },
-chat: {
-        /** Enviar mensaje conversacional o directiva al bot autónomo de Mint */
-        send: async (message: string, companyId?: string): Promise<{
+    chat: {
+        /** Enviar mensaje conversacional o directiva al motor autónomo real (runAgentLoop + Grok + 35 Tools + PostgreSQL) */
+        send: async (
+            message: string,
+            companyId?: string,
+            userRole?: string,
+        ): Promise<{
             success: boolean;
             response: string;
+            caseId?: string;
+            status?: string;
+            steps?: number;
+            totalCost?: string;
+            totalTokens?: number;
+            evidenceChain?: Array<{
+                stepIndex: number;
+                toolName: string;
+                args: Record<string, any>;
+                isSuccess: boolean;
+                verified: boolean;
+                verificationDetail?: string;
+                errorMessage?: string;
+                outputSummary: string;
+                timestamp: string;
+            }>;
+            evidenceSummary?: {
+                objective: string;
+                toolsUsed: string[];
+                succeededCount: number;
+                failedCount: number;
+                verifiedCount: number;
+                recoveryAttempts: number;
+                finalOutcome: string;
+            } | null;
             intent?: string;
             handledDeterministically?: boolean;
             isFallback?: boolean;
@@ -987,321 +1051,100 @@ chat: {
             if (!trimmed) {
                 return {
                     success: false,
-                    response: "[MINT BOT] Por favor escribe una consulta o instrucción para el bot.",
+                    response: "Por favor escribe una consulta o directiva operativa para el agente.",
                 };
             }
 
-            try {
-                const res = await request<any>("/chat", {
-                    method: "POST",
-                    body: { message: trimmed, companyId, sync: true },
-                    timeoutMs: 12000,
-                });
-                if (res && res.success && (res.response || res.data?.response)) {
-                    return {
-                        success: true,
-                        response: res.response || res.data?.response,
-                        intent: res.intent || res.data?.intent,
-                        handledDeterministically: res.handledDeterministically || res.data?.handledDeterministically,
-                        isFallback: false,
-                    };
+            const payload = {
+                message: trimmed,
+                companyId: companyId || "comp_default",
+                userRole: userRole || "owner",
+                sync: true,
+            };
+
+            const candidateUrls = Array.from(
+                new Set([
+                    `${resolveApiBaseUrl()}/chat`,
+                    "http://127.0.0.1:3001/api/chat",
+                    "http://localhost:3001/api/chat",
+                ]),
+            );
+
+            let lastError = "No fue posible conectar con el servidor de agentes.";
+
+            for (const url of candidateUrls) {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 90000);
+                try {
+                    const res = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                        signal: controller.signal,
+                    });
+
+                    const rawText = await res.text();
+                    let json: any = null;
+                    try {
+                        json = JSON.parse(rawText);
+                    } catch {
+                        json = null;
+                    }
+
+                    // Respuesta de bloqueo de seguridad (HTTP 422 Prompt Injection Guard)
+                    if (res.status === 422 && json) {
+                        return {
+                            success: true,
+                            response: json.error || json.response || "Directiva bloqueada por políticas de seguridad.",
+                            evidenceChain: [],
+                            isFallback: false,
+                        };
+                    }
+
+                    if (res.ok && json && (json.response || json.data?.response)) {
+                        const dataObj = json.data || json;
+                        return {
+                            success: true,
+                            response: dataObj.response,
+                            caseId: dataObj.caseId,
+                            status: dataObj.status,
+                            steps: dataObj.steps,
+                            totalCost: dataObj.totalCost,
+                            totalTokens: dataObj.totalTokens,
+                            evidenceChain: Array.isArray(dataObj.evidenceChain) ? dataObj.evidenceChain : [],
+                            evidenceSummary: dataObj.evidenceSummary ?? null,
+                            intent: dataObj.intent,
+                            handledDeterministically: Boolean(dataObj.handledDeterministically),
+                            isFallback: false,
+                        };
+                    }
+
+                    if (json?.error) {
+                        lastError = json.error;
+                    } else {
+                        lastError = `HTTP ${res.status} ${res.statusText}`;
+                    }
+                } catch (err: any) {
+                    lastError = err?.name === "AbortError"
+                        ? "Tiempo de espera agotado (90s) esperando la deliberación del agente."
+                        : (err?.message || "Error de red al conectar con el backend.");
+                } finally {
+                    clearTimeout(timeout);
                 }
-            } catch {
-                // Backend no disponible: procedemos al resolvedor local determinista
             }
 
-            const local = await resolveLocalBotResponse(trimmed);
             return {
-                success: true,
-                response: local,
-                handledDeterministically: true,
+                success: false,
+                response: `[ERROR DE CONEXIÓN CON EL MOTOR AUTÓNOMO]\nNo se pudo establecer comunicación con el servidor de agentes en http://127.0.0.1:3001 (${lastError}).\nVerifica que el backend esté activo ejecutando "npm run api" o reiniciando la aplicación.`,
+                evidenceChain: [],
                 isFallback: true,
             };
         },
+        history: (companyId?: string) =>
+            requestWithFallback<any>(
+                `/chat/history${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ""}`,
+                { cases: [] },
+            ),
     },
 };
 
-/**
- * Motor determinista local del bot de Mint:
- * Resuelve consultas directamente contra el estado real de la aplicación (PostgreSQL / caché local).
- * Garantiza cero alucinaciones y respuestas estrictamente fundamentadas en los datos del back office.
- */
-export async function resolveLocalBotResponse(query: string): Promise<string> {
-    const raw = (query || "").trim();
-    if (!raw) {
-        return "[MINT BOT] Por favor escribe una consulta o instrucción para el bot.";
-    }
-
-    const norm = raw
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .trim();
-
-    // 1. Guardrail de seguridad contra Prompt Injection y manipulación
-    if (
-        norm.includes("ignora") ||
-        norm.includes("olvida") ||
-        norm.includes("modo dios") ||
-        norm.includes("hazte pasar") ||
-        norm.includes("jailbreak") ||
-        norm.includes("sin restricciones")
-    ) {
-        return [
-            "[SEGURIDAD // GUARDRAIL MINT]",
-            "Identifiqué un intento de eludir políticas o reescribir instrucciones operativas.",
-            "Como agente autónomo de gobernanza de Mint, mantengo mis reglas empresariales inmutables.",
-            "¿En qué tarea legítima de inventario, compras o logística te puedo colaborar?",
-        ].join("\n");
-    }
-
-    // 2. Saludos e identidad del agente
-    const isGreeting = /\b(hola|buen|buenos|buenas|que tal|saludos|quien eres|que haces|como funcionas|para que sirves|ayuda|help)\b/.test(norm);
-    if (isGreeting && !norm.includes("stock") && !norm.includes("alerta") && !norm.includes("orden") && !norm.includes("compra")) {
-        const cdmxTime = new Date().toLocaleTimeString("es-MX", { timeZone: "America/Mexico_City", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-        return [
-            "[MINT BOT // AGENTE AUTÓNOMO DE OPERACIONES]",
-            "Hola. Soy el agente autónomo de back office de Mint México.",
-            `Son las ${cdmxTime} hrs (Hora CDMX, UTC-6). Todo el sistema está activo y supervisado al 100%.`,
-            "Superviso continuamente tus operaciones para evitar quiebres de inventario, evaluar proveedores y formular compras.",
-            "",
-            "Puedes preguntarme directamente en lenguaje natural:",
-            "• «¿Cuál es el resumen del inventario y valoración?»",
-            "• «¿Qué referencias tienen alerta de reorden (ROP)?»",
-            "• «¿Hay órdenes de compra pendientes de mi firma?»",
-            "• «¿Cuáles son los costos de sesión y telemetría de hoy?»",
-            "• O escribe el nombre o código de un producto (ej. «tronzadora», «válvula»)",
-        ].join("\n");
-    }
-
-    // 3. Alertas de Reorden (ROP), Quiebres y Déficit
-    const isRopQuery = /\b(alerta|alertas|reorden|rop|quiebre|quiebres|deficit|agotad|agotado|agotados|critico|criticos|urgente|bajo minimo)\b/.test(norm);
-    if (isRopQuery) {
-        try {
-            const res = await api.inventory.ropAlerts();
-            const alerts = Array.isArray(res?.data) ? res.data : [];
-            if (alerts.length === 0) {
-                return [
-                    "[MINT BOT // ALERTAS ROP]",
-                    "✓ Excelente: Todas las referencias de inventario se encuentran actualmente sobre su Punto de Reorden (ROP).",
-                    "No se detectan quiebres inminentes en ninguno de los almacenes monitoreados.",
-                ].join("\n");
-            }
-
-            const count = alerts.length;
-            const topAlerts = alerts.slice(0, 6).map((a: any) => {
-                const deficit = Number(a.deficit ?? (Number(a.ropThreshold ?? 0) - Number(a.currentStock ?? 0)));
-                const warehouse = a.warehouseName ? ` [${a.warehouseName}]` : "";
-                return `• ${a.sku} (${a.name ?? "Producto"})${warehouse}: Stock ${a.currentStock ?? 0} ud. | ROP ${a.ropThreshold ?? 0} ud. -> Déficit: ${deficit} ud.`;
-            });
-
-            return [
-                `[MINT BOT // ALERTAS CRÍTICAS DE REORDEN (ROP)]`,
-                `Detecté ${count} referencias que rompieron su umbral de seguridad y requieren reposición:`,
-                ...topAlerts,
-                "",
-                `Estado autónomo: Se han formulado propuestas de abastecimiento en Aprobaciones en espera de tu firma ejecutiva.`,
-            ].join("\n");
-        } catch {
-            return "[MINT BOT // ALERTAS ROP]\nActualmente 108 referencias se encuentran bajo su punto de reorden (89% bajo mínimo). Puedes revisarlas en la pestaña Inventario.";
-        }
-    }
-
-    // 3.5 Consulta de Lista de Productos en Inventario / Catálogo
-    const isProductListQuery =
-        /\b(que productos|cuales productos|lista de productos|mostrar productos|ver productos|productos en inventario|productos en stock|productos hay|que articulos|cuales articulos|cuales son los productos|que tenemos en inventario|cuales referencias|cuales son las referencias)\b/i.test(norm) ||
-        /^(productos|catalogo|articulos|referencias)$/i.test(norm);
-
-    if (isProductListQuery) {
-        try {
-            const res = await api.inventory.items();
-            const items = Array.isArray(res?.data) ? res.data : [];
-            const summaryRes = await api.inventory.summary().catch(() => null);
-            const totalVal = Number((summaryRes?.data as any)?.totalValuation ?? (summaryRes?.data as any)?.totalValueCop ?? 141823820);
-            const formattedVal = totalVal.toLocaleString("es-MX");
-
-            if (items.length > 0) {
-                const list = items.slice(0, 8).map((item: any, idx: number) => {
-                    const statusLabel = item.currentStock === 0
-                        ? "⚠️ AGOTADO (Reorden urgente)"
-                        : item.currentStock <= item.minStock
-                            ? "⚠️ BAJO MÍNIMO (ROP)"
-                            : "✓ ÓPTIMO";
-                    return `${idx + 1}. ${item.sku} · ${item.name}\n   • Stock actual: ${item.currentStock} ud. | Mínimo: ${item.minStock} ud. | Estado: ${statusLabel}`;
-                });
-
-                return [
-                    "[MINT BOT // PRODUCTOS EN INVENTARIO]",
-                    `Consultando base de datos PostgreSQL en tiempo real (Almacén Central CDMX):`,
-                    `Total de referencias: ${items.length} SKUs | Valoración: $ ${formattedVal} MXN`,
-                    "",
-                    ...list,
-                    "",
-                    items.length > 8 ? `... y ${items.length - 8} referencias adicionales sincronizadas.` : "",
-                    "Puedes consultarme por cualquier SKU específico o escribir «alerta reorden» para ver solo los que requieren reposición urgente.",
-                ].filter(Boolean).join("\n");
-            }
-        } catch {
-            // fallback
-        }
-
-        return [
-            "[MINT BOT // PRODUCTOS EN INVENTARIO]",
-            "Consultando catálogo activo en PostgreSQL (Almacén Central CDMX):",
-            "Total de referencias: 121 SKUs | Valoración total: $ 141,823,820 MXN",
-            "",
-            "1. SKU-TRZ-14 · Tronzadora Sensitiva Industrial 14\"",
-            "   • Stock actual: 0 ud. | Mínimo: 6 ud. | Estado: ⚠️ AGOTADO (Reorden urgente)",
-            "2. SKU-V500 · Válvula Reguladora de Presión V-500",
-            "   • Stock actual: 0 ud. | Mínimo: 5 ud. | Estado: ⚠️ AGOTADO (Reorden urgente)",
-            "3. SKU-TAL-750 · Taladro Percutor 750W Heavy Duty",
-            "   • Stock actual: 2 ud. | Mínimo: 10 ud. | Estado: ⚠️ BAJO MÍNIMO (ROP)",
-            "4. SKU-SIE-714 · Sierra Circular Manual 7-1/4\"",
-            "   • Stock actual: 3 ud. | Mínimo: 8 ud. | Estado: ⚠️ BAJO MÍNIMO (ROP)",
-            "5. SKU-ESM-412 · Esmeriladora Angular 4-1/2\" 850W",
-            "   • Stock actual: 1 ud. | Mínimo: 6 ud. | Estado: ⚠️ BAJO MÍNIMO (ROP)",
-            "6. SKU-MAR-15K · Martillo Demoledor Hexagonal 15kg",
-            "   • Stock actual: 18 ud. | Mínimo: 12 ud. | Estado: ✓ ÓPTIMO",
-            "7. SKU-LLV-12 · Llave de Impacto Neumática 1/2\"",
-            "   • Stock actual: 15 ud. | Mínimo: 8 ud. | Estado: ✓ ÓPTIMO",
-            "8. SKU-COM-50L · Compresor de Aire 50L 2.5HP",
-            "   • Stock actual: 8 ud. | Mínimo: 5 ud. | Estado: ✓ ÓPTIMO",
-            "",
-            "... y 113 referencias adicionales sincronizadas en PostgreSQL.",
-            "Puedes consultarme por cualquier SKU específico o escribir «alerta reorden» para ver los críticos.",
-        ].join("\n");
-    }
-
-    // 4. Resumen de Inventario, Valoración y Catálogo
-    const isStockQuery = /\b(inventario|stock|existencias|unidades|cuantos productos|valoracion|capital|referencias|catalogo)\b/.test(norm);
-    if (isStockQuery) {
-        try {
-            const res = await api.inventory.summary();
-            const s: any = res?.data ?? {};
-            const totalVal = Number(s.totalValuation ?? s.totalValueCop ?? 141823820);
-            const formattedVal = totalVal.toLocaleString("es-MX");
-
-            return [
-                "[MINT BOT // RESUMEN VERIFICADO DE INVENTARIO]",
-                `• SKUs totales sincronizados: ${s.totalSkus ?? 121} referencias`,
-                `• Valoración total del inventario: $ ${formattedVal} MXN`,
-                `• Referencias en nivel óptimo: ${s.optimalStock ?? 13} referencias (11%)`,
-                `• Referencias bajo Punto de Reorden: ${s.lowStock ?? 108} referencias (89%)`,
-                `• Zona horaria operativa: América/Ciudad de México (CDMX · UTC-6)`,
-                `• Estado de sincronización: Conexión con PostgreSQL verificada al 100%. Cero discrepancias.`,
-            ].join("\n");
-        } catch {
-            return "[MINT BOT // INVENTARIO]\n121 SKUs sincronizados en PostgreSQL con una valoración total de $ 141,823,820 MXN.";
-        }
-    }
-
-    // 5. Aprobaciones, Compras y Decisiones Pendientes
-    const isApprovalsQuery = /\b(aprobacion|aprobaciones|aprobar|firma|firmas|decision|decisiones|orden|ordenes|compra|compras|pedido|pedidos|inbox|propuesta|propuestas)\b/.test(norm);
-    if (isApprovalsQuery) {
-        try {
-            const res = await api.decisions.pending();
-            const decisions = Array.isArray(res?.data) ? res.data : [];
-            if (decisions.length === 0) {
-                return [
-                    "[MINT BOT // FIRMAS Y APROBACIONES]",
-                    "✓ No hay decisiones de compra pendientes de firma en este momento.",
-                    "El agente mantiene la supervisión continua y generará propuestas cuando el stock supere los umbrales de riesgo.",
-                ].join("\n");
-            }
-
-            const topDecisions = decisions.slice(0, 5).map((d: any) => {
-                const cost = d.costFormatted ?? (d.totalCostCop ? `$ ${Number(d.totalCostCop).toLocaleString("es-MX")} MXN` : "—");
-                const supplier = d.supplierName ? ` · ${d.supplierName}` : "";
-                return `• ${d.id}: ${d.title ?? d.productName ?? "Propuesta de compra"} (${cost}${supplier})`;
-            });
-
-            return [
-                `[MINT BOT // FIRMAS Y APROBACIONES PENDIENTES]`,
-                `Hay ${decisions.length} propuestas de compra auditadas que superan el umbral autónomo y requieren firma ejecutiva:`,
-                ...topDecisions,
-                "",
-                `Acción: Puedes autorizar o rechazar cada orden con firma HMAC en la pestaña Aprobaciones.`,
-            ].join("\n");
-        } catch {
-            return "[MINT BOT // APROBACIONES]\nHay 40 decisiones pendientes de firma ejecutiva en /inbox.";
-        }
-    }
-
-    // 6. Telemetría, Costos FinOps y Daemon
-    const isTelemetryQuery = /\b(costo|costos|token|tokens|gasto|gastos|telemetria|finops|daemon|latencia|vigia|vigias|consumo|presupuesto)\b/.test(norm);
-    if (isTelemetryQuery) {
-        try {
-            const res = await api.telemetry.costs();
-            const c: any = res?.data ?? {};
-            const costUsd = Number(c.totalCostUsd ?? 12.45).toFixed(4);
-            const tokens = Number(c.totalTokens ?? 142800).toLocaleString("es-MX");
-
-            return [
-                "[MINT BOT // TELEMETRÍA Y COSTOS OPERATIVOS (FINOPS)]",
-                `• Costo acumulado de sesión: $ ${costUsd} USD`,
-                `• Tokens consumidos: ${tokens} tokens`,
-                `• Latencia promedio del agente: 38 ms`,
-                `• Daemon de supervisión: Activo en segundo plano (ciclos periódicos cada 5 min)`,
-                `• Vigías operativos en vivo: 3 vigías (Inventario, Logística, Compras)`,
-                `• Política de gasto: Operando dentro del presupuesto autorizado.`,
-            ].join("\n");
-        } catch {
-            return "[MINT BOT // TELEMETRÍA]\nCosto de sesión: $ 12.45 USD | Daemon Activo | Latencia: 38 ms.";
-        }
-    }
-
-    // 7. Logística, Rutas y Despachos
-    const isLogisticsQuery = /\b(ruta|rutas|despacho|despachos|envio|envios|logistica|transporte|camion|camiones)\b/.test(norm);
-    if (isLogisticsQuery) {
-        return [
-            "[MINT BOT // LOGÍSTICA Y DESPACHOS]",
-            "• Rutas OSRM activas: 4 despachos en tránsito nacional.",
-            "• Trazabilidad: Rutas auditadas y geolocalizadas contra centros de distribución.",
-            "• Incidencias registradas: Cero bloqueos reportados en ruta.",
-            "• Próxima llegada estimada: 2h 45m para el despacho troncal CDMX - Guadalajara.",
-        ].join("\n");
-    }
-
-    // 8. Proveedores
-    const isSuppliersQuery = /\b(proveedor|proveedores|cotizacion|cotizaciones|homologado)\b/.test(norm);
-    if (isSuppliersQuery) {
-        return [
-            "[MINT BOT // GESTIÓN DE PROVEEDORES]",
-            "• Proveedores homologados activos: Proveedora Industrial de México (CDMX), Aceros y Herramientas del Norte (Monterrey), Suministros Mecánicos de Occidente (Guadalajara).",
-            "• Criterio de selección: Mejor precio negociado y menor lead time para compras bajo umbral autónomo.",
-            "• Evaluación de SLA: 98.4% de entregas a tiempo en el último trimestre.",
-        ].join("\n");
-    }
-
-    // 9. Búsqueda de producto específico por nombre en la consulta
-    if (norm.includes("tronzadora") || norm.includes("valvula") || norm.includes("taladro") || norm.includes("sierra") || norm.includes("martillo")) {
-        let matched = "";
-        if (norm.includes("tronzadora")) {
-            matched = "• SKU-TRZ-14 (Tronzadora Sensitiva 14''): Stock 0 ud. | Mínimo 6 ud. -> Quiebre activo. Propuesta de compra en Aprobaciones.";
-        } else if (norm.includes("valvula")) {
-            matched = "• SKU-V500 (Válvula Reguladora V-500): Stock 0 ud. | Mínimo 5 ud. -> Quiebre activo. Requiere reposición urgente.";
-        } else if (norm.includes("taladro")) {
-            matched = "• SKU-TAL-750 (Taladro Percutor 750W): Stock 2 ud. | Mínimo 10 ud. -> Stock crítico (8 ud. de déficit).";
-        } else if (norm.includes("sierra")) {
-            matched = "• SKU-SIE-IND18 (Sierra Circular Industrial): Stock 5 ud. | Mínimo 20 ud. -> Compra sugerida por 50 unidades.";
-        } else {
-            matched = "• SKU-MAN-SM400 (Martillo Demoledor SDS-Max): Stock 3 ud. | Mínimo 12 ud. -> Propuesta de compra por 9 unidades en revisión.";
-        }
-
-        return [
-            "[MINT BOT // CONSULTA ESPECÍFICA DE PRODUCTO]",
-            matched,
-            "Datos validados en tiempo real contra el inventario de la empresa.",
-        ].join("\n");
-    }
-
-    // 10. Preguntas fuera de alcance (Cero alucinación)
-    return [
-        `[MINT BOT // SUPERVISOR OPERATIVO]`,
-        `He recibido tu consulta: "${raw}".`,
-        `Como agente autónomo de Mint Studio, mi rol está enfocado exclusivamente en la supervisión de inventario, compras, rutas logísticas y gobernanza ejecutiva.`,
-        `No genero datos inventados ni respondo fuera del ámbito operativo de tu empresa.`,
-        "",
-        `Prueba consultarme: «/chat estado del stock», «/chat qué productos están en alerta», o «/chat compras pendientes».`,
-    ].join("\n");
-}

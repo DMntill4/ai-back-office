@@ -199,7 +199,7 @@ export async function ingestRoutes(fastify: FastifyInstance) {
             }
 
             // 2. Sanear filas antes de la importación
-            const sanitizedRows = rows.map((row) => sanitizeRow(row));
+            const sanitizedRows = rows.map((row) => sanitizeRow(row).row);
 
             // 3. Ejecutar el motor de sincronización
             const result = await syncDataSource({

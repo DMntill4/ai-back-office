@@ -17,6 +17,7 @@ import {
   Truck,
   Trash2,
   AlertCircle,
+  Download,
 } from "lucide-react";
 import { InputField } from "../ui/InputField";
 import { Button } from "../ui/Button";
@@ -53,6 +54,16 @@ function resolveRoleValue(role: string): string {
   return "admin";
 }
 
+const SAMPLE_CSV_TEMPLATE = `sku,articulo,categoria,stock,min_stock,precio_unitario,proveedor,ciudad_proveedor
+HERR-TAL-20V,Taladro Percutor Inalámbrico 20V Industrial,Herramientas Eléctricas,24,6,389000,Herramientas y Maquinaria del Oriente S.A.S.,Bucaramanga
+HERR-ESM-900,Esmeriladora Angular 4-1/2 Pulgadas 900W,Herramientas Eléctricas,18,5,265000,Herramientas y Maquinaria del Oriente S.A.S.,Bucaramanga
+CONS-DIS-MET,Disco de Corte Fino Metal 4-1/2 Pack x25,Consumibles y Abrasivos,150,30,85000,Distribuidora Técnica de Abrasivos Ltda.,Bogotá D.C.
+SOLD-INV-200,Soldadora Inverter 200A Dual Voltage MMA/TIG,Equipos de Soldadura,8,3,1180000,Soldaduras y Gases Industriales de Santander,Bucaramanga
+COMP-AIR-50L,Compresor de Aire Lubricado 50L 2.5HP,Neumática y Compresores,12,4,890000,Maquinaria Neumática de Colombia S.A.,Medellín
+ELEC-CAB-12G,Cable Unipolar THHN Calibre 12 Rollo 100m,Material Eléctrico,45,12,175000,Distribuciones Eléctricas de Santander,Floridablanca
+SEG-CAS-IND,Casco de Seguridad Industrial Clase E,Seguridad Industrial,65,20,28500,Dotaciones Industriales del Norte,Bucaramanga
+SEG-GUA-VAQ,Guante de Vaqueta Reforzado Ingeniero Par,Seguridad Industrial,110,35,16500,Dotaciones Industriales del Norte,Bucaramanga`;
+
 const SAMPLE_SQL_TEMPLATE = `-- Catálogo Real de Ferretería Industrial Santandereana S.A.S.
 CREATE TABLE IF NOT EXISTS productos (
   sku VARCHAR(50) PRIMARY KEY,
@@ -81,6 +92,8 @@ CREATE TABLE IF NOT EXISTS proveedores (
 INSERT INTO proveedores (nombre_empresa, contacto, email, telefono, ciudad) VALUES
   ('Herramientas y Maquinaria del Oriente S.A.S.', 'Carlos Mendoza', 'ventas@herramientasoriente.com', '+57 (607) 634-1122', 'Bucaramanga'),
   ('Distribuidora Técnica de Abrasivos Ltda.', 'Lucía Valencia', 'pedidos@tecnicabrasivos.com', '+57 (601) 745-8899', 'Bogotá D.C.');`;
+
+const SUPPORTED_EXTENSIONS = [".csv", ".xlsx", ".xls", ".tsv", ".json", ".sql"];
 
 /** Mi perfil: datos personales del usuario y configuración de base de datos SQL real (Requisito S3). */
 export const ProfileSettingsView: React.FC = () => {
@@ -152,23 +165,63 @@ export const ProfileSettingsView: React.FC = () => {
     void loadDbStatus();
   }, [loadDbStatus]);
 
-  // Manejo de archivo seleccionado
+  // Manejo de archivo seleccionado con detección proactiva de archivos no pertinentes
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.name.toLowerCase().endsWith(".sql")) {
-        setImportError("El archivo seleccionado debe tener extensión .sql");
+      const lower = file.name.toLowerCase();
+      const isAllowed = SUPPORTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
+      if (!isAllowed) {
+        setImportError(
+          `Formato no soportado (${file.name}). Sube un archivo de hoja de cálculo o base de datos: ${SUPPORTED_EXTENSIONS.join(", ")}`
+        );
         setSelectedFile(null);
         return;
       }
+
+      if (lower.includes("customer") || lower.includes("cliente")) {
+        setImportError(
+          `Atención: Has seleccionado un archivo de clientes o direcciones ('${file.name}'). Para el inventario debes cargar un catálogo de productos o existencias (ej. 'catalogo_real_ferreteria_s3.csv' disponible abajo o 'olist_products_dataset.csv').`
+        );
+      } else {
+        setImportError(null);
+      }
+
       setSelectedFile(file);
-      setImportError(null);
       setImportResult(null);
     }
   };
 
+  // Carga directa del catálogo real oficial de Ferretería Industrial (Requisito Hito S3)
+  const handleLoadOfficialRealCatalog = async () => {
+    setImporting(true);
+    setImportError(null);
+    setImportResult(null);
+    try {
+      const res = await fetch("/catalogo_real_ferreteria_s3.csv");
+      if (!res.ok) throw new Error("No se pudo descargar el catálogo real.");
+      const csvText = await res.text();
+      const importRes = await api.profile.importSql({
+        sqlContent: csvText,
+        replaceDemo,
+        filename: "catalogo_real_ferreteria_s3.csv",
+      });
+      if (importRes && importRes.success) {
+        setImportResult(importRes.data);
+        setSelectedFile(null);
+        await loadDbStatus();
+      } else {
+        setImportError(importRes?.message || "Error al cargar el catálogo real.");
+      }
+    } catch (err: any) {
+      setImportError(err?.message || "Error al procesar el catálogo real oficial.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   // Ejecución de la ingesta vía archivo o script
-  const handleProcessSql = async () => {
+  const handleProcessDatabase = async () => {
     setImporting(true);
     setImportError(null);
     setImportResult(null);
@@ -177,21 +230,22 @@ export const ProfileSettingsView: React.FC = () => {
       let res: any;
       if (activeInputMode === "file") {
         if (!selectedFile) {
-          setImportError("Por favor selecciona un archivo .sql antes de procesar.");
+          setImportError("Por favor selecciona un archivo (.csv, .xlsx, .sql) antes de procesar.");
           setImporting(false);
           return;
         }
-        res = await api.profile.uploadSqlFile(selectedFile, replaceDemo);
+        res = await api.profile.uploadDatabaseFile(selectedFile, replaceDemo);
       } else {
         if (!sqlText.trim()) {
-          setImportError("Por favor ingresa o pega el contenido del script SQL.");
+          setImportError("Por favor ingresa o pega el contenido (datos CSV/Excel o script SQL).");
           setImporting(false);
           return;
         }
+        const isSql = /CREATE\s+TABLE|INSERT\s+INTO/i.test(sqlText);
         res = await api.profile.importSql({
           sqlContent: sqlText,
           replaceDemo,
-          filename: "script_perfil_usuario.sql",
+          filename: isSql ? "script_usuario.sql" : "catalogo_usuario.csv",
         });
       }
 
@@ -204,7 +258,7 @@ export const ProfileSettingsView: React.FC = () => {
         setImportError(res?.message || "No se pudo importar la base de datos.");
       }
     } catch (err: any) {
-      setImportError(err?.message || "Error al procesar la base de datos SQL.");
+      setImportError(err?.message || "Error al procesar la base de datos o catálogo.");
     } finally {
       setImporting(false);
     }
@@ -429,7 +483,7 @@ export const ProfileSettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Pestañas de método de carga: Archivo .SQL vs Editor SQL */}
+        {/* Pestañas de método de carga: Archivo (.csv/.xlsx/.sql) vs Editor Tabular / SQL */}
         <div className="space-y-compact pt-compact">
           <div className="flex items-center gap-compact border-b border-border pb-2">
             <button
@@ -441,7 +495,7 @@ export const ProfileSettingsView: React.FC = () => {
               }`}
             >
               <UploadCloud className="w-4 h-4" />
-              <span>Cargar Archivo .SQL</span>
+              <span>Cargar Archivo (.csv, .xlsx, .sql)</span>
             </button>
 
             <button
@@ -453,7 +507,7 @@ export const ProfileSettingsView: React.FC = () => {
               }`}
             >
               <FileCode className="w-4 h-4" />
-              <span>Pegar Script / DDL SQL</span>
+              <span>Pegar Datos (CSV o SQL)</span>
             </button>
 
             {dbStatus?.demoProductsCount > 0 && (
@@ -470,12 +524,12 @@ export const ProfileSettingsView: React.FC = () => {
           </div>
 
           {activeInputMode === "file" ? (
-            /* Modo 1: Carga de Archivo .SQL */
+            /* Modo 1: Carga de Archivo Universal */
             <div className="p-base rounded-control bg-raised border border-border border-dashed space-y-compact text-center">
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".sql"
+                accept=".csv,.xlsx,.xls,.tsv,.json,.sql"
                 onChange={handleFileChange}
                 className="hidden"
                 id="sql-file-uploader"
@@ -489,12 +543,12 @@ export const ProfileSettingsView: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-body font-medium text-primary">
-                    {selectedFile ? selectedFile.name : "Haz clic para seleccionar o arrastra tu archivo .SQL aquí"}
+                    {selectedFile ? selectedFile.name : "Haz clic para seleccionar o arrastra tu archivo (.csv, .xlsx, .sql) aquí"}
                   </p>
                   <p className="text-caption text-secondary mt-1">
                     {selectedFile
-                      ? `Tamaño: ${(selectedFile.size / 1024).toFixed(1)} KB · Listo para introspección relacional`
-                      : "Compatible con volcados de MySQL, PostgreSQL, SQLite (Dump DDL e INSERT INTO)"}
+                      ? `Tamaño: ${(selectedFile.size / 1024).toFixed(1)} KB · Listo para interpretación autónoma`
+                      : "Compatible con hojas de Excel, archivos CSV y volcados de bases de datos relacionales"}
                   </p>
                 </div>
               </label>
@@ -507,30 +561,81 @@ export const ProfileSettingsView: React.FC = () => {
               )}
             </div>
           ) : (
-            /* Modo 2: Editor de Script SQL */
+            /* Modo 2: Editor de Texto Tabular o SQL */
             <div className="space-y-compact">
-              <div className="flex items-center justify-between text-caption text-secondary">
-                <span>Sentencias SQL (INSERT INTO o CREATE TABLE):</span>
-                <button
-                  type="button"
-                  onClick={() => setSqlText(SAMPLE_SQL_TEMPLATE)}
-                  className="text-brand hover:underline font-mono text-caption flex items-center gap-1 cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Cargar plantilla real de ferretería</span>
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-compact text-caption text-secondary">
+                <span>Pega filas de Excel/CSV o sentencias SQL:</span>
+                <div className="flex items-center gap-compact">
+                  <button
+                    type="button"
+                    onClick={() => setSqlText(SAMPLE_CSV_TEMPLATE)}
+                    className="text-brand hover:underline font-mono text-caption flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Plantilla CSV de ferretería</span>
+                  </button>
+                  <span className="text-muted">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setSqlText(SAMPLE_SQL_TEMPLATE)}
+                    className="text-secondary hover:text-primary font-mono text-caption flex items-center gap-1 cursor-pointer"
+                  >
+                    <FileCode className="w-3.5 h-3.5" />
+                    <span>Plantilla SQL</span>
+                  </button>
+                </div>
               </div>
 
               <textarea
                 value={sqlText}
                 onChange={(e) => setSqlText(e.target.value)}
                 rows={9}
-                placeholder="Pega aquí tus instrucciones SQL con tablas de productos, inventario o proveedores..."
+                placeholder="Pega aquí tus columnas CSV (sku, producto, stock, precio, proveedor) o sentencias SQL relacionales..."
                 className="w-full p-compact rounded-control bg-canvas text-primary font-mono text-caption border border-border focus:outline-none focus:border-brand resize-y leading-relaxed"
                 spellCheck={false}
               />
             </div>
           )}
+
+          {/* Banner de Datos Reales Oficiales (Requisito Hito S3) */}
+          <div className="p-base rounded-control bg-raised border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-compact">
+            <div className="flex items-center gap-compact min-w-0">
+              <div className="w-8 h-8 rounded-control bg-panel border border-border flex items-center justify-center text-brand shrink-0">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-caption font-semibold text-primary truncate">
+                  Catálogo Real de Ferretería Industrial (Hito S3)
+                </p>
+                <p className="text-caption text-secondary truncate">
+                  50 referencias reales con precios COP y proveedores homologados (Bellota, Corona, Pavco, Bosch)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-compact shrink-0 flex-wrap">
+              <a
+                href="/catalogo_real_ferreteria_s3.csv"
+                download="catalogo_real_ferreteria_s3.csv"
+                className="px-2.5 py-1 rounded-control bg-panel hover:bg-canvas border border-border hover:border-strong text-caption font-mono text-primary flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Descargar archivo CSV con datos reales para inspección o respaldo"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Descargar CSV</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={handleLoadOfficialRealCatalog}
+                disabled={importing}
+                className="px-2.5 py-1 rounded-control bg-panel hover:bg-canvas border border-brand/40 hover:border-brand text-caption font-mono text-brand flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Cargar catálogo real e iniciar de inmediato sin pasos manuales"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Cargar Automáticamente</span>
+              </button>
+            </div>
+          </div>
 
           {/* Opciones de Ingesta */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-compact pt-compact border-t border-border">
@@ -549,10 +654,10 @@ export const ProfileSettingsView: React.FC = () => {
             <Button
               variant="primary"
               disabled={importing || (activeInputMode === "file" && !selectedFile) || (activeInputMode === "editor" && !sqlText.trim())}
-              onClick={handleProcessSql}
+              onClick={handleProcessDatabase}
               icon={importing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             >
-              {importing ? "Procesando SQL..." : "Procesar e Importar Base de Datos"}
+              {importing ? "Interpretando y Configurando..." : "Procesar e Importar al Negocio"}
             </Button>
           </div>
 
@@ -569,16 +674,56 @@ export const ProfileSettingsView: React.FC = () => {
 
           {importResult && (
             <div className="p-base rounded-control bg-brand-surface border border-brand/40 text-caption space-y-compact">
-              <div className="flex items-center gap-compact text-brand font-semibold text-body">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Base de Datos Real Configurada Exitosamente</span>
+              <div className="flex items-center justify-between gap-compact">
+                <div className="flex items-center gap-compact text-brand font-semibold text-body">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Base de Datos y Catálogo Configurados ({importResult.detectedFormat || "Catálogo Real"})</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-pill bg-brand text-canvas font-mono text-caption font-bold">
+                  Catálogo Activo S3
+                </span>
               </div>
-              <p className="text-secondary">
-                Se procesaron <strong>{importResult.importedProducts}</strong> productos físicos y <strong>{importResult.importedSuppliers}</strong> proveedores homologados. Existencias totales incorporadas: <strong>{importResult.totalStockUnits?.toLocaleString()}</strong> unidades.
+
+              <p className="text-secondary leading-relaxed">
+                {importResult.botInterpretationSummary ||
+                  `Se procesaron ${importResult.importedProducts} productos físicos y ${importResult.importedSuppliers} proveedores homologados. Existencias totales incorporadas: ${importResult.totalStockUnits?.toLocaleString()} unidades.`}
               </p>
 
+              {/* Mapeo de columnas deducido por el agente */}
+              {importResult.mappedColumns && Object.keys(importResult.mappedColumns).length > 0 && (
+                <div className="pt-compact border-t border-brand/20">
+                  <span className="text-caption font-mono text-muted block mb-1">
+                    Interpretación y Mapeo Semántico de Columnas:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 font-mono text-caption">
+                    {Object.entries(importResult.mappedColumns).map(([canon, src]: [string, any]) => (
+                      <span key={canon} className="px-2 py-0.5 rounded bg-panel border border-border text-secondary">
+                        <strong className="text-primary">{src}</strong> &rarr; <span className="text-brand font-semibold">{canon}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Categorías identificadas */}
+              {Array.isArray(importResult.detectedCategories) && importResult.detectedCategories.length > 0 && (
+                <div className="pt-compact border-t border-brand/20">
+                  <span className="text-caption font-mono text-muted block mb-1">
+                    Categorías Operativas Identificadas ({importResult.detectedCategories.length}):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 font-mono text-caption">
+                    {importResult.detectedCategories.map((cat: string) => (
+                      <span key={cat} className="px-2 py-0.5 rounded bg-raised border border-border text-primary font-medium">
+                        {cat}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Muestra de productos físicos incorporados */}
               {Array.isArray(importResult.sample) && importResult.sample.length > 0 && (
-                <div className="mt-compact pt-compact border-t border-brand/20">
+                <div className="pt-compact border-t border-brand/20">
                   <span className="text-caption font-mono text-muted block mb-1">
                     Muestra de referencias reales incorporadas a PostgreSQL:
                   </span>

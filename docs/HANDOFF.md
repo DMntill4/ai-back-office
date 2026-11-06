@@ -1,139 +1,144 @@
-# MINT CLI & Autonomous AI Back Office — Technical Handoff Document
+# MINT CLI & AUTONOMOUS AI BACK OFFICE — TECHNICAL HANDOFF DOCUMENT
 
-**Release Date:** October 29, 2026  
-**Active Working Branch:** `developDiego`  
-**Architecture Status:** Autonomous 24/7 Multi-Agent Coordination and Principle of Least Privilege (PoLP) Permissions Matrix fully implemented, tested, and verified. 30/30 test suites passing (179/179 tests), 0 TypeScript compiler errors (`tsc --noEmit`), 0 emojis across the codebase, and zero global admin concepts (all authorization strictly resides within each tenant database).
+> [English Version / Versión en Inglés](./HANDOFF.en.md)
 
----
-
-## 1. Executive Summary & Current State
-
-MINT is an **Autonomous 24/7 Back Office and Multi-Agent Operations Coordinator** operated via terminal commands (`mint cli`), desktop visual control (`mint app`), and background daemons. It integrates with existing relational databases (PostgreSQL / Supabase / SQLite) without altering client schemas or hallucinating synthetic records.
-
-### Core Architectural Principles
-1. **CLI & Background Daemon First**: Automated background monitoring via `mint daemon start` and interactive terminal operations. Zero dependency on external web clouds.
-2. **Specialized Multi-Agent Collaboration**: The Central Orchestrator (`mintOrchestrator`) delegates domain tasks to 7 specialist agents with typed contracts (`inventario`, `compras`, `logistica`, `notificaciones`, `datos_integraciones`, `auditoria`).
-3. **Principle of Least Privilege (PoLP)**: No single agent possesses unbounded permissions. Zero automated disbursements, zero destructive deletions, and zero AI tampering with business policies.
-4. **Tenant-Scoped Authorization (No "Global Admin")**: All roles (`owner`, `admin`, `supervisor`, `operator`, `auditor`, `finance`, `driver`, `viewer`) reside strictly within the `users` table bound to a `company_id`.
-5. **Zero Emojis & Clean Logs**: All logs and outputs use standardized ASCII markers `[OK]`, `[ERROR]`, `[WARNING]`. Secrets and access tokens are masked before writing to audit logs.
-6. **Multi-Tenant Isolation**: Every SQL query and permission check enforces strict tenant separation (`DENIED_CROSS_TENANT_VIOLATION`).
+**Fecha de Entrega:** 29 de Octubre de 2026  
+**Rama de Trabajo:** `developDiego`  
+**Estado:** Arquitectura Multi-Agente Autónoma 24/7 y Matriz de Permisos por Agente (Principio de Mínimo Privilegio) 100% implementada y verificada. 30/30 suites de prueba aprobadas (179/179 tests), 0 errores de TypeScript (`tsc --noEmit`), 0 emojis y cero conceptos de administrador global (todos los roles residen estrictamente dentro de la base de datos de cada empresa cargada).
 
 ---
 
-## 2. Multi-Agent Architecture Topology
+## 1. RESUMEN EJECUTIVO Y ESTADO ACTUAL
+
+MINT es un **Back Office Autónomo 24/7 y Coordinador Operacional Multi-Agente** operado exclusivamente por línea de comandos (CLI) y daemons en segundo plano. Está diseñado para integrarse con bases de datos relacionales existentes (PostgreSQL / Supabase) sin alterar esquemas del cliente ni inventar datos ficticios.
+
+### Principios Fundamentales Cumplidos
+1. **Solo el CLI y Daemon**: Operación desatendida mediante `mint daemon start --interval 30` y comandos CLI. Cero dependencias de UI web externa.
+2. **Arquitectura Multi-Agente Especializada**: El Orquestador (`mintOrchestrator`) delega a 6 especialistas con contratos estrictos (`inventario`, `compras`, `logistica`, `notificaciones`, `datos_integraciones`, `auditoria`).
+3. **Principio de Mínimo Privilegio (PoLP)**: Ningún agente tiene acceso ilimitado. Cero auto-aprobación, cero eliminación destructiva y cero modificación de directivas de la empresa por parte de la IA.
+4. **Roles Estrictamente Locales a la Base de Datos Cargada**: **No existe ningún "admin global"**. Todos los roles (`owner`, `admin de negocio`, `supervisor`, `client`, `operator`, `auditor`, `finance`, `driver`, `viewer`) residen y se gestionan exclusivamente dentro de la tabla `users` vinculada a `company_id`.
+5. **Cero Emojis y Cero Secretos en Logs**: Todo el código, bitácoras y salidas de terminal utilizan exclusivamente texto ASCII e indicadores estandarizados `[OK]`, `[ERROR]`, `[AVISO]`. Las credenciales y tokens se sanitizan antes de registrar en auditoría.
+6. **Aislamiento Multi-Tenant**: Toda consulta, tarea y validación de permisos comprueba el aislamiento entre empresas (`DENIED_CROSS_TENANT_VIOLATION`).
+
+---
+
+## 2. ARQUITECTURA DE AGENTES AUTÓNOMOS 24/7 IMPLEMENTADA
 
 ```
                                ┌────────────────────────────────┐
-                               │   Central MINT Orchestrator    │
+                               │   Orquestador Central MINT     │
                                │     (mintOrchestrator.ts)      │
                                └───────────────┬────────────────┘
                                                │
                ┌───────────────┬───────────────┼───────────────┬───────────────┐
                ▼               ▼               ▼               ▼               ▼
         ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-        │  Inventory  │ │ Purchasing  │ │  Logistics  │ │Notifications│ │    Data     │
-        │    Agent    │ │    Agent    │ │    Agent    │ │    Agent    │ │ Integrations│
+        │ Inventario  │ │   Compras   │ │  Logística  │ │Notificacione│ │    Datos    │
+        │    Agent    │ │    Agent    │ │    Agent    │ │    Agent    │ │    Agent    │
         └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
                                                │
                                                ▼
                                         ┌─────────────┐
-                                        │ Risk Audit  │
+                                        │  Auditoría  │
                                         │    Agent    │
                                         └─────────────┘
 ```
 
-### Specialist Agent Responsibilities
-1. **Orchestrator (`orchestrator`)**: Global situation analysis, cross-agent coordination, permission-gated delegation, and escalation to human supervisors (HITL). Does not mutate business tables directly.
-2. **Inventory (`inventario`)**: Stockout detection, reorder point (ROP) calculation, replenishment recommendations, and authorized stock reconciliations.
-3. **Purchasing (`compras`)**: Real supplier evaluation, MOQ analysis, lead time comparison, and draft purchase proposals. ZERO unilateral spending or automated fund disbursements.
-4. **Logistics (`logistica`)**: OSRM road routing, shipment tracking, cargo consolidation, and transit delay detection.
-5. **Notifications (`notificaciones`)**: Multi-channel structured alert dispatching (Telegram, Discord, Slack, Webhooks) with anti-spam rate limiting.
-6. **Data & Integrations (`datos_integraciones`)**: Data freshness verification, schema drift detection, and catalog synchronization.
-7. **Risk Audit (`auditoria`)**: Independent proposal scrutiny, risk scoring, duplicate detection, and append-only audit logging to `case_events` and Obsidian Vault.
+### Roles y Responsabilidades de los Especialistas
+1. **Orquestador (`orchestrator`)**: Análisis global, coordinación entre agentes, delegación con verificación de permisos y escalación de decisiones a humanos (HITL). No modifica datos directamente.
+2. **Inventario (`inventario`)**: Detección de roturas de stock, puntos de reorden (ROP), sugerencias de compra y reconciliaciones rutinarias autorizadas.
+3. **Compras (`compras`)**: Evaluación de proveedores reales, análisis de MOQ y costo total, generación de propuestas de compra en estado borrador. CERO dispersión de pagos ni compras automáticas no autorizadas.
+4. **Logística (`logistica`)**: Cálculo de rutas OSRM, consolidación de cargas, monitoreo de envíos en tránsito y detección de demoras operativas.
+5. **Notificaciones (`notificaciones`)**: Preparación y despacho de alertas estructuradas a canales verificados (Telegram, Discord, Slack, Webhook), con cortafuegos anti-spam.
+6. **Datos e Integraciones (`datos_integraciones`)**: Verificación de frescura de fuentes, detección de schema drift y reconciliación de catálogos sin modificar esquemas del cliente.
+7. **Auditoría (`auditoria`)**: Auditoría independiente de propuestas, cálculo de risk scores, detección de anomalías y registro inmutable en `case_events` y Obsidian Vault.
 
 ---
 
-## 3. Agent Permissions Matrix (Principle of Least Privilege)
+## 3. MATRIZ DE PERMISOS POR AGENTE (PRINCIPIO DE MÍNIMO PRIVILEGIO)
 
-Implemented in `packages/core/src/security/agentPermissionsMatrix.ts`:
+Implementada en `packages/core/src/security/agentPermissionsMatrix.ts`:
 
-| Agent | Read (`read`) | Analyze (`analyze`) | Propose (`propose`) | Request (`create_request`) | Execute (`execute`) | Update (`update`) | Notify (`notify`) | Approve (`approve`) | Configure (`configure_business`) |
+| Agente | Consultar (`read`) | Analizar (`analyze`) | Proponer (`propose`) | Crear Solicitud (`create_request`) | Ejecutar (`execute`) | Modificar (`update`) | Notificar (`notify`) | Aprobar (`approve`) | Configurar Negocio (`configure_business`) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: |
-| **Orchestrator** | Bounded scope | All | All | Purchases & cases | Coordination | No | Alerts | **FORBIDDEN** | **FORBIDDEN** |
-| **Inventory** | Stock & sources | Inventory | Reorder levels | Stock request | Reconciliations | Permitted shifts | Critical stock alert | **FORBIDDEN** | **FORBIDDEN** |
-| **Purchasing** | Suppliers & catalog | Suppliers | Purchase proposals | Restock request | Drafts (0 payments) | Purchase drafts | RFQ alerts | **FORBIDDEN** | **FORBIDDEN** |
-| **Logistics** | Shipments & routes | Logistics | Rebalancing | Logistics request | Route updates | Shipment fields | Delay alerts | **FORBIDDEN** | **FORBIDDEN** |
-| **Notifications** | Approved events | Messaging | Templates | No | Validated dispatch | No | Yes (valid channels) | **FORBIDDEN** | **FORBIDDEN** |
-| **Data Integrations**| Sources & schemas | Data health | Proposed mappings | Sync task | Authorized ingest | Sync operations | Connection alerts | **FORBIDDEN** | **FORBIDDEN** |
-| **Risk Audit** | Audits & orders | Risk & margins | Corrective measures | Audit task | System checks | No | Security alerts | **FORBIDDEN** | **FORBIDDEN** |
-| **Human in DB** | Assigned tenant | Assigned tenant | All | All | By DB role | By DB role | Company channels | **YES (HITL)** | **YES (owner/admin)** |
+| **Orquestador** | Dominios necesarios | Todos | Todos | Compras y decisiones | Coordinación autorizada | No | Alertas autorizadas | **PROHIBIDO** | **PROHIBIDO** |
+| **Inventario** | Stock y fuentes | Inventario | Reorden y existencias | Solicitud stock | Reconciliaciones | Ajustes permitidos | Alertas stock crítico | **PROHIBIDO** | **PROHIBIDO** |
+| **Compras** | Suplidores y catálogo | Proveedores | Propuestas compra | Solicitud reposición | Borradores (0 pagos) | Borradores de compra | Alertas cotización | **PROHIBIDO** | **PROHIBIDO** |
+| **Logística** | Envíos y rutas | Logística | Rebalanceo y rutas | Solicitud logística | Actualizaciones ruta | Solo campos envío | Alertas demora | **PROHIBIDO** | **PROHIBIDO** |
+| **Notificaciones** | Eventos aprobados | Mensajería | Plantillas | No | Envío validado | No | Sí, canales válidos | **PROHIBIDO** | **PROHIBIDO** |
+| **Datos** | Fuentes y esquemas | Calidad datos | Mapeos propuestos | Tarea sync | Ingestas autorizadas | Operaciones sync | Alertas conexión | **PROHIBIDO** | **PROHIBIDO** |
+| **Auditoría** | Auditoría y compras | Riesgos y margen | Medidas correctivas | Tarea auditoría | Comprobaciones | No | Alertas seguridad | **PROHIBIDO** | **PROHIBIDO** |
+| **Humano en BD** | Su empresa | Su empresa | Todas | Todas | Por rol en BD | Por rol en BD | Canales empresa | **SÍ (HITL)** | **SÍ (owner/admin/supervisor local)** |
 
-### Immutable Enforcement Rules
-- **Anti-Self-Approval**: No agent or user can approve an order or proposal that they created.
-- **Zero AI Self-Approval**: The `approve` action is strictly reserved for authenticated human supervisors (`owner`, `admin`, `supervisor`).
-- **Zero Destructive Deletions**: The `delete` action is strictly forbidden for all AI agents.
-- **Orchestrator Privilege Escalation Prevention**: If the orchestrator attempts to assign a task outside an agent's matrix boundary, execution aborts with `DENIED_ORCHESTRATOR_ELEVATION_ATTEMPT`.
-- **Tenant Boundary Enforcement**: Any cross-tenant data access is rejected at runtime with `DENIED_CROSS_TENANT_VIOLATION`.
-
----
-
-## 4. Tenant Database Roles
-
-All roles are defined in `packages/core/src/db/schema/users.ts` and managed per company:
-
-1. **`owner`**: Full operational control: business thresholds, SQL ingestion, user invitations, and final purchasing authorization.
-2. **`admin`**: Company operations manager. Manages HITL approvals, dispatches, receiving, team members, and channels.
-3. **`supervisor`**: Operational supervisor. Reviews and approves inventory actions, routing, and operator dispatches.
-4. **`operator`**: Logistics and warehouse operator. Handles order dispatch, inventory receipt, and daily stock queries.
-5. **`driver`**: Delivery carrier. Accesses assigned vehicle routes and confirms shipment deliveries.
-6. **`auditor`**: Compliance auditor. Reviews approval logs, risk reports, and immutable audit trails.
-7. **`finance`**: Treasury specialist. Receives approved purchase orders to execute external payments.
-8. **`viewer`**: Read-only auditor. Reviews dashboards and reports with zero mutation privileges.
+### Reglas Inmutables Aplicadas en Backend
+- **Anti-Self-Approval**: Ningún agente ni usuario puede aprobar una solicitud que él mismo creó o propuso.
+- **Cero Auto-Aprobación para IA**: `approve` está reservado exclusivamente a personal humano autenticado (`owner`, `admin de negocio`, `supervisor`, `auditor`).
+- **Cero Eliminación Destructiva**: `delete` está prohibido para agentes de IA.
+- **Bloqueo de Elevación del Orquestador**: Si el orquestador intenta asignar una tarea fuera de la matriz a un especialista, la operación es abortada con `DENIED_ORCHESTRATOR_ELEVATION_ATTEMPT`.
+- **Aislamiento Multitenant**: El cruce de empresas es rechazado en tiempo de ejecución con `DENIED_CROSS_TENANT_VIOLATION`.
 
 ---
 
-## 5. Automated Test Suite Results
+## 4. ROLES LOCALES EN LA BASE DE DATOS CARGADA
 
-Test execution summary via `vitest`:
+Todos los roles están definidos en `packages/core/src/db/schema/users.ts` y gobernados por `authAndSetupService.ts`. Pertenecen estrictamente a cada `company_id`:
 
-```text
+1. **`owner` (Dueño de la Empresa)**: Control total de la empresa en BD: configuración, umbrales, carga SQL, invitaciones, aprobaciones y pagos.
+2. **`admin` (Administrador de Negocio)**: Administrador local de la empresa en la BD. Gestión operativa total (HITL, despachos, recepción, equipo y canales). No existe admin global.
+3. **`supervisor` (Supervisor de Operaciones)**: Supervisión operativa del negocio en BD. Aprobación HITL, despachos, recepción y supervisión de operadores.
+4. **`operator` (Operador de Logística y Almacén)**: Despacho de pedidos, recepción de inventario y consultas operativas.
+5. **`client` (Cliente / Destinatario)**: Consulta exclusiva del estado de sus propios pedidos. CERO acceso operativo ni de almacén.
+6. **`driver` (Conductor / Transportista)**: Recepción en ruta y consulta de manifiestos asignados.
+7. **`auditor` (Auditor HITL)**: Autorización de compras mayores a umbral y auditoría de eventos inmutables.
+8. **`finance` (Tesorería / Pagos)**: Dispersión de pagos a proveedores de órdenes aprobadas y conciliación.
+9. **`viewer` (Consultor / Solo Lectura)**: Consulta de dashboards y métricas sin permisos de escritura.
+
+---
+
+## 5. RESULTADOS DE LA SUITE DE PRUEBAS AUTOMATIZADAS
+
+Resultado de la ejecución completa con `npx vitest run`:
+
+```
 Test Files  30 passed (30)
      Tests  179 passed (179)
   Duration  85.16s
 ```
 
-### Key Verified Suites:
-1. `tests/agent_permissions_matrix.test.ts` (10 tests, 100% pass):
-   - Role-based authorization matrix.
-   - Rejection of unauthorized actions and agent business configuration.
-   - Orchestrator privilege escalation blocking.
-   - Prohibition of AI self-approval.
-   - Multi-tenant data partition enforcement.
-   - Prompt injection resistance with simulated bypass attacks.
-   - Credential leakage prevention in audit logs.
-2. `tests/autonomous_multiagent_architecture.test.ts` (7 tests, 100% pass).
-3. `tests/adversarial_security_and_guardrails.test.ts` (5 tests, 100% pass).
-4. `tests/daemon_watcher.test.ts` (3 tests, 100% pass).
-5. `tests/sales_channel_execution.test.ts` (4 tests, 100% pass).
+### Suites Clave Añadidas y Verificadas:
+1. `tests/agent_permissions_matrix.test.ts` (10 tests, 100% éxito):
+   - Ejecución autorizada por rol.
+   - Rechazo de operaciones prohibidas y de `configure_business` para agentes.
+   - Bloqueo de elevación de privilegios del coordinador.
+   - Prohibición de auto-aprobación en IA.
+   - Revocación dinámica de permisos en caliente sobre tareas pendientes.
+   - Aislamiento multitenant de datos.
+   - Resistencia a Prompt Injections con bypass simulado.
+   - Auditoría segura sin fuga de credenciales.
+   - Políticas personalizadas por empresa.
+   - Flujo legítimo con aprobación de `owner` y `supervisor`, y rechazo de `client`.
+2. `tests/autonomous_multiagent_architecture.test.ts` (7 tests, 100% éxito).
+3. `tests/adversarial_security_and_guardrails.test.ts` (5 tests, 100% éxito).
+4. `tests/daemon_watcher.test.ts` (3 tests, 100% éxito).
+5. `tests/sales_channel_execution.test.ts` (4 tests, 100% éxito).
 
 ---
 
-## 6. Verification Commands
+## 6. COMANDOS DE VALIDACIÓN RÁPIDA
 
 ```bash
-# 1. Strict TypeScript check (0 errors)
+# 1. Comprobación de tipos estricta (0 errores)
 npm run typecheck
 
-# 2. Zero-Emoji Compliance Check (0 detected)
+# 2. Comprobación de Cero Emojis (0 detectados)
 npm run lint:emojis
 
-# 3. Agent Permissions Matrix Suite
+# 3. Ejecución de la matriz de permisos
 npx vitest run tests/agent_permissions_matrix.test.ts
 
-# 4. Run S2 10 Real Executions Benchmark
-mint executions
+# 4. Ejecución de la suite completa (179 tests)
+npx vitest run
 
-# 5. Start CLI Interactive Console
-mint cli
+# 5. Inicio del Daemon Autónomo
+npm run mint -- daemon start --interval 30
 ```
-

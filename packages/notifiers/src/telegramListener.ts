@@ -401,7 +401,19 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
 
   let offset = 0;
 
-  // 1. Purga inicial obligatoria de backlog histórico:
+  // 1. Configurar allowed_updates en Telegram para asegurar que mensajes y callback_query (burbujas/botones) se entreguen siempre
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: "",
+        allowed_updates: ["message", "edited_message", "callback_query"],
+      }),
+    });
+  } catch {}
+
+  // 2. Purga inicial obligatoria de backlog histórico:
   // Si el usuario envió mensajes mientras el bot estaba apagado, los consumimos
   // de un solo golpe para no responderles en ráfaga.
   try {
@@ -417,9 +429,10 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
   } catch {}
 
   async function sendTelegramMessage(chatId: number | string, text: string, replyMarkup?: any) {
+    const cleanText = stripEmojis(text);
     try {
-      const cleanText = stripEmojis(text);
-      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      // Intento 1: enviar con formato Markdown
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -429,15 +442,35 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
           ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
         }),
       });
+
+      if (!res.ok) {
+        // Intento 2 (Fallback): si Telegram rechaza caracteres reservados de Markdown (ej: corchetes o guiones bajos), reintentar en texto plano
+        const retryRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: cleanText,
+            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+          }),
+        });
+
+        if (!retryRes.ok) {
+          const errJson = (await retryRes.json().catch(() => ({}))) as any;
+          console.error(`[TELEGRAM ERROR] No se pudo enviar mensaje a ${chatId}:`, errJson.description || retryRes.status);
+        }
+      }
     } catch (e: any) {
-      console.error(`[TELEGRAM ERROR] No se pudo enviar mensaje a ${chatId}:`, e.message);
+      console.error(`[TELEGRAM ERROR] Error de red al enviar mensaje a ${chatId}:`, e.message);
     }
   }
+
+  const allowedUpdatesParam = encodeURIComponent(JSON.stringify(["message", "edited_message", "callback_query"]));
 
   while (!options.signal?.aborted) {
     try {
       const res = await fetch(
-        `https://api.telegram.org/bot${token}/getUpdates?offset=${offset}&timeout=20`,
+        `https://api.telegram.org/bot${token}/getUpdates?offset=${offset}&timeout=20&allowed_updates=${allowedUpdatesParam}`,
       );
       if (!res.ok) {
         const errorJson = (await res.json().catch(() => ({}))) as any;
@@ -466,10 +499,12 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
         if (update.callback_query) {
           const cb = update.callback_query;
           const cbData = String(cb.data || "");
-          const chatId = cb.message?.chat?.id;
+          const rawChatId = cb.message?.chat?.id || cb.from?.id;
+          const chatId = rawChatId;
+          const chatIdStr = String(rawChatId || "");
           const fromId = String(cb.from?.id || "");
 
-          if (allowedUserIds.length > 0 && !allowedUserIds.includes(fromId) && !allowedUserIds.includes(String(chatId))) {
+          if (allowedUserIds.length > 0 && !allowedUserIds.includes(fromId) && !allowedUserIds.includes(chatIdStr)) {
             try {
               await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
                 method: "POST",
@@ -481,20 +516,22 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
           }
 
           try {
+            // Responder de inmediato a Telegram para retirar el spinner de carga en el cliente
             await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ callback_query_id: cb.id, text: "Procesando seleccion..." }),
+              body: JSON.stringify({ callback_query_id: cb.id, text: "Seleccion confirmada" }),
             });
 
-            const state = activeStates.get(chatId) || { step: "READY" };
+            const state = activeStates.get(chatIdStr) || activeStates.get(rawChatId) || { step: "READY" };
 
-            // 1.1 Configuración de Divisa en Telegram
+            // 1.1 Configuración de Divisa en Telegram (Burbujas / Inline Buttons)
             if (cbData.startsWith("mint:set_currency:")) {
-              const selectedCurrency = cbData.split(":")[2] || "USD";
+              const selectedCurrency = cbData.split(":")[2] || "COP";
               state.currency = selectedCurrency;
               state.step = "ASK_PROFILE";
-              activeStates.set(chatId, state);
+              activeStates.set(chatIdStr, state);
+              if (rawChatId) activeStates.set(rawChatId, state);
 
               const profileMarkup = {
                 inline_keyboard: [
@@ -511,10 +548,10 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
               };
 
               await sendTelegramMessage(
-                chatId,
-                `[3/4] Divisa registrada: *${selectedCurrency}*.\n\n` +
-                  `[4/4] Modelo de negocio:\n` +
-                  `Selecciona la modalidad operativa de tu negocio:`,
+                rawChatId,
+                `Divisa registrada: *${selectedCurrency}*.\n\n` +
+                  `Paso 4 de 4 - Modelo de negocio:\n` +
+                  `Selecciona la modalidad operativa de tu negocio en las opciones:`,
                 profileMarkup,
               );
               continue;
@@ -527,7 +564,7 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
 
               const compName = state.companyName || "Mi Empresa";
               const operName = state.userName || "Operador";
-              const curr = state.currency || "USD";
+              const curr = state.currency || "COP";
               const companyId = cleanSlug(compName, "comp", 20);
               const userId = cleanSlug(operName, "usr", 20);
               state.companyId = companyId;
@@ -588,28 +625,29 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
                   id: `notif_tg_${companyId}_${Date.now()}`,
                   companyId,
                   type: "telegram",
-                  name: `Telegram (@${chatId})`,
-                  config: { botToken: token, chatId: String(chatId) },
+                  name: `Telegram (@${chatIdStr})`,
+                  config: { botToken: token, chatId: chatIdStr },
                   isActive: true,
                 })
                 .onConflictDoNothing();
 
               state.step = "READY";
-              activeStates.set(chatId, state);
+              activeStates.set(chatIdStr, state);
+              if (rawChatId) activeStates.set(rawChatId, state);
 
               const summaryText =
-                `[OK] CONFIGURACION COMPLETADA EXITOSAMENTE\n\n` +
+                `CONFIGURACION COMPLETADA EXITOSAMENTE\n\n` +
                 `Empresa: *${compName}* (\`${companyId}\`)\n` +
                 `Operador: *${operName}*\n` +
                 `Divisa: *${curr}*\n` +
-                `Modelo: *${selectedProfile}*\n\n` +
+                `Modelo: ${selectedProfile}\n\n` +
                 `Tu back-office autonomo MINT ya esta conectado y operando.\n\n` +
                 `Consultas disponibles:\n` +
                 `• "/stock" o "¿Como esta el inventario?"\n` +
                 `• "/inbox" o "¿Hay compras pendientes?"\n` +
                 `• "Reporte operativo de hoy"`;
 
-              await sendTelegramMessage(chatId, summaryText);
+              await sendTelegramMessage(rawChatId, summaryText);
               continue;
             }
 
@@ -919,10 +957,198 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
               await sendTelegramMessage(
                 chatId,
                 `Empresa registrada: *${resolvedCompany}*.\n\n` +
-                  `[3/4] Divisa de Consolidacion:\n` +
-                  `Selecciona la divisa base para tus operaciones:`,
+                  `Paso 3 de 4 - Divisa de Consolidacion:\n` +
+                  `Selecciona la divisa base para tus operaciones en las opciones o escribela (ej: COP, USD, MXN):`,
                 currencyMarkup,
               );
+              continue;
+            }
+
+            // -------------------------------------------------------------
+            // Paso 3/4: Selección de Divisa por Texto (o reintento)
+            // -------------------------------------------------------------
+            if (state.step === "ASK_CURRENCY") {
+              const norm = lowerText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+              let resolvedCurrency: string | null = null;
+
+              if (
+                norm === "cop" ||
+                norm === "col" ||
+                norm.includes("peso col") ||
+                norm.includes("colombia") ||
+                norm.includes("cop") ||
+                norm === "pesos"
+              ) {
+                resolvedCurrency = "COP";
+              } else if (
+                norm === "usd" ||
+                norm === "dolar" ||
+                norm === "dolares" ||
+                norm === "dollar" ||
+                norm.includes("dolar") ||
+                norm.includes("estados unidos")
+              ) {
+                resolvedCurrency = "USD";
+              } else if (norm === "eur" || norm === "euro" || norm === "euros") {
+                resolvedCurrency = "EUR";
+              } else if (norm === "mxn" || norm.includes("mex") || norm.includes("mexico")) {
+                resolvedCurrency = "MXN";
+              }
+
+              if (!resolvedCurrency) {
+                const currencyMarkup = {
+                  inline_keyboard: [
+                    [
+                      { text: "USD (Dolares)", callback_data: "mint:set_currency:USD" },
+                      { text: "COP (Pesos Col)", callback_data: "mint:set_currency:COP" },
+                    ],
+                    [
+                      { text: "EUR (Euros)", callback_data: "mint:set_currency:EUR" },
+                      { text: "MXN (Pesos Mex)", callback_data: "mint:set_currency:MXN" },
+                    ],
+                    [
+                      { text: "Multidivisa Internacional", callback_data: "mint:set_currency:USD" },
+                    ],
+                  ],
+                };
+
+                await sendTelegramMessage(
+                  chatId,
+                  `No reconoci la divisa '${textWithoutEmojis}'.\nPor favor pulsa una de las opciones en las burbujas o escribe COP, USD, EUR o MXN:`,
+                  currencyMarkup,
+                );
+                continue;
+              }
+
+              state.currency = resolvedCurrency;
+              state.step = "ASK_PROFILE";
+              activeStates.set(String(chatId), state);
+              activeStates.set(chatId, state);
+
+              const profileMarkup = {
+                inline_keyboard: [
+                  [
+                    { text: "Solo Tienda (Catalogo y Ventas)", callback_data: "mint:set_profile:tienda" },
+                  ],
+                  [
+                    { text: "Tienda + Proveedores (Compras Aprobadas)", callback_data: "mint:set_profile:tienda_proveedores" },
+                  ],
+                  [
+                    { text: "Logistica Completa (Flota + Almacenes)", callback_data: "mint:set_profile:logistica_completa" },
+                  ],
+                ],
+              };
+
+              await sendTelegramMessage(
+                chatId,
+                `Divisa registrada: *${resolvedCurrency}*.\n\n` +
+                  `Paso 4 de 4 - Modelo de negocio:\n` +
+                  `Selecciona la modalidad operativa de tu negocio en las opciones:`,
+                profileMarkup,
+              );
+              continue;
+            }
+
+            // -------------------------------------------------------------
+            // Paso 4/4: Selección de Modelo de Negocio por Texto
+            // -------------------------------------------------------------
+            if (state.step === "ASK_PROFILE") {
+              const norm = lowerText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+              let selectedProfile: "tienda" | "tienda_proveedores" | "logistica_completa" = "tienda_proveedores";
+
+              if (norm.includes("logistica") || norm.includes("flota") || norm.includes("almacen")) {
+                selectedProfile = "logistica_completa";
+              } else if (norm.includes("tienda") && !norm.includes("proveedor")) {
+                selectedProfile = "tienda";
+              }
+
+              state.profile = selectedProfile;
+              const compName = state.companyName || "Mi Empresa";
+              const operName = state.userName || "Operador";
+              const curr = state.currency || "COP";
+              const companyId = cleanSlug(compName, "comp", 20);
+              const userId = cleanSlug(operName, "usr", 20);
+              state.companyId = companyId;
+
+              // Persistir en PostgreSQL
+              await db
+                .insert(companies)
+                .values({
+                  id: companyId,
+                  name: compName,
+                  currency: curr,
+                  country: "Colombia",
+                })
+                .onConflictDoUpdate({
+                  target: [companies.id],
+                  set: { name: compName, currency: curr },
+                });
+
+              await db
+                .insert(users)
+                .values({
+                  id: userId,
+                  companyId,
+                  name: operName,
+                  email: `${userId}@empresa.com`,
+                  role: "owner",
+                  setupCompleted: true,
+                })
+                .onConflictDoNothing();
+
+              await db
+                .insert(warehouses)
+                .values({
+                  id: `alm_central_${companyId}`,
+                  companyId,
+                  name: `Bodega Central ${compName}`,
+                  location: "Sede Principal",
+                })
+                .onConflictDoNothing();
+
+              await db
+                .insert(businessConfig)
+                .values({
+                  companyId,
+                  key: "business_profile",
+                  value: selectedProfile,
+                  currency: curr,
+                  updatedAt: new Date(),
+                })
+                .onConflictDoUpdate({
+                  target: [businessConfig.companyId, businessConfig.key],
+                  set: { value: selectedProfile, updatedAt: new Date() },
+                });
+
+              await db
+                .insert(notificationChannels)
+                .values({
+                  id: `notif_tg_${companyId}_${Date.now()}`,
+                  companyId,
+                  type: "telegram",
+                  name: `Telegram (@${chatId})`,
+                  config: { botToken: token, chatId: String(chatId) },
+                  isActive: true,
+                })
+                .onConflictDoNothing();
+
+              state.step = "READY";
+              activeStates.set(String(chatId), state);
+              activeStates.set(chatId, state);
+
+              const summaryText =
+                `CONFIGURACION COMPLETADA EXITOSAMENTE\n\n` +
+                `Empresa: *${compName}* (\`${companyId}\`)\n` +
+                `Operador: *${operName}*\n` +
+                `Divisa: *${curr}*\n` +
+                `Modelo: ${selectedProfile}\n\n` +
+                `Tu back-office autonomo MINT ya esta conectado y operando.\n\n` +
+                `Consultas disponibles:\n` +
+                `• "/stock" o "¿Como esta el inventario?"\n` +
+                `• "/inbox" o "¿Hay compras pendientes?"\n` +
+                `• "Reporte operativo de hoy"`;
+
+              await sendTelegramMessage(chatId, summaryText);
               continue;
             }
 

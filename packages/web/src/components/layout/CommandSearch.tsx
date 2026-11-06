@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, CornerDownLeft, X, Layers, Sparkles, CheckCircle2 } from "lucide-react";
+import { Search, CornerDownLeft, X, Layers, Sparkles, CheckCircle2, RotateCcw, Terminal } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { api } from "../../services/apiClient";
 
 export interface SearchableRecord {
   id: string;
@@ -65,6 +66,8 @@ export const CommandSearch: React.FC<CommandSearchProps> = ({
 }) => {
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
+  const [agentRunning, setAgentRunning] = useState(false);
+  const [agentResult, setAgentResult] = useState<Awaited<ReturnType<typeof api.chat.send>> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -72,6 +75,8 @@ export const CommandSearch: React.FC<CommandSearchProps> = ({
     if (isOpen) {
       setQuery("");
       setCursor(0);
+      setAgentRunning(false);
+      setAgentResult(null);
       const timer = setTimeout(() => inputRef.current?.focus(), 40);
       return () => clearTimeout(timer);
     }
@@ -98,11 +103,27 @@ export const CommandSearch: React.FC<CommandSearchProps> = ({
       .slice(0, 10);
   }, [query, records]);
 
-  useEffect(() => setCursor(0), [query]);
+  useEffect(() => {
+    setCursor(0);
+    setAgentResult(null);
+  }, [query]);
 
   const choose = (r: SearchableRecord) => {
     onClose();
     onSelectTab(r.targetTab);
+  };
+
+  const runAgentQuery = async (promptText: string) => {
+    const clean = promptText.replace(/^\/chat\s+/i, "").trim();
+    if (!clean || agentRunning) return;
+    setAgentRunning(true);
+    setAgentResult(null);
+    try {
+      const res = await api.chat.send(clean);
+      setAgentResult(res);
+    } finally {
+      setAgentRunning(false);
+    }
   };
 
   const onInputKey = (e: React.KeyboardEvent) => {
@@ -112,9 +133,15 @@ export const CommandSearch: React.FC<CommandSearchProps> = ({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setCursor((c) => Math.max(c - 1, 0));
-    } else if (e.key === "Enter" && results[cursor]) {
+    } else if (e.key === "Enter") {
       e.preventDefault();
-      choose(results[cursor]);
+      if (results[cursor] && query.trim().split(/\s+/).length <= 2 && !query.trim().startsWith("/chat")) {
+        choose(results[cursor]);
+      } else if (query.trim().length > 0) {
+        void runAgentQuery(query);
+      } else if (results[cursor]) {
+        choose(results[cursor]);
+      }
     }
   };
 
@@ -149,8 +176,8 @@ export const CommandSearch: React.FC<CommandSearchProps> = ({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onInputKey}
-                placeholder="Buscar o ir a una sección, SKU o aprobación..."
-                aria-label="Término de búsqueda"
+                placeholder="Escribe una orden para el agente autónomo o busca una sección..."
+                aria-label="Término de búsqueda o directiva operativa"
                 className="w-full bg-transparent text-body text-primary placeholder:text-muted focus:outline-none"
               />
               <button
@@ -162,11 +189,66 @@ export const CommandSearch: React.FC<CommandSearchProps> = ({
               </button>
             </div>
 
-            {/* Lista de resultados */}
-            <div className="max-h-[380px] overflow-y-auto p-1.5 custom-scrollbar" role="listbox">
+            {/* Acción directa con el Agente Autónomo cuando el usuario escribe cualquier instrucción */}
+            {query.trim().length > 0 && (
+              <div className="p-2 border-b border-border bg-raised/60">
+                <button
+                  type="button"
+                  disabled={agentRunning}
+                  onClick={() => void runAgentQuery(query)}
+                  className="w-full text-left flex items-center justify-between gap-compact px-3 py-2 rounded-control bg-panel hover:bg-raised border border-brand/30 text-caption transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {agentRunning ? (
+                      <RotateCcw className="w-3.5 h-3.5 text-brand animate-spin shrink-0" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5 text-brand shrink-0" />
+                    )}
+                    <div className="min-w-0 truncate">
+                      <span className="font-semibold text-primary block truncate">
+                        {agentRunning
+                          ? "Agente autónomo razonando y ejecutando herramientas..."
+                          : `Ejecutar con el Agente Autónomo: «${query.trim()}»`}
+                      </span>
+                      <span className="text-caption text-secondary block truncate">
+                        Invoca el bucle multi-agente en vivo con acceso a las 35 herramientas y base de datos
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-caption font-mono text-brand shrink-0">Enter ↵</span>
+                </button>
+              </div>
+            )}
+
+            {/* Resultado en vivo del Agente Autónomo */}
+            {agentResult && (
+              <div className="p-base border-b border-border bg-canvas max-h-[320px] overflow-y-auto custom-scrollbar space-y-compact">
+                {agentResult.evidenceChain && agentResult.evidenceChain.length > 0 && (
+                  <div className="p-2 rounded-control bg-panel border border-border font-mono text-caption space-y-1">
+                    <div className="text-brand font-semibold flex items-center gap-1.5">
+                      <Terminal className="w-3.5 h-3.5" />
+                      <span>
+                        Evidencia verificada ({agentResult.evidenceChain.length} herramientas · {agentResult.totalTokens ?? 0} tokens)
+                      </span>
+                    </div>
+                    {agentResult.evidenceChain.map((step, idx) => (
+                      <div key={idx} className="text-secondary truncate">
+                        • {step.toolName} {step.verified ? "[Verificado en BD]" : "[OK]"}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="text-caption text-primary whitespace-pre-line leading-relaxed">
+                  {agentResult.response}
+                </div>
+              </div>
+            )}
+
+            {/* Lista de resultados de navegación */}
+            <div className="max-h-[300px] overflow-y-auto p-1.5 custom-scrollbar" role="listbox">
               {results.length === 0 ? (
-                <div className="px-base py-group text-center text-caption text-muted">
-                  Sin coincidencias para “{query}”.
+                <div className="px-base py-compact text-center text-caption text-secondary">
+                  Presiona <strong className="text-primary font-mono">Enter</strong> arriba para que el Agente Autónomo procese e investigue: “{query}”.
                 </div>
               ) : (
                 <ul className="space-y-hairline">

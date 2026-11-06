@@ -27,76 +27,76 @@ html.lenis body {
   :root {
     color-scheme: dark;
 
-    /* Superficies Principales — Dark Emerald (3 capas táctiles) */
-    --color-canvas: #090D0B;
-    /* lienzo */
-    --color-panel: #111915;
-    /* tarjeta */
-    --color-raised: #0B100E;
-    /* pozo / well */
+    /* Enterprise Dark Design System — Apple / Linear Precision */
+    --color-canvas: #0D100F;
+    /* Background */
+    --color-panel: #141916;
+    /* Primary surfaces */
+    --color-raised: #1B211D;
+    /* Elevated surfaces */
 
-    /* Bordes y Filetes */
-    --color-border: #26342C;
-    --color-border-strong: #3A4B41;
+    /* Borders and separators */
+    --color-border: #292F2B;
+    --color-border-strong: #38403B;
 
-    /* Textos con Contraste Matemático Verificado AA / AAA */
-    --color-text-primary: #EEF2EC;
-    --color-text-secondary: #AEBCB2;
-    --color-text-muted: #86968B;
+    /* Typography hierarchy colors */
+    --color-text-primary: #E8EDE9;
+    --color-text-secondary: #929D95;
+    --color-text-muted: #929D95;
 
-    /* Marca Mint (Identidad, Foco, Selección) */
-    --color-brand: #2BB656;
-    --color-brand-lime: #9DE342;
+    /* Operational Status Green (strictly semantic, never decorative neon) */
+    --color-brand: #35B875;
+    --color-brand-lime: #35B875;
 
-    /* Botón de Acción Principal (Píldora Cálida) */
-    --color-action: #F1EFE8;
+    /* Primary Action Control */
+    --color-action: #E8EDE9;
     --color-action-hover: #FFFFFF;
-    --color-action-text: #0F1612;
+    --color-action-text: #0D100F;
 
-    /* Escala de Estados Semánticos (Nunca Verde de Marca) */
-    --color-state-ok: #2DD4BF;
-    --color-state-attention: #F5B544;
-    --color-state-error: #F27A88;
-    --color-state-pending: #9AA2FF;
-    --color-state-progress: #9AA9BC;
+    /* Semantic Status Colors */
+    --color-state-ok: #35B875;
+    --color-state-attention: #E8A83E;
+    --color-state-error: #E16D67;
+    --color-state-pending: #8B9BA8;
+    --color-state-progress: #8B9BA8;
 
-    /* Fondos de Estado Semánticos */
-    --color-state-ok-surface: rgba(45, 212, 191, 0.12);
-    --color-state-attention-surface: rgba(245, 181, 68, 0.12);
-    --color-state-error-surface: rgba(242, 122, 136, 0.12);
-    --color-state-pending-surface: rgba(154, 162, 255, 0.12);
-    --color-state-progress-surface: rgba(154, 169, 188, 0.12);
+    /* Restrained Semantic Tints */
+    --color-state-ok-surface: rgba(53, 184, 117, 0.10);
+    --color-state-attention-surface: rgba(232, 168, 62, 0.10);
+    --color-state-error-surface: rgba(225, 109, 103, 0.10);
+    --color-state-pending-surface: rgba(139, 155, 168, 0.10);
+    --color-state-progress-surface: rgba(139, 155, 168, 0.10);
 
-    /* Degradés y Halos Oficiales */
-    --gradient-brand: linear-gradient(135deg, #9DE342 0%, #2BB656 100%);
-    --gradient-agent-halo: radial-gradient(circle, rgba(43, 182, 86, 0.18) 0%, rgba(43, 182, 86, 0) 65%);
-    --gradient-entry-grid: linear-gradient(rgba(238, 242, 236, 0.04) 1px, transparent 1px);
+    /* Neutralized surface aliases (no decorative gradients) */
+    --gradient-brand: none;
+    --gradient-agent-halo: none;
+    --gradient-entry-grid: none;
 
-    /* Radios */
+    /* Radii (8px control, 12px container) */
     --radius-control: 0.5rem;
     --radius-container: 0.75rem;
-    --radius-card-sm: 1rem;
-    --radius-card: 1.25rem;
+    --radius-card-sm: 0.625rem;
+    --radius-card: 0.75rem;
     --radius-pill: 9999px;
 
-    /* Superficies de tarjeta táctil para Inicio */
-    --color-card: #111915;
-    --color-card-raised: #16221C;
-    --color-card-surface: rgba(17, 25, 21, 0.85);
+    /* Card surfaces */
+    --color-card: #141916;
+    --color-card-raised: #1B211D;
+    --color-card-surface: #141916;
 
-    /* Degradé de atmósfera superior izquierda */
-    --gradient-ambient-mint: radial-gradient(ellipse 70% 50% at 0% 0%, rgba(43, 182, 86, 0.08) 0%, rgba(43, 182, 86, 0.02) 45%, transparent 75%);
+    /* No decorative background glow */
+    --gradient-ambient-mint: none;
 
-    /* Sombras Funcionales */
-    --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
-    --shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.6);
-    --shadow-focus: 0 0 0 2px #0F1612, 0 0 0 4px #2BB656;
+    /* Subtle functional elevation */
+    --shadow-popover: 0 4px 16px rgba(0, 0, 0, 0.35);
+    --shadow-dialog: 0 12px 32px rgba(0, 0, 0, 0.5);
+    --shadow-focus: 0 0 0 2px #0D100F, 0 0 0 3px #35B875;
   }
 
   body {
     background-color: var(--color-canvas);
     color: var(--color-text-primary);
-    font-family: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-family: 'Inter', 'Geist', 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
     line-height: 1.5;
     user-select: text;
     max-width: 100%;
