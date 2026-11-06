@@ -1,5 +1,5 @@
 import { db } from "../db/client";
-import { businessConfig, operationalEvents } from "../db/schema";
+import { businessConfig, operationalEvents, auditIncidents } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { AgentRole } from "../agent/contracts/agentContract";
@@ -58,6 +58,7 @@ export interface PermissionCheckContext {
   targetCompanyId?: string;
   caseId?: string;
   userId?: string;
+  userRole?: string;
   toolName?: string;
   isHumanCaller?: boolean;
 }
@@ -72,6 +73,7 @@ export interface PermissionCheckResult {
     | "DENIED_ROLE_CANNOT_APPROVE"
     | "DENIED_ROLE_CANNOT_DELETE"
     | "DENIED_ROLE_CANNOT_ADMIN"
+    | "DENIED_USER_ROLE_INSUFFICIENT"
     | "DENIED_CROSS_TENANT_VIOLATION"
     | "DENIED_COMPANY_OVERRIDE_REVOKED"
     | "DENIED_AGENT_DISABLED_BY_COMPANY"
@@ -97,6 +99,7 @@ export const BASE_AGENT_PERMISSIONS: Record<SecurityRole, DomainPermissions> = {
       "notificaciones",
       "datos_fuentes",
       "auditoria",
+      "configuracion",
       "decisiones",
     ],
     analyze: [
@@ -107,6 +110,7 @@ export const BASE_AGENT_PERMISSIONS: Record<SecurityRole, DomainPermissions> = {
       "notificaciones",
       "datos_fuentes",
       "auditoria",
+      "configuracion",
       "decisiones",
     ],
     propose: [
@@ -120,7 +124,7 @@ export const BASE_AGENT_PERMISSIONS: Record<SecurityRole, DomainPermissions> = {
       "decisiones",
     ],
     create_request: ["ordenes_compra", "decisiones"],
-    execute: ["decisiones"], // Solo coordinación, asignación y orquestación
+    execute: ["decisiones", "notificaciones"], // Coordinación, asignación, orquestación y pruebas de canal
     update: [],              // No modifica datos empresariales directamente
     delete: [],              // Prohibido
     notify: ["notificaciones"],
@@ -403,7 +407,14 @@ export const TOOL_PERMISSION_REQUIREMENTS: Record<string, ToolPermissionRequirem
   reporte_general: {
     domain: "inventario",
     action: "read",
-    allowedRoles: ["orchestrator", "inventario", "compras", "human_user"],
+    allowedRoles: ["orchestrator", "inventario", "compras", "auditoria", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  generar_reporte_general: {
+    domain: "inventario",
+    action: "read",
+    allowedRoles: ["orchestrator", "inventario", "compras", "auditoria", "human_user"],
     isDestructive: false,
     requiresHumanApproval: false,
   },
@@ -489,6 +500,361 @@ export const TOOL_PERMISSION_REQUIREMENTS: Record<string, ToolPermissionRequirem
     isDestructive: true,
     requiresHumanApproval: true,
   },
+  // Herramientas de Inteligencia Dinámica, Recuperación Autónoma y Memoria (Parte 3)
+  inspeccionar_fuente_datos: {
+    domain: "datos_fuentes",
+    action: "read",
+    allowedRoles: ["orchestrator", "datos_integraciones", "auditoria", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  importar_datos_negocio: {
+    domain: "datos_fuentes",
+    action: "execute",
+    allowedRoles: ["orchestrator", "datos_integraciones", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  diagnosticar_conexion_bd: {
+    domain: "datos_fuentes",
+    action: "read",
+    allowedRoles: ["orchestrator", "datos_integraciones", "auditoria", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  organizar_y_auditar_inventario: {
+    domain: "inventario",
+    action: "analyze",
+    allowedRoles: ["orchestrator", "inventario", "auditoria", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  guardar_memoria_operativa: {
+    domain: "configuracion",
+    action: "update",
+    allowedRoles: ["orchestrator", "inventario", "compras", "logistica", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  consultar_memoria_operativa: {
+    domain: "configuracion",
+    action: "read",
+    allowedRoles: ["orchestrator", "inventario", "compras", "logistica", "auditoria", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  gestionar_checkpoint_tarea: {
+    domain: "decisiones",
+    action: "execute",
+    allowedRoles: ["orchestrator", "datos_integraciones", "inventario", "human_user", "system"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  verificar_capacidades_sistema: {
+    domain: "auditoria",
+    action: "read",
+    allowedRoles: [
+      "orchestrator",
+      "inventario",
+      "compras",
+      "logistica",
+      "notificaciones",
+      "datos_integraciones",
+      "auditoria",
+      "human_user",
+    ],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  explorar_entorno_archivos: {
+    domain: "datos_fuentes",
+    action: "read",
+    allowedRoles: ["orchestrator", "datos_integraciones", "auditoria", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  consultar_esquema_y_datos_bd: {
+    domain: "inventario",
+    action: "read",
+    allowedRoles: [
+      "orchestrator",
+      "inventario",
+      "compras",
+      "logistica",
+      "datos_integraciones",
+      "auditoria",
+      "human_user",
+    ],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  ejecutar_operacion_datos_autorizada: {
+    domain: "inventario",
+    action: "update",
+    allowedRoles: ["orchestrator", "inventario", "compras", "logistica", "human_user"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  auditar_gobernanza_y_procedencia: {
+    domain: "auditoria",
+    action: "read",
+    allowedRoles: ["orchestrator", "auditoria", "inventario", "compras", "logistica", "human_user", "system"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+  gestionar_respaldo_continuidad: {
+    domain: "datos_fuentes",
+    action: "execute",
+    allowedRoles: ["orchestrator", "datos_integraciones", "auditoria", "human_user", "system"],
+    isDestructive: false,
+    requiresHumanApproval: false,
+  },
+};
+
+/**
+ * Matriz de Permisos por Rol de Usuario Humano (RBAC Empresarial Estricto)
+ * Garantiza que un cajero, chofer o visitante no pueda ajustar stock arbitrariamente,
+ * emitir órdenes de compra, alterar precios a cero ni borrar bases de datos.
+ */
+export const HUMAN_ROLE_PERMISSIONS: Record<
+  string,
+  {
+    allowedDomains: DomainPermissions;
+    deniedTools: string[];
+  }
+> = {
+  owner: {
+    allowedDomains: BASE_AGENT_PERMISSIONS.human_user,
+    deniedTools: [],
+  },
+  admin: {
+    allowedDomains: BASE_AGENT_PERMISSIONS.human_user,
+    deniedTools: [],
+  },
+  manager: {
+    allowedDomains: {
+      read: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "datos_fuentes", "auditoria", "configuracion", "decisiones"],
+      analyze: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "datos_fuentes", "auditoria", "configuracion", "decisiones"],
+      propose: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "decisiones"],
+      create_request: ["ordenes_compra", "inventario", "logistica"],
+      execute: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "datos_fuentes", "auditoria", "decisiones"],
+      update: ["inventario", "proveedores", "ordenes_compra", "logistica", "configuracion", "decisiones"],
+      delete: [],
+      notify: ["notificaciones"],
+      approve: ["decisiones", "ordenes_compra"],
+      configure_business: ["configuracion"],
+    },
+    deniedTools: ["eliminar_registro"],
+  },
+  supervisor: {
+    allowedDomains: {
+      read: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "datos_fuentes", "auditoria", "configuracion", "decisiones"],
+      analyze: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "datos_fuentes", "auditoria", "configuracion", "decisiones"],
+      propose: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "decisiones"],
+      create_request: ["ordenes_compra", "inventario", "logistica"],
+      execute: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "datos_fuentes", "auditoria", "decisiones"],
+      update: ["inventario", "proveedores", "ordenes_compra", "logistica", "configuracion", "decisiones"],
+      delete: [],
+      notify: ["notificaciones"],
+      approve: ["decisiones", "ordenes_compra"],
+      configure_business: ["configuracion"],
+    },
+    deniedTools: ["eliminar_registro"],
+  },
+  operator: {
+    allowedDomains: {
+      read: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "datos_fuentes", "auditoria", "configuracion", "decisiones"],
+      analyze: ["inventario", "proveedores", "ordenes_compra", "logistica", "datos_fuentes", "auditoria", "decisiones"],
+      propose: ["inventario", "ordenes_compra", "logistica", "decisiones"],
+      create_request: ["ordenes_compra", "inventario", "logistica"],
+      execute: ["inventario", "logistica", "notificaciones", "datos_fuentes", "auditoria", "decisiones"],
+      update: ["inventario", "logistica", "decisiones"],
+      delete: [],
+      notify: ["notificaciones"],
+      approve: [],
+      configure_business: [],
+    },
+    deniedTools: ["eliminar_registro", "aprobar_decision"],
+  },
+  inventory_operator: {
+    allowedDomains: {
+      read: ["inventario", "proveedores", "datos_fuentes", "decisiones"],
+      analyze: ["inventario", "datos_fuentes", "decisiones"],
+      propose: ["inventario", "ordenes_compra", "decisiones"],
+      create_request: ["inventario", "ordenes_compra"],
+      execute: ["inventario", "datos_fuentes", "decisiones"],
+      update: ["inventario", "decisiones"],
+      delete: [],
+      notify: ["notificaciones"],
+      approve: [],
+      configure_business: [],
+    },
+    deniedTools: ["eliminar_registro", "aprobar_decision", "crear_orden_compra", "guardar_memoria_operativa"],
+  },
+  logistics_operator: {
+    allowedDomains: {
+      read: ["logistica", "ordenes_compra", "inventario", "decisiones"],
+      analyze: ["logistica", "ordenes_compra", "decisiones"],
+      propose: ["logistica", "decisiones"],
+      create_request: ["logistica"],
+      execute: ["logistica", "notificaciones", "decisiones"],
+      update: ["logistica", "decisiones"],
+      delete: [],
+      notify: ["notificaciones"],
+      approve: [],
+      configure_business: [],
+    },
+    deniedTools: ["ajustar_stock", "eliminar_registro", "aprobar_decision", "crear_orden_compra", "guardar_memoria_operativa"],
+  },
+  revoked: {
+    allowedDomains: {
+      read: [],
+      analyze: [],
+      propose: [],
+      create_request: [],
+      execute: [],
+      update: [],
+      delete: [],
+      notify: [],
+      approve: [],
+      configure_business: [],
+    },
+    deniedTools: Object.keys(TOOL_PERMISSION_REQUIREMENTS),
+  },
+  cashier: {
+    allowedDomains: {
+      read: ["inventario", "decisiones"],
+      analyze: ["inventario", "decisiones"],
+      propose: [],
+      create_request: [],
+      execute: ["decisiones"],
+      update: [],
+      delete: [],
+      notify: [],
+      approve: [],
+      configure_business: [],
+    },
+    deniedTools: [
+      "ajustar_stock",
+      "crear_orden_compra",
+      "eliminar_registro",
+      "aprobar_decision",
+      "importar_datos_negocio",
+      "guardar_memoria_operativa",
+      "configurar_nodo_logistico_gps",
+      "enviar_notificacion_operativa",
+      "ejecutar_operacion_datos_autorizada",
+      "gestionar_respaldo_continuidad",
+    ],
+  },
+  driver: {
+    allowedDomains: {
+      read: ["logistica", "decisiones"],
+      analyze: ["logistica", "decisiones"],
+      propose: ["logistica"],
+      create_request: [],
+      execute: ["logistica", "decisiones"],
+      update: ["logistica"],
+      delete: [],
+      notify: ["notificaciones"],
+      approve: [],
+      configure_business: [],
+    },
+    deniedTools: [
+      "ajustar_stock",
+      "crear_orden_compra",
+      "eliminar_registro",
+      "aprobar_decision",
+      "importar_datos_negocio",
+      "guardar_memoria_operativa",
+      "ejecutar_operacion_datos_autorizada",
+    ],
+  },
+  finance: {
+    allowedDomains: {
+      read: ["inventario", "proveedores", "ordenes_compra", "auditoria", "configuracion", "decisiones"],
+      analyze: ["inventario", "proveedores", "ordenes_compra", "auditoria", "decisiones"],
+      propose: ["ordenes_compra", "decisiones"],
+      create_request: ["ordenes_compra"],
+      execute: ["ordenes_compra", "auditoria", "decisiones", "notificaciones"],
+      update: ["ordenes_compra", "decisiones"],
+      delete: [],
+      notify: ["notificaciones"],
+      approve: ["ordenes_compra", "decisiones"],
+      configure_business: [],
+    },
+    deniedTools: ["ajustar_stock", "eliminar_registro", "importar_datos_negocio", "configurar_nodo_logistico_gps"],
+  },
+  viewer: {
+    allowedDomains: {
+      read: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "datos_fuentes", "auditoria", "configuracion", "decisiones"],
+      analyze: ["inventario", "proveedores", "ordenes_compra", "logistica", "auditoria", "decisiones"],
+      propose: [],
+      create_request: [],
+      execute: ["decisiones"],
+      update: [],
+      delete: [],
+      notify: [],
+      approve: [],
+      configure_business: [],
+    },
+    deniedTools: [
+      "ajustar_stock",
+      "crear_orden_compra",
+      "eliminar_registro",
+      "aprobar_decision",
+      "importar_datos_negocio",
+      "guardar_memoria_operativa",
+      "configurar_nodo_logistico_gps",
+      "enviar_notificacion_operativa",
+    ],
+  },
+  auditor: {
+    allowedDomains: {
+      read: ["inventario", "proveedores", "ordenes_compra", "logistica", "notificaciones", "datos_fuentes", "auditoria", "configuracion", "decisiones"],
+      analyze: ["inventario", "proveedores", "ordenes_compra", "logistica", "datos_fuentes", "auditoria", "decisiones"],
+      propose: [],
+      create_request: [],
+      execute: ["auditoria", "decisiones"],
+      update: [],
+      delete: [],
+      notify: ["notificaciones"],
+      approve: [],
+      configure_business: [],
+    },
+    deniedTools: [
+      "ajustar_stock",
+      "crear_orden_compra",
+      "eliminar_registro",
+      "aprobar_decision",
+      "importar_datos_negocio",
+      "guardar_memoria_operativa",
+    ],
+  },
+  client: {
+    allowedDomains: {
+      read: ["logistica", "inventario"],
+      analyze: [],
+      propose: [],
+      create_request: [],
+      execute: ["decisiones"],
+      update: [],
+      delete: [],
+      notify: [],
+      approve: [],
+      configure_business: [],
+    },
+    deniedTools: [
+      "ajustar_stock",
+      "crear_orden_compra",
+      "eliminar_registro",
+      "aprobar_decision",
+      "importar_datos_negocio",
+      "guardar_memoria_operativa",
+      "configurar_nodo_logistico_gps",
+      "enviar_notificacion_operativa",
+    ],
+  },
 };
 
 /**
@@ -526,6 +892,7 @@ export async function getCompanyPermissionOverrides(
 export async function auditLogPermissionViolation(violation: {
   companyId: string;
   agentRole: SecurityRole;
+  userRole?: string;
   action: AgentActionType;
   domain: ResourceDomain;
   toolName?: string;
@@ -537,6 +904,7 @@ export async function auditLogPermissionViolation(violation: {
     // Sanitización estricta: sólo identificadores y razones operativas
     const safePayload = {
       agentRole: violation.agentRole,
+      userRole: violation.userRole || "unspecified",
       action: violation.action,
       domain: violation.domain,
       toolName: violation.toolName || "direct_invocation",
@@ -549,10 +917,23 @@ export async function auditLogPermissionViolation(violation: {
       id: `ev_sec_${randomUUID().slice(0, 8)}`,
       companyId: violation.companyId,
       eventType: "SECURITY_PERMISSION_VIOLATION",
-      title: `Intento de acceso no autorizado denegado: [${violation.agentRole}] -> [${violation.action}:${violation.domain}]`,
+      title: `Intento de acceso no autorizado denegado: [${violation.userRole || violation.agentRole}] -> [${violation.action}:${violation.domain}]`,
       description: violation.reason,
       payload: safePayload,
       status: "COMPLETED",
+      createdAt: new Date(),
+    });
+
+    await db.insert(auditIncidents).values({
+      id: `inc_rbac_${randomUUID().slice(0, 8)}`,
+      companyId: violation.companyId,
+      incidentType: "VIOLACION_RBAC",
+      severity: violation.action === "delete" ? "CRITICA" : "ALTA",
+      title: `Bloqueo RBAC: Rol '${violation.userRole || violation.agentRole}' intentó ejecutar '${violation.toolName || violation.action}'`,
+      details: violation.reason,
+      status: "DETECTADO",
+      detectedBy: "MINT_RBAC_GUARD",
+      metadata: safePayload,
       createdAt: new Date(),
     });
   } catch (err: any) {
@@ -761,6 +1142,53 @@ export async function checkToolAuthorization(
       code: "DENIED_ACTION_NOT_PERMITTED",
       auditLogged: false,
     };
+  }
+
+  // 0. Validación RBAC del Rol del Usuario Humano (cuando hay sesión humana activa)
+  if (context.userRole) {
+    const normalizedRole = context.userRole.toLowerCase().trim();
+    const roleAliases: Record<string, string> = {
+      cajero: "cashier",
+      chofer: "driver",
+      conductor: "driver",
+      logistics_operator: "driver",
+      inventory_operator: "operator",
+      operador: "operator",
+      gerente: "manager",
+      visitante: "viewer",
+      lectura: "viewer",
+      cliente: "client",
+      finanzas: "finance",
+    };
+    const canonicalUserRole = roleAliases[normalizedRole] || normalizedRole;
+    const humanPolicy = HUMAN_ROLE_PERMISSIONS[canonicalUserRole];
+
+    if (humanPolicy) {
+      const allowedForDomain = humanPolicy.allowedDomains[req.action] || [];
+      const isDeniedExplicitly = humanPolicy.deniedTools.includes(toolName);
+      const isAllowedInDomain = allowedForDomain.includes(req.domain);
+
+      if (isDeniedExplicitly || !isAllowedInDomain) {
+        const reason = `Permiso RBAC insuficiente: El usuario con rol '${context.userRole}' (${canonicalUserRole}) no tiene autorización para ejecutar '${toolName}' (${req.action} sobre '${req.domain}'). Los datos del negocio permanecen intactos.`;
+        await auditLogPermissionViolation({
+          companyId: context.companyId || "comp_default",
+          agentRole,
+          userRole: context.userRole,
+          action: req.action,
+          domain: req.domain,
+          toolName,
+          reason,
+          code: "DENIED_USER_ROLE_INSUFFICIENT",
+          caseId: context.caseId,
+        });
+        return {
+          allowed: false,
+          reason,
+          code: "DENIED_USER_ROLE_INSUFFICIENT",
+          auditLogged: true,
+        };
+      }
+    }
   }
 
   // Comprobar si el rol está en la lista blanca de la herramienta

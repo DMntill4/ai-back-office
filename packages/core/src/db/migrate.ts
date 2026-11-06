@@ -1,10 +1,16 @@
-﻿import * as path from "node:path";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { db, pool } from "./client";
+import * as path from "node:path";
+import { migrate as migrateNodePg } from "drizzle-orm/node-postgres/migrator";
+import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
+import { db, pool, isEmbeddedDb } from "./client";
 
 export async function runMigrations() {
   console.log("Applying database migrations...");
-  await migrate(db, { migrationsFolder: path.resolve(__dirname, "migrations") });
+  const migrationsFolder = path.resolve(__dirname, "migrations");
+  if (isEmbeddedDb) {
+    await migratePglite(db as any, { migrationsFolder });
+  } else {
+    await migrateNodePg(db, { migrationsFolder });
+  }
   console.log("Database migrations applied successfully.");
 }
 
@@ -18,4 +24,3 @@ if (require.main === module) {
       await pool.end();
     });
 }
-

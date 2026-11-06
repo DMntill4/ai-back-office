@@ -12,12 +12,16 @@ import {
     sanitizeRow,
 } from "@mint/ingest";
 import {
+    db,
+    cases,
+    auditIncidents,
     validateOutboundUrl,
     discoverCustomerSchema,
     saveConfirmedTableMapping,
     estimateTableSize,
     safePaginatedQuery,
     detectSchemaDrift,
+    inspectAndRecoverDataSource,
 } from "@mint/core";
 import { currentSession } from "./auth";
 import { sseHub } from "../events/sseHub";
@@ -111,11 +115,86 @@ export async function ingestRoutes(fastify: FastifyInstance) {
                 rows = parsed.rows;
             }
 
-            if (headers.length === 0) {
+            const inspection = await inspectAndRecoverDataSource(tmpPath, companyId).catch(() => null);
+
+            if (headers.length === 0 || (inspection && !inspection.isValidBusinessData)) {
+                const invCaseId = `case_inv_${Date.now().toString(36)}`;
+                const rejectionReason =
+                    inspection?.rejectionReason ||
+                    "El archivo no contiene encabezados o registros de negocio válidos.";
+                const recommendation =
+                    inspection?.recommendedNextStep ||
+                    "Verifica que el archivo contenga columnas de inventario, productos o proveedores.";
+
+                await db
+                    .insert(cases)
+                    .values({
+                        id: invCaseId,
+                        companyId,
+                        title: `Investigación Autónoma de Fuente Fallida: ${filename}`,
+                        description: `MINT interceptó un archivo inválido ('${filename}') durante la ingesta e inició diagnóstico autónomo. Causa: ${rejectionReason}`,
+                        status: "en_proceso",
+                        priority: "alta",
+                        inputData: {
+                            filename,
+                            rejectionReason,
+                            discoveredAlternatives: inspection?.discoveredAlternatives ?? [],
+                        },
+                    })
+                    .catch(() => {});
+
+                await db
+                    .insert(auditIncidents)
+                    .values({
+                        id: `inc_ing_${Date.now().toString(36)}`,
+                        companyId,
+                        incidentType: "FALLO_INTEGRACION_RECUPERADO",
+                        severity: "MEDIA",
+                        title: `Investigación de ingesta iniciada para '${filename}'`,
+                        details: `${rejectionReason} | Recomendación: ${recommendation}`,
+                        status: "DETECTADO",
+                        detectedBy: "INGEST_AUTONOMOUS_INVESTIGATOR",
+                        metadata: {
+                            filename,
+                            detectedFormat: inspection?.detectedFormat,
+                            detectedEntityType: inspection?.detectedEntityType,
+                            discoveredAlternatives: inspection?.discoveredAlternatives ?? [],
+                        },
+                        createdAt: new Date(),
+                    })
+                    .catch(() => {});
+
+                sseHub.broadcast({
+                    type: "ingest_investigation_started",
+                    caseId: invCaseId,
+                    agent: "Investigador Autónomo de Datos",
+                    action: "investigate_failed_import",
+                    details: `MINT asumió la investigación de '${filename}': ${rejectionReason}`,
+                    resultSummary: recommendation,
+                    payload: {
+                        caseId: invCaseId,
+                        filename,
+                        rejectionReason,
+                        recommendation,
+                        discoveredAlternatives: inspection?.discoveredAlternatives ?? [],
+                    },
+                });
+
                 reply.code(422);
                 return {
                     success: false,
-                    message: "El archivo no contiene encabezados válidos.",
+                    investigationStarted: true,
+                    investigationCaseId: invCaseId,
+                    message: `[INVESTIGACIÓN AUTÓNOMA ACTIVA] ${rejectionReason} ${recommendation}`,
+                    investigation: {
+                        caseId: invCaseId,
+                        filename,
+                        detectedFormat: inspection?.detectedFormat || "unknown",
+                        detectedEntityType: inspection?.detectedEntityType || "invalid",
+                        rejectionReason,
+                        recommendation,
+                        discoveredAlternatives: inspection?.discoveredAlternatives ?? [],
+                    },
                 };
             }
 

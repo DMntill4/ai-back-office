@@ -65,7 +65,8 @@ export async function consoleCommand() {
     session = await runOnboardingWizard();
   }
 
-  const companyId = session?.companyId || "comp_default";
+  const companyId = process.env.MINT_COMPANY_ID || session?.companyId || "comp_default";
+  const userRole = process.env.MINT_USER_ROLE || session?.role || "owner";
   const userName = session?.name || "operator";
   const companyDisplayName = session?.companyName || companyId;
 
@@ -241,11 +242,19 @@ export async function consoleCommand() {
       try {
         const { runFullOperationalEventScan } = await import("@mint/core");
         const scan = await runFullOperationalEventScan(companyId);
+        let stockAnomaliesCount = 0;
+        try {
+          const { detectProactiveStockChanges } = await import("@mint/daemon");
+          const stockScan = await detectProactiveStockChanges(companyId);
+          stockAnomaliesCount = stockScan.detectedChanges;
+        } catch {
+          // Daemon optional in isolated runtime
+        }
         const timeStr = new Date().toLocaleTimeString();
 
-        if (!isStartup && scan.processedDecisions.length > 0) {
+        if (!isStartup && (scan.processedDecisions.length > 0 || stockAnomaliesCount > 0)) {
           console.log(
-            `\n  ${theme.amberBold("[ALERTA]")} ${theme.dim(timeStr)} ${scan.processedDecisions.length} propuesta(s) nueva(s) en /inbox (${scan.stockDeficitsFound} desabasto(s), ${scan.delayedShipmentsFound} retraso(s)).`,
+            `\n  ${theme.amberBold("[ALERTA]")} ${theme.dim(timeStr)} ${scan.processedDecisions.length} propuesta(s) nueva(s) en /inbox (${scan.stockDeficitsFound} desabasto(s), ${scan.delayedShipmentsFound} retraso(s), ${stockAnomaliesCount} anomalía(s) de stock).`,
           );
           rl.prompt(true);
         }
@@ -261,17 +270,20 @@ export async function consoleCommand() {
       }
     };
 
-    setTimeout(() => runAutonomousHeartbeat(true), 8000);
+    const startupHeartbeatTimer = setTimeout(() => runAutonomousHeartbeat(true), 8000);
     const heartbeatTimer = setInterval(() => runAutonomousHeartbeat(false), 45000);
 
+    let lineQueue = Promise.resolve();
+
     rl.on("close", () => {
+      clearTimeout(startupHeartbeatTimer);
       clearInterval(heartbeatTimer);
-      resolve();
+      lineQueue.finally(() => resolve());
     });
 
     rl.prompt();
 
-    rl.on("line", async (line) => {
+    const processLine = async (line: string) => {
       let trimmed = line.trim();
       if (!trimmed) {
         rl.prompt();
@@ -286,7 +298,13 @@ export async function consoleCommand() {
       else if (trimmed === "6") trimmed = "/db";
 
       const [rawCmd, ...args] = trimmed.split(/\s+/);
-      const cmd = rawCmd.startsWith("/") ? rawCmd.slice(1).toLowerCase() : rawCmd.toLowerCase();
+      const isSlashCommand = rawCmd.startsWith("/");
+      const singleWordControl = args.length === 0 && ["exit", "quit", "q", "clear", "cls", "help", "?"].includes(rawCmd.toLowerCase());
+      const cmd = isSlashCommand
+        ? rawCmd.slice(1).toLowerCase()
+        : singleWordControl
+        ? rawCmd.toLowerCase()
+        : "__natural_language_objective__";
 
       if (cmd === "exit" || cmd === "quit" || cmd === "q") {
         console.log(theme.dim("\nDesconectando terminal de control. Hasta luego.\n"));
@@ -861,7 +879,7 @@ export async function consoleCommand() {
 
           case "chat": {
             const { chatCommand } = require("./chat");
-            await chatCommand(args.join(" "), { noExit: true });
+            await chatCommand(args.join(" "), { noExit: true, company: companyId, role: userRole });
             break;
           }
 
@@ -893,7 +911,7 @@ export async function consoleCommand() {
               );
             } else {
               const { chatCommand } = require("./chat");
-              await chatCommand(trimmed, { noExit: true });
+              await chatCommand(trimmed, { noExit: true, company: companyId, role: userRole });
             }
             break;
           }
@@ -904,6 +922,12 @@ export async function consoleCommand() {
 
       console.log("");
       rl.prompt();
+    };
+
+    rl.on("line", (line) => {
+      lineQueue = lineQueue.then(() => processLine(line)).catch((err: any) => {
+        console.error(theme.redBold(`[ERROR]: ${err?.message || String(err)}`));
+      });
     });
   });
 }

@@ -4,6 +4,8 @@ import {
   products,
   inventory,
   warehouses,
+  executeAjustarStock,
+  executeAuthorizedDataMutation,
 } from "@mint/core";
 import { eq, and } from "drizzle-orm";
 import { currentSession } from "./auth";
@@ -67,11 +69,12 @@ export async function productsRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // 2. Ajustar stock relativo (+/- delta)
+  // 2. Ajustar stock relativo (+/- delta) con verificación RBAC y registro en inventory_movements
   fastify.post("/api/products/adjust", async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body as any) || {};
-    const { productId, delta, warehouseId } = body;
+    const { productId, delta, reason } = body;
     const companyId = body.companyId || currentSession.companyId;
+    const callerRole = body.userRole || currentSession.role || "owner";
 
     if (!productId || typeof delta !== "number") {
       return reply.status(400).send({
@@ -81,55 +84,41 @@ export async function productsRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const existing = await db
-        .select()
-        .from(inventory)
-        .where(
-          and(
-            eq(inventory.productId, productId),
-            eq(inventory.companyId, companyId),
-          ),
-        )
-        .limit(1);
+      const res = await executeAjustarStock(
+        {
+          producto_id: String(productId),
+          cantidad_delta: delta,
+          motivo: reason || "Ajuste operativo desde catálogo",
+        },
+        { companyId, userRole: callerRole },
+      );
 
-      if (existing.length > 0) {
-        const newStock = Math.max(0, existing[0].stock + delta);
-        await db
-          .update(inventory)
-          .set({ stock: newStock, updatedAt: new Date() })
-          .where(eq(inventory.id, existing[0].id));
-
-        // Obtener datos del producto para la alerta
-        const [prod] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
-
-        if (prod && newStock < prod.minStock) {
-          sseHub.broadcast({
-            type: "inventory_alert",
-            agent: "Módulo Inventario [PostgreSQL]",
-            action: "quiebre_detectado",
-            details: `Stock crítico en ${prod.name} (${prod.sku}): ${newStock} uds (Mínimo: ${prod.minStock}).`,
-            resultSummary: "Alerta propagada para reabastecimiento",
-            payload: { productId, sku: prod.sku, newStock, minStock: prod.minStock },
-          });
-        }
-
-        return { success: true, newStock, previousStock: existing[0].stock };
+      if (!res.isSuccess) {
+        const isRbacBlocked = res.message?.includes("DENEGADO") || res.message?.includes("RBAC");
+        return reply.status(isRbacBlocked ? 403 : 422).send({
+          success: false,
+          error: res.message,
+          data: res,
+        });
       }
 
-      return reply.status(404).send({
-        success: false,
-        error: "Producto no encontrado en inventario físico de la empresa.",
-      });
+      return {
+        success: true,
+        newStock: res.data.newStock,
+        previousStock: res.data.previousStock,
+        message: res.message,
+      };
     } catch (err: any) {
       return reply.status(500).send({ success: false, error: err.message });
     }
   });
 
-  // 3. Actualizar stock absoluto
+  // 3. Actualizar stock absoluto o minStock con verificación RBAC y post-verificación
   fastify.put("/api/inventory/:productId", async (request: FastifyRequest, reply: FastifyReply) => {
     const { productId } = request.params as { productId: string };
     const body = (request.body as any) || {};
     const { stock, minStock, companyId = currentSession.companyId } = body;
+    const callerRole = body.userRole || currentSession.role || "owner";
 
     try {
       const [inv] = await db
@@ -139,20 +128,36 @@ export async function productsRoutes(fastify: FastifyInstance) {
         .limit(1);
 
       if (inv && typeof stock === "number") {
-        await db
-          .update(inventory)
-          .set({ stock, updatedAt: new Date() })
-          .where(eq(inventory.id, inv.id));
+        const mutRes = await executeAuthorizedDataMutation(companyId, {
+          userRole: callerRole,
+          authorizedBy: callerRole,
+          targetTable: "inventory",
+          operation: "update",
+          recordId: inv.id,
+          updates: { stock },
+          reason: body.reason || "Actualización de stock desde vista de inventario",
+        });
+        if (!mutRes.isSuccess) {
+          return reply.status(403).send({ success: false, error: mutRes.message });
+        }
       }
 
       if (typeof minStock === "number") {
-        await db
-          .update(products)
-          .set({ minStock })
-          .where(eq(products.id, productId));
+        const mutProd = await executeAuthorizedDataMutation(companyId, {
+          userRole: callerRole,
+          authorizedBy: callerRole,
+          targetTable: "products",
+          operation: "update",
+          recordId: productId,
+          updates: { minStock },
+          reason: body.reason || "Actualización de stock mínimo (ROP)",
+        });
+        if (!mutProd.isSuccess) {
+          return reply.status(403).send({ success: false, error: mutProd.message });
+        }
       }
 
-      return { success: true, message: "Inventario actualizado correctamente." };
+      return { success: true, message: "Inventario actualizado y verificado correctamente." };
     } catch (err: any) {
       return reply.status(500).send({ success: false, error: err.message });
     }

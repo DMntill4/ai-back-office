@@ -25,6 +25,8 @@ receipts/
 
 # Artefactos generados (no versionar)
 scratch/
+data/
+*.pglite*
 receipts/
 reports/
 !resources/img/

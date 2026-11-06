@@ -18,12 +18,26 @@ export async function processRemoteApproval(params: {
   signedToken: string;
   approverName: string;
   channel: "telegram" | "slack" | "gmail";
+  explicitAction?: "approve" | "reject";
 }): Promise<RemoteApprovalResult> {
-  const { signedToken, approverName, channel } = params;
+  const { signedToken: rawTokenOrId, approverName, channel, explicitAction } = params;
+
+  let signedToken = rawTokenOrId;
+  if (rawTokenOrId && !rawTokenOrId.includes(".")) {
+    const matchingLogs = await db
+      .select()
+      .from(notificationLog)
+      .where(eq(notificationLog.decisionId, rawTokenOrId));
+    const validLog = matchingLogs.find((l) => l.signedToken && !l.isUsed);
+    if (validLog?.signedToken) {
+      signedToken = validLog.signedToken;
+    }
+  }
 
   // 1. Validar criptográficamente el token y su expiración
   const tokenPayload = verifyApprovalToken(signedToken);
-  const { decisionId, action, companyId } = tokenPayload;
+  const { decisionId, companyId } = tokenPayload;
+  const action = explicitAction || tokenPayload.action;
 
   // 2. Garantizar idempotencia y un solo uso en la base de datos
   const existingLogs = await db

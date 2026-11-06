@@ -12,6 +12,7 @@ import { analyzePromptInjection, redactSensitiveSecrets } from "../security/prom
 import { randomUUID } from "node:crypto";
 import { enforceTokenBudget } from "./context/contextManager";
 import { normalizeBotLanguage, type BotLanguage } from "../services/configService";
+import { getActiveOperationalMemory, getTaskCheckpoints } from "../services/autonomousIntelligenceService";
 
 export interface AgentLoopOptions {
   maxSteps?: number;
@@ -24,8 +25,36 @@ export interface AgentLoopOptions {
   onEvent?: (event: { step: number; agent: string; action: string; details?: string }) => void;
 }
 
+export interface AgentEvidenceStep {
+  step: number;
+  phase: "reasoning" | "tool_execution" | "verification" | "recovery" | "boundary_enforcement";
+  agent: string;
+  toolName?: string;
+  reasoning?: string;
+  inputArgs?: Record<string, any>;
+  outcome: "success" | "failed" | "recovered" | "blocked_by_boundary" | "pending_approval";
+  whatHappened: string;
+  whatFailed?: string | null;
+  whatItTriedNext?: string | null;
+  verified: boolean;
+  verificationEvidence?: any;
+  durationMs: number;
+}
+
+export interface AgentEvidenceSummary {
+  objective: string;
+  toolsUsed: string[];
+  whatHappened: string[];
+  whatFailed: string[];
+  whatItTriedNext: string[];
+  whatItAchieved: string;
+  allWritesVerified: boolean;
+  boundariesEnforced: string[];
+}
+
 export interface AgentExecutionReport {
   caseId: string;
+  objective?: string;
   status: "resuelto" | "escalado";
   totalSteps: number;
   totalTokens: number;
@@ -38,6 +67,8 @@ export interface AgentExecutionReport {
   summary: string;
   reason: string;
   multiAgentEvents?: Array<{ agent: string; action: string; details?: string }>;
+  evidenceChain?: AgentEvidenceStep[];
+  evidenceSummary?: AgentEvidenceSummary;
 }
 
 /**
@@ -113,8 +144,13 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
         configs.find((c) => c.key === "language")?.value;
       botLanguage = normalizeBotLanguage(rawLang) || "es";
       const customRules = configs.find((c) => c.key === "bot_custom_rules")?.value;
-      const currency = configs.find((c) => c.key === "currency")?.value || comp?.currency || "USD";
+      const currency = configs.find((c) => c.key === "currency")?.value || comp?.currency || "MXN";
       const approvalLimit = configs.find((c) => c.key === "approval_limit_amount")?.value;
+      const cdmxTime = new Intl.DateTimeFormat("es-MX", {
+        timeZone: "America/Mexico_City",
+        dateStyle: "short",
+        timeStyle: "medium",
+      }).format(new Date());
 
       const langDirective =
         botLanguage === "en"
@@ -123,10 +159,14 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
 
       let customBlock = "\n\n[CONTEXTO Y CONFIGURACIÓN EN TIEMPO REAL]";
       customBlock += `\n- IDIOMA OBLIGATORIO DE RESPUESTA (STRICT LANGUAGE): ${langDirective}`;
+      customBlock += `\n- Zona Horaria Oficial: Ciudad de México (America/Mexico_City) | Hora actual: ${cdmxTime}`;
       customBlock += `\n- Empresa Activa: ${comp?.name || companyId} (ID: ${companyId})`;
       customBlock += `\n- Divisa Oficial: ${currency}`;
       customBlock += `\n- Límite de Aprobación Autónoma: ${approvalLimit ? `$${approvalLimit} ${currency}` : "No definido (toda orden requiere aprobación humana en /inbox)"}`;
       customBlock += `\n- Catálogo Actual: ${prods.length} productos registrados en PostgreSQL.`;
+      if (prods.length === 0) {
+        customBlock += `\n  [ESTADO HONESTO]: No hay productos cargados actualmente para esta empresa. NO inventes ni menciones productos de ejemplo; informa con total transparencia que el catálogo está vacío y ofrece usar 'inspeccionar_fuente_datos' o 'importar_datos_negocio'.`;
+      }
       if (supps.length > 0) {
         customBlock += `\n- Proveedores Homologados: ${supps.map((s) => `${s.name} [ID: ${s.id}]`).join(", ")}.`;
       } else {
@@ -139,23 +179,51 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
       }
       customBlock += `\n- Asistente: ${botName} (Tono: ${botTone})`;
       customBlock += `\n- Gobernanza: HUMAN-IN-THE-LOOP 100%. CERO compras automáticas unilaterales fuera de política.`;
+      customBlock += `\n- Principio Arquitectónico de MINT (Objetivo -> Razonamiento -> Descubrimiento -> Ejecución -> Verificación -> Recuperación -> Resultado):`;
+      customBlock += `\n  1. Las reglas son fronteras (RBAC, seguridad, autorización financiera), no sustitutos del razonamiento. Para cualquier problema de negocio no previsto, descubre esquemas o archivos usando 'consultar_esquema_y_datos_bd', 'explorar_entorno_archivos' y 'ejecutar_operacion_datos_autorizada'.`;
+      customBlock += `\n  2. La recuperación es parte de la tarea, jamás una pantalla de error final: si una importación, consulta o conexión falla, investiga autónomamente la causa y prueba una alternativa válida antes de responder.`;
+      customBlock += `\n  3. La autonomía exige evidencia: reporta qué herramientas usaste, qué ocurrió, qué falló, qué intentaste después y qué estado final quedó verificado en base de datos.`;
       if (customRules) {
         customBlock += `\n- Reglas de Negocio Personalizadas: ${customRules}`;
       }
       try {
-        // static imports used
-        const recentDecs = await db
-          .select({
-            id: decisions.id,
-            title: decisions.title,
-            actionType: decisions.actionType,
-            policyDecision: decisions.policyDecision,
-            costMxn: decisions.costMxn,
-          })
-          .from(decisions)
-          .where(eq(decisions.companyId, companyId))
-          .orderBy(desc(decisions.createdAt))
-          .limit(4);
+        const [recentDecs, activeMemories, incompleteTasks] = await Promise.all([
+          db
+            .select({
+              id: decisions.id,
+              title: decisions.title,
+              actionType: decisions.actionType,
+              policyDecision: decisions.policyDecision,
+              costMxn: decisions.costMxn,
+            })
+            .from(decisions)
+            .where(eq(decisions.companyId, companyId))
+            .orderBy(desc(decisions.createdAt))
+            .limit(4),
+          getActiveOperationalMemory(companyId),
+          getTaskCheckpoints(companyId, true),
+        ]);
+
+        if (activeMemories.length > 0) {
+          customBlock +=
+            `\n- Memoria Operativa Persistente del Negocio (Reglas y Directivas Vigentes):\n` +
+            activeMemories
+              .slice(0, 10)
+              .map((m) => `  * [${m.category} // ${m.subjectKey}]: ${m.content} (Autor: ${m.author})`)
+              .join("\n");
+        }
+
+        if (incompleteTasks.length > 0) {
+          customBlock +=
+            `\n- Tareas Multi-Paso en Curso o Interrumpidas (Checkpoints Activos):\n` +
+            incompleteTasks
+              .slice(0, 5)
+              .map(
+                (t) =>
+                  `  * [${t.id}] Tipo: ${t.taskType} | Estado: ${t.status} | Objetivo: ${t.objective} | Pasos completados: ${Array.isArray(t.completedSteps) ? t.completedSteps.length : 0}`,
+              )
+              .join("\n");
+        }
 
         if (recentDecs.length > 0) {
           customBlock +=
@@ -168,7 +236,7 @@ Flujo: Audita stock real -> Consulta proveedores -> Formula propuesta de reabast
               .join("\n");
         }
       } catch {
-        // Fallback si falla decisions
+        // Fallback si falla lectura de memoria/decisiones
       }
 
       prompt += customBlock;
@@ -465,6 +533,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
     botLanguage === "en" ? "Maximum step limit reached" : "Límite de pasos alcanzado";
   let completedNaturally = false;
   const multiAgentTimeline: Array<{ agent: string; action: string; details?: string }> = [];
+  const evidenceChain: AgentEvidenceStep[] = [];
 
   const SPECIALIST_MAP: Record<string, string> = {
     consultar_stock: "Módulo Inventario [PostgreSQL]",
@@ -481,6 +550,39 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
     consultar_estado_sistema: "Motor de Infraestructura",
     verificar_frescura_datos: "Motor de Infraestructura",
     generar_reporte_general: "Generador de Reportes",
+    inspeccionar_fuente_datos: "Inspector de Evidencia de Datos",
+    importar_datos_negocio: "Motor de Ingesta con Checkpoints",
+    diagnosticar_conexion_bd: "Diagnóstico y Recuperación de BD",
+    organizar_y_auditar_inventario: "Organizador Autónomo Multi-Paso",
+    guardar_memoria_operativa: "Memoria Operativa Persistente",
+    consultar_memoria_operativa: "Memoria Operativa Persistente",
+    gestionar_checkpoint_tarea: "Gestor de Continuidad de Tareas",
+    verificar_capacidades_sistema: "Verificador de Capacidades y Permisos",
+    explorar_entorno_archivos: "Explorador Autónomo de Entorno",
+    consultar_esquema_y_datos_bd: "Motor Analítico e Introspección SQL",
+    ejecutar_operacion_datos_autorizada: "Ejecutor de Mutación con Evidencia y RBAC",
+    auditar_gobernanza_y_procedencia: "Auditor de Gobernanza, Procedencia y Memoria Epistémica",
+    gestionar_respaldo_continuidad: "Motor de Respaldo y Continuidad SHA-256",
+  };
+
+  const TOOL_SECURITY_ROLE_MAP: Record<string, any> = {
+    ajustar_stock: "inventario",
+    ejecutar_operacion_datos_autorizada: "inventario",
+    organizar_y_auditar_inventario: "inventario",
+    crear_orden_compra: "compras",
+    importar_datos_negocio: "datos_integraciones",
+    inspeccionar_fuente_datos: "datos_integraciones",
+    explorar_entorno_archivos: "datos_integraciones",
+    gestionar_respaldo_continuidad: "datos_integraciones",
+    auditar_gobernanza_y_procedencia: "auditoria",
+    despachar_envio_cliente: "logistica",
+    recibir_mercancia_envio: "logistica",
+    configurar_nodo_logistico_gps: "logistica",
+    consolidar_cargas_y_rebalancear: "logistica",
+    enviar_notificacion_operativa: "notificaciones",
+    probar_canal_notificacion: "notificaciones",
+    consultar_canales_notificacion: "notificaciones",
+    guardar_memoria_operativa: "human_user",
   };
 
   const MUTATING_TOOLS = new Set([
@@ -490,9 +592,13 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
     "recibir_mercancia_envio",
     "configurar_nodo_logistico_gps",
     "consolidar_cargas_y_rebalancear",
+    "importar_datos_negocio",
+    "organizar_y_auditar_inventario",
+    "guardar_memoria_operativa",
+    "ejecutar_operacion_datos_autorizada",
   ]);
 
-  // 4. Bucle principal de pensamiento y acción (ReAct)
+  // 4. Bucle principal de pensamiento y acción (Objetivo -> Razonamiento -> Descubrimiento -> Ejecución -> Verificación -> Recuperación -> Resultado)
   while (currentStep < maxSteps) {
     currentStep++;
 
@@ -542,6 +648,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           const toolName = call.function.name;
           const toolArgs = call.function.arguments;
           const specialist = SPECIALIST_MAP[toolName] || "Agente Especialista";
+          const toolStartMs = Date.now();
 
           options.onEvent?.({
             step: currentStep,
@@ -566,7 +673,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
                 caseId,
                 userRole: options?.userRole || "operator",
                 caller: options?.caller || "agent",
-                agentRole: (specialist as any),
+                agentRole: TOOL_SECURITY_ROLE_MAP[toolName] || "orchestrator",
               },
             );
           } catch (dispatchErr: any) {
@@ -581,27 +688,88 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
             };
           }
           const { result, isClosingAction, closingType } = dispatchOutput;
+          const toolDurationMs = Date.now() - toolStartMs;
+
+          const inputArgsObj =
+            typeof toolArgs === "object"
+              ? toolArgs
+              : typeof toolArgs === "string"
+                ? (() => {
+                    try {
+                      return JSON.parse(toolArgs || "{}");
+                    } catch {
+                      return {};
+                    }
+                  })()
+                : {};
+
+          const isBlockedByBoundary = Boolean(result?.blockedBySecurityPolicy);
+          const isPendingApproval = Boolean(result?.requiresApproval);
+          const isSuccess = Boolean(result?.isSuccess ?? true);
+          const isVerified = Boolean(result?.verified ?? isSuccess);
+
+          // Si el paso previo falló y este paso tuvo éxito, vincular como evidencia de recuperación ("what it tried next")
+          const prevFailedStep = [...evidenceChain]
+            .reverse()
+            .find((s) => s.outcome === "failed");
+          if (prevFailedStep && isSuccess) {
+            prevFailedStep.whatItTriedNext = `Paso ${currentStep}: Ejecutó '${toolName}' y completó la recuperación (${result?.message || "Operación verificada"}).`;
+            prevFailedStep.outcome = "recovered";
+          }
+
+          evidenceChain.push({
+            step: currentStep,
+            phase: isBlockedByBoundary
+              ? "boundary_enforcement"
+              : !isSuccess
+                ? "recovery"
+                : isVerified
+                  ? "verification"
+                  : "tool_execution",
+            agent: specialist,
+            toolName,
+            reasoning: response.content || undefined,
+            inputArgs: inputArgsObj,
+            outcome: isBlockedByBoundary
+              ? "blocked_by_boundary"
+              : isPendingApproval
+                ? "pending_approval"
+                : isSuccess
+                  ? "success"
+                  : "failed",
+            whatHappened:
+              result?.message ||
+              result?.mensaje ||
+              `Ejecución de '${toolName}' por ${specialist}.`,
+            whatFailed: !isSuccess
+              ? result?.error || result?.errorMessage || result?.message || result?.mensaje || "Fallo en ejecución"
+              : null,
+            whatItTriedNext: result?.discoveredAlternatives?.length
+              ? `Descubrió ${result.discoveredAlternatives.length} fuente(s) alternativa(s): ${result.discoveredAlternatives.map((a: any) => a.fileName).join(", ")}`
+              : result?.recoveryDirective || null,
+            verified: isVerified,
+            verificationEvidence:
+              result?.verificationResult ||
+              result?.afterSnapshot ||
+              (result?.verifiedInDatabaseCount !== undefined
+                ? { verifiedInDatabaseCount: result.verifiedInDatabaseCount }
+                : undefined),
+            durationMs: toolDurationMs,
+          });
 
           // Registrar ejecución en la tabla formal de herramientas tool_calls y en la bitácora
           try {
-            // static import used
-            const inputArgsObj =
-              typeof toolArgs === "object"
-                ? toolArgs
-                : typeof toolArgs === "string"
-                  ? JSON.parse(toolArgs || "{}")
-                  : {};
             await db.insert(toolCalls).values({
               id: `tc_${randomUUID().slice(0, 12)}`,
               caseId,
               toolName,
               inputArgs: inputArgsObj,
               outputResult: result,
-              isSuccess: Boolean(result?.isSuccess ?? true),
+              isSuccess,
               errorMessage: result?.errorMessage || (result?.isSuccess === false ? result?.message : null),
-              verified: Boolean(result?.verified ?? false),
+              verified: isVerified,
               verificationDetails: result?.verificationDetails || result?.message || null,
-              durationMs: 0,
+              durationMs: toolDurationMs,
             });
           } catch {
             // No detener loop si falla log de tool_calls
@@ -612,7 +780,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
               id: `evt_${randomUUID()}`,
               caseId,
               eventType: "herramienta_ejecutada",
-              payload: { herramienta: toolName, resultado: result },
+              payload: { herramienta: toolName, resultado: result, duracionMs: toolDurationMs },
             })
             .then(
               () => {},
@@ -635,8 +803,19 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           }
         }
 
+        // Principio 2: "Recovery is part of the task, not an error screen"
+        // Si la herramienta falló y NO fue por bloqueo de seguridad/RBAC, inyectar directiva de investigación y recuperación
+        let payloadForModel = result;
+        if (result?.isSuccess === false && !result?.blockedBySecurityPolicy && !result?.requiresApproval) {
+          payloadForModel = {
+            ...result,
+            _autonomousRecoveryDirective:
+              "LA RECUPERACIÓN ES PARTE DE LA TAREA: Esta operación falló o encontró un obstáculo técnico. NO termines la conversación con un mensaje de error genérico; investiga la causa usando tus herramientas ('inspeccionar_fuente_datos', 'explorar_entorno_archivos', 'consultar_esquema_y_datos_bd', 'diagnosticar_conexion_bd') e intenta una vía alternativa para cumplir el objetivo del usuario.",
+          };
+        }
+
         // Devolver resultado de la herramienta al modelo con presupuesto amplio (3500 tokens ~ 14,000 chars) para no truncar ni corromper JSON
-        const rawJson = JSON.stringify(result);
+        const rawJson = JSON.stringify(payloadForModel);
         const safeContent = enforceTokenBudget(rawJson, 3500);
         messages.push({
           role: "tool",
@@ -654,7 +833,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
           finalReason =
             result.details?.justificacion ||
             result.details?.motivo_escalamiento ||
-            "Dictamen emitido por Grok.";
+            "Dictamen emitido por el agente.";
           closedInThisTurn = true;
           completedNaturally = true;
           break;
@@ -718,7 +897,36 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
   finalSummary = redactSensitiveSecrets((finalSummary || "").replace(EMOJI_FILTER_REGEX, "").trim());
   finalReason = redactSensitiveSecrets((finalReason || "").replace(EMOJI_FILTER_REGEX, "").trim());
 
+  const evidenceSummary: AgentEvidenceSummary = {
+    objective: String(caseDesc).trim(),
+    toolsUsed: Array.from(new Set(evidenceChain.map((s) => s.toolName).filter(Boolean) as string[])),
+    whatHappened: evidenceChain.map((s) => `[Paso ${s.step} · ${s.toolName || s.phase}] ${s.whatHappened}`),
+    whatFailed: evidenceChain
+      .filter((s) => Boolean(s.whatFailed))
+      .map((s) => `[Paso ${s.step} · ${s.toolName}] ${s.whatFailed}`),
+    whatItTriedNext: evidenceChain
+      .filter((s) => Boolean(s.whatItTriedNext))
+      .map((s) => String(s.whatItTriedNext)),
+    whatItAchieved: finalSummary,
+    allWritesVerified: unverifiedWritesCount === 0,
+    boundariesEnforced: evidenceChain
+      .filter((s) => s.phase === "boundary_enforcement" || s.outcome === "pending_approval")
+      .map((s) => `[Paso ${s.step} · ${s.toolName}] ${s.whatHappened}`),
+  };
+
   await startLog;
+  try {
+    await db.insert(caseEvents).values({
+      id: `evt_${randomUUID()}`,
+      caseId,
+      eventType: "evidencia_autonoma_verificada",
+      payload: {
+        evidenceSummary,
+        stepsCount: evidenceChain.length,
+      },
+    });
+  } catch {}
+
   await closeCase({
     caseId,
     status: finalStatus,
@@ -744,6 +952,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
 
   return {
     caseId,
+    objective: String(caseDesc).trim(),
     status: finalStatus,
     totalSteps: currentStep,
     totalTokens: totalTokensAccumulated,
@@ -756,5 +965,7 @@ Mensaje / Consulta: ${caseDesc}${hasInputData ? `\nDatos adjuntos: ${JSON.string
     summary: finalSummary,
     reason: finalReason,
     multiAgentEvents: multiAgentTimeline,
+    evidenceChain,
+    evidenceSummary,
   };
 }

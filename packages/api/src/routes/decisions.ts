@@ -153,7 +153,9 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
 
     if (action === "approve") {
       try {
-        const result = await executeAndVerifyDecision(id, approvedBy, reason);
+        const approverUserId = body.approverUserId || currentSession.userId;
+        const approverRole = body.approverRole || currentSession.role;
+        const result = await executeAndVerifyDecision(id, approvedBy, reason, approverUserId, approverRole);
         if (result.success) {
           sseHub.broadcast({
             type: "decision_resolved",
@@ -165,7 +167,8 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
           });
           return { ...result };
         }
-        return reply.status(400).send({ ...result });
+        const isForbidden = result.message?.includes("PROHIBIDA") || result.message?.includes("DENEGADO");
+        return reply.status(isForbidden ? 403 : 400).send({ ...result });
       } catch (err: any) {
         return reply.status(500).send({ success: false, error: err.message });
       }
@@ -194,7 +197,9 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
     const approvedBy = body.approvedBy || currentSession.userName || "Operador Consola";
 
     try {
-      const result = await executeAndVerifyDecision(id, approvedBy, body.feedback);
+      const approverUserId = body.approverUserId || currentSession.userId;
+      const approverRole = body.approverRole || currentSession.role;
+      const result = await executeAndVerifyDecision(id, approvedBy, body.feedback, approverUserId, approverRole);
       if (result.success) {
         sseHub.broadcast({
           type: "decision_resolved",
@@ -204,6 +209,11 @@ export async function decisionsRoutes(fastify: FastifyInstance) {
           resultSummary: `Orden #${result.orderId || "OK"} generada y verificada`,
           payload: result,
         });
+      } else {
+        const isForbidden = result.message?.includes("PROHIBIDA") || result.message?.includes("DENEGADO");
+        if (isForbidden) {
+          return reply.status(403).send({ success: false, result });
+        }
       }
       return { success: result.success, result };
     } catch (err: any) {

@@ -6,6 +6,7 @@ import {
     reconcileSalesPaymentsDeliveries,
     analyzeWeeklyProfitVariation,
     exportMintBackup,
+    createVerifiedBusinessBackup,
 } from "@mint/core";
 import { currentSession } from "./auth";
 
@@ -123,14 +124,23 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // 6. Respaldo completo del tenant
+    // 6. Respaldo completo del tenant verificado en disco con SHA-256
     fastify.get("/api/analytics/backup", async (request: FastifyRequest) => {
         const query = (request.query as any) || {};
         const companyId = query.companyId || currentSession.companyId;
 
         try {
-            const data = await exportMintBackup(companyId);
-            return { success: true, data };
+            const [data, diskVerified] = await Promise.all([
+                exportMintBackup(companyId),
+                createVerifiedBusinessBackup(companyId, "Respaldo solicitado desde /api/analytics/backup"),
+            ]);
+            return {
+                success: diskVerified.verifiedOnDisk,
+                verifiedOnDisk: diskVerified.verifiedOnDisk,
+                backupFilePath: diskVerified.backupFilePath,
+                sha256: diskVerified.sha256,
+                data,
+            };
         } catch (err: any) {
             return {
                 success: false,

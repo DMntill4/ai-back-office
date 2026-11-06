@@ -32,13 +32,18 @@ export const users = pgTable("users", {
     enum: [
       "owner",
       "admin",
+      "manager",
       "supervisor",
+      "inventory_operator",
+      "logistics_operator",
       "operator",
+      "cashier",
       "driver",
       "viewer",
       "auditor",
       "finance",
       "client",
+      "revoked",
     ],
   })
     .notNull()

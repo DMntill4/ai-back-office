@@ -238,5 +238,626 @@
     "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
     "createdAt": 1793548714544,
     "updatedAt": 1793548714544
+  },
+  {
+    "id": "outbox_5926c89f",
+    "companyId": "comp_part3_autonomy_qa",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_part3_autonomy_qa",
+      "decisionId": "op_mw56h4w4",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1Nmg0dzQiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19hdXRvbm9teV9xYSIsImV4cGlyZXNBdCI6MTc5Mzk4NTQ1Mjk0Miwibm9uY2UiOiI1MGYyMmJmMGVlZWQ0ZjFhIn0.e8678078faf4f9fc45deea68cdaadb9e1dbbe060a8ae19fb9c17be0e2008a4e1",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1Nmg0dzQiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX2F1dG9ub215X3FhIiwiZXhwaXJlc0F0IjoxNzkzOTg1NDUyOTQzLCJub25jZSI6IjFmNDJkMzNjMDczMjE4OWEifQ.feda0803edf04da7b4ad7efbe8508ad2a0c55f5bb0ee1191c833824ef1f8bac2"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793981858763,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793981853763,
+    "updatedAt": 1793981853763
+  },
+  {
+    "id": "outbox_8745cca5",
+    "companyId": "comp_part3_autonomy_qa",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "http://127.0.0.1:59998/invalid-webhook-endpoint"
+    },
+    "payload": {
+      "companyId": "comp_part3_autonomy_qa",
+      "decisionId": "op_mw56h4w4",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1Nmg0dzQiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19hdXRvbm9teV9xYSIsImV4cGlyZXNBdCI6MTc5Mzk4NTQ1Mjk0Miwibm9uY2UiOiI1MGYyMmJmMGVlZWQ0ZjFhIn0.e8678078faf4f9fc45deea68cdaadb9e1dbbe060a8ae19fb9c17be0e2008a4e1",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1Nmg0dzQiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX2F1dG9ub215X3FhIiwiZXhwaXJlc0F0IjoxNzkzOTg1NDUyOTQzLCJub25jZSI6IjFmNDJkMzNjMDczMjE4OWEifQ.feda0803edf04da7b4ad7efbe8508ad2a0c55f5bb0ee1191c833824ef1f8bac2"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793981858779,
+    "lastError": "Error de red al contactar Discord: fetch failed",
+    "createdAt": 1793981853779,
+    "updatedAt": 1793981853779
+  },
+  {
+    "id": "outbox_350f9def",
+    "companyId": "comp_part3_autonomy_qa",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_part3_autonomy_qa",
+      "decisionId": "op_mw56jqdk",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1NmpxZGsiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19hdXRvbm9teV9xYSIsImV4cGlyZXNBdCI6MTc5Mzk4NTU3NDA5OSwibm9uY2UiOiIxNDQzODAwOGE0OThiMmQyIn0.594ce2040f62a327b24114769c2f604210b17bcfc5025a5f8dadb49cc8eb924a",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1NmpxZGsiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX2F1dG9ub215X3FhIiwiZXhwaXJlc0F0IjoxNzkzOTg1NTc0MDk5LCJub25jZSI6IjY1NDExMzE3MjZjM2M5NTEifQ.6aa065979938841355d1249164c16503000ae243aa58a216a8edf68d1e985fc1"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793981979924,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793981974924,
+    "updatedAt": 1793981974924
+  },
+  {
+    "id": "outbox_82dab10c",
+    "companyId": "comp_part3_autonomy_qa",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "http://127.0.0.1:59998/invalid-webhook-endpoint"
+    },
+    "payload": {
+      "companyId": "comp_part3_autonomy_qa",
+      "decisionId": "op_mw56jqdk",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1NmpxZGsiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19hdXRvbm9teV9xYSIsImV4cGlyZXNBdCI6MTc5Mzk4NTU3NDA5OSwibm9uY2UiOiIxNDQzODAwOGE0OThiMmQyIn0.594ce2040f62a327b24114769c2f604210b17bcfc5025a5f8dadb49cc8eb924a",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1NmpxZGsiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX2F1dG9ub215X3FhIiwiZXhwaXJlc0F0IjoxNzkzOTg1NTc0MDk5LCJub25jZSI6IjY1NDExMzE3MjZjM2M5NTEifQ.6aa065979938841355d1249164c16503000ae243aa58a216a8edf68d1e985fc1"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793981979939,
+    "lastError": "Error de red al contactar Discord: fetch failed",
+    "createdAt": 1793981974939,
+    "updatedAt": 1793981974939
+  },
+  {
+    "id": "outbox_6b065d97",
+    "companyId": "comp_part3_autonomy_qa",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_part3_autonomy_qa",
+      "decisionId": "op_mw56m702",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1Nm03MDIiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19hdXRvbm9teV9xYSIsImV4cGlyZXNBdCI6MTc5Mzk4NTY4ODk1NSwibm9uY2UiOiJkODdhZTkxNTlkMDc0YWMwIn0.ee06666133df366cf5d42d009818153beab2ef9d485637c3ce837dabeacbf724",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1Nm03MDIiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX2F1dG9ub215X3FhIiwiZXhwaXJlc0F0IjoxNzkzOTg1Njg4OTU2LCJub25jZSI6ImYzOThiNDY5NzM3OTc3YzUifQ.017be1a7d8deabadd2b78c35707fbb0e9d86dbb83e39cd5a117de3521a50414b"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793982094665,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793982089665,
+    "updatedAt": 1793982089665
+  },
+  {
+    "id": "outbox_a6e2da9c",
+    "companyId": "comp_part3_autonomy_qa",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "http://127.0.0.1:59998/invalid-webhook-endpoint"
+    },
+    "payload": {
+      "companyId": "comp_part3_autonomy_qa",
+      "decisionId": "op_mw56m702",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1Nm03MDIiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19hdXRvbm9teV9xYSIsImV4cGlyZXNBdCI6MTc5Mzk4NTY4ODk1NSwibm9uY2UiOiJkODdhZTkxNTlkMDc0YWMwIn0.ee06666133df366cf5d42d009818153beab2ef9d485637c3ce837dabeacbf724",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1Nm03MDIiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX2F1dG9ub215X3FhIiwiZXhwaXJlc0F0IjoxNzkzOTg1Njg4OTU2LCJub25jZSI6ImYzOThiNDY5NzM3OTc3YzUifQ.017be1a7d8deabadd2b78c35707fbb0e9d86dbb83e39cd5a117de3521a50414b"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793982094677,
+    "lastError": "Error de red al contactar Discord: fetch failed",
+    "createdAt": 1793982089677,
+    "updatedAt": 1793982089677
+  },
+  {
+    "id": "outbox_36e2852d",
+    "companyId": "comp_part3_autonomy_qa",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_part3_autonomy_qa",
+      "decisionId": "op_mw57fw18",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2Z3MTgiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19hdXRvbm9teV9xYSIsImV4cGlyZXNBdCI6MTc5Mzk4NzA3NDQyMywibm9uY2UiOiI5OTI5NDkzN2E3ODAwZmY4In0.832c72a1eff8baa1a53e09a2a6076d96f2f63c3935be7724b12779971b4dc247",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2Z3MTgiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX2F1dG9ub215X3FhIiwiZXhwaXJlc0F0IjoxNzkzOTg3MDc0NDI0LCJub25jZSI6IjAyODdkYmYyZDNhMjNhZjMifQ.ed4d73ce0ad725379b20f3ce2b09a5817f8c94447aa0bbd75f21cb37ffc898f9"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793983480134,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793983475134,
+    "updatedAt": 1793983475134
+  },
+  {
+    "id": "outbox_982d9062",
+    "companyId": "comp_part3_autonomy_qa",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "http://127.0.0.1:59998/invalid-webhook-endpoint"
+    },
+    "payload": {
+      "companyId": "comp_part3_autonomy_qa",
+      "decisionId": "op_mw57fw18",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2Z3MTgiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19hdXRvbm9teV9xYSIsImV4cGlyZXNBdCI6MTc5Mzk4NzA3NDQyMywibm9uY2UiOiI5OTI5NDkzN2E3ODAwZmY4In0.832c72a1eff8baa1a53e09a2a6076d96f2f63c3935be7724b12779971b4dc247",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2Z3MTgiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX2F1dG9ub215X3FhIiwiZXhwaXJlc0F0IjoxNzkzOTg3MDc0NDI0LCJub25jZSI6IjAyODdkYmYyZDNhMjNhZjMifQ.ed4d73ce0ad725379b20f3ce2b09a5817f8c94447aa0bbd75f21cb37ffc898f9"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793983480148,
+    "lastError": "Error de red al contactar Discord: fetch failed",
+    "createdAt": 1793983475148,
+    "updatedAt": 1793983475148
+  },
+  {
+    "id": "outbox_9699e21a",
+    "companyId": "comp_part3_mw57iymn",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_part3_mw57iymn",
+      "decisionId": "op_mw57izdb",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2l6ZGIiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19tdzU3aXltbiIsImV4cGlyZXNBdCI6MTc5Mzk4NzIxODcxNywibm9uY2UiOiIxYTZhZmViNDhmZWIzZWFhIn0.d19b8e810e014a59ba0dbe11a95691540b17d1fd8843898c822eb0929f3c624e",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2l6ZGIiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX213NTdpeW1uIiwiZXhwaXJlc0F0IjoxNzkzOTg3MjE4NzIyLCJub25jZSI6IjczMGNjNmE4MWM3NTUzYzEifQ.7b90af8b2943f92bcae530ad734ac52593572a32620754819701a534816dcbe8"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793983625962,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793983620962,
+    "updatedAt": 1793983620962
+  },
+  {
+    "id": "outbox_d76dff95",
+    "companyId": "comp_part3_mw57iymn",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "http://127.0.0.1:59998/invalid-webhook-endpoint"
+    },
+    "payload": {
+      "companyId": "comp_part3_mw57iymn",
+      "decisionId": "op_mw57izdb",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2l6ZGIiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19tdzU3aXltbiIsImV4cGlyZXNBdCI6MTc5Mzk4NzIxODcxNywibm9uY2UiOiIxYTZhZmViNDhmZWIzZWFhIn0.d19b8e810e014a59ba0dbe11a95691540b17d1fd8843898c822eb0929f3c624e",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2l6ZGIiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX213NTdpeW1uIiwiZXhwaXJlc0F0IjoxNzkzOTg3MjE4NzIyLCJub25jZSI6IjczMGNjNmE4MWM3NTUzYzEifQ.7b90af8b2943f92bcae530ad734ac52593572a32620754819701a534816dcbe8"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793983625977,
+    "lastError": "Error de red al contactar Discord: fetch failed",
+    "createdAt": 1793983620977,
+    "updatedAt": 1793983620977
+  },
+  {
+    "id": "outbox_9acecf29",
+    "companyId": "comp_part3_mw57kdlg",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_part3_mw57kdlg",
+      "decisionId": "op_mw57ke8b",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2tlOGIiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19tdzU3a2RsZyIsImV4cGlyZXNBdCI6MTc5Mzk4NzI4NDYyOSwibm9uY2UiOiJlZGU2ZGUxYjM3MjRlOWZlIn0.fb4ebf04251729f64bd97dd5db1dfd01ac9500f1ba84d29f6a9532f045916ee6",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2tlOGIiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX213NTdrZGxnIiwiZXhwaXJlc0F0IjoxNzkzOTg3Mjg0NjM0LCJub25jZSI6ImVkMmM3OWRiYzI0NTYwMmQifQ.c2acce45b463afa1c90222f009e3d49f5d3a62a3d2867473c23ea7d4fecf42a1"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793983690496,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793983685496,
+    "updatedAt": 1793983685496
+  },
+  {
+    "id": "outbox_b8d707f4",
+    "companyId": "comp_part3_mw57kdlg",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "http://127.0.0.1:59998/invalid-webhook-endpoint"
+    },
+    "payload": {
+      "companyId": "comp_part3_mw57kdlg",
+      "decisionId": "op_mw57ke8b",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2tlOGIiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19tdzU3a2RsZyIsImV4cGlyZXNBdCI6MTc5Mzk4NzI4NDYyOSwibm9uY2UiOiJlZGU2ZGUxYjM3MjRlOWZlIn0.fb4ebf04251729f64bd97dd5db1dfd01ac9500f1ba84d29f6a9532f045916ee6",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N2tlOGIiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX213NTdrZGxnIiwiZXhwaXJlc0F0IjoxNzkzOTg3Mjg0NjM0LCJub25jZSI6ImVkMmM3OWRiYzI0NTYwMmQifQ.c2acce45b463afa1c90222f009e3d49f5d3a62a3d2867473c23ea7d4fecf42a1"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793983690507,
+    "lastError": "Error de red al contactar Discord: fetch failed",
+    "createdAt": 1793983685507,
+    "updatedAt": 1793983685507
+  },
+  {
+    "id": "outbox_dc523527",
+    "companyId": "comp_part3_mw57mlbr",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_part3_mw57mlbr",
+      "decisionId": "op_mw57mly0",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N21seTAiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19tdzU3bWxiciIsImV4cGlyZXNBdCI6MTc5Mzk4NzM4Nzk0MCwibm9uY2UiOiJjOTI0MWY5MGU0NjVmNmIwIn0.7b8d84f90f099577bcb1c079bb28f7847fa34e9e6bc0fd3f57c710977b62e8d0",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N21seTAiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX213NTdtbGJyIiwiZXhwaXJlc0F0IjoxNzkzOTg3Mzg3OTQ1LCJub25jZSI6IjBmYzY4NTE5YTY5OGYzODIifQ.32845d6c2e253f15deeab7f4660feba13dcf8855ff3e9419f780bf4f91052d68"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793983793716,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793983788716,
+    "updatedAt": 1793983788716
+  },
+  {
+    "id": "outbox_39f02808",
+    "companyId": "comp_part3_mw57mlbr",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "http://127.0.0.1:59998/invalid-webhook-endpoint"
+    },
+    "payload": {
+      "companyId": "comp_part3_mw57mlbr",
+      "decisionId": "op_mw57mly0",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N21seTAiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19tdzU3bWxiciIsImV4cGlyZXNBdCI6MTc5Mzk4NzM4Nzk0MCwibm9uY2UiOiJjOTI0MWY5MGU0NjVmNmIwIn0.7b8d84f90f099577bcb1c079bb28f7847fa34e9e6bc0fd3f57c710977b62e8d0",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1N21seTAiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX213NTdtbGJyIiwiZXhwaXJlc0F0IjoxNzkzOTg3Mzg3OTQ1LCJub25jZSI6IjBmYzY4NTE5YTY5OGYzODIifQ.32845d6c2e253f15deeab7f4660feba13dcf8855ff3e9419f780bf4f91052d68"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793983793732,
+    "lastError": "Error de red al contactar Discord: fetch failed",
+    "createdAt": 1793983788732,
+    "updatedAt": 1793983788732
+  },
+  {
+    "id": "outbox_8aeb481f",
+    "companyId": "comp_part3_mw596cqh",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_part3_mw596cqh",
+      "decisionId": "op_mw596d56",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1OTZkNTYiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19tdzU5NmNxaCIsImV4cGlyZXNBdCI6MTc5Mzk4OTk4OTI2NCwibm9uY2UiOiI0YWZiMTVkYTc2YTNmMzhlIn0.5f2eaf2c3d3791ae5abb2be324c8d5a4182b8b8f82c722e1814f7d0fe55888d3",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1OTZkNTYiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX213NTk2Y3FoIiwiZXhwaXJlc0F0IjoxNzkzOTg5OTg5MjY0LCJub25jZSI6IjE4Nzc1ZDhmZDEwNzNjODEifQ.cd134db5d5eab0c2fd8c3f87fcb889dded51713e47b99da8062a47725b06d6bd"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793986394936,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793986389936,
+    "updatedAt": 1793986389936
+  },
+  {
+    "id": "outbox_baabd8d4",
+    "companyId": "comp_part3_mw596cqh",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "http://127.0.0.1:59998/invalid-webhook-endpoint"
+    },
+    "payload": {
+      "companyId": "comp_part3_mw596cqh",
+      "decisionId": "op_mw596d56",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1OTZkNTYiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19tdzU5NmNxaCIsImV4cGlyZXNBdCI6MTc5Mzk4OTk4OTI2NCwibm9uY2UiOiI0YWZiMTVkYTc2YTNmMzhlIn0.5f2eaf2c3d3791ae5abb2be324c8d5a4182b8b8f82c722e1814f7d0fe55888d3",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1OTZkNTYiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX213NTk2Y3FoIiwiZXhwaXJlc0F0IjoxNzkzOTg5OTg5MjY0LCJub25jZSI6IjE4Nzc1ZDhmZDEwNzNjODEifQ.cd134db5d5eab0c2fd8c3f87fcb889dded51713e47b99da8062a47725b06d6bd"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793986394945,
+    "lastError": "Error de red al contactar Discord: fetch failed",
+    "createdAt": 1793986389945,
+    "updatedAt": 1793986389945
+  },
+  {
+    "id": "outbox_ec3f4d41",
+    "companyId": "comp_part3_mw59q8gf",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_part3_mw59q8gf",
+      "decisionId": "op_mw59qaqp",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1OXFhcXAiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19tdzU5cThnZiIsImV4cGlyZXNBdCI6MTc5Mzk5MDkxOTI3MCwibm9uY2UiOiJhMGNjM2U5MDExMTcwODJhIn0.0ccf206e8455d410bd3e57601b4cbd72b4a1ec8de605f42cf88a395a8573b4d9",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1OXFhcXAiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX213NTlxOGdmIiwiZXhwaXJlc0F0IjoxNzkzOTkwOTE5MjcxLCJub25jZSI6IjJlY2RmZWE1Mjk2ZTIxODIifQ.71b6bba3fb96eefb7217fb02634bc399eda044e65b134153e4dffffb0f0077a6"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793987324961,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793987319961,
+    "updatedAt": 1793987319961
+  },
+  {
+    "id": "outbox_c566c7b3",
+    "companyId": "comp_part3_mw59q8gf",
+    "channelType": "discord",
+    "channelConfig": {
+      "webhookUrl": "http://127.0.0.1:59998/invalid-webhook-endpoint"
+    },
+    "payload": {
+      "companyId": "comp_part3_mw59q8gf",
+      "decisionId": "op_mw59qaqp",
+      "kind": "DECISION_APPROVAL",
+      "title": "Alerta de Prueba con Webhook Caído",
+      "description": "Stock crítico detectado en almacén central.",
+      "costMxn": 0,
+      "currency": "MXN",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 MXN. Razón: Stock crítico detectado en almacén central.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1OXFhcXAiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9wYXJ0M19tdzU5cThnZiIsImV4cGlyZXNBdCI6MTc5Mzk5MDkxOTI3MCwibm9uY2UiOiJhMGNjM2U5MDExMTcwODJhIn0.0ccf206e8455d410bd3e57601b4cbd72b4a1ec8de605f42cf88a395a8573b4d9",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1OXFhcXAiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3BhcnQzX213NTlxOGdmIiwiZXhwaXJlc0F0IjoxNzkzOTkwOTE5MjcxLCJub25jZSI6IjJlY2RmZWE1Mjk2ZTIxODIifQ.71b6bba3fb96eefb7217fb02634bc399eda044e65b134153e4dffffb0f0077a6"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793987324971,
+    "lastError": "Error de red al contactar Discord: fetch failed",
+    "createdAt": 1793987319971,
+    "updatedAt": 1793987319971
+  },
+  {
+    "id": "outbox_bf83bdeb",
+    "companyId": "comp_qa_cli_mission",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_qa_cli_mission",
+      "decisionId": "op_mw5abq3k",
+      "kind": "DECISION_APPROVAL",
+      "title": "[CRITICO] SKU QA-CLI-003 agotado",
+      "description": "ALERTA OPERATIVA CRITICA\\n\\n• SKU: QA-CLI-003\\n• Producto: Bomba Centrifuga 5HP\\n• Estado: AGOTADO (sin stock disponible)\\n• Proveedor primario actualizado: Bombas Industriales del Pacifico\\n• Tiempo de entrega: 24h\\n\\nSe requiere gestión inmediata de reabastecimiento.\\nEmpresa: comp_qa_cli_mission",
+      "costMxn": 0,
+      "currency": "USD",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 USD. Razón: ALERTA OPERATIVA CRITICA\\n\\n• SKU: QA-CLI-003\\n• Producto: Bomba Centrifuga 5HP\\n• Estado: AGOTADO (sin stock disponible)\\n• Proveedor primario actualizado: Bombas Industriales del Pacifico\\n• Tiempo de entrega: 24h\\n\\nSe requiere gestión inmediata de reabastecimiento.\\nEmpresa: comp_qa_cli_mission",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1YWJxM2siLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9xYV9jbGlfbWlzc2lvbiIsImV4cGlyZXNBdCI6MTc5Mzk5MTkxODk1Mywibm9uY2UiOiIxZjA1ZDE4ODMyODJiYWVjIn0.aaa275a07ad212771c0a87b9a6d77409c500b8443c6ce5976c3b20e4da910778",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1YWJxM2siLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3FhX2NsaV9taXNzaW9uIiwiZXhwaXJlc0F0IjoxNzkzOTkxOTE4OTU2LCJub25jZSI6IjJiMTZkYWU1Mzk5NDJlYmYifQ.a9878b3ce5a1b8389c8eba24a346ec9984347eb22403b8836cb14dff10e1fa71"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793988325126,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793988320126,
+    "updatedAt": 1793988320126
+  },
+  {
+    "id": "outbox_2450d532",
+    "companyId": "comp_qa_cli_mission",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_qa_cli_mission",
+      "decisionId": "op_mw5ac0u5",
+      "kind": "DECISION_APPROVAL",
+      "title": "CRITICO QA-CLI-003 agotado",
+      "description": "SKU QA-CLI-003 Bomba Centrifuga 5HP esta agotado. Proveedor primario actualizado: Bombas Industriales del Pacifico. Entrega en 24h. Se requiere reabastecimiento inmediato.",
+      "costMxn": 0,
+      "currency": "USD",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 USD. Razón: SKU QA-CLI-003 Bomba Centrifuga 5HP esta agotado. Proveedor primario actualizado: Bombas Industriales del Pacifico. Entrega en 24h. Se requiere reabastecimiento inmediato.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1YWMwdTUiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9xYV9jbGlfbWlzc2lvbiIsImV4cGlyZXNBdCI6MTc5Mzk5MTkzMjg3Nywibm9uY2UiOiI3ZGRhYjUzMjIzNWE5ZmIxIn0.f947b2a5d101935f760f437770884acf9015adcfe8654306d53d4a2625c49667",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1YWMwdTUiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3FhX2NsaV9taXNzaW9uIiwiZXhwaXJlc0F0IjoxNzkzOTkxOTMyODc3LCJub25jZSI6ImE5NzM0NDRmOTI4MDlmNGUifQ.348d07d330b3b51f9f011aded44c405e0f2b45ee25de02db43f02ffed505304f"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793988338476,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793988333476,
+    "updatedAt": 1793988333476
+  },
+  {
+    "id": "outbox_02075d59",
+    "companyId": "comp_qa_cli_mission",
+    "channelType": "telegram",
+    "channelConfig": {
+      "botToken": "8960050493:AAEvGqqtGGvIjdHDf1fL6rYoMU4ZVRMKYyI",
+      "chatId": "6973221027"
+    },
+    "payload": {
+      "companyId": "comp_qa_cli_mission",
+      "decisionId": "op_mw5ac56f",
+      "kind": "DECISION_APPROVAL",
+      "title": "CRITICO QA-CLI-003 agotado",
+      "description": "SKU QA-CLI-003 Bomba Centrifuga 5HP esta agotado. Proveedor primario actualizado: Bombas Industriales del Pacifico. Entrega en 24h. Se requiere reabastecimiento inmediato.",
+      "costMxn": 0,
+      "currency": "USD",
+      "proposingAgent": "coordinador",
+      "severity": "WARNING",
+      "evidenceSummary": "Costo: $0.00 USD. Razón: SKU QA-CLI-003 Bomba Centrifuga 5HP esta agotado. Proveedor primario actualizado: Bombas Industriales del Pacifico. Entrega en 24h. Se requiere reabastecimiento inmediato.",
+      "approveToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1YWM1NmYiLCJhY3Rpb24iOiJhcHByb3ZlIiwiY29tcGFueUlkIjoiY29tcF9xYV9jbGlfbWlzc2lvbiIsImV4cGlyZXNBdCI6MTc5Mzk5MTkzODQ5OCwibm9uY2UiOiJlMGVmZmUxYzE5ZjNiMTE3In0.5f754ac63e1c360cd6ab797a818de12e8266fc6887bf2fa230e577acf0682f6f",
+      "rejectToken": "eyJkZWNpc2lvbklkIjoib3BfbXc1YWM1NmYiLCJhY3Rpb24iOiJyZWplY3QiLCJjb21wYW55SWQiOiJjb21wX3FhX2NsaV9taXNzaW9uIiwiZXhwaXJlc0F0IjoxNzkzOTkxOTM4NDk5LCJub25jZSI6ImM5ODgwOTgwN2Q4ZDY4MjUifQ.2d06083965043e65a972f993f1a37b5c313cf718a559c7b06b8625d6a0dc280d"
+    },
+    "status": "pending",
+    "retryCount": 0,
+    "maxRetries": 5,
+    "nextRetryAt": 1793988344178,
+    "lastError": "Telegram Bot API Error 400: Bad Request: BUTTON_DATA_INVALID",
+    "createdAt": 1793988339178,
+    "updatedAt": 1793988339178
   }
 ]

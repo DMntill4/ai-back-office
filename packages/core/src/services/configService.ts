@@ -85,11 +85,11 @@ export function isValidTimezone(tz: string): boolean {
  */
 export function formatCompanyDate(
   date: Date | string | number = new Date(),
-  timezone: string = "UTC",
+  timezone: string = "America/Mexico_City",
   includeTime: boolean = true,
 ): string {
   const d = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
-  const effectiveTz = isValidTimezone(timezone) ? timezone : "UTC";
+  const effectiveTz = isValidTimezone(timezone) ? timezone : "America/Mexico_City";
 
   try {
     const options: Intl.DateTimeFormatOptions = {

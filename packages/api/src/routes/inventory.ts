@@ -1,4 +1,4 @@
-﻿import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
     db,
     products,
@@ -146,7 +146,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
                 skusBelowRop: belowRop,
                 skusOutOfStock: outOfStock,
                 skusAtRisk: atRisk,
-                healthPct: totalSkus === 0 ? 100 : Math.round((healthy / totalSkus) * 100),
+                healthPct: totalSkus === 0 ? 0 : Math.round((healthy / totalSkus) * 100),
                 byStatus,
                 generatedAt: new Date().toISOString(),
             };
@@ -214,10 +214,12 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
         }
 
         try {
-            const result = await executeAjustarStock(parsed.data, { companyId });
+            const callerRole = body.userRole || currentSession.role || "owner";
+            const result = await executeAjustarStock(parsed.data, { companyId, userRole: callerRole });
 
             if (!result.isSuccess) {
-                reply.code(422);
+                const isForbidden = result.message?.includes("DENEGADO") || result.message?.includes("RBAC");
+                reply.code(isForbidden ? 403 : 422);
                 return { success: false, message: result.message, data: result };
             }
 

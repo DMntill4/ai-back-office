@@ -1,0 +1,6 @@
+sku,name,stock,min_stock,price,cost,category
+QA-CLI-001,Válvula Hidráulica Industrial,45,15,240.00,115.00,Hidráulica
+QA-CLI-002,Sensor Óptico de Flujo,3,20,185.00,82.00,Sensores
+QA-CLI-003,Bomba Centrífuga 5HP,0,10,980.00,540.00,Bombas
+QA-CLI-004,Filtro de Alta Presión,28,12,75.00,31.00,Filtros
+

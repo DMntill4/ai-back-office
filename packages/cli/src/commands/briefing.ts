@@ -2,6 +2,7 @@ import {
   getDailyExecutiveBriefing,
   reconcileSalesPaymentsDeliveries,
   exportMintBackup,
+  createVerifiedBusinessBackup,
 } from "@mint/core";
 import { getSession } from "../keychain";
 import { theme } from "../ui/theme";
@@ -90,18 +91,25 @@ export async function reconcileCommand() {
 
 export async function backupCommand() {
   const session = await getSession();
-  const companyId = session?.companyId || "comp_default";
+  const companyId = process.env.MINT_COMPANY_ID || session?.companyId || "comp_default";
 
-  const backupData = await exportMintBackup(companyId);
-  const targetDir = path.join(process.cwd(), "vault", "backups");
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
+  const verifiedBackup = await createVerifiedBusinessBackup(
+    companyId,
+    "Respaldo manual solicitado desde CLI (mint backup)",
+  );
+
+  if (verifiedBackup.verifiedOnDisk) {
+    console.log(theme.mintBold(`\n[OK] Respaldo completo creado y verificado en disco con SHA-256.`));
+    console.log(theme.dim(`   Archivo:  ${verifiedBackup.backupFilePath}`));
+    console.log(theme.dim(`   SHA-256:  ${verifiedBackup.sha256}`));
+    console.log(
+      theme.dim(
+        `   Conteo:   ${verifiedBackup.counts.products} productos | ${verifiedBackup.counts.inventory} registros de stock | ${verifiedBackup.counts.suppliers} proveedores | ${verifiedBackup.counts.operationalMemories} memorias\n`,
+      ),
+    );
+    process.exit(0);
+  } else {
+    console.error(theme.redBold(`\n[ERROR] No se pudo verificar el respaldo en disco: ${verifiedBackup.message}\n`));
+    process.exit(1);
   }
-
-  const filename = `mint_backup_${companyId}_${Date.now()}.json`;
-  const fullPath = path.join(targetDir, filename);
-  fs.writeFileSync(fullPath, JSON.stringify(backupData, null, 2), "utf8");
-
-  console.log(theme.mintBold(`\n[OK] Respaldo completo de configuración y memoria exportado exitosamente.`));
-  console.log(theme.dim(`   Archivo guardado en: ${fullPath}\n`));
 }

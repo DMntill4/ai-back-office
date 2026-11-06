@@ -6,6 +6,7 @@ import {
     updateProductMinStock,
     listProductThresholds,
     COMMON_TIMEZONES,
+    hasPermission,
 } from "@mint/core";
 import { env } from "@mint/core";
 import { currentSession } from "./auth";
@@ -59,9 +60,17 @@ export async function configRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // 2. Actualizar un parámetro
+    // 2. Actualizar un parámetro (con verificación RBAC)
     fastify.patch("/api/config", async (request: FastifyRequest, reply: FastifyReply) => {
         const body = (request.body as any) || {};
+        const callerRole = body.userRole || currentSession.role || "viewer";
+        if (!hasPermission(callerRole, "configure_bot")) {
+            reply.code(403);
+            return {
+                success: false,
+                message: `ACCESO DENEGADO: El rol '${callerRole}' no tiene autorización para modificar la configuración de la empresa.`,
+            };
+        }
         const companyId = body.companyId || currentSession.companyId;
         const key = body.key;
         const value = body.value;
@@ -109,6 +118,14 @@ export async function configRoutes(fastify: FastifyInstance) {
         async (request: FastifyRequest, reply: FastifyReply) => {
             const { productId } = request.params as { productId: string };
             const body = (request.body as any) || {};
+            const callerRole = body.userRole || currentSession.role || "viewer";
+            if (!hasPermission(callerRole, "configure_bot") && !["manager", "supervisor", "inventory_operator"].includes(callerRole.toLowerCase())) {
+                reply.code(403);
+                return {
+                    success: false,
+                    message: `ACCESO DENEGADO: El rol '${callerRole}' no tiene autorización para alterar umbrales de inventario.`,
+                };
+            }
             const companyId = body.companyId || currentSession.companyId;
             const minStock = Number(body.minStock);
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "../db/client";
-import { inventory, products, decisions } from "../db/schema";
+import { inventory, products, decisions, inventoryMovements, auditIncidents } from "../db/schema";
 import { eq, and, or, ilike } from "drizzle-orm";
 import { triggerStockAlertIfLow } from "../worker/proactiveMonitor";
 import { recordDecisionNote, appendDailyAuditLog } from "../services/obsidianMemoryService";
@@ -78,7 +78,7 @@ export async function executeAjustarStock(
     return {
       isSuccess: false,
       verified: false,
-      message: "La cantidad a ajustar debe ser un numero finito valido.",
+      message: "La cantidad a ajustar debe ser un número finito válido.",
     };
   }
 
@@ -98,13 +98,29 @@ export async function executeAjustarStock(
     };
   }
 
-  // 1.5 ESCUDO RBAC PREVIO: Roles sin privilegios de escritura son rechazados de inmediato sin consultar BD
-  if (callerRole === "viewer" || callerRole === "driver") {
+  // 1.5 ESCUDO RBAC PREVIO: Roles sin privilegios de escritura son rechazados de inmediato y auditados
+  if (["viewer", "driver", "cashier", "cajero", "client", "auditor", "chofer"].includes(callerRole)) {
+    await db
+      .insert(auditIncidents)
+      .values({
+        id: `inc_stock_rbac_${randomUUID().slice(0, 8)}`,
+        companyId: effectiveCompanyId,
+        incidentType: "VIOLACION_RBAC",
+        severity: "ALTA",
+        title: `Intento bloqueado de ajuste de inventario por rol '${callerRole}'`,
+        details: `El usuario con rol '${callerRole}' intentó ajustar '${args.producto_id}' en ${args.cantidad_delta} unidades. Operación rechazada; datos intactos.`,
+        status: "DETECTADO",
+        detectedBy: "AJUSTAR_STOCK_GUARD",
+        metadata: { callerRole, productoId: args.producto_id, requestedDelta: args.cantidad_delta },
+        createdAt: new Date(),
+      })
+      .catch(() => {});
+
     return {
       isSuccess: false,
       verified: false,
       code: "DENIED_INSUFFICIENT_PERMISSIONS",
-      message: `Acceso denegado: El rol '${callerRole}' tiene privilegios unicamente de lectura/transporte y no puede alterar el inventario de la empresa.`,
+      message: `Acceso denegado: El rol '${callerRole}' no cuenta con autorización para alterar existencias de inventario. Se registró el evento de seguridad y los datos permanecen intactos.`,
     };
   }
 
@@ -150,8 +166,16 @@ export async function executeAjustarStock(
 
     const previousStock = invItems.length > 0 ? invItems[0].stock : 0;
 
+    if (previousStock + args.cantidad_delta < 0) {
+      return {
+        isSuccess: false,
+        verified: false,
+        message: `Stock insuficiente. El producto '${product.name}' solo tiene ${previousStock} unidades disponibles. No es posible restar ${Math.abs(args.cantidad_delta)} unidades.`,
+      };
+    }
+
     // 4. ESCUDO ANTI-MANIPULACION Y GOBERNANZA OPERATIVA
-    const isPrivileged = ["owner", "admin", "supervisor", "directivo", "gerente"].includes(callerRole);
+    const isPrivileged = ["owner", "admin", "manager", "supervisor", "directivo", "gerente"].includes(callerRole);
 
     // Si NO es supervisor/owner (ej: operador, empleado estandar):
     // Bloquear cualquier creacion arbitraria de stock positivo (+delta) o movimientos mayores a 10 unidades
@@ -295,8 +319,53 @@ export async function executeAjustarStock(
 
       await db
         .update(inventory)
-        .set({ stock: newStock })
+        .set({ stock: newStock, updatedAt: new Date() })
         .where(eq(inventory.id, invItems[0].id));
+    }
+
+    // 5.1 Registrar movimiento histórico en inventory_movements y auto-verificar resultado en BD
+    const warehouseId = invItems[0]?.warehouseId || "alm_central";
+    const reasonLower = (args.motivo || "").toLowerCase();
+    const movementType = reasonLower.includes("venta")
+      ? "VENTA"
+      : reasonLower.includes("merma")
+      ? "MERMA"
+      : reasonLower.includes("recepcion") || reasonLower.includes("compra")
+      ? "RECEPCION_COMPRA"
+      : "AJUSTE_AUDITORIA";
+
+    await db
+      .insert(inventoryMovements)
+      .values({
+        id: `mov_${randomUUID().slice(0, 8)}`,
+        companyId: effectiveCompanyId,
+        productId: product.id,
+        warehouseId,
+        previousStock,
+        newStock,
+        quantityDelta: args.cantidad_delta,
+        movementType,
+        reason: args.motivo || "Ajuste directo autorizado",
+        authorizedBy: callerRole,
+        transactionRef: context?.caseId || null,
+        createdAt: new Date(),
+      })
+      .catch(() => {});
+
+    // Auto-verificación real de lectura tras escritura
+    const [verifiedInv] = await db
+      .select({ stock: inventory.stock })
+      .from(inventory)
+      .where(and(eq(inventory.companyId, effectiveCompanyId), eq(inventory.productId, product.id)))
+      .limit(1);
+
+    const isVerifiedInDb = verifiedInv?.stock === newStock;
+    if (!isVerifiedInDb) {
+      return {
+        isSuccess: false,
+        verified: false,
+        message: `Discrepancia detectada en auto-verificación: se esperaba stock=${newStock}, pero la base de datos reporta ${verifiedInv?.stock ?? "sin registro"}.`,
+      };
     }
 
     // 6. MOTOR DE ESCRITURA BIDIRECCIONAL (Write-Back a la fuente real: CSV, SQLite)

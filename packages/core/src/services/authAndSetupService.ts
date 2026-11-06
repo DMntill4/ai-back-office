@@ -1,5 +1,5 @@
 import { db, pool } from "../db/client";
-import { users, companies, businessConfig, products, inventory } from "../db/schema";
+import { users, companies, businessConfig, products, inventory, operationalEvents, auditIncidents } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import crypto, { randomUUID } from "node:crypto";
 import { normalizeBotLanguage } from "./configService";
@@ -31,13 +31,18 @@ export function verifyPassword(password: string, storedHash?: string | null): bo
 export type UserRole =
   | "owner"
   | "admin"
+  | "manager"
   | "supervisor"
+  | "cashier"
+  | "inventory_operator"
+  | "logistics_operator"
   | "operator"
   | "driver"
   | "viewer"
   | "auditor"
   | "finance"
-  | "client";
+  | "client"
+  | "revoked";
 export type ActionPermission =
   | "approve"
   | "approve_purchase"
@@ -145,6 +150,62 @@ export const ROLE_PERMISSIONS: Record<
     canManageChannels: false,
     canViewDashboard: true,
   },
+  manager: {
+    label: "Gerente General / Operaciones (Manager)",
+    description: "Coordinación de áreas operativas, revisión de desempeño y aprobación de acciones permitidas según política.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: true,
+    canExecutePurchases: true,
+    canProcessPayments: false,
+    canDispatch: true,
+    canReceive: true,
+    canManageTeam: true,
+    canManageChannels: true,
+    canViewDashboard: true,
+  },
+  cashier: {
+    label: "Cajero / Punto de Venta (Cashier)",
+    description: "Acceso a ventas autorizadas y consulta de inventario. Sin acceso a administración financiera, borrado de BD ni cambio de precios a cero.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: false,
+    canDispatch: false,
+    canReceive: false,
+    canManageTeam: false,
+    canManageChannels: false,
+    canViewDashboard: true,
+  },
+  inventory_operator: {
+    label: "Operador de Almacén e Inventario (Inventory Operator)",
+    description: "Visibilidad de existencias, movimientos autorizados de stock y reporte de discrepancias físicas.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: false,
+    canDispatch: false,
+    canReceive: true,
+    canManageTeam: false,
+    canManageChannels: false,
+    canViewDashboard: true,
+  },
+  logistics_operator: {
+    label: "Coordinador / Operador Logístico (Logistics Operator)",
+    description: "Operación de embarques, rutas y flota asignada. Sin acceso a administración financiera ni configuración crítica.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: false,
+    canDispatch: true,
+    canReceive: true,
+    canManageTeam: false,
+    canManageChannels: false,
+    canViewDashboard: true,
+  },
   finance: {
     label: "Tesorería / Control de Pagos (Finance)",
     description: "Recepción de fichas de dispersión de pago de órdenes aprobadas, conciliación y pago a proveedores.",
@@ -218,6 +279,20 @@ export const ROLE_PERMISSIONS: Record<
   client: {
     label: "Cliente / Destinatario (Empresa)",
     description: "Cliente final de la empresa en la base de datos cargada. Consulta de sus propios pedidos y seguimiento de despachos.",
+    canConfigureBot: false,
+    canUploadSql: false,
+    canApprovePurchases: false,
+    canExecutePurchases: false,
+    canProcessPayments: false,
+    canDispatch: false,
+    canReceive: false,
+    canManageTeam: false,
+    canManageChannels: false,
+    canViewDashboard: false,
+  },
+  revoked: {
+    label: "Acceso Revocado / Desactivado",
+    description: "Usuario dado de baja o con privilegios revocados. Sin acceso a ninguna operación.",
     canConfigureBot: false,
     canUploadSql: false,
     canApprovePurchases: false,
@@ -345,21 +420,65 @@ export async function registerUser(input: RegisterInput) {
 
 export async function loginUser(input: LoginInput) {
   try {
+    const emailClean = (input.email || "").toLowerCase().trim();
+    if (!emailClean) {
+      return {
+        success: false,
+        error: "Se requiere un correo electrónico válido para iniciar sesión.",
+      };
+    }
+
     const foundUsers = await db
       .select()
       .from(users)
-      .where(eq(users.email, input.email.toLowerCase().trim()))
+      .where(eq(users.email, emailClean))
       .limit(1);
 
     if (foundUsers.length > 0) {
       const u = foundUsers[0];
 
-      // Verificar contraseña cuando el usuario envía password
-      if (input.password && !verifyPassword(input.password, u.passwordHash)) {
+      // Verificar si la cuenta fue desactivada o revocada
+      if ((u.role as string) === "revoked" || (u.role as string) === "deactivated") {
+        await db
+          .insert(auditIncidents)
+          .values({
+            id: `inc_auth_${randomUUID().slice(0, 8)}`,
+            companyId: u.companyId,
+            incidentType: "VIOLACION_RBAC",
+            severity: "ALTA",
+            title: `Intento de inicio de sesión de cuenta revocada (${u.email})`,
+            details: `El usuario '${u.email}' intentó autenticarse pero su acceso se encuentra revocado.`,
+            status: "DETECTADO",
+            createdAt: new Date(),
+          })
+          .catch(() => {});
         return {
           success: false,
-          error: "Contraseña incorrecta. Verifica tus credenciales.",
+          error: "ACCESO REVOCADO: Esta cuenta ha sido desactivada por el propietario o administrador de la organización.",
         };
+      }
+
+      // Verificar contraseña obligatoriamente si el usuario tiene hash configurado
+      if (u.passwordHash && u.passwordHash !== "default_hash") {
+        if (!input.password || !verifyPassword(input.password, u.passwordHash)) {
+          await db
+            .insert(auditIncidents)
+            .values({
+              id: `inc_auth_${randomUUID().slice(0, 8)}`,
+              companyId: u.companyId,
+              incidentType: "ACCESO_NO_AUTORIZADO",
+              severity: "MEDIA",
+              title: `Fallo de autenticación para ${u.email}`,
+              details: `Intento de inicio de sesión con contraseña inválida para el usuario '${u.email}' (rol: ${u.role}).`,
+              status: "DETECTADO",
+              createdAt: new Date(),
+            })
+            .catch(() => {});
+          return {
+            success: false,
+            error: "Contraseña incorrecta. Verifica tus credenciales.",
+          };
+        }
       }
 
       const foundCompany = await db
@@ -368,7 +487,27 @@ export async function loginUser(input: LoginInput) {
         .where(eq(companies.id, u.companyId))
         .limit(1);
 
-      const companyName = foundCompany[0]?.name || "Acme Industrial Corp";
+      const companyName = foundCompany[0]?.name || u.companyId;
+
+      await db
+        .insert(operationalEvents)
+        .values({
+          id: `evt_auth_${randomUUID().slice(0, 8)}`,
+          companyId: u.companyId,
+          eventType: "AUTH_LOGIN_SUCCESS",
+          severity: "LOW",
+          status: "RESOLVED",
+          title: `Inicio de sesión exitoso (${u.email})`,
+          description: `Autenticación verificada para ${u.name} con rol ${u.role}.`,
+          payload: {
+            userId: u.id,
+            email: u.email,
+            role: u.role,
+            timestamp: new Date().toISOString(),
+          },
+          createdAt: new Date(),
+        })
+        .catch(() => {});
 
       return {
         success: true,

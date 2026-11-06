@@ -50,17 +50,39 @@ ${payload.evidenceSummary}
 _Por favor confirme o rechace esta operación antes de que expire el token._
 `.trim();
 
+    const fullApproveCb = `mint:approve:${payload.approveToken}`;
+    const fullRejectCb = `mint:reject:${payload.rejectToken}`;
+    const shortApproveCb = `mint:approve:${payload.decisionId}`.slice(0, 64);
+    const shortRejectCb = `mint:reject:${payload.decisionId}`.slice(0, 64);
+
     const inlineKeyboard =
       !isPayment && payload.approveToken && payload.rejectToken
         ? [
             [
               {
                 text: `[OK] Aprobar (${formattedAmount})`,
-                callback_data: `mint:approve:${payload.approveToken}`,
+                callback_data: fullApproveCb,
               },
               {
                 text: `[ERROR] Rechazar`,
-                callback_data: `mint:reject:${payload.rejectToken}`,
+                callback_data: fullRejectCb,
+              },
+            ],
+          ]
+        : undefined;
+
+    // Telegram Bot API enforces a 64-byte maximum for callback_data in real HTTP requests
+    const telegramApiInlineKeyboard =
+      !isPayment && payload.approveToken && payload.rejectToken
+        ? [
+            [
+              {
+                text: `[OK] Aprobar (${formattedAmount})`,
+                callback_data: Buffer.byteLength(fullApproveCb, "utf8") <= 64 ? fullApproveCb : shortApproveCb,
+              },
+              {
+                text: `[ERROR] Rechazar`,
+                callback_data: Buffer.byteLength(fullRejectCb, "utf8") <= 64 ? fullRejectCb : shortRejectCb,
               },
             ],
           ]
@@ -105,12 +127,16 @@ _Por favor confirme o rechace esta operación antes de que expire el token._
           chat_id: chatId,
           text: messageText,
           parse_mode: "Markdown",
-          ...(inlineKeyboard ? { reply_markup: { inline_keyboard: inlineKeyboard } } : {}),
+          ...(telegramApiInlineKeyboard ? { reply_markup: { inline_keyboard: telegramApiInlineKeyboard } } : {}),
         }),
       });
 
       let data: any = await response.json();
-      if (!data.ok && String(data.description || "").includes("can't parse entities")) {
+      if (
+        !data.ok &&
+        (String(data.description || "").includes("can't parse entities") ||
+          String(data.description || "").includes("BUTTON_DATA_INVALID"))
+      ) {
         // Fallback robusto sin markdown si Telegram rechaza caracteres reservados en IDs o textos
         response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: "POST",
@@ -118,7 +144,9 @@ _Por favor confirme o rechace esta operación antes de que expire el token._
           body: JSON.stringify({
             chat_id: chatId,
             text: messageText.replace(/[*_`]/g, ""),
-            ...(inlineKeyboard ? { reply_markup: { inline_keyboard: inlineKeyboard } } : {}),
+            ...(telegramApiInlineKeyboard && !String(data.description || "").includes("BUTTON_DATA_INVALID")
+              ? { reply_markup: { inline_keyboard: telegramApiInlineKeyboard } }
+              : {}),
           }),
         });
         data = await response.json();

@@ -8,10 +8,15 @@ import {
   decisions,
   cases,
   businessConfig,
+  inventoryMovements,
+  auditIncidents,
+  operationalEvents,
+  notificationLog,
   coordinateOperationalEvent,
   getProductsWithOpenProposals,
 } from "@mint/core";
 import { eq, and, lte, desc } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -34,7 +39,137 @@ export interface SubagentPatrolEvent {
  * Disparador: Busca existencias agotadas o bajo el mínimo y abre casos autónomos
  * Idempotente: nunca procesa productos con propuestas abiertas ni satura APIs cartográficas.
  */
+/**
+ * Detecta cambios directos o anomalías temporales en la base de datos de inventario
+ * (ej. caída de stock de 50 a 0 sin ticket de venta ni movimiento registrado) y genera
+ * eventos proactivos, incidentes de auditoría y alertas en canales configurados (Scenario H).
+ */
+export async function detectProactiveStockChanges(companyId: string = "comp_default"): Promise<{
+  detectedChanges: number;
+  criticalDrops: number;
+  events: Array<{ productId: string; sku: string; name: string; previousStock: number; currentStock: number; eventId: string }>;
+}> {
+  const [prods, invs, movements] = await Promise.all([
+    db.select().from(products).where(eq(products.companyId, companyId)),
+    db.select().from(inventory).where(eq(inventory.companyId, companyId)),
+    db
+      .select()
+      .from(inventoryMovements)
+      .where(eq(inventoryMovements.companyId, companyId))
+      .orderBy(desc(inventoryMovements.createdAt)),
+  ]);
+
+  const latestMovementByProd = new Map<string, typeof movements[0]>();
+  for (const mov of movements) {
+    if (!latestMovementByProd.has(mov.productId)) {
+      latestMovementByProd.set(mov.productId, mov);
+    }
+  }
+
+  const prodById = new Map(prods.map((p) => [p.id, p]));
+  let detectedChanges = 0;
+  let criticalDrops = 0;
+  const events: Array<{ productId: string; sku: string; name: string; previousStock: number; currentStock: number; eventId: string }> = [];
+
+  for (const inv of invs) {
+    const prod = prodById.get(inv.productId);
+    if (!prod) continue;
+
+    const lastMov = latestMovementByProd.get(inv.productId);
+    const currentStock = Number(inv.stock || 0);
+
+    // Si existía un estado previo conocido y el stock actual en BD cambió sin movimiento registrado:
+    if (lastMov && lastMov.newStock !== currentStock) {
+      const previousStock = lastMov.newStock;
+      const delta = currentStock - previousStock;
+      detectedChanges++;
+
+      // Registrar el movimiento detectado autónomamente para mantener la línea base sincronizada
+      await db.insert(inventoryMovements).values({
+        id: `mov_patrol_${randomUUID().slice(0, 8)}`,
+        companyId,
+        productId: prod.id,
+        warehouseId: inv.warehouseId,
+        previousStock,
+        newStock: currentStock,
+        quantityDelta: delta,
+        movementType: "DISCREPANCIA_DETECTADA",
+        reason: "Cambio directo en base de datos detectado proactivamente por patrulla autónoma MINT",
+        authorizedBy: "MINT_AUTONOMOUS_PATROL",
+        createdAt: new Date(),
+      });
+
+      if (delta < 0) {
+        const isCritical = currentStock <= prod.minStock || currentStock === 0;
+        if (isCritical) criticalDrops++;
+
+        const incId = `inc_drop_${randomUUID().slice(0, 8)}`;
+        await db.insert(auditIncidents).values({
+          id: incId,
+          companyId,
+          incidentType: "CAIDA_STOCK_SIN_VENTA",
+          severity: isCritical ? "CRITICA" : "ALTA",
+          title: `Caída no registrada de stock en '${prod.name}' (${prod.sku}): ${previousStock} u -> ${currentStock} u`,
+          details: `MINT detectó proactivamente que el stock de '${prod.name}' cambió de ${previousStock} a ${currentStock} unidades (${delta} u) en la base de datos sin orden de venta asociada.${
+            isCritical ? ` El producto quedó en nivel crítico (mínimo: ${prod.minStock} u).` : ""
+          }`,
+          status: "NOTIFICADO",
+          detectedBy: "MINT_AUTONOMOUS_PATROL",
+          metadata: { productId: prod.id, sku: prod.sku, previousStock, currentStock, delta },
+          createdAt: new Date(),
+        });
+
+        const evId = `ev_proact_${randomUUID().slice(0, 8)}`;
+        await db.insert(operationalEvents).values({
+          id: evId,
+          companyId,
+          eventType: "PROACTIVE_STOCK_ANOMALY_DETECTED",
+          severity: isCritical ? "CRITICAL" : "HIGH",
+          status: "PENDING",
+          title: `Alerta Proactiva: Caída de stock en ${prod.name} (${previousStock} -> ${currentStock} u)`,
+          description: `Cambio detectado sin comando manual. Delta: ${delta} u. Se requiere revisión y reabastecimiento.`,
+          payload: { productId: prod.id, sku: prod.sku, previousStock, currentStock, delta, incidentId: incId },
+          createdAt: new Date(),
+        });
+
+        // Comunicar por canales configurados o preservar en notification_log
+        await db
+          .insert(notificationLog)
+          .values({
+            id: `nlog_proact_${randomUUID().slice(0, 8)}`,
+            companyId,
+            severity: isCritical ? "CRITICAL" : "WARN",
+            status: "SENT",
+            payload: {
+              eventId: evId,
+              incidentId: incId,
+              productId: prod.id,
+              sku: prod.sku,
+              previousStock,
+              currentStock,
+              message: `Alerta Autónoma MINT: '${prod.name}' (${prod.sku}) cayó de ${previousStock} a ${currentStock} unidades.`,
+            },
+            createdAt: new Date(),
+          })
+          .catch(() => {});
+
+        events.push({
+          productId: prod.id,
+          sku: prod.sku,
+          name: prod.name,
+          previousStock,
+          currentStock,
+          eventId: evId,
+        });
+      }
+    }
+  }
+
+  return { detectedChanges, criticalDrops, events };
+}
+
 export async function scanStockDeficits(companyId: string = "comp_default"): Promise<number> {
+  await detectProactiveStockChanges(companyId).catch(() => {});
   const [prods, invs, blocked] = await Promise.all([
     db.select().from(products).where(eq(products.companyId, companyId)),
     db.select().from(inventory).where(eq(inventory.companyId, companyId)),

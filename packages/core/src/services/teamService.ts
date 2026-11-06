@@ -1,5 +1,5 @@
 import { db } from "../db/client";
-import { users, companies } from "../db/schema";
+import { users, companies, auditIncidents, operationalEvents } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { hashPassword, type UserRole } from "./authAndSetupService";
@@ -168,5 +168,148 @@ export async function removeTeamMember(params: {
   return {
     success: true,
     message: `Miembro '${target[0].name}' (${target[0].email}) eliminado de la organización.`,
+  };
+}
+
+export async function revokeTeamMemberAccess(params: {
+  companyId: string;
+  targetUserId: string;
+  actorRole: string;
+  reason?: string;
+}): Promise<{ success: boolean; message: string }> {
+  const normActor = (params.actorRole || "").toLowerCase();
+  if (normActor !== "owner" && normActor !== "admin") {
+    return {
+      success: false,
+      message: `ACCESO DENEGADO: El rol '${params.actorRole}' no tiene autoridad para revocar accesos de usuarios.`,
+    };
+  }
+
+  const target = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.id, params.targetUserId), eq(users.companyId, params.companyId)))
+    .limit(1);
+
+  if (target.length === 0) {
+    return { success: false, message: `Usuario '${params.targetUserId}' no encontrado en la organización.` };
+  }
+
+  if (target[0].role === "owner") {
+    const owners = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.companyId, params.companyId), eq(users.role, "owner")));
+    if (owners.length <= 1) {
+      return {
+        success: false,
+        message: "No se puede revocar el acceso del único propietario (owner) sin antes transferir la propiedad.",
+      };
+    }
+  }
+
+  await db
+    .update(users)
+    .set({ role: "revoked" })
+    .where(and(eq(users.id, params.targetUserId), eq(users.companyId, params.companyId)));
+
+  await db
+    .insert(operationalEvents)
+    .values({
+      id: `evt_rev_${randomUUID().slice(0, 8)}`,
+      companyId: params.companyId,
+      eventType: "USER_ACCESS_REVOKED",
+      severity: "HIGH",
+      status: "RESOLVED",
+      title: `Acceso revocado para ${target[0].email}`,
+      description: params.reason || "Revocación administrativa de acceso",
+      payload: {
+        targetUserId: params.targetUserId,
+        targetEmail: target[0].email,
+        previousRole: target[0].role,
+        actorRole: params.actorRole,
+        reason: params.reason || "Revocación administrativa de acceso",
+      },
+      createdAt: new Date(),
+    })
+    .catch(() => {});
+
+  return {
+    success: true,
+    message: `Acceso de '${target[0].name}' (${target[0].email}) revocado inmediatamente.`,
+  };
+}
+
+export async function transferOrganizationOwnership(params: {
+  companyId: string;
+  currentOwnerUserId: string;
+  newOwnerUserId: string;
+}): Promise<{ success: boolean; message: string }> {
+  const [currentOwner] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.id, params.currentOwnerUserId), eq(users.companyId, params.companyId)))
+    .limit(1);
+
+  if (!currentOwner || currentOwner.role !== "owner") {
+    return {
+      success: false,
+      message: "ACCESO DENEGADO: Solo un propietario actual (owner) de la organización puede transferir la propiedad.",
+    };
+  }
+
+  const [newOwner] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.id, params.newOwnerUserId), eq(users.companyId, params.companyId)))
+    .limit(1);
+
+  if (!newOwner) {
+    return {
+      success: false,
+      message: `El destinatario '${params.newOwnerUserId}' no pertenece a la organización '${params.companyId}'. No se permite transferencia inter-organización.`,
+    };
+  }
+
+  if (newOwner.role === "revoked") {
+    return {
+      success: false,
+      message: "No se puede transferir la propiedad a un usuario con acceso revocado.",
+    };
+  }
+
+  await db
+    .update(users)
+    .set({ role: "owner" })
+    .where(and(eq(users.id, params.newOwnerUserId), eq(users.companyId, params.companyId)));
+
+  await db
+    .update(users)
+    .set({ role: "admin" })
+    .where(and(eq(users.id, params.currentOwnerUserId), eq(users.companyId, params.companyId)));
+
+  await db
+    .insert(operationalEvents)
+    .values({
+      id: `evt_own_${randomUUID().slice(0, 8)}`,
+      companyId: params.companyId,
+      eventType: "ORGANIZATION_OWNERSHIP_TRANSFERRED",
+      severity: "HIGH",
+      status: "RESOLVED",
+      title: `Transferencia de propiedad a ${newOwner.email}`,
+      description: `Propiedad transferida de ${currentOwner.email} a ${newOwner.email}.`,
+      payload: {
+        previousOwnerId: params.currentOwnerUserId,
+        newOwnerId: params.newOwnerUserId,
+        companyId: params.companyId,
+        timestamp: new Date().toISOString(),
+      },
+      createdAt: new Date(),
+    })
+    .catch(() => {});
+
+  return {
+    success: true,
+    message: `Propiedad de la organización transferida exitosamente a '${newOwner.name}' (${newOwner.email}). El propietario anterior pasó a rol 'admin'.`,
   };
 }

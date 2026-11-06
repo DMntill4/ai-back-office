@@ -4,6 +4,8 @@ import {
     suppliers,
     supplierProducts,
     products,
+    purchaseOrders,
+    shipments,
     executeEvaluarProveedores,
     evaluarProveedoresSchema,
     listCompanySuppliers,
@@ -76,20 +78,37 @@ function gradeFromScore(score: number): SupplierSla["scoreGrade"] {
 function buildSupplierItem(
     s: any,
     links: Array<{ leadTimeDays: number | null; unitPrice: string | null }>,
+    supplierOrders: Array<any> = [],
+    supplierShipments: Array<any> = [],
 ): SupplierListItem {
     const leadTimes = links.map((l) => l.leadTimeDays ?? 0).filter((n) => n > 0);
     const leadTimeDays = leadTimes.length
         ? Math.round(leadTimes.reduce((a, b) => a + b, 0) / leadTimes.length)
-        : 7;
+        : 0;
 
-    const puntualidadPct = stableScore(`${s.id}-punt`, 72, 99);
-    const calidadPct = stableScore(`${s.id}-cal`, 78, 99.5);
-    const cumplimientoPct = stableScore(`${s.id}-cum`, 70, 99);
-    const defectRatePct = Math.round((100 - calidadPct) * 10) / 10;
-    const scoreGlobal = Math.round(((puntualidadPct + calidadPct + cumplimientoPct) / 3) * 10) / 10;
+    const totalOrders = supplierOrders.length;
+    const totalShipments = supplierShipments.length;
+    const realVolume = supplierOrders.reduce((acc, o) => acc + (Number(o.totalAmount) || 0), 0);
 
-    const status: SupplierListItem["status"] =
-        scoreGlobal >= 88 ? "homologado" : scoreGlobal >= 75 ? "observacion" : "critico";
+    const onTimeShipments = supplierShipments.filter((sh) => sh.status !== "retrasado" && sh.status !== "cancelado").length;
+    const completedOrders = supplierOrders.filter((o) => o.status !== "cancelada").length;
+
+    const hasRealHistory = totalOrders > 0 || totalShipments > 0;
+    const puntualidadPct = totalShipments > 0 ? Math.round((onTimeShipments / totalShipments) * 1000) / 10 : 0;
+    const cumplimientoPct = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 1000) / 10 : 0;
+    const calidadPct = hasRealHistory ? 100 : 0;
+    const defectRatePct = 0;
+    const scoreGlobal = hasRealHistory
+        ? Math.round((((puntualidadPct || cumplimientoPct) + cumplimientoPct + calidadPct) / 3) * 10) / 10
+        : 0;
+
+    const status: SupplierListItem["status"] = !hasRealHistory
+        ? "observacion"
+        : scoreGlobal >= 88
+        ? "homologado"
+        : scoreGlobal >= 75
+        ? "observacion"
+        : "critico";
 
     return {
         id: s.id,
@@ -103,8 +122,8 @@ function buildSupplierItem(
         contactPerson: s.name,
         phone: s.phone || "N/D",
         email: s.email || "N/D",
-        paymentTerms: "30 días",
-        annualVolumeCop: Math.round(stableScore(`${s.id}-vol`, 50, 900) * 1_000_000),
+        paymentTerms: "Según orden de compra",
+        annualVolumeCop: Math.round(realVolume * 100) / 100,
         scoreGlobal,
         leadTimeDays,
         defectRatePct,
@@ -113,9 +132,11 @@ function buildSupplierItem(
             puntualidadPct,
             calidadPct,
             cumplimientoPct,
-            scoreGrade: gradeFromScore(scoreGlobal),
+            scoreGrade: hasRealHistory ? gradeFromScore(scoreGlobal) : "C",
         },
-        summary: `Proveedor ${s.name} con ${links.length} producto(s) en catálogo y lead time promedio de ${leadTimeDays} días.`,
+        summary: hasRealHistory
+            ? `Proveedor ${s.name}: ${totalOrders} orden(es) reales ($${realVolume.toFixed(2)}) y ${links.length} producto(s) vinculados.`
+            : `Proveedor ${s.name}: ${links.length} producto(s) en catálogo. Sin historial de órdenes ni entregas registradas aún (cero métricas inventadas).`,
         productsCount: links.length,
     };
 }
@@ -127,14 +148,19 @@ export async function suppliersRoutes(fastify: FastifyInstance) {
         const companyId = query.companyId || currentSession.companyId;
 
         try {
-            const [supplierRows, links] = await Promise.all([
+            const [supplierRows, links, ordersRows, shipmentRows] = await Promise.all([
                 db.select().from(suppliers).where(eq(suppliers.companyId, companyId)),
                 db.select().from(supplierProducts).where(eq(supplierProducts.companyId, companyId)),
+                db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)),
+                db.select().from(shipments).where(eq(shipments.companyId, companyId)),
             ]);
 
             const items = supplierRows.map((s) => {
                 const own = links.filter((l) => l.supplierId === s.id);
-                return buildSupplierItem(s, own);
+                const suppOrders = ordersRows.filter((o) => o.supplierId === s.id);
+                const orderIds = new Set(suppOrders.map((o) => o.id));
+                const suppShipments = shipmentRows.filter((sh) => sh.purchaseOrderId && orderIds.has(sh.purchaseOrderId));
+                return buildSupplierItem(s, own, suppOrders, suppShipments);
             });
 
             return { success: true, count: items.length, data: items };

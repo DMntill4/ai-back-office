@@ -622,6 +622,7 @@ export async function startTelegramListener(options: TelegramListenerOptions = {
                 signedToken,
                 approverName,
                 channel: "telegram",
+                explicitAction: cbData.startsWith("mint:approve:") ? "approve" : "reject",
               });
 
               const replyText =

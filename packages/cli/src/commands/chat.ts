@@ -6,9 +6,13 @@ import { theme } from "../ui/theme";
 import { drawCard, drawDivider } from "../ui/box";
 import { formatTerminalMarkdown } from "../ui/markdown";
 
-export async function chatCommand(message: string, options: { json?: boolean; noExit?: boolean } = {}) {
+export async function chatCommand(
+  message: string,
+  options: { json?: boolean; noExit?: boolean; role?: string; company?: string } = {},
+) {
   const session = await getSession();
-  const companyId = session?.companyId || "comp_default";
+  const companyId = options.company || process.env.MINT_COMPANY_ID || session?.companyId || "comp_default";
+  const effectiveUserRole = options.role || process.env.MINT_USER_ROLE || session?.role || "owner";
   const trimmedMsg = (message || "").trim();
 
   // 0. Modo Conversacional Interactivo en Terminal si no se pasan argumentos
@@ -89,44 +93,9 @@ export async function chatCommand(message: string, options: { json?: boolean; no
       status: "en_proceso",
       priority: "media",
     }).catch(() => {});
-    // 1. INTENCIÓN DETERMINISTA EN LENGUAJE NATURAL (Fast-Path Local)
-    const { resolveNaturalLanguageIntent } = await import("@mint/core");
-    const intentRes = await resolveNaturalLanguageIntent(companyId, trimmedMsg);
-
-    if (intentRes.handledDeterministically) {
-      // Persistir la respuesta en cases.resultSummary para que el agente recuerde este turno en las siguientes preguntas
-      await db
-        .update(cases)
-        .set({
-          status: "resuelto",
-          resultSummary: intentRes.response,
-          updatedAt: new Date(),
-        })
-        .where(eq(cases.id, caseId))
-        .catch(() => {});
-
-      if (options.json) {
-        console.log(JSON.stringify(intentRes, null, 2));
-        return;
-      }
-
-      console.log("");
-      console.log(theme.dim("  " + "─".repeat(76)));
-      const responseLines = formatTerminalMarkdown(intentRes.response);
-      for (const line of responseLines) {
-        console.log(`  ${line}`);
-      }
-      console.log(theme.dim("  " + "─".repeat(76)));
-      console.log(
-        theme.dim(
-          `  tokens 0 in / 0 out  ·  costo $0.00000 USD  ·  motor Local Determinista (PostgreSQL)  ·  latencia 0.05s`,
-        ),
-      );
-      return;
-    }
 
     if (options.json) {
-      const res = await runAgentLoop(caseId, { userRole: session?.role || "operator" });
+      const res = await runAgentLoop(caseId, { userRole: effectiveUserRole });
       console.log(JSON.stringify(res, null, 2));
       return;
     }
@@ -147,7 +116,7 @@ export async function chatCommand(message: string, options: { json?: boolean; no
     let res;
     try {
       res = await runAgentLoop(caseId, {
-        userRole: session?.role || "operator",
+        userRole: effectiveUserRole,
         onEvent: (ev) => {
           executedSteps.push(`${ev.action}`);
           label = `Ejecutando ${ev.action}`;
@@ -168,6 +137,7 @@ export async function chatCommand(message: string, options: { json?: boolean; no
         ),
       );
 
+      const { resolveNaturalLanguageIntent } = await import("@mint/core");
       const fallbackRes = await resolveNaturalLanguageIntent(companyId, trimmedMsg);
       const textToDisplay =
         fallbackRes.response ||
@@ -198,7 +168,42 @@ export async function chatCommand(message: string, options: { json?: boolean; no
     }
 
     console.log("");
-    if (executedSteps.length > 0) {
+    if (res.evidenceSummary) {
+      console.log(theme.mintBold("  [EVIDENCIA DE EJECUCIÓN AUTÓNOMA]"));
+      console.log(`  • Empresa / Rol Activo: ${theme.cyan(companyId)} (Rol: ${theme.cyan(effectiveUserRole)})`);
+      console.log(
+        `  • Herramientas seleccionadas: ${
+          res.evidenceSummary.toolsUsed.length > 0
+            ? theme.cyan(res.evidenceSummary.toolsUsed.join(" -> "))
+            : theme.dim("Ninguna (respuesta directa / frontera de seguridad)")
+        }`,
+      );
+      if (res.evidenceSummary.whatHappened.length > 0) {
+        for (const stepText of res.evidenceSummary.whatHappened) {
+          console.log(`  • Ejecución: ${theme.dim(stepText)}`);
+        }
+      }
+      if (res.evidenceSummary.whatFailed.length > 0) {
+        for (const failText of res.evidenceSummary.whatFailed) {
+          console.log(`  • Fallo detectado: ${theme.amber(failText)}`);
+        }
+      }
+      if (res.evidenceSummary.whatItTriedNext.length > 0) {
+        for (const recText of res.evidenceSummary.whatItTriedNext) {
+          console.log(`  • Auto-recuperación: ${theme.mint(recText)}`);
+        }
+      }
+      if (res.evidenceSummary.boundariesEnforced.length > 0) {
+        for (const bText of res.evidenceSummary.boundariesEnforced) {
+          console.log(`  • Frontera RBAC/Seguridad aplicada: ${theme.redBold(bText)}`);
+        }
+      }
+      console.log(
+        `  • Escrituras verificadas en BD: ${
+          res.evidenceSummary.allWritesVerified ? theme.mint("SÍ (100% verificado)") : theme.amber("PENDIENTE / RECHAZADO")
+        }`,
+      );
+    } else if (executedSteps.length > 0) {
       console.log(`  ${theme.dim("Tools ejecutadas:")} ${theme.cyan(executedSteps.join(" -> "))}`);
     }
 
@@ -216,6 +221,9 @@ export async function chatCommand(message: string, options: { json?: boolean; no
         `  tokens ${res.promptTokens ?? 0} in / ${res.completionTokens ?? 0} out (${res.totalTokens})  ·  costo $${costUsd.toFixed(5)} USD  ·  modelo ${res.model || "-"}  ·  llm ${secs(res.llmMs)}  ·  total ${secs(res.totalMs)}`,
       ),
     );
+    if (!options.noExit) {
+      process.exit(0);
+    }
   } catch (err: any) {
     if (options.json) {
       console.log(JSON.stringify({ error: err.message }));

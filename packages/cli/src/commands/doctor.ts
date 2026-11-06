@@ -8,7 +8,7 @@ export async function doctorCommand(options: { json?: boolean } = {}) {
   try {
     const report = await verifyRuntimeEnvironment();
     const session = await getSession();
-    const companyId = session?.companyId || "comp_default";
+    const companyId = process.env.MINT_COMPANY_ID || session?.companyId || "comp_default";
 
     // 1. API Keys de Inteligencia y Mapas
     const llmKey = getLlmApiKey();
@@ -128,7 +128,8 @@ export async function doctorCommand(options: { json?: boolean } = {}) {
 
     if (readiness) {
       console.log(`\n${theme.bold("7. Diagnóstico de Preparación de Datos (Readiness & Gaps):")}`);
-      console.log(`   Estado General: ${readiness.overallStatus === "OPTIMA" ? theme.badge("ÓPTIMO", "mint") : readiness.overallStatus === "ATENCION" ? theme.badge("ATENCIÓN", "amber") : theme.badge("CRÍTICO", "red")} (${readiness.scorePercent}% salud)`);
+      console.log(`   Ciclo de Vida:  ${theme.mintBold(readiness.environmentLifecycleState)} ${readiness.isDefaultPlaceholderOrg ? theme.amber("(Requiere Onboarding de Organización)") : ""}`);
+      console.log(`   Estado General: ${readiness.overallStatus === "OPTIMA" ? theme.badge("ÓPTIMO", "mint") : readiness.overallStatus === "ATENCION" ? theme.badge("ATENCIÓN", "amber") : theme.badge("CRÍTICO", "red")} (${readiness.scorePercent}% salud verificada)`);
       console.log(`   Divisa activa: ${readiness.detectedLocale.currency ? theme.bold(readiness.detectedLocale.currency) : theme.dim("No determinada")}`);
       console.log(`   Entidades:     ${readiness.entitiesSummary.productsCount} productos, ${readiness.entitiesSummary.suppliersCount} proveedores, ${readiness.entitiesSummary.warehousesCount} bodegas, ${readiness.entitiesSummary.fleetVehiclesCount} envíos`);
 

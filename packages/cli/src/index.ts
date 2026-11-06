@@ -293,6 +293,8 @@ program
   .alias("/chat")
   .description("Envía una consulta operativa o conversa directamente con el Agente Autónomo Mint")
   .option("--json", "Salida en formato JSON")
+  .option("--role <role>", "Rol humano activo para la operación (owner, admin, manager, operator, cashier, driver, viewer)")
+  .option("--company <company>", "ID de empresa o entorno aislado a utilizar")
   .action((words, options) => {
     const { chatCommand } = require("./commands/chat");
     const msg = Array.isArray(words) ? words.join(" ") : words;
@@ -330,10 +332,10 @@ program
     return quarantineCommand([action, id].filter(Boolean));
   });
 
-// mint feed / live
+// mint feed / stream
 program
   .command("feed")
-  .alias("live")
+  .alias("stream")
   .description("Canal de escucha reactivo: Live feed de eventos y decisiones autónomas en tiempo real")
   .option("--json", "Salida en formato JSON")
   .action((options) => {

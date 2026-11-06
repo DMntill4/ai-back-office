@@ -13,9 +13,19 @@ export interface DiagnosticFinding {
   confidence: number;
 }
 
+export type EnvironmentLifecycleState =
+  | "FIRST_TIME_INSTALLATION"
+  | "UNCONFIGURED_ENVIRONMENT"
+  | "NEW_ORGANIZATION"
+  | "CONNECTED_BUSINESS_DATA"
+  | "OPERATIONALLY_ACTIVE_ORGANIZATION"
+  | "DEMO_SANDBOX_ENVIRONMENT";
+
 export interface ReadinessReport {
   companyId: string;
   companyName: string;
+  environmentLifecycleState: EnvironmentLifecycleState;
+  isDefaultPlaceholderOrg: boolean;
   overallStatus: "OPTIMA" | "ATENCION" | "CRITICA";
   scorePercent: number;
   entitiesSummary: {
@@ -114,8 +124,43 @@ export async function generateReadinessReport(companyId: string): Promise<Readin
   const calidad: DiagnosticFinding[] = [];
   const faltantes: DiagnosticFinding[] = [];
 
-  // A. Bloqueantes
+  // A. Bloqueantes y clasificación real de estado del entorno (Parte 2 Secciones 4 y 11)
+  const isDemoTenant = companyId.toLowerCase().includes("demo") || companyId.toLowerCase().includes("sandbox");
+  const isDefaultPlaceholderOrg =
+    companyId === "comp_default" &&
+    (!comp || comp.name === "Empresa Operativa Principal" || comp.name === "comp_default") &&
+    productsCount === 0 &&
+    suppliersCount === 0;
+
+  let environmentLifecycleState: EnvironmentLifecycleState = "UNCONFIGURED_ENVIRONMENT";
+  if (isDemoTenant) {
+    environmentLifecycleState = "DEMO_SANDBOX_ENVIRONMENT";
+  } else if (!comp && productsCount === 0 && suppliersCount === 0) {
+    environmentLifecycleState = "FIRST_TIME_INSTALLATION";
+  } else if (isDefaultPlaceholderOrg) {
+    environmentLifecycleState = "UNCONFIGURED_ENVIRONMENT";
+  } else if (productsCount === 0 || inventoryRecordsCount === 0) {
+    environmentLifecycleState = "NEW_ORGANIZATION";
+  } else if (suppliersCount > 0 || fleetVehiclesCount > 0) {
+    environmentLifecycleState = "OPERATIONALLY_ACTIVE_ORGANIZATION";
+  } else {
+    environmentLifecycleState = "CONNECTED_BUSINESS_DATA";
+  }
+
   if (productsCount === 0) {
+    bloqueantes.push({
+      id: "b_unconfigured_no_business_data",
+      category: "BLOQUEANTE",
+      title: isDefaultPlaceholderOrg
+        ? "Entorno sin configurar (Sin organización ni base de datos de negocio conectada)"
+        : "Organización sin catálogo de negocio importado",
+      description: isDefaultPlaceholderOrg
+        ? "MINT detectó que aún no se ha registrado una organización real ni conectado una base de datos de inventario."
+        : "La organización existe, pero aún no tiene productos ni existencias cargadas para operar.",
+      evidence: `Tabla 'products' contiene 0 registros para '${companyId}' (Estado: ${environmentLifecycleState}).`,
+      suggestedAction: "Ejecuta 'mint setup <archivo.csv>' o importa tu base de datos de negocio para iniciar el monitoreo autónomo.",
+      confidence: 1.0,
+    });
     faltantes.push({
       id: "f_empty_catalog",
       category: "FALTANTE",
@@ -255,19 +300,35 @@ export async function generateReadinessReport(companyId: string): Promise<Readin
     }
   }
 
-  // Calcular score de salud de datos (100 base, penalizado por bloqueantes, discrepancias y seguridad)
+  // Calcular score de salud de datos basado en evidencia real (CERO porcentajes falsos cuando no hay datos)
   let score = 100;
-  score -= bloqueantes.length * 30;
-  score -= discrepancias.length * 15;
-  score -= seguridad.length * 20;
-  score -= Math.min(calidad.length * 5, 20);
-  score = Math.max(0, Math.min(100, score));
+  if (productsCount === 0) {
+    score = isDefaultPlaceholderOrg || !comp ? 0 : 25;
+  } else {
+    score -= bloqueantes.length * 30;
+    score -= discrepancias.length * 15;
+    score -= seguridad.length * 20;
+    score -= Math.min(calidad.length * 5, 20);
+    if (inventoryRecordsCount === 0) {
+      score -= 35;
+    }
+    score = Math.max(0, Math.min(100, score));
+  }
 
-  const overallStatus = score >= 85 ? "OPTIMA" : score >= 60 ? "ATENCION" : "CRITICA";
+  const overallStatus =
+    productsCount === 0
+      ? "ATENCION"
+      : score >= 85
+      ? "OPTIMA"
+      : score >= 60
+      ? "ATENCION"
+      : "CRITICA";
 
   return {
     companyId,
-    companyName,
+    companyName: isDefaultPlaceholderOrg ? "SIN ORGANIZACIÓN CONFIGURADA (Onboarding Pendiente)" : companyName,
+    environmentLifecycleState,
+    isDefaultPlaceholderOrg,
     overallStatus,
     scorePercent: score,
     entitiesSummary: {

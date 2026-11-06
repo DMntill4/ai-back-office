@@ -123,6 +123,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
     if (body.sync) {
       try {
         const report: AgentExecutionReport = await runAgentLoop(caseId, {
+          userRole: body.userRole || (currentSession as any).role || "owner",
           onEvent: (ev) => {
             sseHub.broadcast({
               type: "agent_step",
@@ -153,12 +154,18 @@ export async function chatRoutes(fastify: FastifyInstance) {
           totalCost: report.totalCost,
           totalTokens: report.totalTokens,
           steps: report.totalSteps,
+          evidenceChain: report.evidenceChain ?? [],
+          evidenceSummary: report.evidenceSummary ?? null,
         });
       } catch (err: any) {
+        const fallbackIntent = await resolveNaturalLanguageIntent(companyId, message).catch(() => null);
         return reply.status(200).send({
           success: true,
           caseId,
-          response: `[AVISO] No se pudo completar la deliberación multi-agente (${err.message}). Por favor consulta tus inventarios o aprobaciones directamente.`,
+          recoveredFromLlmFailure: true,
+          response:
+            fallbackIntent?.response ||
+            `[RECUPERACIÓN AUTÓNOMA] El proveedor remoto de IA no respondió (${err.message}), pero MINT mantiene activa la supervisión local de tus inventarios, órdenes y aprobaciones.`,
         });
       }
     }

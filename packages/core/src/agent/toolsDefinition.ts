@@ -25,8 +25,25 @@ import {
   analyzeDynamicCatalogHealth,
 } from "../services/logisticsCoordinatorService";
 import { updateLogisticsNodeLocation } from "../services/geocodingService";
-import { db } from "../db/client";
-import { decisions } from "../db/schema";
+import { db, testCustomConnection } from "../db/client";
+import { cases, decisions, notificationLog, auditIncidents } from "../db/schema";
+import {
+  inspectAndRecoverDataSource,
+  importBusinessDataWithRecovery,
+  organizeAndAuditInventory,
+  saveOperationalMemory,
+  getActiveOperationalMemory,
+  getOperationalMemoryWithEpistemicAudit,
+  getActionProvenanceReport,
+  sweepExpiredProposalsAndOverdueTasks,
+  createVerifiedBusinessBackup,
+  restoreVerifiedBusinessBackup,
+  getTaskCheckpoints,
+  verifySystemCapabilities,
+  exploreWorkspaceEnvironment,
+  introspectAndQueryDatabase,
+  executeAuthorizedDataMutation,
+} from "../services/autonomousIntelligenceService";
 
 export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -577,6 +594,285 @@ export const AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "inspeccionar_fuente_datos",
+      description:
+        "Inspecciona el contenido real de un archivo o carpeta (CSV, JSON, SQL, Excel) antes de importarlo. Verifica si contiene datos legítimos de negocio o si es un archivo de configuración/vacío/inválido, y busca alternativas válidas en el entorno si falla.",
+      parameters: {
+        type: "object",
+        properties: {
+          ruta_archivo: {
+            type: "string",
+            description: "Ruta del archivo o fuente de datos a inspeccionar",
+          },
+        },
+        required: ["ruta_archivo"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "importar_datos_negocio",
+      description:
+        "Importa datos de negocio validados con checkpoints idempotentes (evita duplicados si se interrumpe) y realiza auto-verificación real en la base de datos al finalizar.",
+      parameters: {
+        type: "object",
+        properties: {
+          ruta_archivo: {
+            type: "string",
+            description: "Ruta del archivo de datos a importar",
+          },
+          usar_alternativa_si_invalido: {
+            type: "boolean",
+            description: "Si el archivo primario es inválido, autoriza cambiar automáticamente a una fuente alternativa válida descubierta en la misma carpeta",
+          },
+        },
+        required: ["ruta_archivo"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "diagnosticar_conexion_bd",
+      description:
+        "Prueba y diagnostica una conexión de base de datos, clasifica errores reales (credenciales, puerto cerrado, base inexistente, timeout) y confirma el motor de respaldo activo sin interrumpir la operación.",
+      parameters: {
+        type: "object",
+        properties: {
+          database_url: {
+            type: "string",
+            description: "URI PostgreSQL a diagnosticar (opcional; si se omite verifica el estado de la base activa)",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "organizar_y_auditar_inventario",
+      description:
+        "Ejecuta una investigación y organización multi-paso del inventario: normaliza categorías inconsistentes, crea filas de almacén faltantes, detecta duplicados, identifica productos sin proveedor o sin precio, y auto-verifica el estado final.",
+      parameters: {
+        type: "object",
+        properties: {
+          aplicar_correcciones_seguras: {
+            type: "boolean",
+            description: "Si es true (por defecto), corrige automáticamente normalizaciones seguras y verifica el resultado en BD",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "guardar_memoria_operativa",
+      description:
+        "Guarda de forma persistente una regla, política o directiva operativa aprendida del usuario (ej. tiempos de entrega de proveedores, restricciones de compra, preferencias).",
+      parameters: {
+        type: "object",
+        properties: {
+          categoria: {
+            type: "string",
+            enum: [
+              "DIRECTIVA_PROVEEDOR",
+              "POLITICA_COMPRAS",
+              "REGLA_INVENTARIO",
+              "HORARIO_OPERATIVO",
+              "INCIDENCIA_RECURRENTE",
+              "PREFERENCIA_CLIENTE",
+              "CONTEXTO_OPERATIVO",
+            ],
+          },
+          clave_tema: {
+            type: "string",
+            description: "Identificador corto del tema (ej. 'PROVEEDOR_ACEROS_LEAD_TIME')",
+          },
+          contenido: {
+            type: "string",
+            description: "Descripción clara de la regla o hecho operativo a recordar",
+          },
+        },
+        required: ["categoria", "clave_tema", "contenido"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "consultar_memoria_operativa",
+      description:
+        "Consulta las directivas y reglas de negocio activas guardadas en la memoria operativa persistente de la empresa.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "gestionar_checkpoint_tarea",
+      description:
+        "Consulta el estado de tareas multi-paso en curso o interrumpidas para reanudarlas de forma segura tras un reinicio sin repetir pasos ya completados.",
+      parameters: {
+        type: "object",
+        properties: {
+          solo_incompletas: {
+            type: "boolean",
+            description: "Filtrar únicamente tareas en progreso o interrumpidas",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "verificar_capacidades_sistema",
+      description:
+        "Verifica con exactitud qué herramientas, motores de base de datos, canales de notificación, proveedores de GPS en tiempo real y permisos de usuario están realmente disponibles.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "explorar_entorno_archivos",
+      description:
+        "Primitiva general de descubrimiento: explora un directorio o archivo en el entorno, clasifica qué archivos contienen datos reales de negocio vs archivos de configuración o vacíos, y devuelve las fuentes válidas disponibles.",
+      parameters: {
+        type: "object",
+        properties: {
+          ruta_directorio_o_archivo: {
+            type: "string",
+            description: "Ruta del directorio o archivo a explorar (opcional; por defecto explora el directorio activo)",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "consultar_esquema_y_datos_bd",
+      description:
+        "Primitiva general de introspección y consulta analítica: permite descubrir las tablas y columnas reales de la base de datos ('schema') o ejecutar cualquier consulta analítica SQL SELECT de solo lectura ('query') para resolver preguntas de negocio no previstas sin depender de flujos fijos.",
+      parameters: {
+        type: "object",
+        properties: {
+          modo: {
+            type: "string",
+            enum: ["schema", "query"],
+            description: "'schema' para inspeccionar tablas y columnas reales; 'query' para ejecutar un SELECT analítico",
+          },
+          consulta_sql: {
+            type: "string",
+            description: "Sentencia SQL SELECT / WITH de solo lectura cuando modo='query'",
+          },
+          filtro_tabla: {
+            type: "string",
+            description: "Filtro opcional de nombre de tabla cuando modo='schema'",
+          },
+        },
+        required: ["modo"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ejecutar_operacion_datos_autorizada",
+      description:
+        "Primitiva general de mutación controlada por fronteras RBAC: actualiza o inserta registros en tablas autorizadas (products, inventory, suppliers, warehouses) capturando evidencia antes/después y verificando el resultado en la base de datos.",
+      parameters: {
+        type: "object",
+        properties: {
+          tabla_destino: {
+            type: "string",
+            enum: ["products", "inventory", "suppliers", "warehouses"],
+            description: "Tabla autorizada sobre la cual aplicar el cambio",
+          },
+          operacion: {
+            type: "string",
+            enum: ["update", "insert"],
+            description: "Tipo de operación a ejecutar",
+          },
+          registro_id: {
+            type: "string",
+            description: "ID del registro a actualizar o insertar",
+          },
+          cambios: {
+            type: "object",
+            description: "Objeto clave-valor con las columnas y valores a aplicar",
+          },
+          motivo: {
+            type: "string",
+            description: "Justificación operativa auditada del cambio",
+          },
+        },
+        required: ["tabla_destino", "operacion", "registro_id", "cambios", "motivo"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "auditar_gobernanza_y_procedencia",
+      description:
+        "Audita la gobernanza operativa (Parte 2): responde las 7 preguntas de procedencia de decisiones ('provenance'), barre y cancela propuestas HITL expiradas o tareas vencidas ('sweep_expired'), o audita contradicciones epistémicas entre la memoria de IA y la base de datos ('memory_contradictions').",
+      parameters: {
+        type: "object",
+        properties: {
+          modo: {
+            type: "string",
+            enum: ["provenance", "sweep_expired", "memory_contradictions", "full_governance_audit"],
+            description: "Tipo de auditoría de gobernanza a realizar",
+          },
+          decision_id: {
+            type: "string",
+            description: "ID opcional de la decisión a inspeccionar para trazabilidad de procedencia",
+          },
+        },
+        required: ["modo"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "gestionar_respaldo_continuidad",
+      description:
+        "Gestiona respaldos verificados criptográficamente con SHA-256 en disco ('create_backup') o restaura un respaldo verificado ('restore_backup', restringido a owner/admin) para garantizar continuidad de negocio.",
+      parameters: {
+        type: "object",
+        properties: {
+          operacion: {
+            type: "string",
+            enum: ["create_backup", "restore_backup"],
+            description: "Operación de continuidad a ejecutar",
+          },
+          motivo: {
+            type: "string",
+            description: "Motivo del respaldo o restauración",
+          },
+          ruta_archivo_respaldo: {
+            type: "string",
+            description: "Ruta del archivo JSON de respaldo cuando operacion='restore_backup'",
+          },
+        },
+        required: ["operacion"],
+      },
+    },
+  },
 ];
 
 import { checkToolAuthorization, type SecurityRole } from "../security/agentPermissionsMatrix";
@@ -613,12 +909,13 @@ export async function dispatchToolCall(
 
   const effectiveCompanyId = context?.companyId || "comp_default";
 
-  // Validación estricta en el backend: Principio de Mínimo Privilegio por Agente
+  // Validación estricta en el backend: Principio de Mínimo Privilegio por Agente y RBAC por Rol de Usuario
   const callerRole: SecurityRole = context?.agentRole || (context?.isHumanCaller ? "human_user" : "orchestrator");
   const auth = await checkToolAuthorization(callerRole, name, {
     companyId: effectiveCompanyId,
     targetCompanyId: context?.targetCompanyId || parsedArgs.companyId || parsedArgs.empresa_id,
     caseId: context?.caseId,
+    userRole: context?.userRole,
     toolName: name,
     isHumanCaller: context?.isHumanCaller,
   });
@@ -828,9 +1125,8 @@ export async function dispatchToolCall(
         };
       }
 
-      const { dispatchDecisionNotification, listNotificationChannels } = await import("@mint/notifiers");
-      const chans = await listNotificationChannels(effectiveCompanyId);
-      const activeChans = chans.filter((c) => c.isActive);
+      const { dispatchDecisionNotification, resolveActiveChannels } = await import("@mint/notifiers");
+      const activeChans = await resolveActiveChannels(effectiveCompanyId);
       if (activeChans.length === 0) {
         return {
           result: {
@@ -841,13 +1137,25 @@ export async function dispatchToolCall(
           isClosingAction: false,
         };
       }
+      const targetCaseId = context?.caseId || "case_operativo";
+      await db
+        .insert(cases)
+        .values({
+          id: targetCaseId,
+          companyId: effectiveCompanyId,
+          status: "en_proceso",
+          title: parsedArgs.titulo || "Notificación Operativa de Torre de Control",
+          description: parsedArgs.mensaje || "Notificación operativa emitida por MINT",
+        })
+        .onConflictDoNothing();
+
       const opDecId = `op_${Date.now().toString(36)}`;
       await db
         .insert(decisions)
         .values({
           id: opDecId,
           companyId: effectiveCompanyId,
-          caseId: context?.caseId || "case_operativo",
+          caseId: targetCaseId,
           actionType: "ajustar_stock",
           proposingAgent: "coordinador",
           title: parsedArgs.titulo || "Reporte Operativo de Torre Logistica",
@@ -868,24 +1176,66 @@ export async function dispatchToolCall(
       const results = await dispatchDecisionNotification(opDecId, effectiveCompanyId);
       const sentCount = results.filter((r) => r.success).length;
       const errors = results.filter((r) => !r.success && r.error).map((r) => r.error!);
+
+      if (sentCount === 0) {
+        const pendingLogId = `nlog_pend_${Date.now().toString(36)}`;
+        await db
+          .insert(notificationLog)
+          .values({
+            id: pendingLogId,
+            companyId: effectiveCompanyId,
+            decisionId: opDecId,
+            severity: (parsedArgs.severidad || "INFO").toUpperCase(),
+            status: "PENDING_RETRY",
+            payload: {
+              title: parsedArgs.titulo || "Reporte Operativo de Torre Logistica",
+              message: parsedArgs.mensaje,
+              failureErrors: errors,
+              preservedAt: new Date().toISOString(),
+            },
+            createdAt: new Date(),
+          })
+          .catch(() => {});
+
+        await db
+          .insert(auditIncidents)
+          .values({
+            id: `inc_notif_${Date.now().toString(36)}`,
+            companyId: effectiveCompanyId,
+            incidentType: "FALLO_INTEGRACION_RECUPERADO",
+            severity: "MEDIA",
+            title: "Fallo de entrega en webhook de notificación; alerta preservada en cola pendiente",
+            details: `No se pudo entregar la notificación '${parsedArgs.titulo || "Alerta"}'. Causas: ${errors.join("; ") || "Sin canales activos o webhook inválido"}. Preservada como '${pendingLogId}'.`,
+            status: "EN_REVISION",
+            detectedBy: "MINT_NOTIFICATION_RECOVERY",
+            metadata: { decisionId: opDecId, pendingLogId, errors },
+            createdAt: new Date(),
+          })
+          .catch(() => {});
+      }
+
       return {
         result: {
           isSuccess: sentCount > 0,
+          verified: sentCount > 0,
           canalesEnviados: sentCount,
           errores: errors,
+          preservedAsPending: sentCount === 0,
           mensaje:
             sentCount > 0
-              ? `[OK] Notificacion operativa enviada en tiempo real a ${sentCount} canal(es) activo(s) (Discord/Telegram).`
-              : `[ERROR] No se pudo entregar la notificacion: ${errors.join(", ")}`,
+              ? `[OK] Notificacion operativa entregada y verificada en ${sentCount} canal(es) activo(s).${
+                  errors.length > 0 ? ` (Se recuperó usando canal alternativo tras fallo en: ${errors.join(", ")})` : ""
+                }`
+              : `[ENTREGA FALLIDA - PRESERVADA EN COLA] El webhook o canal configurado falló (${errors.join(", ") || "sin canal válido"}). MINT NO reporta envío exitoso; la notificación quedó preservada como pendiente de reintento en 'notification_log' y requiere revisar el webhook.`,
         },
         isClosingAction: false,
       };
     }
 
     case "consultar_canales_notificacion": {
-      const { listNotificationChannels } = await import("@mint/notifiers");
+      const { resolveActiveChannels } = await import("@mint/notifiers");
       const companyId = parsedArgs.empresa_id || effectiveCompanyId;
-      const chans = await listNotificationChannels(companyId);
+      const chans = await resolveActiveChannels(companyId);
       return {
         result: {
           isSuccess: true,
@@ -896,21 +1246,22 @@ export async function dispatchToolCall(
             tipo: c.type,
             nombre: c.name,
             activo: c.isActive,
+            chatId: (c.config as any)?.chatId ? String((c.config as any).chatId) : undefined,
             webhookUrl: (c.config as any)?.webhookUrl ? `${(c.config as any).webhookUrl.slice(0, 35)}...` : undefined,
             temas: (c.config as any)?.topics || [],
           })),
           mensaje:
             chans.length > 0
               ? `Se encontraron ${chans.length} canal(es) de alerta configurado(s): ${chans.map((c) => `${c.type.toUpperCase()} ("${c.name}")`).join(", ")}.`
-              : `No tienes canales de notificación remotos configurados actualmente en PostgreSQL para esta empresa. Puedes vincular Discord o Telegram con '/channels' o desde la Desktop App.`,
+              : `No tienes canales de notificación remotos configurados actualmente en PostgreSQL ni en .env para esta empresa. Puedes vincular Discord o Telegram con '/channels' o desde la Desktop App.`,
         },
         isClosingAction: false,
       };
     }
 
     case "probar_canal_notificacion": {
-      const { testNotificationChannel, listNotificationChannels } = await import("@mint/notifiers");
-      const chans = await listNotificationChannels(effectiveCompanyId);
+      const { testNotificationChannel, resolveActiveChannels } = await import("@mint/notifiers");
+      const chans = await resolveActiveChannels(effectiveCompanyId);
       const target = chans.find((c) => c.type === parsedArgs.tipo || c.id === parsedArgs.canal_id) || chans[0];
       if (!target) {
         return {
@@ -1029,6 +1380,268 @@ export async function dispatchToolCall(
           total: history.length,
           filtroEstado: estado,
           decisiones: history,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "inspeccionar_fuente_datos": {
+      const targetPath = parsedArgs.ruta_archivo || parsedArgs.filePath || parsedArgs.path || "";
+      const inspection = await inspectAndRecoverDataSource(targetPath, effectiveCompanyId);
+      return {
+        result: {
+          isSuccess: inspection.isValidBusinessData,
+          verified: true,
+          ...inspection,
+          message: inspection.isValidBusinessData
+            ? `Archivo '${inspection.targetPath}' inspeccionado y validado como fuente de datos empresarial (${inspection.rowCountEstimate} registros detectados).`
+            : `Inspección completada: '${inspection.targetPath}' NO es una base de datos de negocio válida (${inspection.rejectionReason}). No se importó nada.${
+                inspection.discoveredAlternatives.length > 0
+                  ? ` Se descubrieron ${inspection.discoveredAlternatives.length} fuente(s) alternativa(s) válida(s): ${inspection.discoveredAlternatives.map((a) => `${a.fileName} (${a.rowCountEstimate} filas)`).join(", ")}.`
+                  : ""
+              }`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "importar_datos_negocio": {
+      const targetPath = parsedArgs.ruta_archivo || parsedArgs.filePath || parsedArgs.path || "";
+      const res = await importBusinessDataWithRecovery({
+        filePath: targetPath,
+        companyId: effectiveCompanyId,
+        authorizedBy: context?.userRole || "AUTONOMOUS_AGENT",
+        checkpointId: parsedArgs.checkpoint_id,
+        simulateInterruptAfterRow: parsedArgs.simulateInterruptAfterRow,
+        autoSwitchToAlternativeIfInvalid: Boolean(parsedArgs.usar_alternativa_si_invalido ?? parsedArgs.autoSwitchToAlternativeIfInvalid),
+      });
+      return {
+        result: {
+          isSuccess: res.success,
+          verified: res.verificationPassed,
+          ...res,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "diagnosticar_conexion_bd": {
+      const targetUrl = parsedArgs.database_url || parsedArgs.url || "";
+      if (targetUrl) {
+        const diag = await testCustomConnection(targetUrl);
+        return {
+          result: {
+            isSuccess: diag.success,
+            verified: true,
+            ...diag,
+            message: diag.success
+              ? `Conexión verificada exitosamente con la base de datos '${diag.database}' (${diag.latencyMs}ms).`
+              : `Fallo al conectar a la base de datos solicitada (${diag.failureCategory}): ${diag.rootCause} ${diag.suggestedRecovery}`,
+          },
+          isClosingAction: false,
+        };
+      }
+      const { checkDatabaseHealth } = await import("../db/client");
+      const health = await checkDatabaseHealth();
+      return {
+        result: {
+          isSuccess: health.connected,
+          verified: health.connected,
+          ...health,
+          message: health.connected
+            ? `Motor de base de datos activo y saludable: ${health.provider} (${health.tablesCount} tablas verificadas).`
+            : `Problema detectado en base de datos: ${health.error}`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "organizar_y_auditar_inventario": {
+      const autoFix = parsedArgs.aplicar_correcciones_seguras !== false;
+      const orgRes = await organizeAndAuditInventory(effectiveCompanyId, {
+        autoFixSafeIssues: autoFix,
+        authorizedBy: context?.userRole || "AUTONOMOUS_AGENT",
+      });
+      return {
+        result: {
+          isSuccess: orgRes.verificationPassed,
+          verified: orgRes.verificationPassed,
+          ...orgRes,
+          message: `Auditoría y organización multi-paso completada sobre ${orgRes.totalProductsAudited} productos: ${orgRes.safeFixesApplied.categoriesNormalized} categorías normalizadas, ${orgRes.safeFixesApplied.missingWarehouseRowsCreated} registros de almacén inicializados, ${orgRes.issuesRequiringAttention.productsWithoutSupplierCount} productos sin proveedor detectados y ${orgRes.issuesRequiringAttention.duplicateProductNamesCount} posibles duplicados identificados.`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "guardar_memoria_operativa": {
+      const memRes = await saveOperationalMemory({
+        companyId: effectiveCompanyId,
+        category: parsedArgs.categoria || "CONTEXTO_OPERATIVO",
+        subjectKey: parsedArgs.clave_tema || "REGLA_GENERAL",
+        content: parsedArgs.contenido || "",
+        author: context?.userRole || "ADMIN",
+      });
+      return {
+        result: {
+          isSuccess: memRes.success,
+          verified: memRes.verifiedInDb,
+          ...memRes,
+          message: `Directiva operativa persistida y verificada en memoria del negocio [${memRes.subjectKey}]: "${memRes.content}"`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "consultar_memoria_operativa": {
+      const memories = await getActiveOperationalMemory(effectiveCompanyId);
+      return {
+        result: {
+          isSuccess: true,
+          verified: true,
+          totalDirectivasActivas: memories.length,
+          directivas: memories,
+          message:
+            memories.length > 0
+              ? `Se recuperaron ${memories.length} directivas operativas activas de la empresa.`
+              : `No hay directivas operativas personalizadas registradas aún para esta empresa.`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "gestionar_checkpoint_tarea": {
+      const onlyIncomplete = Boolean(parsedArgs.solo_incompletas);
+      const checkpoints = await getTaskCheckpoints(effectiveCompanyId, onlyIncomplete);
+      return {
+        result: {
+          isSuccess: true,
+          verified: true,
+          totalTareas: checkpoints.length,
+          tareas: checkpoints,
+          message:
+            checkpoints.length > 0
+              ? `Se encontraron ${checkpoints.length} tarea(s) registrada(s) en checkpoints operativos.`
+              : `No hay tareas pendientes o interrumpidas en este momento.`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "verificar_capacidades_sistema": {
+      const caps = await verifySystemCapabilities(effectiveCompanyId, context?.userRole || "owner");
+      return {
+        result: {
+          isSuccess: true,
+          verified: true,
+          ...caps,
+          message: `Capacidades verificadas: BD=${caps.database.provider}, Canales activos=${caps.notifications.activeChannels.length}, GPS en vivo=${caps.telemetryAndGps.liveGpsProviderConnected ? "Conectado" : "No conectado"}.`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "explorar_entorno_archivos": {
+      const exploration = await exploreWorkspaceEnvironment(parsedArgs.ruta_directorio_o_archivo);
+      return {
+        result: exploration,
+        isClosingAction: false,
+      };
+    }
+
+    case "consultar_esquema_y_datos_bd": {
+      const queryRes = await introspectAndQueryDatabase(effectiveCompanyId, {
+        mode: parsedArgs.modo || (parsedArgs.consulta_sql ? "query" : "schema"),
+        sqlQuery: parsedArgs.consulta_sql,
+        tableFilter: parsedArgs.filtro_tabla,
+      });
+      return {
+        result: queryRes,
+        isClosingAction: false,
+      };
+    }
+
+    case "ejecutar_operacion_datos_autorizada": {
+      const mutRes = await executeAuthorizedDataMutation(effectiveCompanyId, {
+        userRole: context?.userRole || "operator",
+        authorizedBy: context?.userRole || "operator",
+        targetTable: parsedArgs.tabla_destino,
+        operation: parsedArgs.operacion || "update",
+        recordId: String(parsedArgs.registro_id || ""),
+        updates: parsedArgs.cambios || {},
+        reason: String(parsedArgs.motivo || "Actualización operativa autorizada"),
+      });
+      return {
+        result: mutRes,
+        isClosingAction: false,
+      };
+    }
+
+    case "auditar_gobernanza_y_procedencia": {
+      const mode = parsedArgs.modo || "full_governance_audit";
+      const provenance =
+        mode === "provenance" || mode === "full_governance_audit"
+          ? await getActionProvenanceReport(effectiveCompanyId, parsedArgs.decision_id)
+          : null;
+      const sweep =
+        mode === "sweep_expired" || mode === "full_governance_audit"
+          ? await sweepExpiredProposalsAndOverdueTasks(effectiveCompanyId)
+          : null;
+      const epistemic =
+        mode === "memory_contradictions" || mode === "full_governance_audit"
+          ? await getOperationalMemoryWithEpistemicAudit(effectiveCompanyId)
+          : null;
+      return {
+        result: {
+          isSuccess: true,
+          verified: true,
+          mode,
+          provenance,
+          sweep,
+          epistemic,
+          message: `Auditoría de gobernanza completada (${mode}).`,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "gestionar_respaldo_continuidad": {
+      const op = parsedArgs.operacion || "create_backup";
+      if (op === "restore_backup") {
+        const restRes = await restoreVerifiedBusinessBackup({
+          companyId: effectiveCompanyId,
+          backupFilePath: String(parsedArgs.ruta_archivo_respaldo || ""),
+          userRole: context?.userRole || "operator",
+        });
+        return {
+          result: {
+            isSuccess: restRes.success,
+            ...restRes,
+          },
+          isClosingAction: false,
+        };
+      }
+      const bkp = await createVerifiedBusinessBackup(
+        effectiveCompanyId,
+        parsedArgs.motivo || "Respaldo solicitado por agente autónomo",
+      );
+      return {
+        result: {
+          isSuccess: bkp.verifiedOnDisk,
+          verified: bkp.verifiedOnDisk,
+          ...bkp,
+        },
+        isClosingAction: false,
+      };
+    }
+
+    case "eliminar_registro": {
+      return {
+        result: {
+          isSuccess: false,
+          verified: false,
+          requiresHumanConfirmation: true,
+          message:
+            "SALVAGUARDA CONTRA OPERACIONES DESTRUCTIVAS: La eliminación masiva o borrado de registros de negocio está protegida y no puede ejecutarse sin confirmación explícita firmada por el propietario (owner). Los datos permanecen intactos.",
         },
         isClosingAction: false,
       };

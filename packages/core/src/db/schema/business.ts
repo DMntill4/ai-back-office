@@ -8,6 +8,7 @@ import {
   unique,
   primaryKey,
   jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 // 0. Empresas (Multi-tenant con perfil físico y fiscal global)
@@ -297,6 +298,149 @@ export const shipments = pgTable("shipments", {
   capacityUtilizationPct: decimal("capacity_utilization_pct", { precision: 5, scale: 2 }).default("0.00"),
   freightCostMxn: decimal("freight_cost_mxn", { precision: 10, scale: 2 }).default("0.00"),
   notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// 10. Historial Temporal de Movimientos de Inventario (Detección de Mermas, Discrepancias y Velocidad)
+export const inventoryMovements = pgTable("inventory_movements", {
+  id: text("id").primaryKey(),
+  companyId: text("company_id")
+    .references(() => companies.id, { onDelete: "cascade" })
+    .notNull()
+    .default("comp_default"),
+  productId: text("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  warehouseId: text("warehouse_id")
+    .references(() => warehouses.id, { onDelete: "cascade" })
+    .notNull(),
+  previousStock: integer("previous_stock").notNull(),
+  newStock: integer("new_stock").notNull(),
+  quantityDelta: integer("quantity_delta").notNull(),
+  movementType: text("movement_type", {
+    enum: [
+      "VENTA",
+      "RECEPCION_COMPRA",
+      "AJUSTE_AUDITORIA",
+      "MERMA",
+      "DEVOLUCION",
+      "DISCREPANCIA_DETECTADA",
+      "IMPORTACION_INICIAL",
+    ],
+  })
+    .notNull()
+    .default("AJUSTE_AUDITORIA"),
+  reason: text("reason"),
+  authorizedBy: text("authorized_by").notNull().default("SISTEMA"),
+  transactionRef: text("transaction_ref"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// 11. Memoria Operativa Persistente del Negocio (Directivas, Reglas de Proveedores y Políticas Aprendidas)
+export const businessOperationalMemory = pgTable("business_operational_memory", {
+  id: text("id").primaryKey(),
+  companyId: text("company_id")
+    .references(() => companies.id, { onDelete: "cascade" })
+    .notNull()
+    .default("comp_default"),
+  category: text("category", {
+    enum: [
+      "DIRECTIVA_PROVEEDOR",
+      "POLITICA_COMPRAS",
+      "REGLA_INVENTARIO",
+      "HORARIO_OPERATIVO",
+      "INCIDENCIA_RECURRENTE",
+      "PREFERENCIA_CLIENTE",
+      "CONTEXTO_OPERATIVO",
+    ],
+  })
+    .notNull()
+    .default("CONTEXTO_OPERATIVO"),
+  subjectKey: text("subject_key").notNull(),
+  content: text("content").notNull(),
+  confidence: decimal("confidence", { precision: 3, scale: 2 })
+    .notNull()
+    .default("1.00"),
+  author: text("author").notNull().default("ADMIN"),
+  supersedesId: text("supersedes_id"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// 12. Registro Inmutable de Incidentes de Seguridad y Anomalías Operativas (RBAC, Mermas, Fallos)
+export const auditIncidents = pgTable("audit_incidents", {
+  id: text("id").primaryKey(),
+  companyId: text("company_id")
+    .references(() => companies.id, { onDelete: "cascade" })
+    .notNull()
+    .default("comp_default"),
+  incidentType: text("incident_type", {
+    enum: [
+      "ACCESO_NO_AUTORIZADO",
+      "VIOLACION_RBAC",
+      "CAIDA_STOCK_SIN_VENTA",
+      "PROVEEDOR_INCUMPLIDO",
+      "PRECIO_ALTERADO",
+      "DISCREPANCIA_FISICA",
+      "FALLO_INTEGRACION_RECUPERADO",
+      "FUENTE_DATOS_INVALIDA",
+    ],
+  })
+    .notNull()
+    .default("VIOLACION_RBAC"),
+  severity: text("severity", {
+    enum: ["BAJA", "MEDIA", "ALTA", "CRITICA"],
+  })
+    .notNull()
+    .default("ALTA"),
+  title: text("title").notNull(),
+  details: text("details").notNull(),
+  status: text("status", {
+    enum: ["DETECTADO", "EN_REVISION", "NOTIFICADO", "MITIGADO", "RESUELTO"],
+  })
+    .notNull()
+    .default("DETECTADO"),
+  detectedBy: text("detected_by").notNull().default("MINT_AUTONOMOUS_PATROL"),
+  resolvedBy: text("resolved_by"),
+  metadata: jsonb("metadata").notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
+
+// 13. Checkpoints de Tareas Autónomas Multi-Paso (Recuperación tras Reinicio o Interrupción)
+export const agentTaskCheckpoints = pgTable("agent_task_checkpoints", {
+  id: text("id").primaryKey(),
+  companyId: text("company_id")
+    .references(() => companies.id, { onDelete: "cascade" })
+    .notNull()
+    .default("comp_default"),
+  taskType: text("task_type").notNull(), // ej: 'IMPORT_DATABASE', 'INVENTORY_ORGANIZATION', 'MULTI_STEP_RECOVERY'
+  objective: text("objective").notNull(),
+  status: text("status", {
+    enum: ["IN_PROGRESS", "INTERRUPTED", "RECOVERING", "COMPLETED", "FAILED_BLOCKED"],
+  })
+    .notNull()
+    .default("IN_PROGRESS"),
+  sourceTarget: text("source_target"),
+  completedSteps: jsonb("completed_steps").notNull().default([]), // Array de pasos e IDs ya procesados (idempotencia)
+  pendingSteps: jsonb("pending_steps").notNull().default([]),
+  failedAttempts: jsonb("failed_attempts").notNull().default([]), // [{ step, error, recoveryAction, timestamp }]
+  verificationResult: jsonb("verification_result").notNull().default({}),
+  initiatedBy: text("initiated_by").notNull().default("AUTONOMOUS_AGENT"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

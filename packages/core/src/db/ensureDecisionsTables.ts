@@ -318,6 +318,83 @@ export async function ensureDecisionsTables(): Promise<void> {
 
       -- Clave de configuración de negocio flexible para emails largos (OTP)
       ALTER TABLE business_config ALTER COLUMN key TYPE TEXT;
+
+      CREATE TABLE IF NOT EXISTS fleet_vehicles (
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL DEFAULT 'comp_default' REFERENCES companies(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        plate_number VARCHAR(32) NOT NULL,
+        vehicle_type TEXT NOT NULL DEFAULT 'box_truck',
+        max_weight_kg NUMERIC(10, 2) NOT NULL DEFAULT 3500.00,
+        max_volume_m3 NUMERIC(10, 2) NOT NULL DEFAULT 18.00,
+        assigned_driver_id TEXT,
+        status TEXT NOT NULL DEFAULT 'available',
+        current_latitude TEXT,
+        current_longitude TEXT,
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS inventory_movements (
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL DEFAULT 'comp_default' REFERENCES companies(id) ON DELETE CASCADE,
+        product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
+        previous_stock INTEGER NOT NULL,
+        new_stock INTEGER NOT NULL,
+        quantity_delta INTEGER NOT NULL,
+        movement_type TEXT NOT NULL DEFAULT 'AJUSTE_AUDITORIA',
+        reason TEXT,
+        authorized_by TEXT NOT NULL DEFAULT 'SISTEMA',
+        transaction_ref TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS business_operational_memory (
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL DEFAULT 'comp_default' REFERENCES companies(id) ON DELETE CASCADE,
+        category TEXT NOT NULL DEFAULT 'CONTEXTO_OPERATIVO',
+        subject_key TEXT NOT NULL,
+        content TEXT NOT NULL,
+        confidence NUMERIC(3, 2) NOT NULL DEFAULT 1.00,
+        author TEXT NOT NULL DEFAULT 'ADMIN',
+        supersedes_id TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS audit_incidents (
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL DEFAULT 'comp_default' REFERENCES companies(id) ON DELETE CASCADE,
+        incident_type TEXT NOT NULL DEFAULT 'VIOLACION_RBAC',
+        severity TEXT NOT NULL DEFAULT 'ALTA',
+        title TEXT NOT NULL,
+        details TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'DETECTADO',
+        detected_by TEXT NOT NULL DEFAULT 'MINT_AUTONOMOUS_PATROL',
+        resolved_by TEXT,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        resolved_at TIMESTAMP WITH TIME ZONE
+      );
+
+      CREATE TABLE IF NOT EXISTS agent_task_checkpoints (
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL DEFAULT 'comp_default' REFERENCES companies(id) ON DELETE CASCADE,
+        task_type TEXT NOT NULL,
+        objective TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'IN_PROGRESS',
+        source_target TEXT,
+        completed_steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+        pending_steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+        failed_attempts JSONB NOT NULL DEFAULT '[]'::jsonb,
+        verification_result JSONB NOT NULL DEFAULT '{}'::jsonb,
+        initiated_by TEXT NOT NULL DEFAULT 'AUTONOMOUS_AGENT',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
     `);
     console.log("[OK] Tablas e infraestructura física/geográfica verificadas en PostgreSQL.");
   } catch (err) {

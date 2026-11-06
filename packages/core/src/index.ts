@@ -76,6 +76,7 @@ export * from "./services/vaultService";
 export * from "./services/readinessDiagnosticService";
 export * from "./services/universalImportService";
 export * from "./services/freightDispatchService";
+export * from "./services/autonomousIntelligenceService";
 
 // 7. Cliente LLM
 export * from "./llm/client";

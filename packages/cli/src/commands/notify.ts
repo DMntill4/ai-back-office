@@ -1,6 +1,7 @@
 import {
   addNotificationChannel,
   listNotificationChannels,
+  resolveActiveChannels,
   testNotificationChannel,
   type ChannelType,
 } from "@mint/notifiers";
@@ -20,7 +21,7 @@ export async function notifyAddCommand(
   } = {},
 ) {
   const session = await getSession();
-  const companyId = session?.companyId || "comp_default";
+  const companyId = process.env.MINT_COMPANY_ID || session?.companyId || "comp_default";
 
   const validTypes: ChannelType[] = ["telegram", "slack", "gmail"];
   const normalizedType = type.toLowerCase() as ChannelType;
@@ -112,10 +113,10 @@ export async function notifyTestCommand(
 
 export async function notifyListCommand(options: { json?: boolean } = {}) {
   const session = await getSession();
-  const companyId = session?.companyId || "comp_default";
+  const companyId = process.env.MINT_COMPANY_ID || session?.companyId || "comp_default";
 
   try {
-    const channels = await listNotificationChannels(companyId);
+    const channels = await resolveActiveChannels(companyId);
 
     if (options.json) {
       console.log(JSON.stringify(channels, null, 2));
